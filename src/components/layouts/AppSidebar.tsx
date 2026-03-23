@@ -138,7 +138,7 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
         <div className="flex items-center justify-between h-14 px-3 border-b border-border flex-shrink-0">
           {!collapsed ? (
             <div className="flex items-center gap-2 min-w-0">
-              <img src={foxLogo} alt="Fox Portal" className="h-7 flex-shrink-0" />
+              <ThemeLogo className="h-7 flex-shrink-0" />
             </div>
           ) : (
             <img src={foxLogo} alt="Fox Portal" className="h-6 flex-shrink-0" />
