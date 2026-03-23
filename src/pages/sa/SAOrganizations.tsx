@@ -54,7 +54,10 @@ export default function SAOrganizations() {
   });
 
   const createMut = useMutation({
-    mutationFn: (d: typeof form) => saLocalService.createOrganization(d),
+    mutationFn: (d: typeof form) => saLocalService.createOrganization({
+      ...d,
+      plan: d.plan as 'trial' | 'starter' | 'pro' | 'enterprise',
+    }),
     onSuccess: async () => { await invalidateSAQueries(); resetCreateForm(); toast.success('Organization created'); },
     onError: (e: any) => toast.error(e.message || 'Error creating organization'),
   });
