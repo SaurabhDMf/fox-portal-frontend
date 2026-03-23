@@ -122,6 +122,9 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
             </button>
           )}
 
+          {/* Theme toggle */}
+          <ThemeToggle />
+
           {/* Notifications */}
           <button className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative">
             <Bell className="h-4 w-4" />
