@@ -1,0 +1,106 @@
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
+import StatCard from '@/components/ui/StatCard';
+import { DollarSign, Users, Target, AlertTriangle, Plus, FileText, MessageSquare, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/stores/authStore';
+
+export default function AdminDashboard() {
+  const navigate = useNavigate();
+  const canCreate = useAuthStore(s => s.canCreate);
+
+  const { data: stats } = useQuery({
+    queryKey: ['admin-stats'],
+    queryFn: () => api.get('/dashboard/admin').then(r => r.data),
+  });
+  const { data: recentLeads = [] } = useQuery({
+    queryKey: ['recent-leads'],
+    queryFn: () => api.get('/leads', { params: { limit: 5 } }).then(r => r.data?.leads || r.data || []),
+  });
+  const { data: overdueInvoices = [] } = useQuery({
+    queryKey: ['overdue-invoices'],
+    queryFn: () => api.get('/invoices', { params: { status: 'Overdue' } }).then(r => r.data?.invoices || r.data || []),
+  });
+
+  const s = stats || {};
+
+  const quickActions = [
+    { label: 'New Lead', icon: Target, path: '/admin/crm', show: canCreate('crm') },
+    { label: 'New Invoice', icon: FileText, path: '/admin/invoicing', show: canCreate('invoicing') },
+    { label: 'Open Chat', icon: MessageSquare, path: '/admin/chat', show: true },
+    { label: 'Log Time', icon: Clock, path: '/admin/tracker', show: true },
+  ].filter(a => a.show);
+
+  return (
+    <div className="page-container">
+      <div className="page-header">
+        <div><h1 className="page-title">Dashboard</h1><p className="page-subtitle">Business overview</p></div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Revenue MTD" value={s.revenue_mtd ? `$${Number(s.revenue_mtd).toLocaleString()}` : '$0'} icon={DollarSign} iconColor="text-success" trend={s.revenue_trend} />
+        <StatCard label="Active Clients" value={s.active_clients ?? 0} icon={Users} iconColor="text-info" />
+        <StatCard label="Open Leads" value={s.open_leads ?? 0} icon={Target} iconColor="text-warning" />
+        <StatCard label="Overdue" value={s.overdue_amount ? `$${Number(s.overdue_amount).toLocaleString()}` : '$0'} icon={AlertTriangle} iconColor="text-destructive" />
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {quickActions.map(a => (
+          <button key={a.label} onClick={() => navigate(a.path)} className="glass-card-hover p-4 flex items-center gap-3 text-sm font-medium">
+            <div className="p-2 rounded-lg bg-primary/10"><a.icon className="h-4 w-4 text-primary" /></div>
+            {a.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Recent Leads */}
+        <div className="glass-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold">Recent Leads</h2>
+            <button onClick={() => navigate('/admin/crm')} className="text-xs text-primary hover:underline">View all</button>
+          </div>
+          <div className="space-y-2">
+            {(Array.isArray(recentLeads) ? recentLeads : []).slice(0, 5).map((lead: any) => (
+              <div key={lead.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 transition-colors">
+                <div>
+                  <div className="text-sm font-medium">{lead.full_name}</div>
+                  <div className="text-xs text-muted-foreground">{lead.company_name}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-medium">{lead.deal_value ? `$${Number(lead.deal_value).toLocaleString()}` : '—'}</div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${lead.status === 'Closed Won' ? 'badge-success' : lead.status === 'Closed Lost' ? 'badge-danger' : 'badge-info'}`}>{lead.status}</span>
+                </div>
+              </div>
+            ))}
+            {(Array.isArray(recentLeads) ? recentLeads : []).length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No leads yet</p>}
+          </div>
+        </div>
+
+        {/* Overdue Invoices */}
+        <div className="glass-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold">Overdue Invoices</h2>
+            <button onClick={() => navigate('/admin/invoicing')} className="text-xs text-primary hover:underline">View all</button>
+          </div>
+          <div className="space-y-2">
+            {(Array.isArray(overdueInvoices) ? overdueInvoices : []).slice(0, 5).map((inv: any) => (
+              <div key={inv.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 transition-colors">
+                <div>
+                  <div className="text-sm font-medium">{inv.invoice_number || inv.id}</div>
+                  <div className="text-xs text-muted-foreground">{inv.client_name}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-medium text-destructive">${Number(inv.total || 0).toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : ''}</div>
+                </div>
+              </div>
+            ))}
+            {(Array.isArray(overdueInvoices) ? overdueInvoices : []).length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No overdue invoices</p>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
