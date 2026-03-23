@@ -26,7 +26,7 @@ export default function CRM() {
 
   const [form, setForm] = useState({
     full_name: '', company_name: '', email: '', phone: '', lead_source: 'Website',
-    status: 'New', priority: 'Medium', deal_value: '', assigned_to: '', notes: '',
+    status: 'New', priority: 'Medium', deal_value: '', assigned_to: '', client_id: '', next_followup: '', notes: '',
   });
 
   const { data: leads = [], isLoading } = useQuery({
@@ -34,13 +34,32 @@ export default function CRM() {
     queryFn: () => api.get('/leads', { params: { search, status: statusFilter || undefined } }).then(r => r.data?.leads || r.data || []),
   });
 
+  const { data: users = [] } = useQuery({
+    queryKey: ['users-list'],
+    queryFn: () => api.get('/users').then(r => r.data?.users || r.data || []),
+    enabled: showCreate,
+  });
+
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients-list'],
+    queryFn: () => api.get('/clients').then(r => r.data?.clients || r.data || []),
+    enabled: showCreate,
+  });
+
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post('/leads', { ...d, deal_value: d.deal_value ? Number(d.deal_value) : undefined }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['leads'] }); setShowCreate(false); toast.success('Lead created'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      setShowCreate(false);
+      setForm({ full_name: '', company_name: '', email: '', phone: '', lead_source: 'Website', status: 'New', priority: 'Medium', deal_value: '', assigned_to: '', client_id: '', next_followup: '', notes: '' });
+      toast.success('Lead created');
+    },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
   const leadsArr = Array.isArray(leads) ? leads : [];
+  const usersArr = Array.isArray(users) ? users : [];
+  const clientsArr = Array.isArray(clients) ? clients : [];
 
   return (
     <div className="page-container">
@@ -93,9 +112,15 @@ export default function CRM() {
                       </div>
                       {lead.company_name && <div className="text-xs text-muted-foreground">{lead.company_name}</div>}
                       <div className="flex items-center justify-between">
-                        {lead.deal_value && <span className="text-sm font-semibold text-success">${Number(lead.deal_value).toLocaleString()}</span>}
+                        {lead.deal_value && <span className="text-sm font-semibold text-[hsl(var(--success))]">${Number(lead.deal_value).toLocaleString()}</span>}
                         {lead.lead_source && <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{lead.lead_source}</span>}
                       </div>
+                      {lead.assigned_to_name && (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center text-[8px] font-bold text-primary">{lead.assigned_to_name[0]}</div>
+                          <span className="text-[10px] text-muted-foreground">{lead.assigned_to_name}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {col.length === 0 && <div className="text-xs text-muted-foreground text-center py-8 border border-dashed border-border rounded-lg">No leads</div>}
@@ -112,18 +137,19 @@ export default function CRM() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-                <th className="p-4">Name</th><th className="p-4">Company</th><th className="p-4">Status</th><th className="p-4">Priority</th><th className="p-4">Deal Value</th><th className="p-4">Source</th>
+                <th className="p-4">Name</th><th className="p-4">Company</th><th className="p-4">Status</th><th className="p-4">Priority</th><th className="p-4">Deal Value</th><th className="p-4">Source</th><th className="p-4">Assigned</th>
               </tr>
             </thead>
             <tbody>
               {leadsArr.map((lead: any) => (
-                <tr key={lead.id} className="border-b border-border/50 hover:bg-secondary/50 transition-colors">
+                <tr key={lead.id} onClick={() => navigate(`/admin/crm/${lead.id}`)} className="border-b border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer">
                   <td className="p-4 font-medium">{lead.full_name}</td>
                   <td className="p-4 text-muted-foreground">{lead.company_name || '—'}</td>
-                  <td className="p-4"><span className="badge-info">{lead.status}</span></td>
+                  <td className="p-4"><span className={lead.status === 'Closed Won' ? 'badge-success' : lead.status === 'Closed Lost' ? 'badge-danger' : 'badge-info'}>{lead.status}</span></td>
                   <td className="p-4"><span className={priorities.find(p => p.value === lead.priority)?.color || 'badge-neutral'}>{lead.priority}</span></td>
                   <td className="p-4 font-medium">{lead.deal_value ? `$${Number(lead.deal_value).toLocaleString()}` : '—'}</td>
                   <td className="p-4 text-muted-foreground">{lead.lead_source}</td>
+                  <td className="p-4 text-muted-foreground">{lead.assigned_to_name || '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -154,11 +180,20 @@ export default function CRM() {
               <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                 {priorities.map(p => <option key={p.value} value={p.value}>{p.value}</option>)}
               </select>
+              <select value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="">Assign To</option>
+                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+              </select>
+              <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="">Link Client (optional)</option>
+                {clientsArr.map((c: any) => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+              </select>
+              <input type="date" placeholder="Next Follow-up" value={form.next_followup} onChange={e => setForm(f => ({ ...f, next_followup: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
             <textarea placeholder="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
-              <button onClick={() => createMut.mutate(form)} disabled={createMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+              <button onClick={() => createMut.mutate(form)} disabled={createMut.isPending || !form.full_name} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
                 {createMut.isPending ? 'Creating...' : 'Create Lead'}
               </button>
             </div>
