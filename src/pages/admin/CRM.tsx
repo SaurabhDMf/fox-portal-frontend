@@ -85,7 +85,7 @@ export default function CRM() {
                 </div>
                 <div className="space-y-2">
                   {col.map((lead: any) => (
-                    <div key={lead.id} className="glass-card-hover p-3 space-y-2">
+                    <div key={lead.id} onClick={() => navigate(`/admin/crm/${lead.id}`)} className="glass-card-hover p-3 space-y-2 cursor-pointer">
                       <div className="flex items-start justify-between">
                         <div className="font-medium text-sm">{lead.full_name}</div>
                         <span className={priorities.find(p => p.value === lead.priority)?.color || 'badge-neutral'}>{lead.priority}</span>
