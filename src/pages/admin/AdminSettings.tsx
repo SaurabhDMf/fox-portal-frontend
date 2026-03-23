@@ -176,7 +176,7 @@ export default function AdminSettings() {
                 <span className="text-xs font-medium">Dark</span>
               </button>
               <button className="flex-1 p-4 rounded-xl bg-secondary text-center opacity-50 cursor-not-allowed">
-                <div className="w-full h-16 rounded-lg bg-gray-100 mb-2 border border-gray-200" />
+                <div className="w-full h-16 rounded-lg bg-muted mb-2 border border-border" />
                 <span className="text-xs font-medium text-muted-foreground">Light (Coming Soon)</span>
               </button>
             </div>
