@@ -1,13 +1,12 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { useSidebarCollapsed } from './PortalLayout';
 import {
   LayoutDashboard, Users, Building2, CreditCard, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
-  ChevronLeft, LogOut, Globe, ListChecks, Activity, BookOpen
+  ChevronLeft, LogOut, ListChecks, Activity, BookOpen
 } from 'lucide-react';
-import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 
 interface NavItem {
@@ -76,7 +75,7 @@ function getNavItems(role: string): NavItem[] {
 
 export default function AppSidebar() {
   const { user, permissions, logout, refreshToken } = useAuthStore();
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, setCollapsed } = useSidebarCollapsed();
   const location = useLocation();
   const navigate = useNavigate();
   const role = user?.role || '';

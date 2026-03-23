@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { Plus, Search } from 'lucide-react';
 
@@ -10,6 +11,7 @@ export default function Clients() {
   const [type, setType] = useState('All');
   const [search, setSearch] = useState('');
   const canCreate = useAuthStore(s => s.canCreate);
+  const navigate = useNavigate();
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['clients', type, search],
@@ -44,7 +46,7 @@ export default function Clients() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? [...Array(6)].map((_, i) => <div key={i} className="glass-card h-40 animate-pulse" />) :
         clients.map((client: any) => (
-          <div key={client.id} className="glass-card-hover p-5 space-y-3">
+          <div key={client.id} onClick={() => navigate(`/admin/clients/${client.id}`)} className="glass-card-hover p-5 space-y-3 cursor-pointer">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary font-bold text-sm flex-shrink-0">
                 {client.company_name?.[0] || 'C'}

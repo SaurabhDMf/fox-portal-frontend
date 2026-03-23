@@ -18,12 +18,16 @@ import SAPermissions from "./pages/sa/SAPermissions";
 // Admin
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import CRM from "./pages/admin/CRM";
+import LeadDetail from "./pages/admin/LeadDetail";
 import Invoicing from "./pages/admin/Invoicing";
 import Clients from "./pages/admin/Clients";
+import ClientDetail from "./pages/admin/ClientDetail";
 import Chat from "./pages/admin/Chat";
 import Projects from "./pages/admin/Projects";
+import ProjectDetail from "./pages/admin/ProjectDetail";
 import Vault from "./pages/admin/Vault";
 import Tickets from "./pages/admin/Tickets";
+import TicketDetail from "./pages/admin/TicketDetail";
 import Tracker from "./pages/admin/Tracker";
 import Payroll from "./pages/admin/Payroll";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -33,6 +37,7 @@ import AdminSettings from "./pages/admin/AdminSettings";
 // Employee
 import EmpDashboard from "./pages/emp/EmpDashboard";
 import EmpTasks from "./pages/emp/EmpTasks";
+import EmpProfile from "./pages/emp/EmpProfile";
 
 // Client Portal
 import ClientDashboard from "./pages/portal/ClientDashboard";
@@ -85,12 +90,16 @@ const App = () => (
         <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin', 'sales_manager', 'sales_rep']}><PortalLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="crm" element={<CRM />} />
+          <Route path="crm/:id" element={<LeadDetail />} />
           <Route path="invoicing" element={<Invoicing />} />
           <Route path="clients" element={<Clients />} />
+          <Route path="clients/:id" element={<ClientDetail />} />
           <Route path="chat" element={<Chat />} />
           <Route path="projects" element={<Projects />} />
+          <Route path="projects/:id" element={<ProjectDetail />} />
           <Route path="vault" element={<Vault />} />
           <Route path="tickets" element={<Tickets />} />
+          <Route path="tickets/:id" element={<TicketDetail />} />
           <Route path="tracker" element={<Tracker />} />
           <Route path="payroll" element={<Payroll />} />
           <Route path="users" element={<AdminUsers />} />
@@ -103,10 +112,11 @@ const App = () => (
           <Route index element={<EmpDashboard />} />
           <Route path="tasks" element={<EmpTasks />} />
           <Route path="projects" element={<Projects />} />
+          <Route path="projects/:id" element={<ProjectDetail />} />
           <Route path="chat" element={<Chat />} />
           <Route path="tracker" element={<Tracker />} />
           <Route path="payroll" element={<Payroll />} />
-          <Route path="profile" element={<AdminSettings />} />
+          <Route path="profile" element={<EmpProfile />} />
         </Route>
 
         {/* Client Portal */}
