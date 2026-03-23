@@ -16,6 +16,7 @@ const priorities = [
 const sources = ['Referral', 'Cold Call', 'Website', 'Social Media', 'Email', 'Event', 'Other'];
 
 export default function CRM() {
+  const navigate = useNavigate();
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
