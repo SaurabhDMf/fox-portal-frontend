@@ -3,10 +3,11 @@
   publish = "dist"
 
 [[redirects]]
-  from = "/api/*"
-  to = "https://ubp-backend-production.up.railway.app/api/:splat"
+  from = "/api/v1/*"
+  to = "https://ubp-backend-production.up.railway.app/api/v1/:splat"
   status = 200
   force = true
+  headers = {X-From = "netlify"}
 
 [[redirects]]
   from = "/*"
