@@ -4,9 +4,11 @@ import { useAuthStore } from '@/stores/authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Loader2, Mail, Lock, ChevronRight } from 'lucide-react';
+import foxLogo from '@/assets/fox-portal-logo.png';
 
 const demoAccounts = [
   { label: 'Super Admin', email: 'admin@company.com', role: 'super_admin' },
+  { label: 'Company Admin', email: 'company.admin@company.com', role: 'admin' },
   { label: 'Sales Manager', email: 'alex.kim@company.com', role: 'sales_manager' },
   { label: 'Sales Rep', email: 'lisa.monroe@company.com', role: 'sales_rep' },
 ];
@@ -48,10 +50,8 @@ export default function Login() {
       <div className="w-full max-w-md animate-slide-up">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/20 mb-4">
-            <div className="w-6 h-6 rounded-md bg-primary" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">Unified Business Platform</h1>
+          <img src={foxLogo} alt="Fox Portal" className="h-12 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold tracking-tight">Fox Portal</h1>
           <p className="text-muted-foreground text-sm mt-1">Sign in to your account</p>
         </div>
 

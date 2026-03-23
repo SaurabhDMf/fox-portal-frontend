@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { Bell, Search, Menu } from 'lucide-react';
 import { useState } from 'react';
 import { useSidebarCollapsed } from './PortalLayout';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const routeLabels: Record<string, string> = {
   '/sa': 'Dashboard',
@@ -120,6 +121,9 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
               <Search className="h-4 w-4" />
             </button>
           )}
+
+          {/* Theme toggle */}
+          <ThemeToggle />
 
           {/* Notifications */}
           <button className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative">

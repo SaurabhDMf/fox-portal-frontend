@@ -63,12 +63,7 @@ const App = () => (
     <Toaster
       position="top-right"
       toastOptions={{
-        style: {
-          background: 'hsl(240, 30%, 10%)',
-          color: 'hsl(240, 60%, 96%)',
-          border: '1px solid hsl(240, 25%, 14%)',
-          fontSize: '14px',
-        },
+        className: '!bg-card !text-foreground !border !border-border !text-sm',
       }}
     />
     <BrowserRouter>

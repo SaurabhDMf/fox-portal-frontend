@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
+import foxLogo from '@/assets/fox-portal-logo.png';
 
 interface NavItem {
   label: string;
@@ -135,13 +136,12 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
         }`}
       >
         <div className="flex items-center justify-between h-14 px-3 border-b border-border flex-shrink-0">
-          {!collapsed && (
+          {!collapsed ? (
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <div className="w-3.5 h-3.5 rounded bg-primary" />
-              </div>
-              <span className="font-semibold text-sm text-foreground truncate">UBP</span>
+              <img src={foxLogo} alt="Fox Portal" className="h-7 flex-shrink-0" />
             </div>
+          ) : (
+            <img src={foxLogo} alt="Fox Portal" className="h-6 flex-shrink-0" />
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
@@ -184,10 +184,7 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
           <aside className="absolute left-0 top-0 bottom-0 w-72 bg-[hsl(var(--sidebar-background))] border-r border-border flex flex-col animate-slide-up">
             <div className="flex items-center justify-between h-14 px-3 border-b border-border flex-shrink-0">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center">
-                  <div className="w-3.5 h-3.5 rounded bg-primary" />
-                </div>
-                <span className="font-semibold text-sm text-foreground">UBP</span>
+                <img src={foxLogo} alt="Fox Portal" className="h-7" />
               </div>
               <button onClick={onMobileClose} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground">
                 <X className="h-4 w-4" />
