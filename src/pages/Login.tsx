@@ -50,7 +50,7 @@ export default function Login() {
       <div className="w-full max-w-md animate-slide-up">
         {/* Logo */}
         <div className="text-center mb-8">
-          <img src={foxLogo} alt="Fox Portal" className="h-12 mx-auto mb-4" />
+          <ThemeLogo className="h-12 mx-auto mb-4" />
           <h1 className="text-2xl font-bold tracking-tight">Fox Portal</h1>
           <p className="text-muted-foreground text-sm mt-1">Sign in to your account</p>
         </div>
