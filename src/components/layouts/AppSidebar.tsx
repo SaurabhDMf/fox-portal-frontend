@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
-import foxLogo from '@/assets/fox-portal-logo.png';
+import ThemeLogo from '@/components/ThemeLogo';
 
 interface NavItem {
   label: string;

@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Loader2, Mail, Lock, ChevronRight } from 'lucide-react';
-import foxLogo from '@/assets/fox-portal-logo.png';
+import ThemeLogo from '@/components/ThemeLogo';
 
 const demoAccounts = [
   { label: 'Super Admin', email: 'admin@company.com', role: 'super_admin' },
