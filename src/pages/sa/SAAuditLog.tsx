@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { saLocalService } from '@/lib/saLocalService';
 
 export default function SAAuditLog() {
   const { data = [], isLoading } = useQuery({
     queryKey: ['sa-audit'],
-    queryFn: () => api.get('/sa/audit-log').then(r => r.data?.audit_logs || r.data || []),
+    queryFn: () => saLocalService.getAuditLog(),
   });
 
   return (
