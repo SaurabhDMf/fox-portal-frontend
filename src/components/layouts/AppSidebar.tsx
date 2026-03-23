@@ -136,13 +136,12 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
         }`}
       >
         <div className="flex items-center justify-between h-14 px-3 border-b border-border flex-shrink-0">
-          {!collapsed && (
+          {!collapsed ? (
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <div className="w-3.5 h-3.5 rounded bg-primary" />
-              </div>
-              <span className="font-semibold text-sm text-foreground truncate">UBP</span>
+              <img src={foxLogo} alt="Fox Portal" className="h-7 flex-shrink-0" />
             </div>
+          ) : (
+            <img src={foxLogo} alt="Fox Portal" className="h-6 flex-shrink-0" />
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
