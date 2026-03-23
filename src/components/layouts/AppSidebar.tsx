@@ -75,7 +75,7 @@ function getNavItems(role: string): NavItem[] {
 
 export default function AppSidebar() {
   const { user, permissions, logout, refreshToken } = useAuthStore();
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed, setCollapsed } = useSidebarCollapsed();
   const location = useLocation();
   const navigate = useNavigate();
   const role = user?.role || '';
