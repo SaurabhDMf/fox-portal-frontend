@@ -1,15 +1,23 @@
 import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { saLocalService } from '@/lib/saLocalService';
 import StatCard from '@/components/ui/StatCard';
 import { Building2, DollarSign, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 
 export default function SADashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['sa-stats'],
-    queryFn: () => api.get('/sa/stats').then(r => r.data),
+    queryFn: () => saLocalService.getStats(),
   });
 
-  const s = stats || {};
+  const s = stats ?? {
+    total_organizations: 0,
+    mrr: 0,
+    active_count: 0,
+    trial_count: 0,
+    suspended_count: 0,
+    plan_breakdown: {},
+    recent_organizations: [],
+  };
 
   return (
     <div className="page-container">

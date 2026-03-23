@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { saLocalService } from '@/lib/saLocalService';
 import { Search } from 'lucide-react';
 import { useState } from 'react';
 
@@ -7,7 +7,7 @@ export default function SAUsers() {
   const [search, setSearch] = useState('');
   const { data = [], isLoading } = useQuery({
     queryKey: ['sa-users', search],
-    queryFn: () => api.get('/sa/users', { params: { search } }).then(r => r.data?.users || r.data || []),
+    queryFn: () => saLocalService.getUsers(search),
   });
 
   return (

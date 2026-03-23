@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { saLocalService } from '@/lib/saLocalService';
 import { useState } from 'react';
 import { Building2, Plus, Search, Users, FileText, X, Key, RefreshCw, Pencil, Eye, Copy, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -39,26 +39,39 @@ export default function SAOrganizations() {
   });
   const qc = useQueryClient();
 
+  const invalidateSAQueries = () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: ['sa-orgs'] }),
+      qc.invalidateQueries({ queryKey: ['sa-stats'] }),
+      qc.invalidateQueries({ queryKey: ['sa-users'] }),
+      qc.invalidateQueries({ queryKey: ['sa-plans'] }),
+      qc.invalidateQueries({ queryKey: ['sa-audit'] }),
+    ]);
+
   const { data: orgs = [], isLoading } = useQuery({
     queryKey: ['sa-orgs', search],
-    queryFn: () => api.get('/sa/organizations', { params: { search } }).then(r => r.data?.organizations || r.data || []),
+    queryFn: () => saLocalService.getOrganizations(search),
   });
 
   const createMut = useMutation({
-    mutationFn: (d: typeof form) => api.post('/sa/organizations', d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sa-orgs'] }); resetCreateForm(); toast.success('Organization created'); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error creating organization'),
+    mutationFn: (d: typeof form) => saLocalService.createOrganization({
+      ...d,
+      plan: d.plan as 'trial' | 'starter' | 'pro' | 'enterprise',
+    }),
+    onSuccess: async () => { await invalidateSAQueries(); resetCreateForm(); toast.success('Organization created'); },
+    onError: (e: any) => toast.error(e.message || 'Error creating organization'),
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => api.patch(`/sa/organizations/${id}`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sa-orgs'] }); setEditOrg(null); toast.success('Organization updated'); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error updating'),
+    mutationFn: ({ id, data }: { id: string; data: any }) => saLocalService.updateOrganization(id, data),
+    onSuccess: async () => { await invalidateSAQueries(); setEditOrg(null); toast.success('Organization updated'); },
+    onError: (e: any) => toast.error(e.message || 'Error updating'),
   });
 
   const actionMut = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: string }) => api.post(`/sa/organizations/${id}/${action}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['sa-orgs'] }); toast.success('Done'); },
+    mutationFn: ({ id, action }: { id: string; action: 'suspend' | 'activate' }) => saLocalService.organizationAction(id, action),
+    onSuccess: async () => { await invalidateSAQueries(); toast.success('Done'); },
+    onError: (e: any) => toast.error(e.message || 'Action failed'),
   });
 
   const resetCreateForm = () => {
