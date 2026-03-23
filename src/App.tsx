@@ -1,26 +1,127 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
+import { useAuthStore } from "@/stores/authStore";
 
-const queryClient = new QueryClient();
+import Login from "./pages/Login";
+import ProtectedRoute from "./components/ProtectedRoute";
+import PortalLayout from "./components/layouts/PortalLayout";
+
+// Super Admin
+import SADashboard from "./pages/sa/SADashboard";
+import SAOrganizations from "./pages/sa/SAOrganizations";
+import SAUsers from "./pages/sa/SAUsers";
+import SAPlans from "./pages/sa/SAPlans";
+import SAAuditLog from "./pages/sa/SAAuditLog";
+import SAPermissions from "./pages/sa/SAPermissions";
+
+// Admin
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import CRM from "./pages/admin/CRM";
+import Invoicing from "./pages/admin/Invoicing";
+import Clients from "./pages/admin/Clients";
+import Chat from "./pages/admin/Chat";
+import Projects from "./pages/admin/Projects";
+import Vault from "./pages/admin/Vault";
+import Tickets from "./pages/admin/Tickets";
+import Tracker from "./pages/admin/Tracker";
+import Payroll from "./pages/admin/Payroll";
+import AdminUsers from "./pages/admin/AdminUsers";
+import Reports from "./pages/admin/Reports";
+import AdminSettings from "./pages/admin/AdminSettings";
+
+// Employee
+import EmpDashboard from "./pages/emp/EmpDashboard";
+import EmpTasks from "./pages/emp/EmpTasks";
+
+// Client Portal
+import ClientDashboard from "./pages/portal/ClientDashboard";
+import ClientInvoices from "./pages/portal/ClientInvoices";
+import ClientProjects from "./pages/portal/ClientProjects";
+import ClientDocuments from "./pages/portal/ClientDocuments";
+import ClientSupport from "./pages/portal/ClientSupport";
+
+import NotFound from "./pages/NotFound";
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+});
+
+function RootRedirect() {
+  const { isAuthenticated, getRedirectPath } = useAuthStore();
+  if (isAuthenticated) return <Navigate to={getRedirectPath()} replace />;
+  return <Navigate to="/login" replace />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <Toaster
+      position="top-right"
+      toastOptions={{
+        style: {
+          background: 'hsl(240, 30%, 10%)',
+          color: 'hsl(240, 60%, 96%)',
+          border: '1px solid hsl(240, 25%, 14%)',
+          fontSize: '14px',
+        },
+      }}
+    />
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<RootRedirect />} />
+        <Route path="/login" element={<Login />} />
+
+        {/* Super Admin Portal */}
+        <Route path="/sa" element={<ProtectedRoute allowedRoles={['super_admin']}><PortalLayout /></ProtectedRoute>}>
+          <Route index element={<SADashboard />} />
+          <Route path="organizations" element={<SAOrganizations />} />
+          <Route path="users" element={<SAUsers />} />
+          <Route path="plans" element={<SAPlans />} />
+          <Route path="audit-log" element={<SAAuditLog />} />
+          <Route path="permissions" element={<SAPermissions />} />
+        </Route>
+
+        {/* Admin Portal */}
+        <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin', 'sales_manager', 'sales_rep']}><PortalLayout /></ProtectedRoute>}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="crm" element={<CRM />} />
+          <Route path="invoicing" element={<Invoicing />} />
+          <Route path="clients" element={<Clients />} />
+          <Route path="chat" element={<Chat />} />
+          <Route path="projects" element={<Projects />} />
+          <Route path="vault" element={<Vault />} />
+          <Route path="tickets" element={<Tickets />} />
+          <Route path="tracker" element={<Tracker />} />
+          <Route path="payroll" element={<Payroll />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
+
+        {/* Employee Portal */}
+        <Route path="/emp" element={<ProtectedRoute allowedRoles={['resource', 'freelancer']}><PortalLayout /></ProtectedRoute>}>
+          <Route index element={<EmpDashboard />} />
+          <Route path="tasks" element={<EmpTasks />} />
+          <Route path="projects" element={<Projects />} />
+          <Route path="chat" element={<Chat />} />
+          <Route path="tracker" element={<Tracker />} />
+          <Route path="payroll" element={<Payroll />} />
+          <Route path="profile" element={<AdminSettings />} />
+        </Route>
+
+        {/* Client Portal */}
+        <Route path="/portal" element={<ProtectedRoute allowedRoles={['client']}><PortalLayout /></ProtectedRoute>}>
+          <Route index element={<ClientDashboard />} />
+          <Route path="invoices" element={<ClientInvoices />} />
+          <Route path="projects" element={<ClientProjects />} />
+          <Route path="documents" element={<ClientDocuments />} />
+          <Route path="messages" element={<Chat />} />
+          <Route path="support" element={<ClientSupport />} />
+        </Route>
+
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
   </QueryClientProvider>
 );
 
