@@ -9,7 +9,15 @@ export default function SADashboard() {
     queryFn: () => saLocalService.getStats(),
   });
 
-  const s = stats || {};
+  const s = stats ?? {
+    total_organizations: 0,
+    mrr: 0,
+    active_count: 0,
+    trial_count: 0,
+    suspended_count: 0,
+    plan_breakdown: {},
+    recent_organizations: [],
+  };
 
   return (
     <div className="page-container">
