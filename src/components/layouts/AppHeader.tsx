@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { Bell, Search, Menu } from 'lucide-react';
 import { useState } from 'react';
 import { useSidebarCollapsed } from './PortalLayout';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const routeLabels: Record<string, string> = {
   '/sa': 'Dashboard',
