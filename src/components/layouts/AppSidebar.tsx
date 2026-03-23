@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
-import {
+import { useSidebarCollapsed } from './PortalLayout';
   LayoutDashboard, Users, Building2, CreditCard, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
   ChevronLeft, LogOut, Globe, ListChecks, Activity, BookOpen
