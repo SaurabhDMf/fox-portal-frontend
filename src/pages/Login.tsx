@@ -4,9 +4,11 @@ import { useAuthStore } from '@/stores/authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Loader2, Mail, Lock, ChevronRight } from 'lucide-react';
+import foxLogo from '@/assets/fox-portal-logo.png';
 
 const demoAccounts = [
   { label: 'Super Admin', email: 'admin@company.com', role: 'super_admin' },
+  { label: 'Company Admin', email: 'company.admin@company.com', role: 'admin' },
   { label: 'Sales Manager', email: 'alex.kim@company.com', role: 'sales_manager' },
   { label: 'Sales Rep', email: 'lisa.monroe@company.com', role: 'sales_rep' },
 ];
