@@ -2,8 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState, useRef, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
-import { Send, Plus, MessageSquare } from 'lucide-react';
+import { Send, Plus, MessageSquare, X, Hash, Users } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
+import toast from 'react-hot-toast';
 
 let socket: Socket | null = null;
 
@@ -13,6 +14,8 @@ export default function Chat() {
   const [activeRoom, setActiveRoom] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [realtimeMessages, setRealtimeMessages] = useState<any[]>([]);
+  const [showCreateRoom, setShowCreateRoom] = useState(false);
+  const [roomForm, setRoomForm] = useState({ name: '', type: 'group' });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
@@ -25,6 +28,17 @@ export default function Chat() {
     queryKey: ['chat-messages', activeRoom],
     queryFn: () => activeRoom ? api.get(`/chat/rooms/${activeRoom}/messages`).then(r => r.data?.messages || r.data || []) : Promise.resolve([]),
     enabled: !!activeRoom,
+  });
+
+  const createRoomMut = useMutation({
+    mutationFn: (d: typeof roomForm) => api.post('/chat/rooms', d),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['chat-rooms'] });
+      setShowCreateRoom(false);
+      setRoomForm({ name: '', type: 'group' });
+      toast.success('Room created');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
   useEffect(() => {
@@ -51,9 +65,18 @@ export default function Chat() {
       <div className={`w-full md:w-72 border-r border-border bg-card flex flex-col flex-shrink-0 ${activeRoom ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="font-semibold text-sm">Chats</h2>
-          <button className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground"><Plus className="h-4 w-4" /></button>
+          <button onClick={() => setShowCreateRoom(true)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+            <Plus className="h-4 w-4" />
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto">
+          {roomsArr.length === 0 && (
+            <div className="text-center py-12 px-4">
+              <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+              <p className="text-xs text-muted-foreground">No conversations yet</p>
+              <button onClick={() => setShowCreateRoom(true)} className="text-xs text-primary hover:underline mt-1">Create a room</button>
+            </div>
+          )}
           {roomsArr.map((room: any) => (
             <button
               key={room.id}
@@ -61,7 +84,7 @@ export default function Chat() {
               className={`w-full flex items-center gap-3 p-3 text-left hover:bg-secondary/50 transition-colors ${activeRoom === room.id ? 'bg-secondary' : ''}`}
             >
               <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-bold flex-shrink-0">
-                {room.name?.[0] || '#'}
+                {room.type === 'direct' ? room.name?.[0] || 'D' : <Hash className="h-4 w-4" />}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium truncate">{room.name}</div>
@@ -81,16 +104,32 @@ export default function Chat() {
           <>
             <div className="p-4 border-b border-border flex items-center gap-3">
               <button onClick={() => setActiveRoom(null)} className="md:hidden p-1 rounded-md hover:bg-secondary text-muted-foreground">←</button>
-              <h3 className="font-semibold text-sm">{roomsArr.find((r: any) => r.id === activeRoom)?.name || 'Chat'}</h3>
+              <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-bold">
+                {roomsArr.find((r: any) => r.id === activeRoom)?.name?.[0] || '#'}
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm">{roomsArr.find((r: any) => r.id === activeRoom)?.name || 'Chat'}</h3>
+                <p className="text-xs text-muted-foreground">
+                  {roomsArr.find((r: any) => r.id === activeRoom)?.member_count
+                    ? `${roomsArr.find((r: any) => r.id === activeRoom).member_count} members`
+                    : ''}
+                </p>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {allMessages.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <MessageSquare className="h-10 w-10 mb-2 opacity-20" />
+                  <p className="text-sm">No messages yet. Start the conversation!</p>
+                </div>
+              )}
               {allMessages.map((msg: any, i: number) => {
                 const isOwn = msg.sender_id === user?.id;
                 return (
                   <div key={msg.id || i} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[70%] rounded-xl px-3 py-2 ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
                       {!isOwn && <div className="text-xs font-medium mb-0.5 text-muted-foreground">{msg.sender_name}</div>}
-                      <p className="text-sm">{msg.content}</p>
+                      <p className="text-sm break-words">{msg.content}</p>
                       <div className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
                         {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                       </div>
@@ -123,9 +162,49 @@ export default function Chat() {
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
             <MessageSquare className="h-12 w-12 mb-3 opacity-30" />
             <p className="text-sm">Select a conversation</p>
+            <p className="text-xs mt-1">or create a new room to get started</p>
           </div>
         )}
       </div>
+
+      {/* Create Room Modal */}
+      {showCreateRoom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-md p-6 space-y-4 animate-slide-up">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Create Chat Room</h2>
+              <button onClick={() => setShowCreateRoom(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <input placeholder="Room Name *" value={roomForm.name} onChange={e => setRoomForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRoomForm(f => ({ ...f, type: 'group' }))}
+                className={`flex-1 p-3 rounded-lg border text-sm text-center transition-colors ${roomForm.type === 'group' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-secondary'}`}
+              >
+                <Users className="h-5 w-5 mx-auto mb-1" />
+                Group
+              </button>
+              <button
+                onClick={() => setRoomForm(f => ({ ...f, type: 'direct' }))}
+                className={`flex-1 p-3 rounded-lg border text-sm text-center transition-colors ${roomForm.type === 'direct' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-secondary'}`}
+              >
+                <MessageSquare className="h-5 w-5 mx-auto mb-1" />
+                Direct
+              </button>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowCreateRoom(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button
+                onClick={() => createRoomMut.mutate(roomForm)}
+                disabled={createRoomMut.isPending || !roomForm.name}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
+              >
+                {createRoomMut.isPending ? 'Creating...' : 'Create Room'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
