@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Projects() {
@@ -16,7 +16,6 @@ export default function Projects() {
   });
 
   const projects = Array.isArray(data) ? data : [];
-
   const basePath = window.location.pathname.startsWith('/emp') ? '/emp' : '/admin';
 
   return (
@@ -58,6 +57,9 @@ export default function Projects() {
             </div>
           </div>
         ))}
+        {projects.length === 0 && !isLoading && (
+          <div className="col-span-full text-center py-16 text-muted-foreground text-sm">No projects found</div>
+        )}
       </div>
     </div>
   );
