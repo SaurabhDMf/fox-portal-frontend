@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { saLocalService } from '@/lib/saLocalService';
 import { CreditCard, Check } from 'lucide-react';
 
 const planFeatures: Record<string, string[]> = {
@@ -13,7 +13,7 @@ const planPrices: Record<string, string> = { trial: 'Free', starter: '$29/mo', p
 export default function SAPlans() {
   const { data = [] } = useQuery({
     queryKey: ['sa-plans'],
-    queryFn: () => api.get('/sa/plans').then(r => r.data?.plans || r.data || []),
+    queryFn: () => saLocalService.getPlans(),
   });
 
   const plansArr = ['trial', 'starter', 'pro', 'enterprise'];
