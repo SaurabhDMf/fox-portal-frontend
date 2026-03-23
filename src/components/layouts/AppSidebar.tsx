@@ -141,7 +141,7 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
               <ThemeLogo className="h-7 flex-shrink-0" />
             </div>
           ) : (
-            <img src={foxLogo} alt="Fox Portal" className="h-6 flex-shrink-0" />
+            <ThemeLogo className="h-6 flex-shrink-0" />
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
