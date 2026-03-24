@@ -1,15 +1,18 @@
 type PlanType = 'trial' | 'starter' | 'pro' | 'enterprise';
 type OrgStatus = 'active' | 'trial' | 'suspended';
+type OrgRole = 'admin' | 'sales_manager' | 'sales_rep' | 'resource' | 'freelancer' | 'client';
 
 export interface SAOrganization {
   id: string;
   name: string;
   admin_email: string;
   admin_name: string;
+  role: OrgRole;
   plan: PlanType;
   industry: string;
   seats: string;
   license_key: string;
+  admin_password?: string;
   status: OrgStatus;
   created_at: string;
   updated_at?: string;
@@ -30,6 +33,7 @@ interface CreateOrganizationInput {
   name: string;
   admin_email: string;
   admin_name: string;
+  role: OrgRole;
   password?: string;
   plan: PlanType;
   industry: string;
@@ -40,6 +44,7 @@ interface CreateOrganizationInput {
 interface UpdateOrganizationInput {
   admin_email?: string;
   seats?: string;
+  role?: OrgRole;
   password?: string;
 }
 
@@ -52,6 +57,8 @@ const PLAN_PRICE: Record<PlanType, number> = {
   pro: 79,
   enterprise: 199,
 };
+
+const PERMISSIONS_STORAGE_KEY = 'fox-portal-permissions-matrix';
 
 const createId = () => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
@@ -66,10 +73,12 @@ const seedOrganizations: SAOrganization[] = [
     name: 'Acme Logistics',
     admin_email: 'admin@acmelogistics.com',
     admin_name: 'Anita Roy',
+    role: 'admin',
     plan: 'pro',
     industry: 'Logistics',
     seats: '50',
     license_key: 'FOX-ACM1-PR07-9JK2-TR55',
+    admin_password: 'Admin123!',
     status: 'active',
     created_at: daysAgo(12),
   },
@@ -78,10 +87,12 @@ const seedOrganizations: SAOrganization[] = [
     name: 'Nova Retail Group',
     admin_email: 'owner@novaretail.com',
     admin_name: 'Michael Chen',
+    role: 'admin',
     plan: 'starter',
     industry: 'Retail',
     seats: '10',
     license_key: 'FOX-NVR2-ST01-7MN8-QW31',
+    admin_password: 'Admin123!',
     status: 'active',
     created_at: daysAgo(7),
   },
@@ -90,10 +101,12 @@ const seedOrganizations: SAOrganization[] = [
     name: 'Zenith Health Labs',
     admin_email: 'ops@zenithhealth.com',
     admin_name: 'Sara Malik',
+    role: 'admin',
     plan: 'trial',
     industry: 'Healthcare',
     seats: '25',
     license_key: 'FOX-ZHL3-TR14-6LP9-ER02',
+    admin_password: 'Admin123!',
     status: 'trial',
     created_at: daysAgo(2),
   },
@@ -148,7 +161,22 @@ function ensureSeedData() {
 
 function getOrganizationsFromStorage() {
   ensureSeedData();
-  return readStorage<SAOrganization[]>(ORGS_STORAGE_KEY, []);
+  const orgs = readStorage<SAOrganization[]>(ORGS_STORAGE_KEY, []);
+  const normalized = orgs.map((org) => ({
+    ...org,
+    role: (org.role as OrgRole) || 'admin',
+    admin_password: org.admin_password ?? 'Admin123!',
+  }));
+
+  const hasChanges = normalized.some(
+    (org, idx) => org.role !== orgs[idx]?.role || org.admin_password !== orgs[idx]?.admin_password
+  );
+
+  if (hasChanges) {
+    writeStorage(ORGS_STORAGE_KEY, normalized);
+  }
+
+  return normalized;
 }
 
 function saveOrganizationsToStorage(orgs: SAOrganization[]) {
@@ -176,6 +204,35 @@ function seatsToNumber(seats: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function createSessionToken() {
+  return `${createId()}_${Date.now()}`;
+}
+
+function getPermissionsForRole(role: OrgRole) {
+  if (typeof window === 'undefined') return {};
+
+  try {
+    const raw = localStorage.getItem(PERMISSIONS_STORAGE_KEY);
+    if (!raw) return {};
+
+    const matrix = JSON.parse(raw) as Record<string, Record<string, Record<string, boolean>>>;
+    const rolePermissions = matrix?.[role] ?? {};
+
+    return Object.entries(rolePermissions).reduce<Record<string, any>>((acc, [module, actions]) => {
+      acc[module] = {
+        can_view: Boolean(actions?.can_view),
+        can_create: Boolean(actions?.can_create),
+        can_edit: Boolean(actions?.can_edit),
+        can_delete: Boolean(actions?.can_delete),
+        own_only: false,
+      };
+      return acc;
+    }, {});
+  } catch {
+    return {};
+  }
+}
+
 export const saLocalService = {
   async getOrganizations(search = '') {
     const orgs = getOrganizationsFromStorage();
@@ -200,10 +257,12 @@ export const saLocalService = {
       name: input.name,
       admin_email: input.admin_email,
       admin_name: input.admin_name,
+      role: input.role,
       plan: input.plan,
       industry: input.industry,
       seats: input.seats,
       license_key: input.license_key,
+      admin_password: input.password,
       status: input.plan === 'trial' ? 'trial' : 'active',
       created_at: new Date().toISOString(),
     };
@@ -231,7 +290,9 @@ export const saLocalService = {
             ...org,
             admin_email: updates.admin_email ?? org.admin_email,
             seats: updates.seats ?? org.seats,
+            role: updates.role ?? org.role,
             updated_at: new Date().toISOString(),
+            admin_password: updates.password ?? org.admin_password,
             last_password_reset_at: updates.password ? new Date().toISOString() : org.last_password_reset_at,
           }
         : org
@@ -242,6 +303,7 @@ export const saLocalService = {
     const changed: string[] = [];
     if (typeof updates.admin_email === 'string' && updates.admin_email !== existing.admin_email) changed.push('access email');
     if (typeof updates.seats === 'string' && updates.seats !== existing.seats) changed.push('seat count');
+    if (typeof updates.role === 'string' && updates.role !== existing.role) changed.push('role');
     if (updates.password) changed.push('admin password');
 
     pushAuditLog({
@@ -305,7 +367,7 @@ export const saLocalService = {
       full_name: org.admin_name || 'Company Admin',
       email: org.admin_email,
       organization_name: org.name,
-      role: 'admin',
+      role: org.role,
       status: org.status === 'suspended' ? 'inactive' : 'active',
       seats: seatsToNumber(org.seats),
     }));
@@ -316,6 +378,30 @@ export const saLocalService = {
       : users.filter((user) =>
           [user.full_name, user.email, user.organization_name, user.role].join(' ').toLowerCase().includes(term)
         );
+  },
+
+  async authenticateOrganizationAdmin(email: string, password: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const org = getOrganizationsFromStorage().find((item) => item.admin_email.trim().toLowerCase() === normalizedEmail);
+
+    if (!org) throw new Error('Organization not found');
+    if (org.status === 'suspended') throw new Error('Organization is suspended');
+    if (!org.admin_password || org.admin_password !== password) throw new Error('Invalid credentials');
+
+    const role = org.role || 'admin';
+
+    return {
+      accessToken: createSessionToken(),
+      refreshToken: createSessionToken(),
+      user: {
+        id: `${org.id}-admin`,
+        full_name: org.admin_name || 'Company Admin',
+        email: org.admin_email,
+        role,
+        organization_id: org.id,
+      },
+      permissions: getPermissionsForRole(role),
+    };
   },
 
   async getPlans() {
