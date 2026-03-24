@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import api from '@/lib/api';
+import { saLocalService } from '@/lib/saLocalService';
 import toast from 'react-hot-toast';
 import { Loader2, Mail, Lock, ChevronRight } from 'lucide-react';
 import ThemeLogo from '@/components/ThemeLogo';
 
 const demoAccounts = [
   { label: 'Super Admin', email: 'admin@company.com', role: 'super_admin' },
-  { label: 'Company Admin', email: 'company.admin@company.com', role: 'admin' },
+  { label: 'Company Admin', email: 'admin@acmelogistics.com', role: 'admin' },
   { label: 'Sales Manager', email: 'alex.kim@company.com', role: 'sales_manager' },
   { label: 'Sales Rep', email: 'lisa.monroe@company.com', role: 'sales_rep' },
 ];
@@ -18,8 +19,16 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const setAuth = useAuthStore((s) => s.setAuth);
-  const getRedirectPath = useAuthStore((s) => s.getRedirectPath);
   const navigate = useNavigate();
+
+  const completeLogin = (data: any) => {
+    setAuth(data);
+    toast.success(`Welcome back, ${data.user?.full_name || 'User'}!`);
+    setTimeout(() => {
+      const path = useAuthStore.getState().getRedirectPath();
+      navigate(path);
+    }, 100);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,14 +36,15 @@ export default function Login() {
     setLoading(true);
     try {
       const { data } = await api.post('/auth/login', { email, password });
-      setAuth(data);
-      toast.success(`Welcome back, ${data.user?.full_name || 'User'}!`);
-      setTimeout(() => {
-        const path = useAuthStore.getState().getRedirectPath();
-        navigate(path);
-      }, 100);
+      completeLogin(data);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Invalid credentials');
+      try {
+        const localAuth = await saLocalService.authenticateOrganizationAdmin(email, password);
+        completeLogin(localAuth);
+        return;
+      } catch {
+        toast.error(err.response?.data?.message || err.response?.data?.error || 'Invalid credentials');
+      }
     } finally {
       setLoading(false);
     }
@@ -65,6 +75,7 @@ export default function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                 placeholder="you@company.com"
               />
@@ -79,6 +90,7 @@ export default function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                 placeholder="••••••••"
               />
