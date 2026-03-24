@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import api from '@/lib/api';
-import { saLocalService } from '@/lib/saLocalService';
 import toast from 'react-hot-toast';
 import { Loader2, Mail, Lock, ChevronRight } from 'lucide-react';
 import ThemeLogo from '@/components/ThemeLogo';
 
 const demoAccounts = [
   { label: 'Super Admin', email: 'admin@company.com', role: 'super_admin' },
-  { label: 'Company Admin', email: 'admin@acmelogistics.com', role: 'admin' },
+  { label: 'Company Admin', email: 'company.admin@company.com', role: 'admin' },
   { label: 'Sales Manager', email: 'alex.kim@company.com', role: 'sales_manager' },
   { label: 'Sales Rep', email: 'lisa.monroe@company.com', role: 'sales_rep' },
 ];
@@ -21,30 +20,20 @@ export default function Login() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const navigate = useNavigate();
 
-  const completeLogin = (data: any) => {
-    setAuth(data);
-    toast.success(`Welcome back, ${data.user?.full_name || 'User'}!`);
-    setTimeout(() => {
-      const path = useAuthStore.getState().getRedirectPath();
-      navigate(path);
-    }, 100);
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return toast.error('Please fill in all fields');
     setLoading(true);
     try {
       const { data } = await api.post('/auth/login', { email, password });
-      completeLogin(data);
+      setAuth(data);
+      toast.success(`Welcome back, ${data.user?.full_name || 'User'}!`);
+      setTimeout(() => {
+        const path = useAuthStore.getState().getRedirectPath();
+        navigate(path);
+      }, 100);
     } catch (err: any) {
-      try {
-        const localAuth = await saLocalService.authenticateOrganizationAdmin(email, password);
-        completeLogin(localAuth);
-        return;
-      } catch {
-        toast.error(err.response?.data?.message || err.response?.data?.error || 'Invalid credentials');
-      }
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
