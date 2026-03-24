@@ -13,6 +13,14 @@ const plans = [
 
 const industries = ['Technology', 'Healthcare', 'Finance', 'Education', 'Retail', 'Manufacturing', 'Services', 'Other'];
 const seatOptions = ['5', '10', '25', '50', '100', '250', '500', 'Unlimited'];
+const roleOptions = [
+  { value: 'admin', label: 'Company Admin' },
+  { value: 'sales_manager', label: 'Sales Manager' },
+  { value: 'sales_rep', label: 'Sales Rep' },
+  { value: 'resource', label: 'Resource' },
+  { value: 'freelancer', label: 'Freelancer' },
+  { value: 'client', label: 'Client' },
+];
 
 function generatePassword(length = 14) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*';
@@ -32,10 +40,10 @@ export default function SAOrganizations() {
   const [copiedField, setCopiedField] = useState('');
   const [form, setForm] = useState({
     name: '', admin_email: '', admin_name: '', password: generatePassword(),
-    plan: 'trial', industry: '', seats: '10', license_key: generateLicenseKey(),
+    role: 'admin', plan: 'trial', industry: '', seats: '10', license_key: generateLicenseKey(),
   });
   const [editForm, setEditForm] = useState({
-    admin_email: '', seats: '', password: '',
+    admin_email: '', seats: '', role: 'admin', password: '',
   });
   const qc = useQueryClient();
 
@@ -76,12 +84,20 @@ export default function SAOrganizations() {
 
   const resetCreateForm = () => {
     setShowCreate(false);
-    setForm({ name: '', admin_email: '', admin_name: '', password: generatePassword(), plan: 'trial', industry: '', seats: '10', license_key: generateLicenseKey() });
+    setForm({
+      name: '', admin_email: '', admin_name: '', password: generatePassword(),
+      role: 'admin', plan: 'trial', industry: '', seats: '10', license_key: generateLicenseKey(),
+    });
   };
 
   const openEdit = (org: any) => {
     setEditOrg(org);
-    setEditForm({ admin_email: org.admin_email || org.owner_email || '', seats: org.seats || '10', password: '' });
+    setEditForm({
+      admin_email: org.admin_email || org.owner_email || '',
+      seats: org.seats || '10',
+      role: org.role || 'admin',
+      password: '',
+    });
   };
 
   const handleCopy = (text: string, field: string) => {
@@ -140,6 +156,9 @@ export default function SAOrganizations() {
               <div className="flex flex-wrap gap-2">
                 <span className="badge-primary">{org.plan}</span>
                 <span className={org.status === 'active' ? 'badge-success' : org.status === 'suspended' ? 'badge-danger' : 'badge-warning'}>{org.status}</span>
+                <span className="px-2 py-0.5 rounded-md border border-border bg-secondary text-xs capitalize">
+                  {(org.role || 'admin').replace('_', ' ')}
+                </span>
               </div>
               <div className="flex gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {org.seats || org.user_count || 0} seats</span>
@@ -215,6 +234,12 @@ export default function SAOrganizations() {
                 </select>
               </div>
               <div>
+                <label className={labelClass}>Role *</label>
+                <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} className={inputClass}>
+                  {roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+                </select>
+              </div>
+              <div>
                 <label className={labelClass}>License Key</label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -259,6 +284,12 @@ export default function SAOrganizations() {
                 </select>
               </div>
               <div>
+                <label className={labelClass}>Role</label>
+                <select value={editForm.role} onChange={e => setEditForm(f => ({ ...f, role: e.target.value }))} className={inputClass}>
+                  {roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+                </select>
+              </div>
+              <div>
                 <label className={labelClass}>Reset Password</label>
                 <div className="flex gap-2">
                   <input value={editForm.password} readOnly placeholder="Click generate to reset" className={`${inputClass} font-mono text-xs`} />
@@ -289,6 +320,10 @@ export default function SAOrganizations() {
                   <span className="font-medium">{editOrg.industry || 'N/A'}</span>
                 </div>
                 <div className="p-3 rounded-lg bg-secondary/50">
+                  <span className="text-xs text-muted-foreground block">Role</span>
+                  <span className="font-medium capitalize">{(editForm.role || editOrg.role || 'admin').replace('_', ' ')}</span>
+                </div>
+                <div className="p-3 rounded-lg bg-secondary/50">
                   <span className="text-xs text-muted-foreground block">License Key</span>
                   <span className="font-mono text-xs">{editOrg.license_key || 'N/A'}</span>
                 </div>
@@ -306,6 +341,7 @@ export default function SAOrganizations() {
                   const data: any = {};
                   if (editForm.admin_email !== (editOrg.admin_email || editOrg.owner_email)) data.admin_email = editForm.admin_email;
                   if (editForm.seats !== (editOrg.seats || '10')) data.seats = editForm.seats;
+                  if (editForm.role !== (editOrg.role || 'admin')) data.role = editForm.role;
                   if (editForm.password) data.password = editForm.password;
                   if (Object.keys(data).length === 0) return toast('No changes to save');
                   updateMut.mutate({ id: editOrg.id, data });
@@ -340,6 +376,7 @@ export default function SAOrganizations() {
               {[
                 { label: 'Plan', value: viewOrg.plan },
                 { label: 'Status', value: viewOrg.status },
+                { label: 'Role', value: (viewOrg.role || 'admin').replace('_', ' ') },
                 { label: 'Industry', value: viewOrg.industry || 'N/A' },
                 { label: 'Seats', value: viewOrg.seats || viewOrg.user_count || '0' },
                 { label: 'License Key', value: viewOrg.license_key || 'N/A', mono: true },
