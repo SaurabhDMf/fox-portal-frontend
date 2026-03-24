@@ -14,6 +14,7 @@ import SAUsers from "./pages/sa/SAUsers";
 import SAPlans from "./pages/sa/SAPlans";
 import SAAuditLog from "./pages/sa/SAAuditLog";
 import SAPermissions from "./pages/sa/SAPermissions";
+import SAProfile from "./pages/sa/SAProfile";
 
 // Admin
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -79,6 +80,7 @@ const App = () => (
           <Route path="plans" element={<SAPlans />} />
           <Route path="audit-log" element={<SAAuditLog />} />
           <Route path="permissions" element={<SAPermissions />} />
+          <Route path="profile" element={<SAProfile />} />
         </Route>
 
         {/* Admin Portal */}

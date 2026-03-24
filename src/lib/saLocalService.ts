@@ -30,6 +30,7 @@ interface CreateOrganizationInput {
   name: string;
   admin_email: string;
   admin_name: string;
+  password?: string;
   plan: PlanType;
   industry: string;
   seats: string;

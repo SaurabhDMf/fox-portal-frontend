@@ -24,6 +24,7 @@ const saNav: NavItem[] = [
   { label: 'Plans', path: '/sa/plans', icon: CreditCard },
   { label: 'Audit Log', path: '/sa/audit-log', icon: Activity },
   { label: 'Permissions', path: '/sa/permissions', icon: Shield },
+  { label: 'Profile', path: '/sa/profile', icon: Users },
 ];
 
 const adminNav: NavItem[] = [
