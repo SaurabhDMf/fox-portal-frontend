@@ -80,6 +80,7 @@ const App = () => (
           <Route path="plans" element={<SAPlans />} />
           <Route path="audit-log" element={<SAAuditLog />} />
           <Route path="permissions" element={<SAPermissions />} />
+          <Route path="profile" element={<SAProfile />} />
         </Route>
 
         {/* Admin Portal */}
