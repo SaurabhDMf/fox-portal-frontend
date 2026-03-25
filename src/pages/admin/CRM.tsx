@@ -37,7 +37,6 @@ export default function CRM() {
   const { data: users = [] } = useQuery({
     queryKey: ['users-list'],
     queryFn: () => api.get('/users').then(r => r.data?.users || r.data || []),
-    enabled: showCreate,
   });
 
   const { data: clients = [] } = useQuery({
