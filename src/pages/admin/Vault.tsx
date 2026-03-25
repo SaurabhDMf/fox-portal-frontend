@@ -141,7 +141,7 @@ export default function Vault() {
                 <div className="text-xs text-muted-foreground">{cred.username} • {cred.category}</div>
                 {cred.url && <div className="text-xs text-primary truncate">{cred.url}</div>}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <span className="text-sm font-mono">{revealedId === cred.id ? revealedPw : '••••••••'}</span>
                 <button onClick={() => handleReveal(cred.id)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground">
                   {revealedId === cred.id ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -151,6 +151,9 @@ export default function Vault() {
                     <Copy className="h-4 w-4" />
                   </button>
                 )}
+                <button onClick={() => setShowShare(cred.id)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Share">
+                  <Share2 className="h-4 w-4" />
+                </button>
               </div>
             </div>
           ))}
