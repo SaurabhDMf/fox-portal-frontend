@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
-import { Plus, Search, Lock, Eye, EyeOff, Copy, FolderClosed, X, Globe, Tag } from 'lucide-react';
+import { Plus, Search, Lock, Eye, EyeOff, Copy, FolderClosed, FolderPlus, X, Globe, Tag, Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const categories = ['Social Media', 'Finance', 'Dev Tools', 'Email', 'CRM', 'Other'];
