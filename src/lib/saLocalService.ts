@@ -383,21 +383,31 @@ export const saLocalService = {
   async authenticateOrganizationAdmin(email: string, password: string) {
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Super Admin local fallback
-    if (normalizedEmail === 'admin@company.com' && password === 'Admin123!') {
+    // Built-in demo accounts (not stored in localStorage)
+    const demoAccounts: Record<string, { full_name: string; role: OrgRole | 'super_admin'; password: string }> = {
+      'admin@company.com': { full_name: 'Super Admin', role: 'super_admin' as any, password: 'Admin123!' },
+      'company.admin@company.com': { full_name: 'Company Admin', role: 'admin', password: 'Admin123!' },
+      'alex.kim@company.com': { full_name: 'Alex Kim', role: 'sales_manager', password: 'Admin123!' },
+      'lisa.monroe@company.com': { full_name: 'Lisa Monroe', role: 'sales_rep', password: 'Admin123!' },
+    };
+
+    const demo = demoAccounts[normalizedEmail];
+    if (demo) {
+      if (demo.password !== password) throw new Error('Invalid credentials');
       return {
         accessToken: createSessionToken(),
         refreshToken: createSessionToken(),
         user: {
-          id: 'sa-root-001',
-          full_name: 'Super Admin',
-          email: 'admin@company.com',
-          role: 'super_admin',
+          id: `demo-${normalizedEmail.replace(/[@.]/g, '-')}`,
+          full_name: demo.full_name,
+          email: normalizedEmail,
+          role: demo.role,
         },
-        permissions: getPermissionsForRole('admin'),
+        permissions: demo.role === 'super_admin' ? {} : getPermissionsForRole(demo.role as OrgRole),
       };
     }
 
+    // Check localStorage orgs
     const org = getOrganizationsFromStorage().find((item) => item.admin_email.trim().toLowerCase() === normalizedEmail);
 
     if (!org) throw new Error('Organization not found');
