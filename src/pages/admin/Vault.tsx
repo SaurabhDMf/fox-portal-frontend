@@ -28,6 +28,11 @@ export default function Vault() {
   const [revealedPw, setRevealedPw] = useState('');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [showShare, setShowShare] = useState<string | null>(null);
+  const [folderName, setFolderName] = useState('');
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareAccess, setShareAccess] = useState('view');
   const [form, setForm] = useState({ title: '', username: '', password: '', url: '', category: 'Other', notes: '', folder_id: '' });
   const canCreate = useAuthStore(s => s.canCreate);
   const qc = useQueryClient();
