@@ -32,9 +32,14 @@ const accentColors = [
 
 export default function AdminSettings() {
   const user = useAuthStore(s => s.user);
+  const setAuth = useAuthStore(s => s.setAuth);
   const [tab, setTab] = useState('profile');
   const [pw, setPw] = useState({ current: '', newPw: '', confirm: '' });
   const [saving, setSaving] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ full_name: user?.full_name || '', department: user?.department || '', job_title: user?.job_title || '' });
+  const [companyForm, setCompanyForm] = useState({ company_name: '', website: '', industry: '', address: '', phone: '' });
+  const [editingCompany, setEditingCompany] = useState(false);
   const [notifications, setNotifications] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(notificationSettings.map(n => [n.key, true]))
   );
