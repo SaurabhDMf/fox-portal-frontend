@@ -6,6 +6,7 @@ import { User, Shield, Bell, Palette, Pencil, X, Building2 } from 'lucide-react'
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
+  { id: 'company', label: 'Company', icon: Building2 },
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'appearance', label: 'Appearance', icon: Palette },
