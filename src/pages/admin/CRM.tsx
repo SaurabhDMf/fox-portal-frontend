@@ -50,7 +50,7 @@ export default function CRM() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leads'] });
       setShowCreate(false);
-      setForm({ full_name: '', company_name: '', email: '', phone: '', lead_source: 'Website', status: 'New', priority: 'Medium', deal_value: '', assigned_to: '', client_id: '', next_followup: '', notes: '' });
+      setForm({ full_name: '', company_name: '', email: '', phone: '', lead_source: 'Website', status: 'New', priority: 'Medium', deal_value: '', assigned_to: '', client_id: '', next_followup: '', notes: '', lead_by: '' });
       toast.success('Lead created');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
