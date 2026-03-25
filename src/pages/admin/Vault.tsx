@@ -207,6 +207,46 @@ export default function Vault() {
           </div>
         </div>
       )}
+
+      {/* Create Folder Modal */}
+      {showCreateFolder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">New Folder</h2>
+              <button onClick={() => setShowCreateFolder(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <input placeholder="Folder name *" value={folderName} onChange={e => setFolderName(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowCreateFolder(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={() => createFolderMut.mutate(folderName)} disabled={createFolderMut.isPending || !folderName.trim()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {createFolderMut.isPending ? 'Creating...' : 'Create Folder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Credential Modal */}
+      {showShare && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Share Credential</h2>
+              <button onClick={() => setShowShare(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <input placeholder="Email address *" value={shareEmail} onChange={e => setShareEmail(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <select value={shareAccess} onChange={e => setShareAccess(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+              <option value="view">View Only</option>
+              <option value="edit">Can Edit</option>
+            </select>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowShare(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={() => shareMut.mutate({ credential_id: showShare, email: shareEmail, access: shareAccess })} disabled={shareMut.isPending || !shareEmail.trim()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {shareMut.isPending ? 'Sharing...' : 'Share'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  );
-}
