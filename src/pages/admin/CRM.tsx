@@ -26,7 +26,7 @@ export default function CRM() {
 
   const [form, setForm] = useState({
     full_name: '', company_name: '', email: '', phone: '', lead_source: 'Website',
-    status: 'New', priority: 'Medium', deal_value: '', assigned_to: '', client_id: '', next_followup: '', notes: '',
+    status: 'New', priority: 'Medium', deal_value: '', assigned_to: '', client_id: '', next_followup: '', notes: '', lead_by: '',
   });
 
   const { data: leads = [], isLoading } = useQuery({
@@ -37,7 +37,6 @@ export default function CRM() {
   const { data: users = [] } = useQuery({
     queryKey: ['users-list'],
     queryFn: () => api.get('/users').then(r => r.data?.users || r.data || []),
-    enabled: showCreate,
   });
 
   const { data: clients = [] } = useQuery({
@@ -51,7 +50,7 @@ export default function CRM() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leads'] });
       setShowCreate(false);
-      setForm({ full_name: '', company_name: '', email: '', phone: '', lead_source: 'Website', status: 'New', priority: 'Medium', deal_value: '', assigned_to: '', client_id: '', next_followup: '', notes: '' });
+      setForm({ full_name: '', company_name: '', email: '', phone: '', lead_source: 'Website', status: 'New', priority: 'Medium', deal_value: '', assigned_to: '', client_id: '', next_followup: '', notes: '', lead_by: '' });
       toast.success('Lead created');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
@@ -121,6 +120,9 @@ export default function CRM() {
                           <span className="text-[10px] text-muted-foreground">{lead.assigned_to_name}</span>
                         </div>
                       )}
+                      {lead.lead_by_name && (
+                        <div className="text-[10px] text-muted-foreground">Lead by: <span className="text-foreground">{lead.lead_by_name}</span></div>
+                      )}
                     </div>
                   ))}
                   {col.length === 0 && <div className="text-xs text-muted-foreground text-center py-8 border border-dashed border-border rounded-lg">No leads</div>}
@@ -137,7 +139,7 @@ export default function CRM() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-                <th className="p-4">Name</th><th className="p-4">Company</th><th className="p-4">Status</th><th className="p-4">Priority</th><th className="p-4">Deal Value</th><th className="p-4">Source</th><th className="p-4">Assigned</th>
+                <th className="p-4">Name</th><th className="p-4">Company</th><th className="p-4">Status</th><th className="p-4">Priority</th><th className="p-4">Deal Value</th><th className="p-4">Source</th><th className="p-4">Lead By</th><th className="p-4">Assigned</th>
               </tr>
             </thead>
             <tbody>
@@ -149,6 +151,7 @@ export default function CRM() {
                   <td className="p-4"><span className={priorities.find(p => p.value === lead.priority)?.color || 'badge-neutral'}>{lead.priority}</span></td>
                   <td className="p-4 font-medium">{lead.deal_value ? `$${Number(lead.deal_value).toLocaleString()}` : '—'}</td>
                   <td className="p-4 text-muted-foreground">{lead.lead_source}</td>
+                  <td className="p-4 text-muted-foreground">{lead.lead_by_name || '—'}</td>
                   <td className="p-4 text-muted-foreground">{lead.assigned_to_name || '—'}</td>
                 </tr>
               ))}
@@ -189,6 +192,10 @@ export default function CRM() {
                 {clientsArr.map((c: any) => <option key={c.id} value={c.id}>{c.company_name}</option>)}
               </select>
               <input type="date" placeholder="Next Follow-up" value={form.next_followup} onChange={e => setForm(f => ({ ...f, next_followup: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              <select value={form.lead_by} onChange={e => setForm(f => ({ ...f, lead_by: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="">Lead By (Pre-Sales)</option>
+                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+              </select>
             </div>
             <textarea placeholder="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
             <div className="flex gap-2 justify-end">
