@@ -37,7 +37,24 @@ api.interceptors.response.use(
     const originalRequest = error.config;
     const url = originalRequest?.url || '';
     const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh');
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+
+    // Check if using a local/demo token (not a real JWT)
+    const stored = localStorage.getItem('ubp-auth');
+    let isLocalToken = false;
+    if (stored) {
+      try {
+        const { state } = JSON.parse(stored);
+        // Local tokens start with 'id_' (from createId), real JWTs start with 'eyJ'
+        isLocalToken = state?.accessToken && !state.accessToken.startsWith('eyJ');
+      } catch {}
+    }
+
+    // Don't attempt refresh for local tokens or auth endpoints — just reject silently
+    if (isLocalToken || isAuthEndpoint) {
+      return Promise.reject(error);
+    }
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({
@@ -54,15 +71,12 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const stored = localStorage.getItem('ubp-auth');
-        const { state } = JSON.parse(stored || '{}');
+        const current = JSON.parse(localStorage.getItem('ubp-auth') || '{}');
         const res = await axios.post(`${API_BASE}/auth/refresh`, {
-          refreshToken: state?.refreshToken,
+          refreshToken: current.state?.refreshToken,
         });
         const { accessToken, refreshToken } = res.data;
 
-        // Update store
-        const current = JSON.parse(localStorage.getItem('ubp-auth') || '{}');
         current.state = { ...current.state, accessToken, refreshToken };
         localStorage.setItem('ubp-auth', JSON.stringify(current));
 
