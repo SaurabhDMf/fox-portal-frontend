@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
-import { Plus, Search, Lock, Eye, EyeOff, Copy, FolderClosed, X, Globe, Tag } from 'lucide-react';
+import { Plus, Search, Lock, Eye, EyeOff, Copy, FolderClosed, FolderPlus, X, Globe, Tag, Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const categories = ['Social Media', 'Finance', 'Dev Tools', 'Email', 'CRM', 'Other'];
@@ -28,6 +28,11 @@ export default function Vault() {
   const [revealedPw, setRevealedPw] = useState('');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [showShare, setShowShare] = useState<string | null>(null);
+  const [folderName, setFolderName] = useState('');
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareAccess, setShareAccess] = useState('view');
   const [form, setForm] = useState({ title: '', username: '', password: '', url: '', category: 'Other', notes: '', folder_id: '' });
   const canCreate = useAuthStore(s => s.canCreate);
   const qc = useQueryClient();
@@ -50,6 +55,23 @@ export default function Vault() {
       setForm({ title: '', username: '', password: '', url: '', category: 'Other', notes: '', folder_id: '' });
       toast.success('Credential saved');
     },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+  });
+
+  const createFolderMut = useMutation({
+    mutationFn: (name: string) => api.post('/vault/folders', { name }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['vault-folders'] });
+      setShowCreateFolder(false);
+      setFolderName('');
+      toast.success('Folder created');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+  });
+
+  const shareMut = useMutation({
+    mutationFn: (data: { credential_id: string; email: string; access: string }) => api.post(`/vault/credentials/${data.credential_id}/share`, { email: data.email, access_level: data.access }),
+    onSuccess: () => { setShowShare(null); setShareEmail(''); toast.success('Credential shared'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
@@ -77,11 +99,18 @@ export default function Vault() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Password Vault</h1><p className="page-subtitle">Securely manage credentials</p></div>
-        {canCreate('vault') && (
-          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-4 w-4" /> Add Credential
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canCreate('vault') && (
+            <button onClick={() => setShowCreateFolder(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 active:scale-[0.97] transition-all border border-border">
+              <FolderPlus className="h-4 w-4" /> New Folder
+            </button>
+          )}
+          {canCreate('vault') && (
+            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+              <Plus className="h-4 w-4" /> Add Credential
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="relative max-w-sm">
@@ -112,7 +141,7 @@ export default function Vault() {
                 <div className="text-xs text-muted-foreground">{cred.username} • {cred.category}</div>
                 {cred.url && <div className="text-xs text-primary truncate">{cred.url}</div>}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <span className="text-sm font-mono">{revealedId === cred.id ? revealedPw : '••••••••'}</span>
                 <button onClick={() => handleReveal(cred.id)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground">
                   {revealedId === cred.id ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -122,6 +151,9 @@ export default function Vault() {
                     <Copy className="h-4 w-4" />
                   </button>
                 )}
+                <button onClick={() => setShowShare(cred.id)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Share">
+                  <Share2 className="h-4 w-4" />
+                </button>
               </div>
             </div>
           ))}
@@ -170,6 +202,48 @@ export default function Vault() {
               <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
               <button onClick={() => createMut.mutate(form)} disabled={createMut.isPending || !form.title || !form.username} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
                 {createMut.isPending ? 'Saving...' : 'Save Credential'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Folder Modal */}
+      {showCreateFolder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">New Folder</h2>
+              <button onClick={() => setShowCreateFolder(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <input placeholder="Folder name *" value={folderName} onChange={e => setFolderName(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowCreateFolder(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={() => createFolderMut.mutate(folderName)} disabled={createFolderMut.isPending || !folderName.trim()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {createFolderMut.isPending ? 'Creating...' : 'Create Folder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Credential Modal */}
+      {showShare && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Share Credential</h2>
+              <button onClick={() => setShowShare(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <input placeholder="Email address *" value={shareEmail} onChange={e => setShareEmail(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <select value={shareAccess} onChange={e => setShareAccess(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+              <option value="view">View Only</option>
+              <option value="edit">Can Edit</option>
+            </select>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowShare(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={() => shareMut.mutate({ credential_id: showShare, email: shareEmail, access: shareAccess })} disabled={shareMut.isPending || !shareEmail.trim()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {shareMut.isPending ? 'Sharing...' : 'Share'}
               </button>
             </div>
           </div>
