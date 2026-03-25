@@ -188,6 +188,10 @@ export default function CRM() {
                 {clientsArr.map((c: any) => <option key={c.id} value={c.id}>{c.company_name}</option>)}
               </select>
               <input type="date" placeholder="Next Follow-up" value={form.next_followup} onChange={e => setForm(f => ({ ...f, next_followup: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              <select value={form.lead_by} onChange={e => setForm(f => ({ ...f, lead_by: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="">Lead By (Pre-Sales)</option>
+                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+              </select>
             </div>
             <textarea placeholder="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
             <div className="flex gap-2 justify-end">
