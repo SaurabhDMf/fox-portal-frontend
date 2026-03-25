@@ -382,6 +382,22 @@ export const saLocalService = {
 
   async authenticateOrganizationAdmin(email: string, password: string) {
     const normalizedEmail = email.trim().toLowerCase();
+
+    // Super Admin local fallback
+    if (normalizedEmail === 'admin@company.com' && password === 'Admin123!') {
+      return {
+        accessToken: createSessionToken(),
+        refreshToken: createSessionToken(),
+        user: {
+          id: 'sa-root-001',
+          full_name: 'Super Admin',
+          email: 'admin@company.com',
+          role: 'super_admin',
+        },
+        permissions: getPermissionsForRole('admin'),
+      };
+    }
+
     const org = getOrganizationsFromStorage().find((item) => item.admin_email.trim().toLowerCase() === normalizedEmail);
 
     if (!org) throw new Error('Organization not found');
