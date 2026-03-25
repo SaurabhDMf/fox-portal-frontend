@@ -208,15 +208,39 @@ function createSessionToken() {
   return `${createId()}_${Date.now()}`;
 }
 
+function getDefaultPermissions(role: OrgRole): Record<string, any> {
+  const allModules = ['crm', 'invoicing', 'clients', 'projects', 'vault', 'tickets', 'tracker', 'payroll', 'users', 'reports', 'chat', 'settings'];
+  const full = { can_view: true, can_create: true, can_edit: true, can_delete: true, own_only: false };
+  const viewOnly = { can_view: true, can_create: false, can_edit: false, can_delete: false, own_only: false };
+  const viewCreate = { can_view: true, can_create: true, can_edit: true, can_delete: false, own_only: false };
+
+  if (role === 'admin') {
+    return Object.fromEntries(allModules.map(m => [m, full]));
+  }
+  if (role === 'sales_manager') {
+    return Object.fromEntries(allModules.map(m => [m, ['users', 'settings', 'payroll'].includes(m) ? viewOnly : full]));
+  }
+  if (role === 'sales_rep') {
+    return Object.fromEntries(allModules.map(m => [m, ['users', 'settings', 'payroll', 'reports'].includes(m) ? viewOnly : viewCreate]));
+  }
+  if (role === 'resource' || role === 'freelancer') {
+    return Object.fromEntries(['tracker', 'chat', 'projects'].map(m => [m, viewCreate]).concat([['payroll', viewOnly]]));
+  }
+  return {};
+}
+
 function getPermissionsForRole(role: OrgRole) {
-  if (typeof window === 'undefined') return {};
+  if (typeof window === 'undefined') return getDefaultPermissions(role);
 
   try {
     const raw = localStorage.getItem(PERMISSIONS_STORAGE_KEY);
-    if (!raw) return {};
+    if (!raw) return getDefaultPermissions(role);
 
     const matrix = JSON.parse(raw) as Record<string, Record<string, Record<string, boolean>>>;
     const rolePermissions = matrix?.[role] ?? {};
+
+    // If no permissions configured for this role, use defaults
+    if (Object.keys(rolePermissions).length === 0) return getDefaultPermissions(role);
 
     return Object.entries(rolePermissions).reduce<Record<string, any>>((acc, [module, actions]) => {
       acc[module] = {
@@ -229,7 +253,7 @@ function getPermissionsForRole(role: OrgRole) {
       return acc;
     }, {});
   } catch {
-    return {};
+    return getDefaultPermissions(role);
   }
 }
 
