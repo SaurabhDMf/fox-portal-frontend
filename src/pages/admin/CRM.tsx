@@ -120,6 +120,9 @@ export default function CRM() {
                           <span className="text-[10px] text-muted-foreground">{lead.assigned_to_name}</span>
                         </div>
                       )}
+                      {lead.lead_by_name && (
+                        <div className="text-[10px] text-muted-foreground">Lead by: <span className="text-foreground">{lead.lead_by_name}</span></div>
+                      )}
                     </div>
                   ))}
                   {col.length === 0 && <div className="text-xs text-muted-foreground text-center py-8 border border-dashed border-border rounded-lg">No leads</div>}
