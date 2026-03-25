@@ -26,7 +26,14 @@ export default function Login() {
     if (!email || !password) return toast.error('Please fill in all fields');
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/login', { email, password });
+      let data: any;
+      try {
+        const res = await api.post('/auth/login', { email, password });
+        data = res.data;
+      } catch {
+        // Fallback to local service for orgs created via SA module
+        data = await saLocalService.authenticateOrganizationAdmin(email, password);
+      }
       setAuth(data);
       toast.success(`Welcome back, ${data.user?.full_name || 'User'}!`);
       setTimeout(() => {
@@ -34,7 +41,7 @@ export default function Login() {
         navigate(path);
       }, 100);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.response?.data?.error || 'Invalid credentials');
+      toast.error(err.message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }
