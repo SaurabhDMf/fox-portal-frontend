@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { User, Shield, Bell, Palette } from 'lucide-react';
+import { User, Shield, Bell, Palette, Pencil, X, Building2 } from 'lucide-react';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
