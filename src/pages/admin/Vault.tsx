@@ -99,11 +99,18 @@ export default function Vault() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Password Vault</h1><p className="page-subtitle">Securely manage credentials</p></div>
-        {canCreate('vault') && (
-          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-4 w-4" /> Add Credential
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canCreate('vault') && (
+            <button onClick={() => setShowCreateFolder(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 active:scale-[0.97] transition-all border border-border">
+              <FolderPlus className="h-4 w-4" /> New Folder
+            </button>
+          )}
+          {canCreate('vault') && (
+            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+              <Plus className="h-4 w-4" /> Add Credential
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="relative max-w-sm">
