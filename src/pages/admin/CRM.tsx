@@ -139,7 +139,7 @@ export default function CRM() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-                <th className="p-4">Name</th><th className="p-4">Company</th><th className="p-4">Status</th><th className="p-4">Priority</th><th className="p-4">Deal Value</th><th className="p-4">Source</th><th className="p-4">Assigned</th>
+                <th className="p-4">Name</th><th className="p-4">Company</th><th className="p-4">Status</th><th className="p-4">Priority</th><th className="p-4">Deal Value</th><th className="p-4">Source</th><th className="p-4">Lead By</th><th className="p-4">Assigned</th>
               </tr>
             </thead>
             <tbody>
