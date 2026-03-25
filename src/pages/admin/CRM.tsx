@@ -151,6 +151,7 @@ export default function CRM() {
                   <td className="p-4"><span className={priorities.find(p => p.value === lead.priority)?.color || 'badge-neutral'}>{lead.priority}</span></td>
                   <td className="p-4 font-medium">{lead.deal_value ? `$${Number(lead.deal_value).toLocaleString()}` : '—'}</td>
                   <td className="p-4 text-muted-foreground">{lead.lead_source}</td>
+                  <td className="p-4 text-muted-foreground">{lead.lead_by_name || '—'}</td>
                   <td className="p-4 text-muted-foreground">{lead.assigned_to_name || '—'}</td>
                 </tr>
               ))}
