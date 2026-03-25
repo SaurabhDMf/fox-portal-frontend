@@ -26,7 +26,7 @@ export default function CRM() {
 
   const [form, setForm] = useState({
     full_name: '', company_name: '', email: '', phone: '', lead_source: 'Website',
-    status: 'New', priority: 'Medium', deal_value: '', assigned_to: '', client_id: '', next_followup: '', notes: '',
+    status: 'New', priority: 'Medium', deal_value: '', assigned_to: '', client_id: '', next_followup: '', notes: '', lead_by: '',
   });
 
   const { data: leads = [], isLoading } = useQuery({
