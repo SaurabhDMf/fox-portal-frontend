@@ -58,6 +58,23 @@ export default function Vault() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
+  const createFolderMut = useMutation({
+    mutationFn: (name: string) => api.post('/vault/folders', { name }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['vault-folders'] });
+      setShowCreateFolder(false);
+      setFolderName('');
+      toast.success('Folder created');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+  });
+
+  const shareMut = useMutation({
+    mutationFn: (data: { credential_id: string; email: string; access: string }) => api.post(`/vault/credentials/${data.credential_id}/share`, { email: data.email, access_level: data.access }),
+    onSuccess: () => { setShowShare(null); setShareEmail(''); toast.success('Credential shared'); },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+  });
+
   const handleReveal = async (id: string) => {
     if (revealedId === id) { setRevealedId(null); setRevealedPw(''); return; }
     try {
