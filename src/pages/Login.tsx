@@ -30,9 +30,14 @@ export default function Login() {
       try {
         const res = await api.post('/auth/login', { email, password });
         data = res.data;
-      } catch {
-        // Fallback to local service for orgs created via SA module
-        data = await saLocalService.authenticateOrganizationAdmin(email, password);
+      } catch (apiErr: any) {
+        // Only fallback to local service for org admin accounts, not backend-only accounts
+        try {
+          data = await saLocalService.authenticateOrganizationAdmin(email, password);
+        } catch {
+          // If local also fails, show the original API error
+          throw new Error(apiErr?.response?.data?.message || apiErr?.message || 'Invalid credentials');
+        }
       }
       setAuth(data);
       toast.success(`Welcome back, ${data.user?.full_name || 'User'}!`);
