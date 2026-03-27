@@ -32,6 +32,12 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
+// Helper: check if a token looks like a real JWT (3 dot-separated parts)
+function isRealJwt(token: string | null): boolean {
+  if (!token) return false;
+  return token.split('.').length === 3;
+}
+
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -44,6 +50,15 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      const current = JSON.parse(localStorage.getItem('ubp-auth') || '{}');
+      const currentToken = current.state?.accessToken;
+
+      // If the token is not a real JWT (e.g. local/demo token), don't try refresh
+      // and don't auto-logout — just reject silently
+      if (!isRealJwt(currentToken)) {
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({
@@ -60,7 +75,6 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const current = JSON.parse(localStorage.getItem('ubp-auth') || '{}');
         const res = await axios.post(`${API_BASE}/auth/refresh`, {
           refreshToken: current.state?.refreshToken,
         });
