@@ -1,16 +1,15 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { isLocalToken, getMockResponse } from '@/lib/mockDataService';
 
 // Use relative path so requests go through Vercel/Netlify proxy (avoids CORS)
 const API_BASE = '/api/v1';
 
-const api = axios.create({
+const realAxios = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor: for local tokens, intercept and return mock data
-api.interceptors.request.use((config) => {
+realAxios.interceptors.request.use((config) => {
   const stored = localStorage.getItem('ubp-auth');
   if (stored) {
     try {
@@ -20,44 +19,27 @@ api.interceptors.request.use((config) => {
       }
     } catch {}
   }
-
-  // If using a local/demo token, short-circuit with mock data
-  if (isLocalToken()) {
-    const method = (config.method || 'get').toLowerCase();
-    const url = config.url || '';
-    const params = config.params;
-    const mockData = getMockResponse(method, url, params);
-
-    if (mockData !== null) {
-      // Create a cancel token and cancel with mock data
-      const source = axios.CancelToken.source();
-      config.cancelToken = source.token;
-      // Attach mock data to the config so response interceptor can use it
-      (config as any).__mockData = mockData;
-      source.cancel('__MOCK__');
-    }
-  }
-
   return config;
 });
 
-// Response interceptor: catch mock cancellations and return mock response
-api.interceptors.response.use(
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) prom.reject(error);
+    else prom.resolve(token!);
+  });
+  failedQueue = [];
+};
+
+realAxios.interceptors.response.use(
   (res) => res,
   async (error) => {
-    // Handle mock data responses
-    if (axios.isCancel(error) && error.message === '__MOCK__') {
-      // Find the mock data from the original config
-      const config = error.config || (error as any).__CANCEL__?.config;
-      // We need to reconstruct the response
-      return Promise.resolve({ data: (config as any)?.__mockData || {}, status: 200, statusText: 'OK (Mock)', headers: {}, config });
-    }
-
     const originalRequest = error.config;
     const url = originalRequest?.url || '';
     const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh');
 
-    // Don't attempt refresh for local tokens or auth endpoints
     if (isLocalToken() || isAuthEndpoint) {
       return Promise.reject(error);
     }
@@ -68,7 +50,7 @@ api.interceptors.response.use(
           failedQueue.push({
             resolve: (token: string) => {
               originalRequest.headers.Authorization = `Bearer ${token}`;
-              resolve(api(originalRequest));
+              resolve(realAxios(originalRequest));
             },
             reject,
           });
@@ -84,13 +66,11 @@ api.interceptors.response.use(
           refreshToken: current.state?.refreshToken,
         });
         const { accessToken, refreshToken } = res.data;
-
         current.state = { ...current.state, accessToken, refreshToken };
         localStorage.setItem('ubp-auth', JSON.stringify(current));
-
         processQueue(null, accessToken);
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        return api(originalRequest);
+        return realAxios(originalRequest);
       } catch (err) {
         processQueue(err, null);
         localStorage.removeItem('ubp-auth');
@@ -104,15 +84,43 @@ api.interceptors.response.use(
   }
 );
 
-let isRefreshing = false;
-let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: unknown) => void }> = [];
-
-const processQueue = (error: unknown, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) prom.reject(error);
-    else prom.resolve(token!);
-  });
-  failedQueue = [];
+// Proxy that intercepts calls for local tokens and returns mock data
+const api = {
+  get(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse> {
+    if (isLocalToken()) {
+      const mock = getMockResponse('get', url, config?.params);
+      if (mock !== null) return Promise.resolve({ data: mock, status: 200, statusText: 'OK', headers: {}, config: config || {} } as AxiosResponse);
+    }
+    return realAxios.get(url, config);
+  },
+  post(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse> {
+    if (isLocalToken() && !url.includes('/auth/')) {
+      const mock = getMockResponse('post', url);
+      if (mock !== null) return Promise.resolve({ data: mock, status: 200, statusText: 'OK', headers: {}, config: config || {} } as AxiosResponse);
+    }
+    return realAxios.post(url, data, config);
+  },
+  put(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse> {
+    if (isLocalToken()) {
+      const mock = getMockResponse('put', url);
+      if (mock !== null) return Promise.resolve({ data: mock, status: 200, statusText: 'OK', headers: {}, config: config || {} } as AxiosResponse);
+    }
+    return realAxios.put(url, data, config);
+  },
+  patch(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse> {
+    if (isLocalToken()) {
+      const mock = getMockResponse('patch', url);
+      if (mock !== null) return Promise.resolve({ data: mock, status: 200, statusText: 'OK', headers: {}, config: config || {} } as AxiosResponse);
+    }
+    return realAxios.patch(url, data, config);
+  },
+  delete(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse> {
+    if (isLocalToken()) {
+      const mock = getMockResponse('delete', url);
+      if (mock !== null) return Promise.resolve({ data: mock, status: 200, statusText: 'OK', headers: {}, config: config || {} } as AxiosResponse);
+    }
+    return realAxios.delete(url, config);
+  },
 };
 
 export default api;
