@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Use relative path so requests go through Vercel/Netlify proxy (avoids CORS)
-const API_BASE = 'https://ubp-backend-production.up.railway.app/api/v1';
+const API_BASE = '/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE,
