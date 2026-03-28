@@ -7,7 +7,7 @@ import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PortalLayout from "./components/layouts/PortalLayout";
 
-// Super Admin
+// Super Admins
 import SADashboard from "./pages/sa/SADashboard";
 import SAOrganizations from "./pages/sa/SAOrganizations";
 import SAUsers from "./pages/sa/SAUsers";
