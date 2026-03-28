@@ -72,7 +72,7 @@ const App = () => (
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<Login />} />
 
-        {/* Super Admin Portal */}
+        {/* Super Admin Portalsss */}
         <Route path="/sa" element={<ProtectedRoute allowedRoles={['super_admin']}><PortalLayout /></ProtectedRoute>}>
           <Route index element={<SADashboard />} />
           <Route path="organizations" element={<SAOrganizations />} />
