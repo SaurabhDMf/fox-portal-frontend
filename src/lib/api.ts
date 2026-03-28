@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+// Use relative path so requests go through Vercel/Netlify proxy (avoids CORS)
 const API_BASE = '/api/v1';
 
 const api = axios.create({
@@ -31,6 +32,12 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
+// Helper: check if a token looks like a real JWT (3 dot-separated parts)
+function isRealJwt(token: string | null): boolean {
+  if (!token) return false;
+  return token.split('.').length === 3;
+}
+
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -38,23 +45,20 @@ api.interceptors.response.use(
     const url = originalRequest?.url || '';
     const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/refresh');
 
-    // Check if using a local/demo token (not a real JWT)
-    const stored = localStorage.getItem('ubp-auth');
-    let isLocalToken = false;
-    if (stored) {
-      try {
-        const { state } = JSON.parse(stored);
-        // Local tokens start with 'id_' (from createId), real JWTs start with 'eyJ'
-        isLocalToken = state?.accessToken && !state.accessToken.startsWith('eyJ');
-      } catch {}
-    }
-
-    // Don't attempt refresh for local tokens or auth endpoints — just reject silently
-    if (isLocalToken || isAuthEndpoint) {
+    if (isAuthEndpoint) {
       return Promise.reject(error);
     }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      const current = JSON.parse(localStorage.getItem('ubp-auth') || '{}');
+      const currentToken = current.state?.accessToken;
+
+      // If the token is not a real JWT (e.g. local/demo token), don't try refresh
+      // and don't auto-logout — just reject silently
+      if (!isRealJwt(currentToken)) {
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({
@@ -71,15 +75,12 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const current = JSON.parse(localStorage.getItem('ubp-auth') || '{}');
         const res = await axios.post(`${API_BASE}/auth/refresh`, {
           refreshToken: current.state?.refreshToken,
         });
         const { accessToken, refreshToken } = res.data;
-
         current.state = { ...current.state, accessToken, refreshToken };
         localStorage.setItem('ubp-auth', JSON.stringify(current));
-
         processQueue(null, accessToken);
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
