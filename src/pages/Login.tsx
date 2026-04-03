@@ -26,19 +26,8 @@ export default function Login() {
     if (!email || !password) return toast.error('Please fill in all fields');
     setLoading(true);
     try {
-      let data: any;
-      try {
-        const res = await api.post('/auth/login', { email, password });
-        data = res.data;
-      } catch (apiErr: any) {
-        // Only fallback to local service for org admin accounts, not backend-only accounts
-        try {
-          data = await saLocalService.authenticateOrganizationAdmin(email, password);
-        } catch {
-          // If local also fails, show the original API error
-          throw new Error(apiErr?.response?.data?.message || apiErr?.message || 'Invalid credentials');
-        }
-      }
+      const res = await api.post('/auth/login', { email, password });
+      const data = res.data;
       setAuth(data);
       toast.success(`Welcome back, ${data.user?.full_name || 'User'}!`);
       setTimeout(() => {
