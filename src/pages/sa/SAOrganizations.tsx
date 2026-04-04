@@ -87,6 +87,12 @@ export default function SAOrganizations() {
     onError: (e: any) => toast.error(e.message || 'Action failed'),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => saLocalService.deleteOrganization(id),
+    onSuccess: async () => { await invalidateSAQueries(); toast.success('Organization deleted'); },
+    onError: (e: any) => toast.error(e.message || 'Delete failed'),
+  });
+
   const resetCreateForm = () => {
     setShowCreate(false);
     setForm({
