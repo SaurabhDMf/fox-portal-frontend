@@ -341,6 +341,23 @@ export const saLocalService = {
     return updated.find((org) => org.id === id)!;
   },
 
+  async deleteOrganization(id: string) {
+    const orgs = getOrganizationsFromStorage();
+    const existing = orgs.find((org) => org.id === id);
+    if (!existing) throw new Error('Organization not found');
+
+    saveOrganizationsToStorage(orgs.filter((org) => org.id !== id));
+    pushAuditLog({
+      action: 'organization_deleted',
+      actor_name: 'Super Admin',
+      actor_email: 'superadmin@foxportal.app',
+      organization_name: existing.name,
+      details: `Organization "${existing.name}" was permanently deleted.`,
+    });
+
+    return { success: true };
+  },
+
   async organizationAction(id: string, action: 'suspend' | 'activate') {
     const orgs = getOrganizationsFromStorage();
     const existing = orgs.find((org) => org.id === id);

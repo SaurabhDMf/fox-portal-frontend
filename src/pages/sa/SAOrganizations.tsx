@@ -1,7 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { saLocalService } from '@/lib/saLocalService';
 import { useState } from 'react';
-import { Building2, Plus, Search, Users, FileText, X, Key, RefreshCw, Pencil, Eye, Copy, Check } from 'lucide-react';
+import { Building2, Plus, Search, Users, FileText, X, Key, RefreshCw, Pencil, Eye, Copy, Check, Trash2 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import toast from 'react-hot-toast';
 
 const plans = [
@@ -83,6 +87,12 @@ export default function SAOrganizations() {
     onError: (e: any) => toast.error(e.message || 'Action failed'),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => saLocalService.deleteOrganization(id),
+    onSuccess: async () => { await invalidateSAQueries(); toast.success('Organization deleted'); },
+    onError: (e: any) => toast.error(e.message || 'Delete failed'),
+  });
+
   const resetCreateForm = () => {
     setShowCreate(false);
     setForm({
@@ -152,6 +162,30 @@ export default function SAOrganizations() {
                   <button onClick={() => openEdit(org)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete "{org.name}"?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete this organization and all associated data. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteMut.mutate(org.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
