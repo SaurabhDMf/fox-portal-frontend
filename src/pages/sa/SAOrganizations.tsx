@@ -234,18 +234,8 @@ export default function SAOrganizations() {
                 <input placeholder="John Doe" value={form.admin_name} onChange={e => setForm(f => ({ ...f, admin_name: e.target.value }))} className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>Generated Password</label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input readOnly value={form.password} className={`${inputClass} pr-10 font-mono text-xs`} />
-                    <button onClick={() => handleCopy(form.password, 'password')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted transition-colors">
-                      {copiedField === 'password' ? <Check className="h-3.5 w-3.5 text-[hsl(var(--success))]" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
-                    </button>
-                  </div>
-                  <button onClick={() => setForm(f => ({ ...f, password: generatePassword() }))} className="px-3 py-2 rounded-lg bg-secondary border border-border hover:bg-muted transition-colors" title="Regenerate">
-                    <RefreshCw className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </div>
+                <label className={labelClass}>Password *</label>
+                <input type="password" placeholder="Enter password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputClass} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
