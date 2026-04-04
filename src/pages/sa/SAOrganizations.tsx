@@ -1,7 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { saLocalService } from '@/lib/saLocalService';
 import { useState } from 'react';
-import { Building2, Plus, Search, Users, FileText, X, Key, RefreshCw, Pencil, Eye, Copy, Check } from 'lucide-react';
+import { Building2, Plus, Search, Users, FileText, X, Key, RefreshCw, Pencil, Eye, Copy, Check, Trash2 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import toast from 'react-hot-toast';
 
 const plans = [
