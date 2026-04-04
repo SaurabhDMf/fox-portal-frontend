@@ -43,7 +43,7 @@ export default function SAOrganizations() {
   const [viewOrg, setViewOrg] = useState<any>(null);
   const [copiedField, setCopiedField] = useState('');
   const [form, setForm] = useState({
-    name: '', admin_email: '', admin_name: '', password: generatePassword(),
+    name: '', admin_email: '', admin_name: '', password: '',
     role: 'admin', plan: 'trial', industry: '', seats: '10', license_key: generateLicenseKey(),
   });
   const [editForm, setEditForm] = useState({
