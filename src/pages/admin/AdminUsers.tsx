@@ -291,12 +291,16 @@ export default function AdminUsers() {
       {/* Add User Modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-2xl p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
+          <div className="glass-card w-full max-w-md p-6 space-y-4 animate-slide-up">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Add New User</h2>
               <button onClick={() => setShowAdd(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
             </div>
-            {renderFormFields()}
+            <div className="space-y-3">
+              <div><label className={labelCls}>Full Name *</label><input placeholder="Enter full name" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} className={inputCls} /></div>
+              <div><label className={labelCls}>Email *</label><input type="email" placeholder="Enter email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={inputCls} /></div>
+              <div><label className={labelCls}>Password *</label><input type="password" placeholder="Set password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputCls} /></div>
+            </div>
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={() => setShowAdd(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
               <button onClick={() => createMut.mutate(form)} disabled={createMut.isPending || !form.full_name || !form.email || !form.password} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
