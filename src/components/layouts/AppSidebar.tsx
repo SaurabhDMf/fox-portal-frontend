@@ -54,6 +54,7 @@ const portalNav: NavItem[] = [
 
 function getNavItems(role: string): NavItem[] {
   switch (role) {
+    case 'super_admin':
     case 'admin':
     case 'sales_manager':
     case 'sales_rep': return adminNav;
