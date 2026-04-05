@@ -2,9 +2,9 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useSidebarCollapsed } from './PortalLayout';
 import {
-  LayoutDashboard, Users, Building2, CreditCard, MessageSquare, FolderKanban,
+  LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
-  ChevronLeft, LogOut, ListChecks, Activity, BookOpen, X
+  ChevronLeft, LogOut, ListChecks, BookOpen, X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
