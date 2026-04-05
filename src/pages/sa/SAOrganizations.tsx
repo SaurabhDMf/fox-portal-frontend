@@ -63,7 +63,7 @@ export default function SAOrganizations() {
 
   const { data: orgs = [], isLoading } = useQuery({
     queryKey: ['sa-orgs', search],
-    queryFn: () => saLocalService.getOrganizations(search),
+    queryFn: () => api.get('/sa/organizations', { params: search ? { search } : {} }).then(r => r.data?.organizations ?? r.data ?? []),
   });
 
   const createMut = useMutation({
@@ -84,9 +84,9 @@ export default function SAOrganizations() {
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => saLocalService.updateOrganization(id, data),
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.patch(`/sa/organizations/${id}`, data).then(r => r.data),
     onSuccess: async () => { await invalidateSAQueries(); setEditOrg(null); toast.success('Organization updated'); },
-    onError: (e: any) => toast.error(e.message || 'Error updating'),
+    onError: (e: any) => toast.error(e?.response?.data?.error || e.message || 'Error updating'),
   });
 
   const actionMut = useMutation({
