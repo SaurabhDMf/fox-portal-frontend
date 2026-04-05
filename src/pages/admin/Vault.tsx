@@ -100,9 +100,11 @@ export default function Vault() {
           <button onClick={() => setShowCreateFolder(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 active:scale-[0.97] transition-all border border-border">
             <FolderPlus className="h-4 w-4" /> New Folder
           </button>
-          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-4 w-4" /> Add Credential
-          </button>
+          {perm.canCreate && (
+            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+              <Plus className="h-4 w-4" /> Add Credential
+            </button>
+          )}
         </div>
       </div>
 

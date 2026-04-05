@@ -238,9 +238,11 @@ export default function CRM() {
             <button onClick={() => setView('list')} className={`p-2 ${view === 'list' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`} title="List View"><List className="h-4 w-4" /></button>
             <button onClick={() => setView('kanban')} className={`p-2 ${view === 'kanban' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`} title="Kanban View"><LayoutGrid className="h-4 w-4" /></button>
           </div>
-          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-4 w-4" /> New Lead
-          </button>
+          {perm.canCreate && (
+            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+              <Plus className="h-4 w-4" /> New Lead
+            </button>
+          )}
         </div>
       </div>
 
@@ -319,7 +321,7 @@ export default function CRM() {
               {leadsArr.length === 0 && !isLoading && (
                 <tr><td colSpan={10} className="p-12 text-center">
                   <div className="text-muted-foreground text-sm mb-3">No leads found</div>
-                  <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first lead →</button>
+                  {perm.canCreate && <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first lead →</button>}
                 </td></tr>
               )}
             </tbody>
