@@ -5,6 +5,7 @@ import { Plus, X, Send, Trash2, DollarSign, CheckCircle, Clock, AlertTriangle } 
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
 import { useModulePermission } from '@/hooks/usePermission';
+import { dummyInvoices } from '@/lib/dummyData';
 
 const statusTabs = ['All', 'Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled'];
 
@@ -41,8 +42,9 @@ export default function Invoicing() {
     queryFn: () => api.get('/clients').then(r => r.data?.clients || r.data || []),
   });
 
-  const invoices = data?.invoices || (Array.isArray(data) ? data : []);
-  const stats = data?.stats || {};
+  const rawInvoices = data?.invoices || (Array.isArray(data) ? data : []);
+  const invoices = (Array.isArray(rawInvoices) && rawInvoices.length > 0) ? rawInvoices : dummyInvoices;
+  const stats = data?.stats || { total_billed: 155500, collected: 80000, outstanding: 67000, overdue: 8500 };
   const clientsArr = Array.isArray(clients) ? clients : [];
 
   const createMut = useMutation({

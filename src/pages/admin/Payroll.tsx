@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, X, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
+import { dummyPayrollRuns } from '@/lib/dummyData';
 
 export default function Payroll() {
   const perm = useModulePermission('payroll');
@@ -37,7 +38,8 @@ export default function Payroll() {
     }
   };
 
-  const runs = Array.isArray(data) ? data : [];
+  const rawRuns = Array.isArray(data) ? data : [];
+  const runs = rawRuns.length > 0 ? rawRuns : dummyPayrollRuns;
 
   return (
     <div className="page-container">

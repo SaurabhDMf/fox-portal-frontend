@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useModulePermission } from '@/hooks/usePermission';
 import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, Check, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { dummyLeads } from '@/lib/dummyData';
 
 const defaultStatuses = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Closed Won', 'Closed Lost'];
 const defaultPurposes = ['Web Development', 'Mobile App', 'UI/UX Design', 'SEO', 'Digital Marketing', 'Consulting', 'Other'];
@@ -247,7 +248,8 @@ export default function CRM() {
     setShowEdit(lead);
   };
 
-  const leadsArr = Array.isArray(leads) ? leads : [];
+  const rawLeads = Array.isArray(leads) ? leads : [];
+  const leadsArr = rawLeads.length > 0 ? rawLeads : dummyLeads;
   const apiUsers = Array.isArray(users) ? users : [];
   const usersArr = apiUsers.length > 0 ? apiUsers : fallbackUsers;
   const presalesUsers = usersArr;

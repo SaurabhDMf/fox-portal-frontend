@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
+import { dummyClients } from '@/lib/dummyData';
 
 const types = ['All', 'VIP', 'Active', 'New', 'At-Risk'];
 const industries = ['Technology', 'Healthcare', 'Finance', 'Education', 'Retail', 'Manufacturing', 'Services', 'Other'];
@@ -34,7 +35,8 @@ export default function Clients() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
-  const clients = Array.isArray(data) ? data : [];
+  const rawClients = Array.isArray(data) ? data : [];
+  const clients = rawClients.length > 0 ? rawClients : dummyClients;
   const usersArr = Array.isArray(users) ? users : [];
 
   return (

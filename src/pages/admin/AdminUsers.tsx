@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
+import { dummyUsers } from '@/lib/dummyData';
 
 const roles = [
   { value: 'admin', label: 'Admin' },
@@ -84,7 +85,8 @@ export default function AdminUsers() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error setting target'),
   });
 
-  const allUsers = Array.isArray(data) ? data : [];
+  const rawUsers = Array.isArray(data) ? data : [];
+  const allUsers = rawUsers.length > 0 ? rawUsers : dummyUsers;
   const users = allUsers.filter((u: any) => {
     if (tab === 'All') return true;
     if (tab === 'Active') return u.status === 'active';

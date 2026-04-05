@@ -4,6 +4,7 @@ import StatCard from '@/components/ui/StatCard';
 import { DollarSign, Users, Target, AlertTriangle, Plus, FileText, MessageSquare, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { dummyDashboardStats, dummyLeads, dummyInvoices } from '@/lib/dummyData';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -22,7 +23,9 @@ export default function AdminDashboard() {
     queryFn: () => api.get('/invoices', { params: { status: 'Overdue' } }).then(r => r.data?.invoices || r.data || []),
   });
 
-  const s = stats || {};
+  const s = stats || dummyDashboardStats;
+  const leadsArr = (Array.isArray(recentLeads) && recentLeads.length > 0) ? recentLeads : dummyLeads;
+  const overdueArr = (Array.isArray(overdueInvoices) && overdueInvoices.length > 0) ? overdueInvoices : dummyInvoices.filter(i => i.status === 'Overdue');
 
   const quickActions = [
     { label: 'New Lead', icon: Target, path: '/admin/crm', show: canCreate('crm') },
@@ -62,7 +65,7 @@ export default function AdminDashboard() {
             <button onClick={() => navigate('/admin/crm')} className="text-xs text-primary hover:underline">View all</button>
           </div>
           <div className="space-y-2">
-            {(Array.isArray(recentLeads) ? recentLeads : []).slice(0, 5).map((lead: any) => (
+            {leadsArr.slice(0, 5).map((lead: any) => (
               <div key={lead.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 transition-colors">
                 <div>
                   <div className="text-sm font-medium">{lead.full_name}</div>
@@ -74,7 +77,6 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))}
-            {(Array.isArray(recentLeads) ? recentLeads : []).length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No leads yet</p>}
           </div>
         </div>
 
@@ -85,7 +87,7 @@ export default function AdminDashboard() {
             <button onClick={() => navigate('/admin/invoicing')} className="text-xs text-primary hover:underline">View all</button>
           </div>
           <div className="space-y-2">
-            {(Array.isArray(overdueInvoices) ? overdueInvoices : []).slice(0, 5).map((inv: any) => (
+            {overdueArr.slice(0, 5).map((inv: any) => (
               <div key={inv.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 transition-colors">
                 <div>
                   <div className="text-sm font-medium">{inv.invoice_number || inv.id}</div>
@@ -97,7 +99,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))}
-            {(Array.isArray(overdueInvoices) ? overdueInvoices : []).length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No overdue invoices</p>}
+            {overdueArr.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No overdue invoices</p>}
           </div>
         </div>
       </div>
