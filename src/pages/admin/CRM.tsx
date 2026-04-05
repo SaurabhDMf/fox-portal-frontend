@@ -194,9 +194,17 @@ export default function CRM() {
     }),
   });
 
+  const fallbackUsers = [
+    { id: 'presales-1', full_name: 'Riya Sharma', role: 'presales' },
+    { id: 'presales-2', full_name: 'Amit Verma', role: 'presales' },
+    { id: 'sm-1', full_name: 'Neha Kapoor', role: 'sales_manager' },
+    { id: 'sm-2', full_name: 'Rahul Mehta', role: 'sales_manager' },
+    { id: 'sr-1', full_name: 'Priya Singh', role: 'sales_rep' },
+  ];
+
   const { data: users = [] } = useQuery({
     queryKey: ['users-list'],
-    queryFn: () => api.get('/users').then(r => r.data?.users || r.data || []),
+    queryFn: () => api.get('/users').then(r => r.data?.users || r.data || []).catch(() => []),
   });
 
   const createMut = useMutation({
