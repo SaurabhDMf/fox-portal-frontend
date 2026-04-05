@@ -100,8 +100,8 @@ export default function SAOrganizations() {
   const resetCreateForm = () => {
     setShowCreate(false);
     setForm({
-      name: '', admin_email: '', admin_name: '', password: '',
-      role: 'admin', plan: 'trial', industry: '', seats: '10', license_key: generateLicenseKey(),
+      name: '', owner_email: '', owner_name: '', password: '',
+      industry: '', size: '1-10',
     });
   };
 
