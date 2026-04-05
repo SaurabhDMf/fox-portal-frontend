@@ -37,15 +37,15 @@ export default function AdminUsers() {
     queryFn: () => api.get('/users', { params: { search } }).then(r => r.data?.users || r.data || []),
   });
 
-  const addMut = useMutation({
-    mutationFn: (d: typeof form) => api.post('/users', d),
+  const inviteMut = useMutation({
+    mutationFn: (d: typeof form) => api.post('/users/invite', d),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
       setShowAdd(false);
       setForm({ ...emptyForm });
-      toast.success('User added successfully');
+      toast.success('User invited successfully');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+    onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error inviting user'),
   });
 
   const editMut = useMutation({
@@ -59,15 +59,15 @@ export default function AdminUsers() {
   });
 
   const targetMut = useMutation({
-    mutationFn: (d: { user_id: string; month: string; target_amount: number }) =>
-      api.post('/users/sales-target', d),
+    mutationFn: (d: { id: string; monthly_target: number }) =>
+      api.put(`/users/${d.id}`, { monthly_target: d.monthly_target }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
       setShowTarget(null);
       setTargetAmount('');
-      toast.success('Sales target set');
+      toast.success('Sales target set successfully');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error setting target'),
   });
 
   const allUsers = Array.isArray(data) ? data : [];
@@ -107,7 +107,7 @@ export default function AdminUsers() {
 
   const openTarget = (u: any) => {
     setShowTarget(u);
-    setTargetAmount(u.sales_target?.toString() || '');
+    setTargetAmount(u.monthly_target?.toString() || u.sales_target?.toString() || '');
   };
 
   const inputCls = "w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
@@ -185,7 +185,7 @@ export default function AdminUsers() {
       <div className="page-header">
         <div><h1 className="page-title">Team & Users</h1><p className="page-subtitle">Manage your employees</p></div>
         <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-          <Plus className="h-4 w-4" /> Add User
+          <Plus className="h-4 w-4" /> Invite User
         </button>
       </div>
 
@@ -254,8 +254,8 @@ export default function AdminUsers() {
                 <td className="p-4 text-muted-foreground">{u.job_title || '—'}</td>
                 <td className="p-4 text-muted-foreground">{u.employment_type || '—'}</td>
                 <td className="p-4">
-                  {u.sales_target ? (
-                    <span className="text-sm font-medium">${Number(u.sales_target).toLocaleString()}</span>
+                  {(u.monthly_target || u.sales_target) ? (
+                    <span className="text-sm font-medium">${Number(u.monthly_target || u.sales_target).toLocaleString()}</span>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
@@ -267,39 +267,36 @@ export default function AdminUsers() {
                 </td>
                 <td className="p-4">
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setShowView(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="View">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => openEdit(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Edit">
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => openTarget(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Set Sales Target">
-                      <Target className="h-4 w-4" />
-                    </button>
+                    <button onClick={() => setShowView(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="View"><Eye className="h-4 w-4" /></button>
+                    <button onClick={() => openEdit(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Edit"><Pencil className="h-4 w-4" /></button>
+                    <button onClick={() => openTarget(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Set Sales Target"><Target className="h-4 w-4" /></button>
                   </div>
                 </td>
               </tr>
             ))}
             {users.length === 0 && !isLoading && (
-              <tr><td colSpan={8} className="p-8 text-center text-muted-foreground text-sm">No users found</td></tr>
+              <tr><td colSpan={8} className="p-12 text-center">
+                <div className="text-muted-foreground text-sm mb-3">No users found</div>
+                <button onClick={openAdd} className="text-sm text-primary hover:underline">Invite your first team member →</button>
+              </td></tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {/* Add User Modal */}
+      {/* Invite User Modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-2xl p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Add New User</h2>
+              <h2 className="text-lg font-semibold">Invite New User</h2>
               <button onClick={() => setShowAdd(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
             </div>
             {renderFormFields()}
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={() => setShowAdd(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
-              <button onClick={() => addMut.mutate(form)} disabled={addMut.isPending || !form.full_name || !form.email} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-                {addMut.isPending ? 'Adding...' : 'Add User'}
+              <button onClick={() => inviteMut.mutate(form)} disabled={inviteMut.isPending || !form.full_name || !form.email} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {inviteMut.isPending ? 'Inviting...' : 'Invite User'}
               </button>
             </div>
           </div>
@@ -341,17 +338,17 @@ export default function AdminUsers() {
               </div>
             </div>
             <div>
-              <label className={labelCls}>Month</label>
+              <label className={labelCls}>Target Period</label>
               <input type="month" value={targetMonth} onChange={e => setTargetMonth(e.target.value)} className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Target Amount ($)</label>
+              <label className={labelCls}>Monthly Sales Target ($)</label>
               <input type="number" placeholder="e.g. 50000" value={targetAmount} onChange={e => setTargetAmount(e.target.value)} className={inputCls} min="0" />
             </div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowTarget(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
               <button
-                onClick={() => targetMut.mutate({ user_id: showTarget.id, month: targetMonth, target_amount: Number(targetAmount) })}
+                onClick={() => targetMut.mutate({ id: showTarget.id, monthly_target: Number(targetAmount) })}
                 disabled={targetMut.isPending || !targetAmount}
                 className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
               >
@@ -369,9 +366,7 @@ export default function AdminUsers() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">User Details</h2>
               <div className="flex items-center gap-2">
-                <button onClick={() => { setShowView(null); openEdit(showView); }} className="flex items-center gap-1.5 text-xs text-primary hover:underline">
-                  <Pencil className="h-3.5 w-3.5" /> Edit
-                </button>
+                <button onClick={() => { setShowView(null); openEdit(showView); }} className="flex items-center gap-1.5 text-xs text-primary hover:underline"><Pencil className="h-3.5 w-3.5" /> Edit</button>
                 <button onClick={() => setShowView(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
               </div>
             </div>
@@ -392,7 +387,7 @@ export default function AdminUsers() {
                   <div><span className="text-xs text-muted-foreground">Job Title</span><p className="text-sm font-medium">{showView.job_title || '—'}</p></div>
                   <div><span className="text-xs text-muted-foreground">Employment Type</span><p className="text-sm font-medium">{showView.employment_type || '—'}</p></div>
                   <div><span className="text-xs text-muted-foreground">Date of Joining</span><p className="text-sm font-medium">{showView.date_of_joining ? new Date(showView.date_of_joining).toLocaleDateString() : '—'}</p></div>
-                  <div><span className="text-xs text-muted-foreground">Sales Target</span><p className="text-sm font-medium">{showView.sales_target ? `$${Number(showView.sales_target).toLocaleString()}` : '—'}</p></div>
+                  <div><span className="text-xs text-muted-foreground">Sales Target</span><p className="text-sm font-medium">{(showView.monthly_target || showView.sales_target) ? `$${Number(showView.monthly_target || showView.sales_target).toLocaleString()}` : '—'}</p></div>
                 </div>
               </div>
               <div className="glass-card p-4 space-y-3">

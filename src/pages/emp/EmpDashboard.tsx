@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import StatCard from '@/components/ui/StatCard';
 import { useAuthStore } from '@/stores/authStore';
-import { ListChecks, Clock, Calendar, Wallet, ArrowUpRight, ArrowDownRight, Target, TrendingUp } from 'lucide-react';
+import { ListChecks, Clock, Calendar, Wallet, ArrowUpRight, ArrowDownRight, Target } from 'lucide-react';
 
 export default function EmpDashboard() {
   const user = useAuthStore(s => s.user);
@@ -18,9 +18,9 @@ export default function EmpDashboard() {
     queryFn: () => api.get('/tasks', { params: { assignee_id: user?.id, status: 'In Progress' } }).then(r => r.data?.tasks || r.data || []),
   });
 
-  const { data: salesData } = useQuery({
-    queryKey: ['my-sales-target'],
-    queryFn: () => api.get('/users/my-sales-target').then(r => r.data),
+  const { data: perfData } = useQuery({
+    queryKey: ['my-performance'],
+    queryFn: () => api.get('/dashboard/my-performance').then(r => r.data),
   });
 
   const checkInMut = useMutation({
@@ -34,11 +34,16 @@ export default function EmpDashboard() {
 
   const s = summary || {};
   const tasksArr = Array.isArray(tasks) ? tasks : [];
-  const sales = salesData || {};
-  const targetAmount = Number(sales.target_amount || 0);
-  const achievedAmount = Number(sales.achieved_amount || 0);
-  const pendingAmount = targetAmount - achievedAmount;
+  const perf = perfData || {};
+  const targetAmount = Number(perf.monthly_target || 0);
+  const achievedAmount = Number(perf.achieved || 0);
+  const remainingAmount = Math.max(0, targetAmount - achievedAmount);
   const progressPct = targetAmount > 0 ? Math.min(100, Math.round((achievedAmount / targetAmount) * 100)) : 0;
+
+  // Calculate days remaining in current month
+  const now = new Date();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysRemaining = lastDay - now.getDate();
 
   return (
     <div className="page-container">
@@ -53,27 +58,27 @@ export default function EmpDashboard() {
         <StatCard label="Next Pay Date" value={s.next_pay_date ? new Date(s.next_pay_date).toLocaleDateString() : '—'} icon={Wallet} iconColor="text-warning" />
       </div>
 
-      {/* Sales Target Section */}
+      {/* Sales Target Progress */}
       {targetAmount > 0 && (
         <div className="glass-card p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> Monthly Sales Target</h2>
-            <span className="text-xs text-muted-foreground">{sales.month || 'This Month'}</span>
+            <span className="text-xs text-muted-foreground">{daysRemaining} days remaining</span>
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold">${targetAmount.toLocaleString()}</div>
-              <div className="text-xs text-muted-foreground">Target</div>
+              <div className="text-xs text-muted-foreground">Monthly Target</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-[hsl(var(--success))]">${achievedAmount.toLocaleString()}</div>
-              <div className="text-xs text-muted-foreground">Achieved</div>
+              <div className="text-xs text-muted-foreground">Achieved ({progressPct}%)</div>
             </div>
             <div className="text-center">
-              <div className={`text-2xl font-bold ${pendingAmount > 0 ? 'text-[hsl(var(--warning))]' : 'text-[hsl(var(--success))]'}`}>
-                ${Math.max(0, pendingAmount).toLocaleString()}
+              <div className={`text-2xl font-bold ${remainingAmount > 0 ? 'text-[hsl(var(--warning))]' : 'text-[hsl(var(--success))]'}`}>
+                ${remainingAmount.toLocaleString()}
               </div>
-              <div className="text-xs text-muted-foreground">Pending</div>
+              <div className="text-xs text-muted-foreground">Remaining</div>
             </div>
           </div>
           <div className="space-y-1">
@@ -83,7 +88,12 @@ export default function EmpDashboard() {
             </div>
             <div className="w-full h-3 bg-secondary rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${progressPct >= 100 ? 'bg-[hsl(var(--success))]' : progressPct >= 50 ? 'bg-primary' : 'bg-[hsl(var(--warning))]'}`}
+                className={`h-full rounded-full transition-all ${
+                  progressPct >= 100 ? 'bg-[hsl(var(--success))]' :
+                  progressPct >= 75 ? 'bg-primary' :
+                  progressPct >= 50 ? 'bg-[hsl(var(--warning))]' :
+                  'bg-destructive'
+                }`}
                 style={{ width: `${progressPct}%` }}
               />
             </div>

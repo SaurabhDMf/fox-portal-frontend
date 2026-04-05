@@ -1,37 +1,104 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
-import { Plus, Search, List, LayoutGrid, X, Calendar } from 'lucide-react';
+import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const statuses = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Closed Won', 'Closed Lost'];
+const defaultStatuses = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Closed Won', 'Closed Lost'];
 const defaultPurposes = ['Web Development', 'Mobile App', 'UI/UX Design', 'SEO', 'Digital Marketing', 'Consulting', 'Other'];
 
 const countries = [
   'India', 'United States', 'United Kingdom', 'Canada', 'Australia',
-  'Germany', 'France', 'UAE', 'Singapore', 'Other',
+  'Germany', 'France', 'UAE', 'Singapore', 'Saudi Arabia', 'Qatar',
+  'Bahrain', 'Kuwait', 'Oman', 'Other',
 ];
 
 function isStale(lead: any): boolean {
   if (!lead.created_at) return false;
-  if (lead.status !== 'New') return false;
+  if (lead.status && lead.status !== 'New') return false;
   const created = new Date(lead.created_at);
   const today = new Date();
   return created.toDateString() !== today.toDateString();
 }
 
+function useCustomFields(userId: string | undefined) {
+  const storageKey = `crm-custom-fields-${userId || 'default'}`;
+
+  const { data: remoteFields } = useQuery({
+    queryKey: ['custom-fields', userId],
+    queryFn: () => api.get('/leads/custom-fields').then(r => r.data).catch(() => null),
+    enabled: !!userId,
+    retry: false,
+  });
+
+  const getLocal = (): { statuses: string[]; purposes: string[] } => {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return { statuses: [], purposes: [] };
+  };
+
+  const [local, setLocal] = useState(getLocal);
+
+  useEffect(() => {
+    if (remoteFields) {
+      const merged = {
+        statuses: remoteFields.statuses || [],
+        purposes: remoteFields.purposes || [],
+      };
+      setLocal(merged);
+      localStorage.setItem(storageKey, JSON.stringify(merged));
+    }
+  }, [remoteFields, storageKey]);
+
+  const allStatuses = [...new Set([...defaultStatuses, ...(local.statuses || [])])];
+  const allPurposes = [...new Set([...defaultPurposes, ...(local.purposes || [])])];
+
+  const addStatus = async (value: string) => {
+    if (!value.trim() || allStatuses.includes(value.trim())) return;
+    const updated = { ...local, statuses: [...(local.statuses || []), value.trim()] };
+    setLocal(updated);
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+    try {
+      await api.post('/leads/custom-fields', { type: 'status', value: value.trim() });
+    } catch {}
+  };
+
+  const addPurpose = async (value: string) => {
+    if (!value.trim() || allPurposes.includes(value.trim())) return;
+    const updated = { ...local, purposes: [...(local.purposes || []), value.trim()] };
+    setLocal(updated);
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+    try {
+      await api.post('/leads/custom-fields', { type: 'purpose', value: value.trim() });
+    } catch {}
+  };
+
+  return { allStatuses, allPurposes, addStatus, addPurpose };
+}
+
 export default function CRM() {
   const navigate = useNavigate();
+  const user = useAuthStore(s => s.user);
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
+  const [assignedFilter, setAssignedFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showDelete, setShowDelete] = useState<string | null>(null);
+  const [newStatusInput, setNewStatusInput] = useState('');
+  const [newPurposeInput, setNewPurposeInput] = useState('');
+  const [showAddStatus, setShowAddStatus] = useState(false);
+  const [showAddPurpose, setShowAddPurpose] = useState(false);
   const qc = useQueryClient();
+
+  const { allStatuses, allPurposes, addStatus, addPurpose } = useCustomFields(user?.id);
 
   const [form, setForm] = useState({
     full_name: '', email: '', phone: '', country: '', purpose: '',
@@ -39,12 +106,13 @@ export default function CRM() {
   });
 
   const { data: leads = [], isLoading } = useQuery({
-    queryKey: ['leads', search, statusFilter, countryFilter, dateFrom, dateTo],
+    queryKey: ['leads', search, statusFilter, countryFilter, assignedFilter, dateFrom, dateTo],
     queryFn: () => api.get('/leads', {
       params: {
         search: search || undefined,
         status: statusFilter || undefined,
         country: countryFilter || undefined,
+        assigned_to: assignedFilter || undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
       },
@@ -62,9 +130,19 @@ export default function CRM() {
       qc.invalidateQueries({ queryKey: ['leads'] });
       setShowCreate(false);
       setForm({ full_name: '', email: '', phone: '', country: '', purpose: '', status: 'New', assigned_to: '', notes: '' });
-      toast.success('Lead created');
+      toast.success('Lead created successfully');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+    onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error creating lead'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api.delete(`/leads/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      setShowDelete(null);
+      toast.success('Lead deleted');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting lead'),
   });
 
   const leadsArr = Array.isArray(leads) ? leads : [];
@@ -72,14 +150,32 @@ export default function CRM() {
 
   const inputCls = "px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
+  const handleAddStatus = () => {
+    if (newStatusInput.trim()) {
+      addStatus(newStatusInput.trim());
+      setNewStatusInput('');
+      setShowAddStatus(false);
+      toast.success(`Status "${newStatusInput.trim()}" added`);
+    }
+  };
+
+  const handleAddPurpose = () => {
+    if (newPurposeInput.trim()) {
+      addPurpose(newPurposeInput.trim());
+      setNewPurposeInput('');
+      setShowAddPurpose(false);
+      toast.success(`Purpose "${newPurposeInput.trim()}" added`);
+    }
+  };
+
   return (
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Sales CRM</h1><p className="page-subtitle">Manage your sales pipeline</p></div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg overflow-hidden border border-border">
-            <button onClick={() => setView('list')} className={`p-2 ${view === 'list' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`}><List className="h-4 w-4" /></button>
-            <button onClick={() => setView('kanban')} className={`p-2 ${view === 'kanban' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`}><LayoutGrid className="h-4 w-4" /></button>
+            <button onClick={() => setView('list')} className={`p-2 ${view === 'list' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`} title="List View"><List className="h-4 w-4" /></button>
+            <button onClick={() => setView('kanban')} className={`p-2 ${view === 'kanban' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`} title="Kanban View"><LayoutGrid className="h-4 w-4" /></button>
           </div>
           <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
             <Plus className="h-4 w-4" /> New Lead
@@ -89,7 +185,7 @@ export default function CRM() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search leads..." className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
         </div>
@@ -97,19 +193,20 @@ export default function CRM() {
           <option value="">All Countries</option>
           {countries.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={inputCls}>
+          <option value="">All Statuses</option>
+          {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={assignedFilter} onChange={e => setAssignedFilter(e.target.value)} className={inputCls}>
+          <option value="">All Assigned</option>
+          {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+        </select>
         <div className="flex items-center gap-1.5">
           <Calendar className="h-4 w-4 text-muted-foreground" />
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={`${inputCls} w-36`} placeholder="From" />
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={`${inputCls} w-36`} title="From Date" />
           <span className="text-muted-foreground text-xs">to</span>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={`${inputCls} w-36`} placeholder="To" />
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={`${inputCls} w-36`} title="To Date" />
         </div>
-      </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        <button onClick={() => setStatusFilter('')} className={`text-xs px-3 py-1.5 rounded-full transition-colors ${!statusFilter ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>All</button>
-        {statuses.map(s => (
-          <button key={s} onClick={() => setStatusFilter(s)} className={`text-xs px-3 py-1.5 rounded-full transition-colors ${statusFilter === s ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>{s}</button>
-        ))}
       </div>
 
       {/* List View */}
@@ -127,33 +224,42 @@ export default function CRM() {
                 <th className="p-4">Status</th>
                 <th className="p-4">Added By</th>
                 <th className="p-4">Assigned To</th>
+                <th className="p-4">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={9} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
+              {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={10} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
               leadsArr.map((lead: any) => {
                 const stale = isStale(lead);
                 return (
-                  <tr key={lead.id} onClick={() => navigate(`/admin/crm/${lead.id}`)}
+                  <tr key={lead.id}
                     className={`border-b border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer ${stale ? 'bg-destructive/5' : ''}`}>
-                    <td className={`p-4 text-muted-foreground ${stale ? 'text-destructive font-medium' : ''}`}>
+                    <td className={`p-4 text-muted-foreground ${stale ? 'text-destructive font-medium' : ''}`} onClick={() => navigate(`/admin/crm/${lead.id}`)}>
                       {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—'}
                     </td>
-                    <td className={`p-4 font-medium ${stale ? 'text-destructive' : ''}`}>{lead.full_name}</td>
-                    <td className="p-4 text-muted-foreground">{lead.email || '—'}</td>
-                    <td className="p-4 text-muted-foreground">{lead.phone || '—'}</td>
-                    <td className="p-4 text-muted-foreground">{lead.country || '—'}</td>
-                    <td className="p-4 text-muted-foreground">{lead.purpose || '—'}</td>
-                    <td className="p-4">
+                    <td className={`p-4 font-medium ${stale ? 'text-destructive' : ''}`} onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.full_name}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.email || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.phone || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.country || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.purpose || '—'}</td>
+                    <td className="p-4" onClick={() => navigate(`/admin/crm/${lead.id}`)}>
                       <span className={lead.status === 'Closed Won' ? 'badge-success' : lead.status === 'Closed Lost' ? 'badge-danger' : 'badge-info'}>{lead.status}</span>
                     </td>
-                    <td className="p-4 text-muted-foreground">{lead.lead_by_name || lead.added_by_name || '—'}</td>
-                    <td className="p-4 text-muted-foreground">{lead.assigned_to_name || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.lead_by_name || lead.added_by_name || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.assigned_to_name || '—'}</td>
+                    <td className="p-4">
+                      <button onClick={(e) => { e.stopPropagation(); setShowDelete(lead.id); }} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
               {leadsArr.length === 0 && !isLoading && (
-                <tr><td colSpan={9} className="p-8 text-center text-muted-foreground text-sm">No leads found</td></tr>
+                <tr><td colSpan={10} className="p-12 text-center">
+                  <div className="text-muted-foreground text-sm mb-3">No leads found</div>
+                  <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first lead →</button>
+                </td></tr>
               )}
             </tbody>
           </table>
@@ -163,7 +269,7 @@ export default function CRM() {
       {/* Kanban View */}
       {view === 'kanban' && (
         <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
-          {statuses.map(status => {
+          {allStatuses.map(status => {
             const col = leadsArr.filter((l: any) => l.status === status);
             return (
               <div key={status} className="min-w-[280px] flex-shrink-0">
@@ -179,7 +285,6 @@ export default function CRM() {
                         className={`glass-card-hover p-3 space-y-2 cursor-pointer ${stale ? 'border-destructive/50 bg-destructive/5' : ''}`}>
                         <div className="flex items-start justify-between">
                           <div className={`font-medium text-sm ${stale ? 'text-destructive' : ''}`}>{lead.full_name}</div>
-                          <span className={lead.status === 'Closed Won' ? 'badge-success' : lead.status === 'Closed Lost' ? 'badge-danger' : 'badge-info'}>{lead.status}</span>
                         </div>
                         {lead.purpose && <div className="text-xs text-muted-foreground">{lead.purpose}</div>}
                         {lead.country && <div className="text-xs text-muted-foreground">{lead.country}</div>}
@@ -198,7 +303,7 @@ export default function CRM() {
         </div>
       )}
 
-      {/* Create Modal */}
+      {/* Create Lead Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-lg p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
@@ -214,13 +319,40 @@ export default function CRM() {
                 <option value="">Select Country</option>
                 {countries.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <select value={form.purpose} onChange={e => setForm(f => ({ ...f, purpose: e.target.value }))} className={inputCls}>
-                <option value="">Select Purpose</option>
-                {defaultPurposes.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className={inputCls}>
-                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+
+              {/* Purpose with add custom */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <select value={form.purpose} onChange={e => setForm(f => ({ ...f, purpose: e.target.value }))} className={`flex-1 ${inputCls}`}>
+                    <option value="">Select Purpose</option>
+                    {allPurposes.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                  <button onClick={() => setShowAddPurpose(!showAddPurpose)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground" title="Add custom purpose"><PlusCircle className="h-4 w-4" /></button>
+                </div>
+                {showAddPurpose && (
+                  <div className="flex gap-1">
+                    <input placeholder="New purpose..." value={newPurposeInput} onChange={e => setNewPurposeInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddPurpose()} className={`flex-1 ${inputCls} text-xs`} />
+                    <button onClick={handleAddPurpose} className="px-2 py-1 rounded-lg bg-primary text-primary-foreground text-xs">Add</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Status with add custom */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className={`flex-1 ${inputCls}`}>
+                    {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button onClick={() => setShowAddStatus(!showAddStatus)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground" title="Add custom status"><PlusCircle className="h-4 w-4" /></button>
+                </div>
+                {showAddStatus && (
+                  <div className="flex gap-1">
+                    <input placeholder="New status..." value={newStatusInput} onChange={e => setNewStatusInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddStatus()} className={`flex-1 ${inputCls} text-xs`} />
+                    <button onClick={handleAddStatus} className="px-2 py-1 rounded-lg bg-primary text-primary-foreground text-xs">Add</button>
+                  </div>
+                )}
+              </div>
+
               <select value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))} className={inputCls}>
                 <option value="">Assign To</option>
                 {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
@@ -231,6 +363,22 @@ export default function CRM() {
               <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
               <button onClick={() => createMut.mutate(form)} disabled={createMut.isPending || !form.full_name} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
                 {createMut.isPending ? 'Creating...' : 'Create Lead'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      {showDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold">Delete Lead</h2>
+            <p className="text-sm text-muted-foreground">Are you sure you want to delete this lead? This action cannot be undone.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowDelete(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={() => deleteMut.mutate(showDelete)} disabled={deleteMut.isPending} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {deleteMut.isPending ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
