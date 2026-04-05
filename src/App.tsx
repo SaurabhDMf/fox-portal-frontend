@@ -64,7 +64,7 @@ const App = () => (
         <Route path="/login" element={<Login />} />
 
         {/* Admin Portal */}
-        <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin', 'sales_manager', 'sales_rep']}><PortalLayout /></ProtectedRoute>}>
+        <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'sales_manager', 'sales_rep']}><PortalLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="crm" element={<CRM />} />
           <Route path="crm/:id" element={<LeadDetail />} />
