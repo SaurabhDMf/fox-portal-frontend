@@ -166,7 +166,7 @@ export default function AdminUsers() {
           <div>
             <label className={labelCls}>Employment Type</label>
             <select value={form.employment_type} onChange={e => setForm(f => ({ ...f, employment_type: e.target.value }))} className={inputCls}>
-              {employmentTypes.map(t => <option key={t} value={t}>{t}</option>)}
+              {employmentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
           <div><label className={labelCls}>Date of Joining</label><input type="date" value={form.date_of_joining} onChange={e => setForm(f => ({ ...f, date_of_joining: e.target.value }))} className={inputCls} /></div>
