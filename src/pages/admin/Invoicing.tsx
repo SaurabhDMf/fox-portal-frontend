@@ -5,6 +5,7 @@ import { Plus, X, Send, Trash2, DollarSign, CheckCircle, Clock, AlertTriangle } 
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
 import { useModulePermission } from '@/hooks/usePermission';
+import { dummyInvoices } from '@/lib/dummyData';
 
 const statusTabs = ['All', 'Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled'];
 
