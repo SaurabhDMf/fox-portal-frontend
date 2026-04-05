@@ -1,19 +1,78 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
-import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle } from 'lucide-react';
+import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const defaultStatuses = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Closed Won', 'Closed Lost'];
 const defaultPurposes = ['Web Development', 'Mobile App', 'UI/UX Design', 'SEO', 'Digital Marketing', 'Consulting', 'Other'];
 
 const countries = [
-  'India', 'United States', 'United Kingdom', 'Canada', 'Australia',
-  'Germany', 'France', 'UAE', 'Singapore', 'Saudi Arabia', 'Qatar',
-  'Bahrain', 'Kuwait', 'Oman', 'Other',
+  'Afghanistan','Albania','Algeria','Andorra','Angola','Antigua and Barbuda','Argentina','Armenia','Australia','Austria',
+  'Azerbaijan','Bahamas','Bahrain','Bangladesh','Barbados','Belarus','Belgium','Belize','Benin','Bhutan',
+  'Bolivia','Bosnia and Herzegovina','Botswana','Brazil','Brunei','Bulgaria','Burkina Faso','Burundi','Cabo Verde','Cambodia',
+  'Cameroon','Canada','Central African Republic','Chad','Chile','China','Colombia','Comoros','Congo','Costa Rica',
+  'Croatia','Cuba','Cyprus','Czech Republic','Denmark','Djibouti','Dominica','Dominican Republic','Ecuador','Egypt',
+  'El Salvador','Equatorial Guinea','Eritrea','Estonia','Eswatini','Ethiopia','Fiji','Finland','France','Gabon',
+  'Gambia','Georgia','Germany','Ghana','Greece','Grenada','Guatemala','Guinea','Guinea-Bissau','Guyana',
+  'Haiti','Honduras','Hungary','Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel',
+  'Italy','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kiribati','Kosovo','Kuwait','Kyrgyzstan',
+  'Laos','Latvia','Lebanon','Lesotho','Liberia','Libya','Liechtenstein','Lithuania','Luxembourg','Madagascar',
+  'Malawi','Malaysia','Maldives','Mali','Malta','Marshall Islands','Mauritania','Mauritius','Mexico','Micronesia',
+  'Moldova','Monaco','Mongolia','Montenegro','Morocco','Mozambique','Myanmar','Namibia','Nauru','Nepal',
+  'Netherlands','New Zealand','Nicaragua','Niger','Nigeria','North Korea','North Macedonia','Norway','Oman','Pakistan',
+  'Palau','Palestine','Panama','Papua New Guinea','Paraguay','Peru','Philippines','Poland','Portugal','Qatar',
+  'Romania','Russia','Rwanda','Saint Kitts and Nevis','Saint Lucia','Saint Vincent and the Grenadines','Samoa','San Marino',
+  'Sao Tome and Principe','Saudi Arabia','Senegal','Serbia','Seychelles','Sierra Leone','Singapore','Slovakia','Slovenia',
+  'Solomon Islands','Somalia','South Africa','South Korea','South Sudan','Spain','Sri Lanka','Sudan','Suriname','Sweden',
+  'Switzerland','Syria','Taiwan','Tajikistan','Tanzania','Thailand','Timor-Leste','Togo','Tonga','Trinidad and Tobago',
+  'Tunisia','Turkey','Turkmenistan','Tuvalu','UAE','Uganda','Ukraine','United Kingdom','United States','Uruguay',
+  'Uzbekistan','Vanuatu','Vatican City','Venezuela','Vietnam','Yemen','Zambia','Zimbabwe','Other',
 ];
+
+function SearchableCountrySelect({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = q ? countries.filter(c => c.toLowerCase().includes(q.toLowerCase())) : countries;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen(!open)} className={`${className} flex items-center justify-between w-full text-left`}>
+        <span className={value ? '' : 'text-muted-foreground'}>{value || 'Select Country'}</span>
+        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-hidden">
+          <div className="p-2 border-b border-border">
+            <input autoFocus placeholder="Search country..." value={q} onChange={e => setQ(e.target.value)}
+              className="w-full px-2 py-1.5 rounded bg-secondary border border-border text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
+          </div>
+          <div className="overflow-y-auto max-h-48">
+            <button type="button" onClick={() => { onChange(''); setOpen(false); setQ(''); }}
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-secondary/80 text-muted-foreground">Clear</button>
+            {filtered.map(c => (
+              <button type="button" key={c} onClick={() => { onChange(c); setOpen(false); setQ(''); }}
+                className={`w-full text-left px-3 py-1.5 text-sm hover:bg-secondary/80 flex items-center justify-between ${value === c ? 'bg-primary/10 text-primary' : ''}`}>
+                {c} {value === c && <Check className="h-3 w-3" />}
+              </button>
+            ))}
+            {filtered.length === 0 && <div className="px-3 py-4 text-xs text-muted-foreground text-center">No countries found</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function isStale(lead: any): boolean {
   if (!lead.created_at) return false;
@@ -102,7 +161,7 @@ export default function CRM() {
 
   const [form, setForm] = useState({
     full_name: '', email: '', phone: '', country: '', purpose: '',
-    status: 'New', assigned_to: '', notes: '',
+    status: 'New', assigned_to: '', added_by: '', notes: '',
   });
 
   const { data: leads = [], isLoading } = useQuery({
@@ -129,7 +188,7 @@ export default function CRM() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leads'] });
       setShowCreate(false);
-      setForm({ full_name: '', email: '', phone: '', country: '', purpose: '', status: 'New', assigned_to: '', notes: '' });
+      setForm({ full_name: '', email: '', phone: '', country: '', purpose: '', status: 'New', assigned_to: '', added_by: '', notes: '' });
       toast.success('Lead created successfully');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error creating lead'),
@@ -306,7 +365,7 @@ export default function CRM() {
       {/* Create Lead Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-lg p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
+          <div className="glass-card w-full max-w-2xl p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Create Lead</h2>
               <button onClick={() => setShowCreate(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
@@ -315,10 +374,7 @@ export default function CRM() {
               <input placeholder="Full Name *" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} className={inputCls} />
               <input placeholder="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={inputCls} />
               <input placeholder="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={inputCls} />
-              <select value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} className={inputCls}>
-                <option value="">Select Country</option>
-                {countries.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <SearchableCountrySelect value={form.country} onChange={v => setForm(f => ({ ...f, country: v }))} className={inputCls} />
 
               {/* Purpose with add custom */}
               <div className="space-y-1">
@@ -352,6 +408,12 @@ export default function CRM() {
                   </div>
                 )}
               </div>
+
+              {/* Added By (presales person) */}
+              <select value={form.added_by} onChange={e => setForm(f => ({ ...f, added_by: e.target.value }))} className={inputCls}>
+                <option value="">Added By (Presales)</option>
+                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+              </select>
 
               <select value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))} className={inputCls}>
                 <option value="">Assign To</option>
