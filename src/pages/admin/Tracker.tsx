@@ -5,6 +5,7 @@ import { Clock, Calendar, DollarSign, ArrowUpRight, ArrowDownRight, Plus, X } fr
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
 import { useAuthStore } from '@/stores/authStore';
+import { dummyTrackerSummary, dummyLeaveRequests, dummyTimeEntries, dummyExpenses } from '@/lib/dummyData';
 
 const tabs = ['Overview', 'Leave', 'Time Logs', 'Expenses'];
 const leaveTypes = ['Annual', 'Sick', 'Personal', 'Unpaid', 'Maternity', 'Paternity'];
@@ -91,9 +92,12 @@ export default function Tracker() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['leave-requests'] }); toast.success('Updated'); },
   });
 
-  const s = summary || {};
+  const s = summary || dummyTrackerSummary;
   const isManager = user?.role === 'admin' || user?.role === 'sales_manager';
   const projectsArr = Array.isArray(projects) ? projects : [];
+  const leaveArr = (Array.isArray(leaveRequests) && leaveRequests.length > 0) ? leaveRequests : dummyLeaveRequests;
+  const timeArr = (Array.isArray(timeEntries) && timeEntries.length > 0) ? timeEntries : dummyTimeEntries;
+  const expenseArr = (Array.isArray(expenses) && expenses.length > 0) ? expenses : dummyExpenses;
 
   return (
     <div className="page-container">
