@@ -78,7 +78,6 @@ export const useAuthStore = create<AuthState>()(
       getRedirectPath: () => {
         const role = get().user?.role;
         switch (role) {
-          case 'super_admin': return '/sa';
           case 'admin':
           case 'sales_manager':
           case 'sales_rep': return '/admin';
