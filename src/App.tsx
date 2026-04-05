@@ -11,8 +11,6 @@ import PortalLayout from "./components/layouts/PortalLayout";
 import SADashboard from "./pages/sa/SADashboard";
 import SAOrganizations from "./pages/sa/SAOrganizations";
 import SAUsers from "./pages/sa/SAUsers";
-import SAPlans from "./pages/sa/SAPlans";
-import SAAuditLog from "./pages/sa/SAAuditLog";
 import SAPermissions from "./pages/sa/SAPermissions";
 import SAProfile from "./pages/sa/SAProfile";
 
@@ -77,8 +75,6 @@ const App = () => (
           <Route index element={<SADashboard />} />
           <Route path="organizations" element={<SAOrganizations />} />
           <Route path="users" element={<SAUsers />} />
-          <Route path="plans" element={<SAPlans />} />
-          <Route path="audit-log" element={<SAAuditLog />} />
           <Route path="permissions" element={<SAPermissions />} />
           <Route path="profile" element={<SAProfile />} />
         </Route>
