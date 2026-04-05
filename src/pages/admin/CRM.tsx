@@ -247,8 +247,10 @@ export default function CRM() {
     setShowEdit(lead);
   };
 
-  const leadsArr = Array.isArray(leads) ? leads : [];
-  const usersArr = Array.isArray(users) ? users : [];
+  const apiUsers = Array.isArray(users) ? users : [];
+  const usersArr = apiUsers.length > 0 ? apiUsers : fallbackUsers;
+  const presalesUsers = usersArr.filter((u: any) => u.role === 'presales' || u.role === 'sales_rep' || !u.role || apiUsers.length > 0);
+  const managerUsers = usersArr.filter((u: any) => u.role === 'sales_manager' || u.role === 'admin' || !u.role || apiUsers.length > 0);
 
   const inputCls = "px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
