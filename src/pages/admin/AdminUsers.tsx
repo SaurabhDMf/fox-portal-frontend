@@ -5,13 +5,25 @@ import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target } from 'l
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
 
-const roles = ['admin', 'sales_manager', 'sales_rep', 'resource', 'freelancer'];
+const roles = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'sales_manager', label: 'Sales Manager' },
+  { value: 'sales_rep', label: 'Sales Rep' },
+  { value: 'resource', label: 'Resource' },
+  { value: 'freelancer', label: 'Freelancer' },
+  { value: 'client', label: 'Client' },
+];
 const departments = ['Sales', 'Marketing', 'Engineering', 'Design', 'HR', 'Finance', 'Operations', 'Support', 'Management', 'Other'];
-const employmentTypes = ['Full-time', 'Part-time', 'Contract', 'Freelancer', 'Intern'];
+const employmentTypes = [
+  { value: 'full_time', label: 'Full Time' },
+  { value: 'part_time', label: 'Part Time' },
+  { value: 'contract', label: 'Contract' },
+  { value: 'freelancer', label: 'Freelancer' },
+];
 const tabs = ['All', 'Active', 'Inactive', 'On Leave'];
 
 const emptyForm = {
-  full_name: '', email: '', phone: '', role: 'sales_rep', employment_type: 'Full-time',
+  full_name: '', email: '', phone: '', role: 'sales_rep', employment_type: 'full_time',
   department: '', job_title: '', password: '', date_of_joining: '', reporting_to: '',
   salary: '', address: '', emergency_contact: '', emergency_phone: '', notes: '',
   bank_name: '', bank_account: '', ifsc_code: '', pan_number: '',
