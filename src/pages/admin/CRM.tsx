@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useModulePermission } from '@/hooks/usePermission';
-import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, Check } from 'lucide-react';
+import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, Check, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const defaultStatuses = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Closed Won', 'Closed Lost'];
@@ -152,6 +152,7 @@ export default function CRM() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showEdit, setShowEdit] = useState<any>(null);
   const [showDelete, setShowDelete] = useState<string | null>(null);
   const [newStatusInput, setNewStatusInput] = useState('');
   const [newPurposeInput, setNewPurposeInput] = useState('');
@@ -201,6 +202,16 @@ export default function CRM() {
     onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error creating lead'),
   });
 
+  const editMut = useMutation({
+    mutationFn: (d: { id: string; data: typeof form }) => api.put(`/leads/${d.id}`, d.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      setShowEdit(null);
+      toast.success('Lead updated successfully');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error updating lead'),
+  });
+
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.delete(`/leads/${id}`),
     onSuccess: () => {
@@ -210,6 +221,15 @@ export default function CRM() {
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting lead'),
   });
+
+  const openEdit = (lead: any) => {
+    setForm({
+      full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '',
+      country: lead.country || '', purpose: lead.purpose || '', status: lead.status || 'New',
+      assigned_to: lead.assigned_to || '', added_by: lead.added_by || '', notes: lead.notes || '',
+    });
+    setShowEdit(lead);
+  };
 
   const leadsArr = Array.isArray(leads) ? leads : [];
   const usersArr = Array.isArray(users) ? users : [];
@@ -316,9 +336,18 @@ export default function CRM() {
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.lead_by_name || lead.added_by_name || '—'}</td>
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.assigned_to_name || '—'}</td>
                     <td className="p-4">
-                      <button onClick={(e) => { e.stopPropagation(); setShowDelete(lead.id); }} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        {perm.canEdit && (
+                          <button onClick={(e) => { e.stopPropagation(); openEdit(lead); }} className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Edit">
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        {perm.canDelete && (
+                          <button onClick={(e) => { e.stopPropagation(); setShowDelete(lead.id); }} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -434,6 +463,46 @@ export default function CRM() {
               <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
               <button onClick={() => createMut.mutate(form)} disabled={createMut.isPending || !form.full_name} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
                 {createMut.isPending ? 'Creating...' : 'Create Lead'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Lead Modal */}
+      {showEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-2xl p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Edit Lead</h2>
+              <button onClick={() => setShowEdit(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input placeholder="Full Name *" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} className={inputCls} />
+              <input placeholder="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={inputCls} />
+              <input placeholder="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={inputCls} />
+              <SearchableCountrySelect value={form.country} onChange={v => setForm(f => ({ ...f, country: v }))} className={inputCls} />
+              <select value={form.purpose} onChange={e => setForm(f => ({ ...f, purpose: e.target.value }))} className={inputCls}>
+                <option value="">Select Purpose</option>
+                {allPurposes.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className={inputCls}>
+                {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select value={form.added_by} onChange={e => setForm(f => ({ ...f, added_by: e.target.value }))} className={inputCls}>
+                <option value="">Added By (Presales)</option>
+                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+              </select>
+              <select value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))} className={inputCls}>
+                <option value="">Assign To</option>
+                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+              </select>
+            </div>
+            <textarea placeholder="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} className={`w-full ${inputCls} resize-none`} />
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowEdit(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={() => editMut.mutate({ id: showEdit.id, data: form })} disabled={editMut.isPending || !form.full_name} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {editMut.isPending ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
