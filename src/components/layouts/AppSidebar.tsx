@@ -1,6 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useSidebarCollapsed } from './PortalLayout';
+import { canAccessModule, type Module } from '@/lib/permissions';
 import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
@@ -81,12 +82,15 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
   const navItems = getNavItems(role);
 
   const visibleItems = navItems.filter((item) => {
+    // Always show items without a module key (Dashboard, Settings, Profile)
     if (!item.module) return true;
+    // Check role-based permission first
+    if (!canAccessModule(role, item.module as Module)) return false;
+    // Then check enabled_modules from backend
     if (enabledModules && enabledModules.length > 0) {
       return enabledModules.includes(item.module);
     }
-    const perm = permissions[item.module];
-    return !perm || perm.can_view;
+    return true;
   });
 
   const handleLogout = async () => {
