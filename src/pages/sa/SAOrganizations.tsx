@@ -61,9 +61,10 @@ export default function SAOrganizations() {
       qc.invalidateQueries({ queryKey: ['sa-audit'] }),
     ]);
 
-  const { data: orgs = [], isLoading } = useQuery({
+  const { data: orgs = [], isLoading, error: orgsError } = useQuery({
     queryKey: ['sa-orgs', search],
     queryFn: () => api.get('/sa/organizations', { params: search ? { search } : {} }).then(r => r.data?.organizations ?? r.data ?? []),
+    retry: 1,
   });
 
   const createMut = useMutation({
@@ -149,6 +150,12 @@ export default function SAOrganizations() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => <div key={i} className="glass-card h-52 animate-pulse" />)}
+        </div>
+      ) : orgsError ? (
+        <div className="glass-card p-8 text-center space-y-2">
+          <p className="text-destructive font-medium">Failed to load organizations</p>
+          <p className="text-sm text-muted-foreground">{(orgsError as any)?.response?.data?.error || (orgsError as Error).message}</p>
+          <button onClick={() => qc.invalidateQueries({ queryKey: ['sa-orgs'] })} className="mt-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90">Retry</button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
