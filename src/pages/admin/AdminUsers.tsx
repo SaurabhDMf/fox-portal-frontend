@@ -303,15 +303,35 @@ export default function AdminUsers() {
       {/* Add User Modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-md p-6 space-y-4 animate-slide-up">
+          <div className="glass-card w-full max-w-2xl p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Add New User</h2>
               <button onClick={() => setShowAdd(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
             </div>
-            <div className="space-y-3">
-              <div><label className={labelCls}>Full Name *</label><input placeholder="Enter full name" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} className={inputCls} /></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="md:col-span-2"><label className={labelCls}>Full Name *</label><input placeholder="Enter full name" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} className={inputCls} /></div>
               <div><label className={labelCls}>Email *</label><input type="email" placeholder="Enter email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className={inputCls} /></div>
               <div><label className={labelCls}>Password *</label><input type="password" placeholder="Set password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputCls} /></div>
+              <div>
+                <label className={labelCls}>Role *</label>
+                <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} className={inputCls}>
+                  {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Employment Type</label>
+                <select value={form.employment_type} onChange={e => setForm(f => ({ ...f, employment_type: e.target.value }))} className={inputCls}>
+                  {employmentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div><label className={labelCls}>Department</label>
+                <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} className={inputCls}>
+                  <option value="">Select Department</option>
+                  {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div><label className={labelCls}>Job Title</label><input placeholder="e.g. Senior Developer" value={form.job_title} onChange={e => setForm(f => ({ ...f, job_title: e.target.value }))} className={inputCls} /></div>
+              <div className="md:col-span-2"><label className={labelCls}>Phone</label><input type="tel" placeholder="+1234567890" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className={inputCls} /></div>
             </div>
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={() => setShowAdd(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
