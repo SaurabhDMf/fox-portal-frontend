@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { saLocalService } from '@/lib/saLocalService';
+import api from '@/lib/api';
 import { useState } from 'react';
 import { Building2, Plus, Search, Users, FileText, X, Key, RefreshCw, Pencil, Eye, Copy, Check, Trash2 } from 'lucide-react';
 import {
@@ -43,8 +44,8 @@ export default function SAOrganizations() {
   const [viewOrg, setViewOrg] = useState<any>(null);
   const [copiedField, setCopiedField] = useState('');
   const [form, setForm] = useState({
-    name: '', admin_email: '', admin_name: '', password: '',
-    role: 'admin', plan: 'trial', industry: '', seats: '10', license_key: generateLicenseKey(),
+    name: '', owner_email: '', owner_name: '', password: '',
+    industry: '', size: '1-10',
   });
   const [editForm, setEditForm] = useState({
     admin_email: '', seats: '', role: 'admin', password: '',
@@ -66,13 +67,16 @@ export default function SAOrganizations() {
   });
 
   const createMut = useMutation({
-    mutationFn: (d: typeof form) => saLocalService.createOrganization({
-      ...d,
-      role: d.role as 'admin' | 'sales_manager' | 'sales_rep' | 'resource' | 'freelancer' | 'client',
-      plan: d.plan as 'trial' | 'starter' | 'pro' | 'enterprise',
-    }),
-    onSuccess: async () => { await invalidateSAQueries(); resetCreateForm(); toast.success('Organization created'); },
-    onError: (e: any) => toast.error(e.message || 'Error creating organization'),
+    mutationFn: (d: typeof form) => api.post('/sa/organizations', {
+      name: d.name,
+      owner_email: d.owner_email,
+      owner_name: d.owner_name,
+      password: d.password,
+      industry: d.industry,
+      size: d.size,
+    }).then(res => res.data),
+    onSuccess: async (data) => { await invalidateSAQueries(); resetCreateForm(); toast.success(`Organization "${data?.organization?.name || form.name}" created`); },
+    onError: (e: any) => toast.error(e?.response?.data?.error || e.message || 'Error creating organization'),
   });
 
   const updateMut = useMutation({
@@ -96,8 +100,8 @@ export default function SAOrganizations() {
   const resetCreateForm = () => {
     setShowCreate(false);
     setForm({
-      name: '', admin_email: '', admin_name: '', password: '',
-      role: 'admin', plan: 'trial', industry: '', seats: '10', license_key: generateLicenseKey(),
+      name: '', owner_email: '', owner_name: '', password: '',
+      industry: '', size: '1-10',
     });
   };
 
@@ -227,14 +231,14 @@ export default function SAOrganizations() {
               </div>
               <div>
                 <label className={labelClass}>Admin Email *</label>
-                <input type="email" placeholder="admin@acme.com" value={form.admin_email} onChange={e => setForm(f => ({ ...f, admin_email: e.target.value }))} className={inputClass} />
+                <input type="email" placeholder="admin@acme.com" value={form.owner_email} onChange={e => setForm(f => ({ ...f, owner_email: e.target.value }))} className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>Admin Username</label>
-                <input placeholder="John Doe" value={form.admin_name} onChange={e => setForm(f => ({ ...f, admin_name: e.target.value }))} className={inputClass} />
+                <label className={labelClass}>Admin Name</label>
+                <input placeholder="John Doe" value={form.owner_name} onChange={e => setForm(f => ({ ...f, owner_name: e.target.value }))} className={inputClass} />
               </div>
               <div>
-                <label className={labelClass}>Password *</label>
+                <label className={labelClass}>Admin Password *</label>
                 <input type="password" placeholder="Enter password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className={inputClass} />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -246,42 +250,16 @@ export default function SAOrganizations() {
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Seats</label>
-                  <select value={form.seats} onChange={e => setForm(f => ({ ...f, seats: e.target.value }))} className={inputClass}>
-                    {seatOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  <label className={labelClass}>Size</label>
+                  <select value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} className={inputClass}>
+                    {['1-10', '11-50', '51-200', '201-500', '500+'].map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Plan</label>
-                <select value={form.plan} onChange={e => setForm(f => ({ ...f, plan: e.target.value }))} className={inputClass}>
-                  {plans.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Role *</label>
-                <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} className={inputClass}>
-                  {roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>License Key</label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input readOnly value={form.license_key} className={`${inputClass} pr-10 font-mono text-xs`} />
-                    <button onClick={() => handleCopy(form.license_key, 'license')} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted transition-colors">
-                      {copiedField === 'license' ? <Check className="h-3.5 w-3.5 text-[hsl(var(--success))]" /> : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
-                    </button>
-                  </div>
-                  <button onClick={() => setForm(f => ({ ...f, license_key: generateLicenseKey() }))} className="px-3 py-2 rounded-lg bg-secondary border border-border hover:bg-muted transition-colors" title="Regenerate">
-                    <RefreshCw className="h-4 w-4 text-muted-foreground" />
-                  </button>
                 </div>
               </div>
             </div>
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={resetCreateForm} className="px-4 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
-              <button onClick={() => createMut.mutate(form)} disabled={createMut.isPending || !form.name || !form.admin_email} className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+              <button onClick={() => createMut.mutate(form)} disabled={createMut.isPending || !form.name || !form.owner_email || !form.password} className="px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
                 {createMut.isPending ? 'Creating...' : 'Create Organization'}
               </button>
             </div>
