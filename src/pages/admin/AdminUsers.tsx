@@ -39,15 +39,15 @@ export default function AdminUsers() {
     queryFn: () => api.get('/users', { params: { search } }).then(r => r.data?.users || r.data || []),
   });
 
-  const inviteMut = useMutation({
-    mutationFn: (d: typeof form) => api.post('/users/invite', d),
+  const createMut = useMutation({
+    mutationFn: (d: typeof form) => api.post('/users', d),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
       setShowAdd(false);
       setForm({ ...emptyForm });
-      toast.success('User invited successfully');
+      toast.success('User added successfully');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error inviting user'),
+    onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error adding user'),
   });
 
   const editMut = useMutation({
@@ -188,7 +188,7 @@ export default function AdminUsers() {
         <div><h1 className="page-title">Team & Users</h1><p className="page-subtitle">Manage your employees</p></div>
         {perm.canCreate && (
           <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-4 w-4" /> Invite User
+            <Plus className="h-4 w-4" /> Add User
           </button>
         )}
       </div>
@@ -288,19 +288,19 @@ export default function AdminUsers() {
         </table>
       </div>
 
-      {/* Invite User Modal */}
+      {/* Add User Modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-2xl p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Invite New User</h2>
+              <h2 className="text-lg font-semibold">Add New User</h2>
               <button onClick={() => setShowAdd(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
             </div>
             {renderFormFields()}
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={() => setShowAdd(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
-              <button onClick={() => inviteMut.mutate(form)} disabled={inviteMut.isPending || !form.full_name || !form.email} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-                {inviteMut.isPending ? 'Inviting...' : 'Invite User'}
+              <button onClick={() => createMut.mutate(form)} disabled={createMut.isPending || !form.full_name || !form.email || !form.password} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {createMut.isPending ? 'Adding...' : 'Add User'}
               </button>
             </div>
           </div>
