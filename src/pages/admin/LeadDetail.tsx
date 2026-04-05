@@ -7,6 +7,14 @@ import toast from 'react-hot-toast';
 
 const activityTypes = ['Call', 'Email', 'Meeting', 'Note', 'Follow-up'];
 
+function getLeadCountry(lead: any): string {
+  return lead?.country || lead?.country_name || lead?.lead_country || lead?.location || lead?.meta?.country || '';
+}
+
+function getLeadPurpose(lead: any): string {
+  return lead?.purpose || lead?.purpose_name || lead?.lead_purpose || lead?.service || lead?.meta?.purpose || '';
+}
+
 export default function LeadDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -58,6 +66,8 @@ export default function LeadDetail() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               {lead.email && <div className="flex items-center gap-2 text-muted-foreground"><Mail className="h-4 w-4" />{lead.email}</div>}
               {lead.phone && <div className="flex items-center gap-2 text-muted-foreground"><Phone className="h-4 w-4" />{lead.phone}</div>}
+              {getLeadCountry(lead) && <div className="text-muted-foreground">Country: {getLeadCountry(lead)}</div>}
+              {getLeadPurpose(lead) && <div className="text-muted-foreground">Purpose: {getLeadPurpose(lead)}</div>}
               {lead.company_name && <div className="flex items-center gap-2 text-muted-foreground"><Building2 className="h-4 w-4" />{lead.company_name}</div>}
               {lead.deal_value && <div className="text-success font-semibold text-lg">${Number(lead.deal_value).toLocaleString()}</div>}
             </div>
@@ -106,6 +116,8 @@ export default function LeadDetail() {
             <h3 className="text-sm font-semibold">Details</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Source</span><span>{lead.lead_source || '—'}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Country</span><span>{getLeadCountry(lead) || '—'}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Purpose</span><span>{getLeadPurpose(lead) || '—'}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Assigned</span><span>{lead.assigned_to_name || '—'}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Next Follow-up</span><span>{lead.next_followup ? new Date(lead.next_followup).toLocaleDateString() : '—'}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Created</span><span>{lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—'}</span></div>
