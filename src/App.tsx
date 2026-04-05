@@ -7,13 +7,6 @@ import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PortalLayout from "./components/layouts/PortalLayout";
 
-// Super Admins
-import SADashboard from "./pages/sa/SADashboard";
-import SAOrganizations from "./pages/sa/SAOrganizations";
-import SAUsers from "./pages/sa/SAUsers";
-import SAPermissions from "./pages/sa/SAPermissions";
-import SAProfile from "./pages/sa/SAProfile";
-
 // Admin
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import CRM from "./pages/admin/CRM";
@@ -69,15 +62,6 @@ const App = () => (
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<Login />} />
-
-        {/* Super Admin Portalsss */}
-        <Route path="/sa" element={<ProtectedRoute allowedRoles={['super_admin']}><PortalLayout /></ProtectedRoute>}>
-          <Route index element={<SADashboard />} />
-          <Route path="organizations" element={<SAOrganizations />} />
-          <Route path="users" element={<SAUsers />} />
-          <Route path="permissions" element={<SAPermissions />} />
-          <Route path="profile" element={<SAProfile />} />
-        </Route>
 
         {/* Admin Portal */}
         <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin', 'sales_manager', 'sales_rep']}><PortalLayout /></ProtectedRoute>}>
