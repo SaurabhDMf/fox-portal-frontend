@@ -149,10 +149,10 @@ export default function AdminUsers() {
 
       {formTab === 'work' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
+           <div>
             <label className={labelCls}>Role *</label>
             <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} className={inputCls}>
-              {roles.map(r => <option key={r} value={r}>{r.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>)}
+              {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>
           <div>
