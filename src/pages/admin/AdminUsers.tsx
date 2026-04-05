@@ -3,6 +3,7 @@ import api from '@/lib/api';
 import { useState } from 'react';
 import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useModulePermission } from '@/hooks/usePermission';
 
 const roles = ['admin', 'sales_manager', 'sales_rep', 'resource', 'freelancer'];
 const departments = ['Sales', 'Marketing', 'Engineering', 'Design', 'HR', 'Finance', 'Operations', 'Support', 'Management', 'Other'];

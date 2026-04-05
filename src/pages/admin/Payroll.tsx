@@ -3,6 +3,7 @@ import api from '@/lib/api';
 import { useState } from 'react';
 import { Plus, X, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useModulePermission } from '@/hooks/usePermission';
 
 export default function Payroll() {
   const [selectedRun, setSelectedRun] = useState<any>(null);

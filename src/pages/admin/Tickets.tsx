@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useModulePermission } from '@/hooks/usePermission';
 
 const statusTabs = ['Open', 'In Progress', 'Waiting', 'Resolved', 'Closed'];
 const categories = ['General', 'Technical', 'Billing', 'Feature Request', 'Bug Report'];

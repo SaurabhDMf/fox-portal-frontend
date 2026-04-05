@@ -3,6 +3,7 @@ import api from '@/lib/api';
 import { useState } from 'react';
 import { Plus, Search, Lock, Eye, EyeOff, Copy, FolderClosed, FolderPlus, X, Globe, Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useModulePermission } from '@/hooks/usePermission';
 
 const categories = ['Social Media', 'Finance', 'Dev Tools', 'Email', 'CRM', 'Other'];
 

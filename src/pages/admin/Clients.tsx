@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useModulePermission } from '@/hooks/usePermission';
 
 const types = ['All', 'VIP', 'Active', 'New', 'At-Risk'];
 const industries = ['Technology', 'Healthcare', 'Finance', 'Education', 'Retail', 'Manufacturing', 'Services', 'Other'];

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, X, Send, Trash2, DollarSign, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
+import { useModulePermission } from '@/hooks/usePermission';
 
 const statusTabs = ['All', 'Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled'];
 

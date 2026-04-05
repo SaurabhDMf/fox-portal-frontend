@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { useModulePermission } from '@/hooks/usePermission';
 
 const statusOptions = ['Active', 'On Hold', 'Completed', 'Cancelled'];
 const priorityOptions = ['Critical', 'High', 'Medium', 'Low'];
