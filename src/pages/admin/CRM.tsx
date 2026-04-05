@@ -152,6 +152,7 @@ export default function CRM() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showEdit, setShowEdit] = useState<any>(null);
   const [showDelete, setShowDelete] = useState<string | null>(null);
   const [newStatusInput, setNewStatusInput] = useState('');
   const [newPurposeInput, setNewPurposeInput] = useState('');
