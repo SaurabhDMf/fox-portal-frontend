@@ -21,8 +21,6 @@ const saNav: NavItem[] = [
   { label: 'Dashboard', path: '/sa', icon: LayoutDashboard },
   { label: 'Organizations', path: '/sa/organizations', icon: Building2 },
   { label: 'Users', path: '/sa/users', icon: Users },
-  { label: 'Plans', path: '/sa/plans', icon: CreditCard },
-  { label: 'Audit Log', path: '/sa/audit-log', icon: Activity },
   { label: 'Permissions', path: '/sa/permissions', icon: Shield },
   { label: 'Profile', path: '/sa/profile', icon: Users },
 ];
