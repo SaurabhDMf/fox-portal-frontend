@@ -83,6 +83,14 @@ function isStale(lead: any): boolean {
   return created.toDateString() !== today.toDateString();
 }
 
+function getLeadCountry(lead: any): string {
+  return lead?.country || lead?.country_name || lead?.lead_country || lead?.location || lead?.meta?.country || '';
+}
+
+function getLeadPurpose(lead: any): string {
+  return lead?.purpose || lead?.purpose_name || lead?.lead_purpose || lead?.service || lead?.meta?.purpose || '';
+}
+
 function useCustomFields(userId: string | undefined) {
   const storageKey = `crm-custom-fields-${userId || 'default'}`;
 
@@ -225,7 +233,7 @@ export default function CRM() {
   const openEdit = (lead: any) => {
     setForm({
       full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '',
-      country: lead.country || '', purpose: lead.purpose || '', status: lead.status || 'New',
+      country: getLeadCountry(lead), purpose: getLeadPurpose(lead), status: lead.status || 'New',
       assigned_to: lead.assigned_to || '', added_by: lead.added_by || '', notes: lead.notes || '',
     });
     setShowEdit(lead);
@@ -328,8 +336,8 @@ export default function CRM() {
                     <td className={`p-4 font-medium ${stale ? 'text-destructive' : ''}`} onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.full_name}</td>
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.email || '—'}</td>
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.phone || '—'}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.country || '—'}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.purpose || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{getLeadCountry(lead) || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{getLeadPurpose(lead) || '—'}</td>
                     <td className="p-4" onClick={() => navigate(`/admin/crm/${lead.id}`)}>
                       <span className={lead.status === 'Closed Won' ? 'badge-success' : lead.status === 'Closed Lost' ? 'badge-danger' : 'badge-info'}>{lead.status}</span>
                     </td>
@@ -383,8 +391,8 @@ export default function CRM() {
                         <div className="flex items-start justify-between">
                           <div className={`font-medium text-sm ${stale ? 'text-destructive' : ''}`}>{lead.full_name}</div>
                         </div>
-                        {lead.purpose && <div className="text-xs text-muted-foreground">{lead.purpose}</div>}
-                        {lead.country && <div className="text-xs text-muted-foreground">{lead.country}</div>}
+                        {getLeadPurpose(lead) && <div className="text-xs text-muted-foreground">{getLeadPurpose(lead)}</div>}
+                        {getLeadCountry(lead) && <div className="text-xs text-muted-foreground">{getLeadCountry(lead)}</div>}
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                           {lead.assigned_to_name && <span>→ {lead.assigned_to_name}</span>}
                           {lead.created_at && <span>{new Date(lead.created_at).toLocaleDateString()}</span>}
