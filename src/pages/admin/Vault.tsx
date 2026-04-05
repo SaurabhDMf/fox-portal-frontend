@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, Search, Lock, Eye, EyeOff, Copy, FolderClosed, FolderPlus, X, Globe, Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
+import { dummyVaultFolders, dummyVaultCreds } from '@/lib/dummyData';
 
 const categories = ['Social Media', 'Finance', 'Dev Tools', 'Email', 'CRM', 'Other'];
 
@@ -86,8 +87,10 @@ export default function Vault() {
 
   const copyPw = (pw: string) => { navigator.clipboard.writeText(pw); toast.success('Copied'); };
 
-  const foldersArr = Array.isArray(folders) ? folders : [];
-  const credsArr = (Array.isArray(creds) ? creds : []).filter((c: any) =>
+  const rawFolders = Array.isArray(folders) ? folders : [];
+  const foldersArr = rawFolders.length > 0 ? rawFolders : dummyVaultFolders;
+  const rawCreds = Array.isArray(creds) ? creds : [];
+  const credsArr = (rawCreds.length > 0 ? rawCreds : dummyVaultCreds).filter((c: any) =>
     !search || c.title?.toLowerCase().includes(search.toLowerCase()) || c.username?.toLowerCase().includes(search.toLowerCase())
   );
   const strength = getStrength(form.password);

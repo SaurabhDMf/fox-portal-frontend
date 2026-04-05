@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { Send, Plus, MessageSquare, X, Hash, Users } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import toast from 'react-hot-toast';
+import { dummyChatRooms } from '@/lib/dummyData';
 
 let socket: Socket | null = null;
 
@@ -57,7 +58,8 @@ export default function Chat() {
   });
 
   const allMessages = [...(Array.isArray(messages) ? messages : []), ...realtimeMessages];
-  const roomsArr = Array.isArray(rooms) ? rooms : [];
+  const rawRooms = Array.isArray(rooms) ? rooms : [];
+  const roomsArr = rawRooms.length > 0 ? rawRooms : dummyChatRooms;
 
   return (
     <div className="page-container !p-0 h-[calc(100vh-0px)] md:h-screen flex">

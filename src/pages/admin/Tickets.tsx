@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
+import { dummyTickets } from '@/lib/dummyData';
 
 const statusTabs = ['Open', 'In Progress', 'Waiting', 'Resolved', 'Closed'];
 const categories = ['General', 'Technical', 'Billing', 'Feature Request', 'Bug Report'];
@@ -28,7 +29,8 @@ export default function Tickets() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
-  const tickets = Array.isArray(data) ? data : [];
+  const rawTickets = Array.isArray(data) ? data : [];
+  const tickets = rawTickets.length > 0 ? rawTickets : dummyTickets.filter(t => t.status === tab);
 
   return (
     <div className="page-container">
