@@ -83,7 +83,7 @@ interface SidebarProps {
 }
 
 export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) {
-  const { user, permissions, logout, refreshToken } = useAuthStore();
+  const { user, permissions, enabledModules, logout, refreshToken } = useAuthStore();
   const { collapsed, setCollapsed } = useSidebarCollapsed();
   const location = useLocation();
   const navigate = useNavigate();
@@ -91,7 +91,12 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
   const navItems = getNavItems(role);
 
   const visibleItems = navItems.filter((item) => {
-    if (!item.module) return true;
+    if (!item.module) return true; // always show dashboard, settings, profile
+    // If enabledModules came from API, filter by it
+    if (enabledModules && enabledModules.length > 0) {
+      return enabledModules.includes(item.module);
+    }
+    // Fallback to permission-based filtering
     const perm = permissions[item.module];
     return !perm || perm.can_view;
   });
