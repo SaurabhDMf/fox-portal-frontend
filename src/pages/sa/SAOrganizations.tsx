@@ -67,13 +67,16 @@ export default function SAOrganizations() {
   });
 
   const createMut = useMutation({
-    mutationFn: (d: typeof form) => saLocalService.createOrganization({
-      ...d,
-      role: d.role as 'admin' | 'sales_manager' | 'sales_rep' | 'resource' | 'freelancer' | 'client',
-      plan: d.plan as 'trial' | 'starter' | 'pro' | 'enterprise',
-    }),
-    onSuccess: async () => { await invalidateSAQueries(); resetCreateForm(); toast.success('Organization created'); },
-    onError: (e: any) => toast.error(e.message || 'Error creating organization'),
+    mutationFn: (d: typeof form) => api.post('/sa/organizations', {
+      name: d.name,
+      owner_email: d.owner_email,
+      owner_name: d.owner_name,
+      password: d.password,
+      industry: d.industry,
+      size: d.size,
+    }).then(res => res.data),
+    onSuccess: async (data) => { await invalidateSAQueries(); resetCreateForm(); toast.success(`Organization "${data?.organization?.name || form.name}" created`); },
+    onError: (e: any) => toast.error(e?.response?.data?.error || e.message || 'Error creating organization'),
   });
 
   const updateMut = useMutation({
