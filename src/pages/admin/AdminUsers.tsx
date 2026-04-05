@@ -1,14 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { useAuthStore } from '@/stores/authStore';
-import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Filter } from 'lucide-react';
+import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const roles = ['admin', 'sales_manager', 'sales_rep', 'resource', 'freelancer'];
 const departments = ['Sales', 'Marketing', 'Engineering', 'Design', 'HR', 'Finance', 'Operations', 'Support', 'Management', 'Other'];
 const employmentTypes = ['Full-time', 'Part-time', 'Contract', 'Freelancer', 'Intern'];
-const statusOptions = ['active', 'inactive', 'on_leave', 'terminated'];
 const tabs = ['All', 'Active', 'Inactive', 'On Leave'];
 
 const emptyForm = {
@@ -24,9 +22,14 @@ export default function AdminUsers() {
   const [showAdd, setShowAdd] = useState(false);
   const [showView, setShowView] = useState<any>(null);
   const [showEdit, setShowEdit] = useState<any>(null);
+  const [showTarget, setShowTarget] = useState<any>(null);
+  const [targetAmount, setTargetAmount] = useState('');
+  const [targetMonth, setTargetMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [formTab, setFormTab] = useState('basic');
   const [form, setForm] = useState({ ...emptyForm });
-  const canCreate = useAuthStore(s => s.canCreate);
   const qc = useQueryClient();
 
   const { data = [], isLoading } = useQuery({
@@ -51,6 +54,18 @@ export default function AdminUsers() {
       qc.invalidateQueries({ queryKey: ['users'] });
       setShowEdit(null);
       toast.success('User updated');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+  });
+
+  const targetMut = useMutation({
+    mutationFn: (d: { user_id: string; month: string; target_amount: number }) =>
+      api.post('/users/sales-target', d),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] });
+      setShowTarget(null);
+      setTargetAmount('');
+      toast.success('Sales target set');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
@@ -90,12 +105,16 @@ export default function AdminUsers() {
     setShowAdd(true);
   };
 
+  const openTarget = (u: any) => {
+    setShowTarget(u);
+    setTargetAmount(u.sales_target?.toString() || '');
+  };
+
   const inputCls = "w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
   const labelCls = "text-xs text-muted-foreground font-medium";
 
   const renderFormFields = () => (
     <div className="space-y-4">
-      {/* Form Tabs */}
       <div className="flex gap-1 border-b border-border pb-2">
         {['basic', 'work', 'payroll', 'other'].map(t => (
           <button key={t} onClick={() => setFormTab(t)} className={`text-xs px-3 py-1.5 rounded-lg capitalize transition-colors ${formTab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
@@ -165,14 +184,11 @@ export default function AdminUsers() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Team & Users</h1><p className="page-subtitle">Manage your employees</p></div>
-        {canCreate('users') && (
-          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-4 w-4" /> Add User
-          </button>
-        )}
+        <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+          <Plus className="h-4 w-4" /> Add User
+        </button>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="glass-card p-4 flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10"><Users className="h-4 w-4 text-primary" /></div>
@@ -192,7 +208,6 @@ export default function AdminUsers() {
         </div>
       </div>
 
-      {/* Tabs & Search */}
       <div className="flex flex-wrap gap-3 items-center justify-between">
         <div className="flex gap-1">
           {tabs.map(t => (
@@ -207,7 +222,6 @@ export default function AdminUsers() {
         </div>
       </div>
 
-      {/* Users Table */}
       <div className="glass-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -217,12 +231,13 @@ export default function AdminUsers() {
               <th className="p-4">Department</th>
               <th className="p-4">Job Title</th>
               <th className="p-4">Type</th>
+              <th className="p-4">Sales Target</th>
               <th className="p-4">Status</th>
               <th className="p-4">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={7} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
+            {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={8} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
             users.map((u: any) => (
               <tr key={u.id} className="border-b border-border/50 hover:bg-secondary/50 transition-colors">
                 <td className="p-4">
@@ -239,6 +254,13 @@ export default function AdminUsers() {
                 <td className="p-4 text-muted-foreground">{u.job_title || '—'}</td>
                 <td className="p-4 text-muted-foreground">{u.employment_type || '—'}</td>
                 <td className="p-4">
+                  {u.sales_target ? (
+                    <span className="text-sm font-medium">${Number(u.sales_target).toLocaleString()}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td className="p-4">
                   <span className={u.status === 'active' ? 'badge-success' : u.status === 'on_leave' ? 'badge-warning' : 'badge-danger'}>
                     {u.status?.replace(/_/g, ' ')}
                   </span>
@@ -251,12 +273,15 @@ export default function AdminUsers() {
                     <button onClick={() => openEdit(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Edit">
                       <Pencil className="h-4 w-4" />
                     </button>
+                    <button onClick={() => openTarget(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Set Sales Target">
+                      <Target className="h-4 w-4" />
+                    </button>
                   </div>
                 </td>
               </tr>
             ))}
             {users.length === 0 && !isLoading && (
-              <tr><td colSpan={7} className="p-8 text-center text-muted-foreground text-sm">No users found</td></tr>
+              <tr><td colSpan={8} className="p-8 text-center text-muted-foreground text-sm">No users found</td></tr>
             )}
           </tbody>
         </table>
@@ -300,6 +325,43 @@ export default function AdminUsers() {
         </div>
       )}
 
+      {/* Set Sales Target Modal */}
+      {showTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Set Sales Target</h2>
+              <button onClick={() => setShowTarget(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-sm font-bold text-primary">{showTarget.full_name?.[0]}</div>
+              <div>
+                <div className="font-medium text-sm">{showTarget.full_name}</div>
+                <div className="text-xs text-muted-foreground">{showTarget.role?.replace(/_/g, ' ')}</div>
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Month</label>
+              <input type="month" value={targetMonth} onChange={e => setTargetMonth(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Target Amount ($)</label>
+              <input type="number" placeholder="e.g. 50000" value={targetAmount} onChange={e => setTargetAmount(e.target.value)} className={inputCls} min="0" />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowTarget(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button
+                onClick={() => targetMut.mutate({ user_id: showTarget.id, month: targetMonth, target_amount: Number(targetAmount) })}
+                disabled={targetMut.isPending || !targetAmount}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
+              >
+                {targetMut.isPending ? 'Saving...' : 'Set Target'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* View User Modal */}
       {showView && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
@@ -313,20 +375,14 @@ export default function AdminUsers() {
                 <button onClick={() => setShowView(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
               </div>
             </div>
-
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-primary/15 flex items-center justify-center text-primary font-bold text-2xl">
-                {showView.full_name?.[0]}
-              </div>
+              <div className="w-16 h-16 rounded-2xl bg-primary/15 flex items-center justify-center text-primary font-bold text-2xl">{showView.full_name?.[0]}</div>
               <div>
                 <h3 className="text-lg font-bold">{showView.full_name}</h3>
                 <p className="text-sm text-muted-foreground">{showView.email}</p>
-                <span className={showView.status === 'active' ? 'badge-success' : showView.status === 'on_leave' ? 'badge-warning' : 'badge-danger'}>
-                  {showView.status?.replace(/_/g, ' ')}
-                </span>
+                <span className={showView.status === 'active' ? 'badge-success' : showView.status === 'on_leave' ? 'badge-warning' : 'badge-danger'}>{showView.status?.replace(/_/g, ' ')}</span>
               </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="glass-card p-4 space-y-3">
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Work Details</h4>
@@ -336,7 +392,7 @@ export default function AdminUsers() {
                   <div><span className="text-xs text-muted-foreground">Job Title</span><p className="text-sm font-medium">{showView.job_title || '—'}</p></div>
                   <div><span className="text-xs text-muted-foreground">Employment Type</span><p className="text-sm font-medium">{showView.employment_type || '—'}</p></div>
                   <div><span className="text-xs text-muted-foreground">Date of Joining</span><p className="text-sm font-medium">{showView.date_of_joining ? new Date(showView.date_of_joining).toLocaleDateString() : '—'}</p></div>
-                  <div><span className="text-xs text-muted-foreground">Reporting To</span><p className="text-sm font-medium">{showView.reporting_to || '—'}</p></div>
+                  <div><span className="text-xs text-muted-foreground">Sales Target</span><p className="text-sm font-medium">{showView.sales_target ? `$${Number(showView.sales_target).toLocaleString()}` : '—'}</p></div>
                 </div>
               </div>
               <div className="glass-card p-4 space-y-3">
@@ -349,7 +405,6 @@ export default function AdminUsers() {
                 </div>
               </div>
             </div>
-
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowView(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Close</button>
             </div>
