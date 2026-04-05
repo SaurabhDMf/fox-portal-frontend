@@ -87,6 +87,7 @@ export default function AdminUsers() {
 
   const rawUsers = Array.isArray(data) ? data : [];
   const allUsers = rawUsers.length > 0 ? rawUsers : dummyUsers;
+  const users = allUsers.filter((u: any) => {
     if (tab === 'All') return true;
     if (tab === 'Active') return u.status === 'active';
     if (tab === 'Inactive') return u.status === 'inactive' || u.status === 'terminated';
