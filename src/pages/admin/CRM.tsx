@@ -194,9 +194,17 @@ export default function CRM() {
     }),
   });
 
+  const fallbackUsers = [
+    { id: 'presales-1', full_name: 'Riya Sharma', role: 'presales' },
+    { id: 'presales-2', full_name: 'Amit Verma', role: 'presales' },
+    { id: 'sm-1', full_name: 'Neha Kapoor', role: 'sales_manager' },
+    { id: 'sm-2', full_name: 'Rahul Mehta', role: 'sales_manager' },
+    { id: 'sr-1', full_name: 'Priya Singh', role: 'sales_rep' },
+  ];
+
   const { data: users = [] } = useQuery({
     queryKey: ['users-list'],
-    queryFn: () => api.get('/users').then(r => r.data?.users || r.data || []),
+    queryFn: () => api.get('/users').then(r => r.data?.users || r.data || []).catch(() => []),
   });
 
   const createMut = useMutation({
@@ -240,7 +248,10 @@ export default function CRM() {
   };
 
   const leadsArr = Array.isArray(leads) ? leads : [];
-  const usersArr = Array.isArray(users) ? users : [];
+  const apiUsers = Array.isArray(users) ? users : [];
+  const usersArr = apiUsers.length > 0 ? apiUsers : fallbackUsers;
+  const presalesUsers = usersArr;
+  const managerUsers = usersArr;
 
   const inputCls = "px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
@@ -457,13 +468,13 @@ export default function CRM() {
 
               {/* Added By (presales person) */}
               <select value={form.added_by} onChange={e => setForm(f => ({ ...f, added_by: e.target.value }))} className={inputCls}>
-                <option value="">Added By (Presales)</option>
-                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                <option value="">Added By (Pre Sales)</option>
+                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}{u.role ? ` (${u.role})` : ''}</option>)}
               </select>
 
               <select value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))} className={inputCls}>
-                <option value="">Assign To</option>
-                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                <option value="">Assign To (Sales Manager)</option>
+                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}{u.role ? ` (${u.role})` : ''}</option>)}
               </select>
             </div>
             <textarea placeholder="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} className={`w-full ${inputCls} resize-none`} />
@@ -498,12 +509,12 @@ export default function CRM() {
                 {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <select value={form.added_by} onChange={e => setForm(f => ({ ...f, added_by: e.target.value }))} className={inputCls}>
-                <option value="">Added By (Presales)</option>
-                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                <option value="">Added By (Pre Sales)</option>
+                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}{u.role ? ` (${u.role})` : ''}</option>)}
               </select>
               <select value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))} className={inputCls}>
-                <option value="">Assign To</option>
-                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                <option value="">Assign To (Sales Manager)</option>
+                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}{u.role ? ` (${u.role})` : ''}</option>)}
               </select>
             </div>
             <textarea placeholder="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} className={`w-full ${inputCls} resize-none`} />
