@@ -202,6 +202,16 @@ export default function CRM() {
     onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error creating lead'),
   });
 
+  const editMut = useMutation({
+    mutationFn: (d: { id: string; data: typeof form }) => api.put(`/leads/${d.id}`, d.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      setShowEdit(null);
+      toast.success('Lead updated successfully');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error updating lead'),
+  });
+
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.delete(`/leads/${id}`),
     onSuccess: () => {
@@ -211,6 +221,15 @@ export default function CRM() {
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting lead'),
   });
+
+  const openEdit = (lead: any) => {
+    setForm({
+      full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '',
+      country: lead.country || '', purpose: lead.purpose || '', status: lead.status || 'New',
+      assigned_to: lead.assigned_to || '', added_by: lead.added_by || '', notes: lead.notes || '',
+    });
+    setShowEdit(lead);
+  };
 
   const leadsArr = Array.isArray(leads) ? leads : [];
   const usersArr = Array.isArray(users) ? users : [];
@@ -317,9 +336,18 @@ export default function CRM() {
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.lead_by_name || lead.added_by_name || '—'}</td>
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.assigned_to_name || '—'}</td>
                     <td className="p-4">
-                      <button onClick={(e) => { e.stopPropagation(); setShowDelete(lead.id); }} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        {perm.canEdit && (
+                          <button onClick={(e) => { e.stopPropagation(); openEdit(lead); }} className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Edit">
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        {perm.canDelete && (
+                          <button onClick={(e) => { e.stopPropagation(); setShowDelete(lead.id); }} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
