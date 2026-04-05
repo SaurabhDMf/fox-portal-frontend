@@ -90,15 +90,16 @@ export default function SAOrganizations() {
   });
 
   const actionMut = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: 'suspend' | 'activate' }) => saLocalService.organizationAction(id, action),
+    mutationFn: ({ id, action }: { id: string; action: 'suspend' | 'activate' }) =>
+      api.patch(`/sa/organizations/${id}/${action}`).then(r => r.data),
     onSuccess: async () => { await invalidateSAQueries(); toast.success('Done'); },
-    onError: (e: any) => toast.error(e.message || 'Action failed'),
+    onError: (e: any) => toast.error(e?.response?.data?.error || e.message || 'Action failed'),
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => saLocalService.deleteOrganization(id),
+    mutationFn: (id: string) => api.delete(`/sa/organizations/${id}`).then(r => r.data),
     onSuccess: async () => { await invalidateSAQueries(); toast.success('Organization deleted'); },
-    onError: (e: any) => toast.error(e.message || 'Delete failed'),
+    onError: (e: any) => toast.error(e?.response?.data?.error || e.message || 'Delete failed'),
   });
 
   const resetCreateForm = () => {
