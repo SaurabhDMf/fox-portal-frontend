@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useModulePermission } from '@/hooks/usePermission';
 
 const statusTabs = ['Open', 'In Progress', 'Waiting', 'Resolved', 'Closed'];
 const categories = ['General', 'Technical', 'Billing', 'Feature Request', 'Bug Report'];
 
 export default function Tickets() {
+  const perm = useModulePermission('tickets');
   const [tab, setTab] = useState('Open');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', category: 'General', priority: 'Medium', client_id: '' });
@@ -32,9 +34,11 @@ export default function Tickets() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Support Tickets</h1><p className="page-subtitle">Manage support requests</p></div>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-          <Plus className="h-4 w-4" /> New Ticket
-        </button>
+        {perm.canCreate && (
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+            <Plus className="h-4 w-4" /> New Ticket
+          </button>
+        )}
       </div>
 
       {/* ... rest identical to original but button is always visible */}

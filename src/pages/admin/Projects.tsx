@@ -4,11 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { useModulePermission } from '@/hooks/usePermission';
 
 const statusOptions = ['Active', 'On Hold', 'Completed', 'Cancelled'];
 const priorityOptions = ['Critical', 'High', 'Medium', 'Low'];
 
 export default function Projects() {
+  const perm = useModulePermission('projects');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', client_id: '', description: '', status: 'Active', priority: 'Medium', due_date: '' });
@@ -45,9 +47,11 @@ export default function Projects() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Projects</h1><p className="page-subtitle">Track project progress</p></div>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-          <Plus className="h-4 w-4" /> New Project
-        </button>
+        {perm.canCreate && (
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+            <Plus className="h-4 w-4" /> New Project
+          </button>
+        )}
       </div>
 
       <div className="relative max-w-sm">

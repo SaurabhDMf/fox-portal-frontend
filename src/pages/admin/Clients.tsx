@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useModulePermission } from '@/hooks/usePermission';
 
 const types = ['All', 'VIP', 'Active', 'New', 'At-Risk'];
 const industries = ['Technology', 'Healthcare', 'Finance', 'Education', 'Retail', 'Manufacturing', 'Services', 'Other'];
 
 export default function Clients() {
+  const perm = useModulePermission('clients');
   const [type, setType] = useState('All');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -39,9 +41,11 @@ export default function Clients() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Clients</h1><p className="page-subtitle">Manage your client base</p></div>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-          <Plus className="h-4 w-4" /> Add Client
-        </button>
+        {perm.canCreate && (
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+            <Plus className="h-4 w-4" /> Add Client
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">
@@ -81,7 +85,7 @@ export default function Clients() {
         {clients.length === 0 && !isLoading && (
           <div className="col-span-full text-center py-16">
             <div className="text-muted-foreground text-sm mb-3">No clients found</div>
-            <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Add your first client →</button>
+            {perm.canCreate && <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Add your first client →</button>}
           </div>
         )}
       </div>

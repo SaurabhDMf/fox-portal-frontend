@@ -3,6 +3,7 @@ import api from '@/lib/api';
 import { useState } from 'react';
 import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useModulePermission } from '@/hooks/usePermission';
 
 const roles = ['admin', 'sales_manager', 'sales_rep', 'resource', 'freelancer'];
 const departments = ['Sales', 'Marketing', 'Engineering', 'Design', 'HR', 'Finance', 'Operations', 'Support', 'Management', 'Other'];
@@ -17,6 +18,7 @@ const emptyForm = {
 };
 
 export default function AdminUsers() {
+  const perm = useModulePermission('users');
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
@@ -184,9 +186,11 @@ export default function AdminUsers() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Team & Users</h1><p className="page-subtitle">Manage your employees</p></div>
-        <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-          <Plus className="h-4 w-4" /> Invite User
-        </button>
+        {perm.canCreate && (
+          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+            <Plus className="h-4 w-4" /> Invite User
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

@@ -3,8 +3,10 @@ import api from '@/lib/api';
 import { useState } from 'react';
 import { Plus, X, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useModulePermission } from '@/hooks/usePermission';
 
 export default function Payroll() {
+  const perm = useModulePermission('payroll');
   const [selectedRun, setSelectedRun] = useState<any>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ period_label: '', period_start: '', period_end: '' });
@@ -41,9 +43,11 @@ export default function Payroll() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Payroll</h1><p className="page-subtitle">Manage payroll runs and payslips</p></div>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-          <Plus className="h-4 w-4" /> New Run
-        </button>
+        {perm.canCreate && (
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+            <Plus className="h-4 w-4" /> New Run
+          </button>
+        )}
       </div>
 
       {!selectedRun ? (
