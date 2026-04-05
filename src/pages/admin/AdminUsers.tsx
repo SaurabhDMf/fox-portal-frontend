@@ -5,13 +5,25 @@ import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target } from 'l
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
 
-const roles = ['admin', 'sales_manager', 'sales_rep', 'resource', 'freelancer'];
+const roles = [
+  { value: 'admin', label: 'Admin' },
+  { value: 'sales_manager', label: 'Sales Manager' },
+  { value: 'sales_rep', label: 'Sales Rep' },
+  { value: 'resource', label: 'Resource' },
+  { value: 'freelancer', label: 'Freelancer' },
+  { value: 'client', label: 'Client' },
+];
 const departments = ['Sales', 'Marketing', 'Engineering', 'Design', 'HR', 'Finance', 'Operations', 'Support', 'Management', 'Other'];
-const employmentTypes = ['Full-time', 'Part-time', 'Contract', 'Freelancer', 'Intern'];
+const employmentTypes = [
+  { value: 'full_time', label: 'Full Time' },
+  { value: 'part_time', label: 'Part Time' },
+  { value: 'contract', label: 'Contract' },
+  { value: 'freelancer', label: 'Freelancer' },
+];
 const tabs = ['All', 'Active', 'Inactive', 'On Leave'];
 
 const emptyForm = {
-  full_name: '', email: '', phone: '', role: 'sales_rep', employment_type: 'Full-time',
+  full_name: '', email: '', phone: '', role: 'sales_rep', employment_type: 'full_time',
   department: '', job_title: '', password: '', date_of_joining: '', reporting_to: '',
   salary: '', address: '', emergency_contact: '', emergency_phone: '', notes: '',
   bank_name: '', bank_account: '', ifsc_code: '', pan_number: '',
@@ -137,10 +149,10 @@ export default function AdminUsers() {
 
       {formTab === 'work' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
+           <div>
             <label className={labelCls}>Role *</label>
             <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))} className={inputCls}>
-              {roles.map(r => <option key={r} value={r}>{r.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>)}
+              {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>
           <div>
@@ -154,7 +166,7 @@ export default function AdminUsers() {
           <div>
             <label className={labelCls}>Employment Type</label>
             <select value={form.employment_type} onChange={e => setForm(f => ({ ...f, employment_type: e.target.value }))} className={inputCls}>
-              {employmentTypes.map(t => <option key={t} value={t}>{t}</option>)}
+              {employmentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
           <div><label className={labelCls}>Date of Joining</label><input type="date" value={form.date_of_joining} onChange={e => setForm(f => ({ ...f, date_of_joining: e.target.value }))} className={inputCls} /></div>
