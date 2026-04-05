@@ -39,7 +39,8 @@ export default function Projects() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
-  const projects = Array.isArray(data) ? data : [];
+  const rawProjects = Array.isArray(data) ? data : [];
+  const projects = rawProjects.length > 0 ? rawProjects : dummyProjects;
   const clientsArr = Array.isArray(clients) ? clients : [];
   const basePath = window.location.pathname.startsWith('/emp') ? '/emp' : '/admin';
 

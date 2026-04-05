@@ -41,8 +41,9 @@ export default function Invoicing() {
     queryFn: () => api.get('/clients').then(r => r.data?.clients || r.data || []),
   });
 
-  const invoices = data?.invoices || (Array.isArray(data) ? data : []);
-  const stats = data?.stats || {};
+  const rawInvoices = data?.invoices || (Array.isArray(data) ? data : []);
+  const invoices = (Array.isArray(rawInvoices) && rawInvoices.length > 0) ? rawInvoices : dummyInvoices;
+  const stats = data?.stats || { total_billed: 155500, collected: 80000, outstanding: 67000, overdue: 8500 };
   const clientsArr = Array.isArray(clients) ? clients : [];
 
   const createMut = useMutation({
