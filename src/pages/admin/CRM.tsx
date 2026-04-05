@@ -468,13 +468,13 @@ export default function CRM() {
 
               {/* Added By (presales person) */}
               <select value={form.added_by} onChange={e => setForm(f => ({ ...f, added_by: e.target.value }))} className={inputCls}>
-                <option value="">Added By (Presales)</option>
-                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                <option value="">Added By (Pre Sales)</option>
+                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}{u.role ? ` (${u.role})` : ''}</option>)}
               </select>
 
               <select value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))} className={inputCls}>
-                <option value="">Assign To</option>
-                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+                <option value="">Assign To (Sales Manager)</option>
+                {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}{u.role ? ` (${u.role})` : ''}</option>)}
               </select>
             </div>
             <textarea placeholder="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} className={`w-full ${inputCls} resize-none`} />
