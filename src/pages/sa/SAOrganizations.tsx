@@ -97,7 +97,7 @@ export default function SAOrganizations() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api.delete(`/sa/organizations/${id}`).then(r => r.data),
+    mutationFn: (id: string) => api.delete(`/sa/organizations/${id}?permanent=true`).then(r => r.data),
     onSuccess: async () => { await invalidateSAQueries(); toast.success('Organization deleted'); },
     onError: (e: any) => toast.error(e?.response?.data?.error || e.message || 'Delete failed'),
   });
