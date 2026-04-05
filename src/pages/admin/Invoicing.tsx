@@ -1,11 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { useAuthStore } from '@/stores/authStore';
-import { Plus, X, Send, Trash2 } from 'lucide-react';
+import { Plus, X, Send, Trash2, DollarSign, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
-import { DollarSign, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 
 const statusTabs = ['All', 'Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled'];
 
@@ -19,7 +17,6 @@ export default function Invoicing() {
   const [tab, setTab] = useState('All');
   const [showCreate, setShowCreate] = useState(false);
   const [showDetail, setShowDetail] = useState<any>(null);
-  const canCreate = useAuthStore(s => s.canCreate);
   const qc = useQueryClient();
 
   const [form, setForm] = useState({
@@ -86,11 +83,9 @@ export default function Invoicing() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Invoices</h1><p className="page-subtitle">Manage billing and payments</p></div>
-        {canCreate('invoicing') && (
-          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-4 w-4" /> New Invoice
-          </button>
-        )}
+        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+          <Plus className="h-4 w-4" /> New Invoice
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -137,7 +132,6 @@ export default function Invoicing() {
         </table>
       </div>
 
-      {/* Create Invoice Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-2xl p-6 space-y-5 animate-slide-up max-h-[90vh] overflow-y-auto">
@@ -145,42 +139,31 @@ export default function Invoicing() {
               <h2 className="text-lg font-semibold">Create Invoice</h2>
               <button onClick={() => setShowCreate(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                 <option value="">Select Client</option>
                 {clientsArr.map((c: any) => <option key={c.id} value={c.id}>{c.company_name}</option>)}
               </select>
-              <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Due Date" />
+              <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
               <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
+                <option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="INR">INR</option><option value="AED">AED</option>
               </select>
             </div>
-
-            {/* Line Items */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">Line Items</label>
                 <button onClick={addItem} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="h-3 w-3" /> Add Item</button>
               </div>
-              <div className="space-y-2">
-                {items.map((item, idx) => (
-                  <div key={idx} className="flex gap-2 items-start">
-                    <input placeholder="Description" value={item.description} onChange={e => updateItem(idx, 'description', e.target.value)} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-                    <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateItem(idx, 'quantity', Number(e.target.value))} className="w-20 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" min="1" />
-                    <input type="number" placeholder="Price" value={item.unit_price} onChange={e => updateItem(idx, 'unit_price', Number(e.target.value))} className="w-28 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" min="0" step="0.01" />
-                    <span className="py-2 text-sm font-medium w-24 text-right">${(item.quantity * item.unit_price).toFixed(2)}</span>
-                    {items.length > 1 && (
-                      <button onClick={() => removeItem(idx)} className="p-2 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
-                    )}
-                  </div>
-                ))}
-              </div>
+              {items.map((item, idx) => (
+                <div key={idx} className="flex gap-2 items-start">
+                  <input placeholder="Description" value={item.description} onChange={e => updateItem(idx, 'description', e.target.value)} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateItem(idx, 'quantity', Number(e.target.value))} className="w-20 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" min="1" />
+                  <input type="number" placeholder="Price" value={item.unit_price} onChange={e => updateItem(idx, 'unit_price', Number(e.target.value))} className="w-28 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" min="0" step="0.01" />
+                  <span className="py-2 text-sm font-medium w-24 text-right">${(item.quantity * item.unit_price).toFixed(2)}</span>
+                  {items.length > 1 && <button onClick={() => removeItem(idx)} className="p-2 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
+                </div>
+              ))}
             </div>
-
-            {/* Totals */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex items-center gap-2">
                 <label className="text-xs text-muted-foreground whitespace-nowrap">Discount %</label>
@@ -191,16 +174,13 @@ export default function Invoicing() {
                 <input type="number" value={form.tax_pct} onChange={e => setForm(f => ({ ...f, tax_pct: Number(e.target.value) }))} className="w-20 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" min="0" max="100" />
               </div>
             </div>
-
             <div className="bg-secondary/50 rounded-lg p-4 space-y-1 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
               {form.discount_pct > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount ({form.discount_pct}%)</span><span className="text-destructive">-${discount.toFixed(2)}</span></div>}
               {form.tax_pct > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Tax ({form.tax_pct}%)</span><span>${tax.toFixed(2)}</span></div>}
               <div className="flex justify-between font-bold text-base pt-2 border-t border-border"><span>Total</span><span>${total.toFixed(2)}</span></div>
             </div>
-
             <textarea placeholder="Notes (optional)" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
-
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
               <button onClick={() => createMut.mutate()} disabled={createMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
@@ -211,7 +191,6 @@ export default function Invoicing() {
         </div>
       )}
 
-      {/* Invoice Detail Modal */}
       {showDetail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-2xl p-6 space-y-5 animate-slide-up max-h-[90vh] overflow-y-auto">
@@ -219,47 +198,22 @@ export default function Invoicing() {
               <h2 className="text-lg font-semibold">Invoice {showDetail.invoice_number || ''}</h2>
               <button onClick={() => setShowDetail(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
             </div>
-
-            {/* Invoice paper style */}
             <div className="bg-secondary/30 rounded-xl p-6 space-y-4">
               <div className="flex justify-between">
-                <div>
-                  <div className="text-xs text-muted-foreground">Bill To</div>
-                  <div className="font-medium">{showDetail.client_name || 'Client'}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-muted-foreground">Due Date</div>
-                  <div>{showDetail.due_date ? new Date(showDetail.due_date).toLocaleDateString() : '—'}</div>
-                </div>
+                <div><div className="text-xs text-muted-foreground">Bill To</div><div className="font-medium">{showDetail.client_name || 'Client'}</div></div>
+                <div className="text-right"><div className="text-xs text-muted-foreground">Due Date</div><div>{showDetail.due_date ? new Date(showDetail.due_date).toLocaleDateString() : '—'}</div></div>
               </div>
-
               <div className="flex justify-between">
-                <div>
-                  <div className="text-xs text-muted-foreground">Status</div>
-                  <span className={showDetail.status === 'Paid' ? 'badge-success' : showDetail.status === 'Overdue' ? 'badge-danger' : 'badge-warning'}>{showDetail.status}</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-muted-foreground">Currency</div>
-                  <div>{showDetail.currency || 'USD'}</div>
-                </div>
+                <div><div className="text-xs text-muted-foreground">Status</div><span className={showDetail.status === 'Paid' ? 'badge-success' : showDetail.status === 'Overdue' ? 'badge-danger' : 'badge-warning'}>{showDetail.status}</span></div>
+                <div className="text-right"><div className="text-xs text-muted-foreground">Currency</div><div>{showDetail.currency || 'USD'}</div></div>
               </div>
-
-              {/* Items */}
               {showDetail.items && (
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-xs text-muted-foreground border-b border-border">
-                      <th className="text-left pb-2">Description</th>
-                      <th className="text-right pb-2">Qty</th>
-                      <th className="text-right pb-2">Price</th>
-                      <th className="text-right pb-2">Total</th>
-                    </tr>
-                  </thead>
+                  <thead><tr className="text-xs text-muted-foreground border-b border-border"><th className="text-left pb-2">Description</th><th className="text-right pb-2">Qty</th><th className="text-right pb-2">Price</th><th className="text-right pb-2">Total</th></tr></thead>
                   <tbody>
                     {(showDetail.items as any[]).map((item: any, i: number) => (
                       <tr key={i} className="border-b border-border/50">
-                        <td className="py-2">{item.description}</td>
-                        <td className="py-2 text-right">{item.quantity}</td>
+                        <td className="py-2">{item.description}</td><td className="py-2 text-right">{item.quantity}</td>
                         <td className="py-2 text-right">${Number(item.unit_price || 0).toFixed(2)}</td>
                         <td className="py-2 text-right font-medium">${(item.quantity * item.unit_price).toFixed(2)}</td>
                       </tr>
@@ -267,12 +221,8 @@ export default function Invoicing() {
                   </tbody>
                 </table>
               )}
-
-              <div className="text-right space-y-1 pt-2">
-                <div className="text-2xl font-bold">${Number(showDetail.total || 0).toLocaleString()}</div>
-              </div>
+              <div className="text-right space-y-1 pt-2"><div className="text-2xl font-bold">${Number(showDetail.total || 0).toLocaleString()}</div></div>
             </div>
-
             <div className="flex gap-2 justify-end">
               {showDetail.status === 'Draft' && (
                 <button onClick={() => { sendMut.mutate(showDetail.id); setShowDetail(null); }} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all flex items-center gap-2">

@@ -6,12 +6,6 @@ import toast from 'react-hot-toast';
 import { Loader2, Mail, Lock, ChevronRight } from 'lucide-react';
 import ThemeLogo from '@/components/ThemeLogo';
 
-const demoAccounts = [
-  { label: 'Company Admin', email: 'company.admin@company.com', role: 'admin' },
-  { label: 'Sales Manager', email: 'alex.kim@company.com', role: 'sales_manager' },
-  { label: 'Sales Rep', email: 'lisa.monroe@company.com', role: 'sales_rep' },
-];
-
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,11 +31,6 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillDemo = (account: typeof demoAccounts[0]) => {
-    setEmail(account.email);
-    setPassword('Admin123!');
   };
 
   return (
@@ -79,25 +68,6 @@ export default function Login() {
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Sign In <ChevronRight className="h-4 w-4" /></>}
           </button>
         </form>
-
-        <div className="mt-6">
-          <p className="text-xs text-muted-foreground text-center mb-3">Quick login with demo accounts</p>
-          <div className="grid gap-2">
-            {demoAccounts.map((acc) => (
-              <button key={acc.email} onClick={() => fillDemo(acc)}
-                className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-secondary/50 border border-border hover:border-primary/30 transition-all text-sm group">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">{acc.label[0]}</div>
-                  <div className="text-left">
-                    <div className="font-medium text-foreground">{acc.label}</div>
-                    <div className="text-xs text-muted-foreground">{acc.email}</div>
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

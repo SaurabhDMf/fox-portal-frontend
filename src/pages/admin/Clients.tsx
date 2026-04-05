@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/stores/authStore';
 import { Plus, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -14,7 +13,6 @@ export default function Clients() {
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ company_name: '', industry: '', client_type: 'Active', website: '', account_manager_id: '' });
-  const canCreate = useAuthStore(s => s.canCreate);
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -41,11 +39,9 @@ export default function Clients() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Clients</h1><p className="page-subtitle">Manage your client base</p></div>
-        {canCreate('clients') && (
-          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-4 w-4" /> Add Client
-          </button>
-        )}
+        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+          <Plus className="h-4 w-4" /> Add Client
+        </button>
       </div>
 
       <div className="flex flex-wrap gap-3 items-center">
@@ -85,14 +81,11 @@ export default function Clients() {
         {clients.length === 0 && !isLoading && (
           <div className="col-span-full text-center py-16">
             <div className="text-muted-foreground text-sm mb-3">No clients found</div>
-            {canCreate('clients') && (
-              <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Add your first client →</button>
-            )}
+            <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Add your first client →</button>
           </div>
         )}
       </div>
 
-      {/* Create Client Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-lg p-6 space-y-4 animate-slide-up">

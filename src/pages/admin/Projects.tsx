@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/stores/authStore';
 import { Plus, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -13,7 +12,6 @@ export default function Projects() {
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', client_id: '', description: '', status: 'Active', priority: 'Medium', due_date: '' });
-  const canCreate = useAuthStore(s => s.canCreate);
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -47,11 +45,9 @@ export default function Projects() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Projects</h1><p className="page-subtitle">Track project progress</p></div>
-        {canCreate('projects') && (
-          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-4 w-4" /> New Project
-          </button>
-        )}
+        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+          <Plus className="h-4 w-4" /> New Project
+        </button>
       </div>
 
       <div className="relative max-w-sm">
@@ -87,7 +83,6 @@ export default function Projects() {
         )}
       </div>
 
-      {/* Create Project Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-lg p-6 space-y-4 animate-slide-up">
@@ -108,9 +103,7 @@ export default function Projects() {
               <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                 {priorityOptions.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
-              <div>
-                <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-              </div>
+              <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             </div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
