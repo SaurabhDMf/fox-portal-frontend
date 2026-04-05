@@ -40,7 +40,7 @@ export default function AdminUsers() {
   });
 
   const createMut = useMutation({
-    mutationFn: (d: typeof form) => api.post('/users', d),
+    mutationFn: (d: typeof form) => api.post('/users/invite', d),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
       setShowAdd(false);
