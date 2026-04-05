@@ -174,7 +174,7 @@ export default function Tracker() {
                 </tr>
               </thead>
               <tbody>
-                {(Array.isArray(leaveRequests) ? leaveRequests : []).map((lr: any) => (
+                {leaveArr.map((lr: any) => (
                   <tr key={lr.id} className="border-b border-border/50">
                     <td className="p-4 font-medium">{lr.leave_type}</td>
                     <td className="p-4 text-muted-foreground">{lr.start_date ? new Date(lr.start_date).toLocaleDateString() : ''}</td>
@@ -212,7 +212,7 @@ export default function Tracker() {
                 </tr>
               </thead>
               <tbody>
-                {(Array.isArray(timeEntries) ? timeEntries : []).map((te: any) => (
+                {timeArr.map((te: any) => (
                   <tr key={te.id} className="border-b border-border/50">
                     <td className="p-4">{te.date ? new Date(te.date).toLocaleDateString() : ''}</td>
                     <td className="p-4 font-medium">{te.hours}h</td>
@@ -242,7 +242,7 @@ export default function Tracker() {
                 </tr>
               </thead>
               <tbody>
-                {(Array.isArray(expenses) ? expenses : []).map((exp: any) => (
+                {expenseArr.map((exp: any) => (
                   <tr key={exp.id} className="border-b border-border/50">
                     <td className="p-4 font-medium">{exp.title}</td>
                     <td className="p-4 text-muted-foreground">{exp.category}</td>
