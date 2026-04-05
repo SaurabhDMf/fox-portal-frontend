@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { useAuthStore } from '@/stores/authStore';
 import { Plus, X, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -9,7 +8,6 @@ export default function Payroll() {
   const [selectedRun, setSelectedRun] = useState<any>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ period_label: '', period_start: '', period_end: '' });
-  const canCreate = useAuthStore(s => s.canCreate);
   const qc = useQueryClient();
 
   const { data = [], isLoading } = useQuery({
@@ -43,11 +41,9 @@ export default function Payroll() {
     <div className="page-container">
       <div className="page-header">
         <div><h1 className="page-title">Payroll</h1><p className="page-subtitle">Manage payroll runs and payslips</p></div>
-        {canCreate('payroll') && (
-          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-4 w-4" /> New Run
-          </button>
-        )}
+        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+          <Plus className="h-4 w-4" /> New Run
+        </button>
       </div>
 
       {!selectedRun ? (
@@ -73,7 +69,6 @@ export default function Payroll() {
       ) : (
         <div className="space-y-4">
           <button onClick={() => setSelectedRun(null)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back to runs</button>
-
           <div className="glass-card p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -89,17 +84,12 @@ export default function Payroll() {
                 )}
               </div>
             </div>
-
-            {/* Employee breakdown */}
             {selectedRun.employees ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-                      <th className="pb-3 pr-4">Employee</th>
-                      <th className="pb-3 pr-4 text-right">Base Pay</th>
-                      <th className="pb-3 pr-4 text-right">Deductions</th>
-                      <th className="pb-3 text-right">Net Pay</th>
+                      <th className="pb-3 pr-4">Employee</th><th className="pb-3 pr-4 text-right">Base Pay</th><th className="pb-3 pr-4 text-right">Deductions</th><th className="pb-3 text-right">Net Pay</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -120,15 +110,9 @@ export default function Payroll() {
                   <tfoot>
                     <tr className="border-t-2 border-border">
                       <td className="py-3 font-bold">Total</td>
-                      <td className="py-3 text-right font-bold">
-                        ${(selectedRun.employees as any[]).reduce((s: number, e: any) => s + Number(e.base_pay || 0), 0).toLocaleString()}
-                      </td>
-                      <td className="py-3 text-right font-bold text-destructive">
-                        ${(selectedRun.employees as any[]).reduce((s: number, e: any) => s + Number(e.deductions || 0), 0).toLocaleString()}
-                      </td>
-                      <td className="py-3 text-right font-bold">
-                        ${(selectedRun.employees as any[]).reduce((s: number, e: any) => s + Number(e.net_pay || 0), 0).toLocaleString()}
-                      </td>
+                      <td className="py-3 text-right font-bold">${(selectedRun.employees as any[]).reduce((s: number, e: any) => s + Number(e.base_pay || 0), 0).toLocaleString()}</td>
+                      <td className="py-3 text-right font-bold text-destructive">${(selectedRun.employees as any[]).reduce((s: number, e: any) => s + Number(e.deductions || 0), 0).toLocaleString()}</td>
+                      <td className="py-3 text-right font-bold">${(selectedRun.employees as any[]).reduce((s: number, e: any) => s + Number(e.net_pay || 0), 0).toLocaleString()}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -140,7 +124,6 @@ export default function Payroll() {
         </div>
       )}
 
-      {/* Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-md p-6 space-y-4 animate-slide-up">

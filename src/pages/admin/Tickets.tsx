@@ -37,6 +37,7 @@ export default function Tickets() {
         </button>
       </div>
 
+      {/* ... rest identical to original but button is always visible */}
       <div className="flex gap-1 overflow-x-auto">
         {statusTabs.map(s => (
           <button key={s} onClick={() => setTab(s)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>{s}</button>
@@ -63,7 +64,6 @@ export default function Tickets() {
         {tickets.length === 0 && !isLoading && <div className="text-center py-12 text-muted-foreground text-sm">No tickets in this status</div>}
       </div>
 
-      {/* Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-lg p-6 space-y-4 animate-slide-up">
