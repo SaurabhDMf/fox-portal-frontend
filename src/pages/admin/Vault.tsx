@@ -23,6 +23,7 @@ function getStrength(pw: string): { label: string; color: string; width: string 
 }
 
 export default function Vault() {
+  const perm = useModulePermission('vault');
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const [revealedPw, setRevealedPw] = useState('');

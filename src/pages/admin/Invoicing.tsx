@@ -15,6 +15,7 @@ interface LineItem {
 }
 
 export default function Invoicing() {
+  const perm = useModulePermission('invoicing');
   const [tab, setTab] = useState('All');
   const [showCreate, setShowCreate] = useState(false);
   const [showDetail, setShowDetail] = useState<any>(null);

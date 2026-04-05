@@ -143,6 +143,7 @@ function useCustomFields(userId: string | undefined) {
 export default function CRM() {
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
+  const perm = useModulePermission('crm');
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');

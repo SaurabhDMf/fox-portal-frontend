@@ -10,6 +10,7 @@ const types = ['All', 'VIP', 'Active', 'New', 'At-Risk'];
 const industries = ['Technology', 'Healthcare', 'Finance', 'Education', 'Retail', 'Manufacturing', 'Services', 'Other'];
 
 export default function Clients() {
+  const perm = useModulePermission('clients');
   const [type, setType] = useState('All');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);

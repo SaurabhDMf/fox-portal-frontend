@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
 
 export default function Payroll() {
+  const perm = useModulePermission('payroll');
   const [selectedRun, setSelectedRun] = useState<any>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ period_label: '', period_start: '', period_end: '' });

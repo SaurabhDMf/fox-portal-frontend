@@ -10,6 +10,7 @@ const statusOptions = ['Active', 'On Hold', 'Completed', 'Cancelled'];
 const priorityOptions = ['Critical', 'High', 'Medium', 'Low'];
 
 export default function Projects() {
+  const perm = useModulePermission('projects');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', client_id: '', description: '', status: 'Active', priority: 'Medium', due_date: '' });

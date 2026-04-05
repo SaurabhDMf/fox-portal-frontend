@@ -18,6 +18,7 @@ const emptyForm = {
 };
 
 export default function AdminUsers() {
+  const perm = useModulePermission('users');
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('All');
   const [showAdd, setShowAdd] = useState(false);

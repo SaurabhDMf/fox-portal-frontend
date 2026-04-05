@@ -10,6 +10,7 @@ const statusTabs = ['Open', 'In Progress', 'Waiting', 'Resolved', 'Closed'];
 const categories = ['General', 'Technical', 'Billing', 'Feature Request', 'Bug Report'];
 
 export default function Tickets() {
+  const perm = useModulePermission('tickets');
   const [tab, setTab] = useState('Open');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', category: 'General', priority: 'Medium', client_id: '' });
