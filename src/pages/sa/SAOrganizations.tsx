@@ -71,11 +71,15 @@ export default function SAOrganizations() {
       name: d.name,
       owner_email: d.owner_email,
       owner_name: d.owner_name,
+      plan: 'trial',
       password: d.password,
-      industry: d.industry,
-      size: d.size,
     }).then(res => res.data),
-    onSuccess: async (data) => { await invalidateSAQueries(); resetCreateForm(); toast.success(`Organization "${data?.organization?.name || form.name}" created`); },
+    onSuccess: async (data) => {
+      await invalidateSAQueries();
+      const email = data?.admin_user?.email || form.owner_email;
+      toast.success(`Organization created! Login: ${email} / ${form.password}`);
+      resetCreateForm();
+    },
     onError: (e: any) => toast.error(e?.response?.data?.error || e.message || 'Error creating organization'),
   });
 
