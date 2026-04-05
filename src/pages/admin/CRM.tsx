@@ -177,7 +177,12 @@ export default function CRM() {
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
       },
-    }).then(r => r.data?.leads || r.data || []),
+    }).then(r => {
+      console.log('[CRM] GET /leads raw response:', r.data);
+      const result = r.data?.leads || r.data?.data || r.data || [];
+      console.log('[CRM] Parsed leads array:', result, 'isArray:', Array.isArray(result));
+      return result;
+    }),
   });
 
   const { data: users = [] } = useQuery({
