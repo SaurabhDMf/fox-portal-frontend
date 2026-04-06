@@ -1,42 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { Plus, Search, Lock, Eye, EyeOff, Copy, FolderClosed, FolderPlus, X, Globe, Share2 } from 'lucide-react';
+import { Plus, Search, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
 import { dummyVaultFolders, dummyVaultCreds } from '@/lib/dummyData';
+import VaultFolderSidebar from '@/components/vault/VaultFolderSidebar';
+import VaultCredentialCard from '@/components/vault/VaultCredentialCard';
+import VaultCredentialModal, { type CredentialForm } from '@/components/vault/VaultCredentialModal';
+import VaultShareModal from '@/components/vault/VaultShareModal';
 
-const categories = ['Social Media', 'Finance', 'Dev Tools', 'Email', 'CRM', 'Other'];
-
-function getStrength(pw: string): { label: string; color: string; width: string } {
-  if (!pw) return { label: '', color: '', width: '0%' };
-  let score = 0;
-  if (pw.length >= 8) score++;
-  if (pw.length >= 12) score++;
-  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
-  if (/\d/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-  if (score <= 1) return { label: 'Weak', color: 'bg-destructive', width: '20%' };
-  if (score <= 2) return { label: 'Fair', color: 'bg-[hsl(var(--warning))]', width: '40%' };
-  if (score <= 3) return { label: 'Good', color: 'bg-[hsl(var(--info))]', width: '60%' };
-  if (score <= 4) return { label: 'Strong', color: 'bg-[hsl(var(--success))]', width: '80%' };
-  return { label: 'Very Strong', color: 'bg-[hsl(var(--success))]', width: '100%' };
-}
+const categoryOptions = ['All', 'Login', 'API Key', 'Database', 'SSH', 'Social Media', 'Finance', 'Dev Tools', 'Email', 'CRM', 'Other'];
 
 export default function Vault() {
   const perm = useModulePermission('vault');
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-  const [revealedId, setRevealedId] = useState<string | null>(null);
-  const [revealedPw, setRevealedPw] = useState('');
-  const [search, setSearch] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
-  const [showCreateFolder, setShowCreateFolder] = useState(false);
-  const [showShare, setShowShare] = useState<string | null>(null);
-  const [folderName, setFolderName] = useState('');
-  const [shareEmail, setShareEmail] = useState('');
-  const [shareAccess, setShareAccess] = useState('view');
-  const [form, setForm] = useState({ title: '', username: '', password: '', url: '', category: 'Other', notes: '', folder_id: '' });
   const qc = useQueryClient();
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [showCreate, setShowCreate] = useState(false);
+  const [editCred, setEditCred] = useState<any>(null);
+  const [shareTarget, setShareTarget] = useState<{ type: 'folder' | 'credential'; id: string } | null>(null);
 
   const { data: folders = [] } = useQuery({
     queryKey: ['vault-folders'],
@@ -44,197 +28,137 @@ export default function Vault() {
   });
 
   const { data: creds = [] } = useQuery({
-    queryKey: ['vault-creds', selectedFolder],
-    queryFn: () => api.get('/vault/credentials', { params: { folder_id: selectedFolder || undefined } }).then(r => r.data?.credentials || r.data || []),
+    queryKey: ['vault-creds', selectedFolder, search],
+    queryFn: () => api.get('/vault/credentials', {
+      params: { folder_id: selectedFolder || undefined, search: search || undefined },
+    }).then(r => r.data?.credentials || r.data || []),
   });
 
   const createMut = useMutation({
-    mutationFn: (d: typeof form) => api.post('/vault/credentials', { ...d, folder_id: d.folder_id || undefined }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['vault-creds'] });
-      setShowCreate(false);
-      setForm({ title: '', username: '', password: '', url: '', category: 'Other', notes: '', folder_id: '' });
-      toast.success('Credential saved');
-    },
+    mutationFn: (d: CredentialForm) => api.post('/vault/credentials', { ...d, folder_id: d.folder_id || undefined }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vault-creds'] }); qc.invalidateQueries({ queryKey: ['vault-folders'] }); setShowCreate(false); toast.success('Credential saved'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
-  const createFolderMut = useMutation({
-    mutationFn: (name: string) => api.post('/vault/folders', { name }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['vault-folders'] });
-      setShowCreateFolder(false);
-      setFolderName('');
-      toast.success('Folder created');
-    },
+  const editMut = useMutation({
+    mutationFn: (d: CredentialForm & { id: string }) => api.put(`/vault/credentials/${d.id}`, { ...d, folder_id: d.folder_id || undefined }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vault-creds'] }); setEditCred(null); toast.success('Credential updated'); },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api.delete(`/vault/credentials/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vault-creds'] }); qc.invalidateQueries({ queryKey: ['vault-folders'] }); toast.success('Credential deleted'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
   const shareMut = useMutation({
-    mutationFn: (data: { credential_id: string; email: string; access: string }) => api.post(`/vault/credentials/${data.credential_id}/share`, { email: data.email, access_level: data.access }),
-    onSuccess: () => { setShowShare(null); setShareEmail(''); toast.success('Credential shared'); },
+    mutationFn: (data: { type: 'folder' | 'credential'; id: string; user_ids: string[]; can_edit: boolean[] }) => {
+      const endpoint = data.type === 'folder' ? `/vault/folders/${data.id}/share` : `/vault/credentials/${data.id}/share`;
+      return api.post(endpoint, { user_ids: data.user_ids, can_edit: data.can_edit[0] ?? false });
+    },
+    onSuccess: () => { setShareTarget(null); toast.success('Shared successfully'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
-  const handleReveal = async (id: string) => {
-    if (revealedId === id) { setRevealedId(null); setRevealedPw(''); return; }
-    try {
-      const { data } = await api.get(`/vault/credentials/${id}/reveal`);
-      setRevealedId(id);
-      setRevealedPw(data.password || '••••••');
-    } catch { toast.error('Cannot reveal'); }
+  const handleDelete = (id: string) => {
+    if (confirm('Delete this credential permanently?')) deleteMut.mutate(id);
   };
-
-  const copyPw = (pw: string) => { navigator.clipboard.writeText(pw); toast.success('Copied'); };
 
   const rawFolders = Array.isArray(folders) ? folders : [];
   const foldersArr = rawFolders.length > 0 ? rawFolders : dummyVaultFolders;
   const rawCreds = Array.isArray(creds) ? creds : [];
-  const credsArr = (rawCreds.length > 0 ? rawCreds : dummyVaultCreds).filter((c: any) =>
-    !search || c.title?.toLowerCase().includes(search.toLowerCase()) || c.username?.toLowerCase().includes(search.toLowerCase())
-  );
-  const strength = getStrength(form.password);
+  const credsArr = (rawCreds.length > 0 ? rawCreds : dummyVaultCreds).filter((c: any) => {
+    if (categoryFilter !== 'All' && c.category !== categoryFilter) return false;
+    return true;
+  });
 
   return (
     <div className="page-container">
       <div className="page-header">
-        <div><h1 className="page-title">Password Vault</h1><p className="page-subtitle">Securely manage credentials</p></div>
-        <div className="flex items-center gap-2">
-          {perm.canCreate && (
-            <button onClick={() => setShowCreateFolder(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 active:scale-[0.97] transition-all border border-border">
-              <FolderPlus className="h-4 w-4" /> New Folder
-            </button>
-          )}
-          {perm.canCreate && (
-            <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-              <Plus className="h-4 w-4" /> Add Credential
-            </button>
-          )}
+        <div>
+          <h1 className="page-title">Password Vault</h1>
+          <p className="page-subtitle">Securely manage and share credentials</p>
         </div>
-      </div>
-
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search credentials..." className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-      </div>
-
-      <div className="flex gap-4 flex-col md:flex-row">
-        <div className="w-full md:w-56 space-y-1">
-          <button onClick={() => setSelectedFolder(null)} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${!selectedFolder ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-secondary'}`}>
-            <FolderClosed className="h-4 w-4" /> All
+        {perm.canCreate && (
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+            <Plus className="h-4 w-4" /> Add Credential
           </button>
-          {foldersArr.map((f: any) => (
-            <button key={f.id} onClick={() => setSelectedFolder(f.id)} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${selectedFolder === f.id ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-secondary'}`}>
-              <FolderClosed className="h-4 w-4" /> {f.name}
-            </button>
-          ))}
+        )}
+      </div>
+
+      {/* Top bar: Search + Category filter */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search across all folders..." className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
         </div>
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+            {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Main layout */}
+      <div className="flex gap-4 flex-col md:flex-row">
+        <VaultFolderSidebar
+          folders={foldersArr}
+          selectedFolder={selectedFolder}
+          onSelect={setSelectedFolder}
+          canCreate={perm.canCreate}
+          onShareFolder={(id) => setShareTarget({ type: 'folder', id })}
+        />
 
         <div className="flex-1 space-y-3">
-          {credsArr.map((cred: any) => (
-            <div key={cred.id} className="glass-card-hover p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center"><Lock className="h-4 w-4 text-muted-foreground" /></div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">{cred.title}</div>
-                <div className="text-xs text-muted-foreground">{cred.username} • {cred.category}</div>
-                {cred.url && <div className="text-xs text-primary truncate">{cred.url}</div>}
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-mono">{revealedId === cred.id ? revealedPw : '••••••••'}</span>
-                <button onClick={() => handleReveal(cred.id)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground">
-                  {revealedId === cred.id ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-                {revealedId === cred.id && <button onClick={() => copyPw(revealedPw)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground"><Copy className="h-4 w-4" /></button>}
-                <button onClick={() => setShowShare(cred.id)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Share"><Share2 className="h-4 w-4" /></button>
-              </div>
+          {credsArr.length > 0 ? credsArr.map((cred: any) => (
+            <VaultCredentialCard
+              key={cred.id}
+              cred={cred}
+              onEdit={(c) => setEditCred(c)}
+              onShare={(id) => setShareTarget({ type: 'credential', id })}
+              onDelete={handleDelete}
+              canEdit={perm.canEdit}
+              canDelete={perm.canDelete}
+            />
+          )) : (
+            <div className="text-center py-16 text-muted-foreground text-sm">
+              <p>No credentials found</p>
+              {perm.canCreate && <button onClick={() => setShowCreate(true)} className="mt-2 text-primary hover:underline text-sm">Add your first credential</button>}
             </div>
-          ))}
-          {credsArr.length === 0 && <div className="text-center py-12 text-muted-foreground text-sm">No credentials found</div>}
+          )}
         </div>
       </div>
 
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-lg p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Add Credential</h2>
-              <button onClick={() => setShowCreate(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
-            </div>
-            <input placeholder="Title *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            <div className="grid grid-cols-2 gap-3">
-              <input placeholder="Username / Email *" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-              <div className="space-y-1">
-                <input type="password" placeholder="Password *" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-                {form.password && (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden"><div className={`h-full ${strength.color} rounded-full transition-all`} style={{ width: strength.width }} /></div>
-                    <span className="text-[10px] text-muted-foreground">{strength.label}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="relative">
-              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input placeholder="URL (optional)" value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} className="w-full pl-10 pr-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select value={form.folder_id} onChange={e => setForm(f => ({ ...f, folder_id: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">No Folder</option>
-                {foldersArr.map((f: any) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </select>
-            </div>
-            <textarea placeholder="Notes (optional)" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
-              <button onClick={() => createMut.mutate(form)} disabled={createMut.isPending || !form.title || !form.username} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-                {createMut.isPending ? 'Saving...' : 'Save Credential'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Create modal */}
+      <VaultCredentialModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onSubmit={(data) => createMut.mutate(data)}
+        isPending={createMut.isPending}
+        folders={foldersArr}
+      />
 
-      {showCreateFolder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">New Folder</h2>
-              <button onClick={() => setShowCreateFolder(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
-            </div>
-            <input placeholder="Folder name *" value={folderName} onChange={e => setFolderName(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowCreateFolder(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
-              <button onClick={() => createFolderMut.mutate(folderName)} disabled={createFolderMut.isPending || !folderName.trim()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-                {createFolderMut.isPending ? 'Creating...' : 'Create Folder'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Edit modal */}
+      <VaultCredentialModal
+        open={!!editCred}
+        onClose={() => setEditCred(null)}
+        onSubmit={(data) => editMut.mutate({ ...data, id: editCred?.id })}
+        isPending={editMut.isPending}
+        folders={foldersArr}
+        initial={editCred}
+        isEdit
+      />
 
-      {showShare && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Share Credential</h2>
-              <button onClick={() => setShowShare(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
-            </div>
-            <input placeholder="Email address *" value={shareEmail} onChange={e => setShareEmail(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            <select value={shareAccess} onChange={e => setShareAccess(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-              <option value="view">View Only</option><option value="edit">Can Edit</option>
-            </select>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowShare(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
-              <button onClick={() => shareMut.mutate({ credential_id: showShare, email: shareEmail, access: shareAccess })} disabled={shareMut.isPending || !shareEmail.trim()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-                {shareMut.isPending ? 'Sharing...' : 'Share'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Share modal */}
+      <VaultShareModal
+        open={!!shareTarget}
+        onClose={() => setShareTarget(null)}
+        onSubmit={(userIds, canEdit) => shareTarget && shareMut.mutate({ type: shareTarget.type, id: shareTarget.id, user_ids: userIds, can_edit: canEdit })}
+        isPending={shareMut.isPending}
+        title={shareTarget?.type === 'folder' ? 'Share Folder' : 'Share Credential'}
+      />
     </div>
   );
 }
