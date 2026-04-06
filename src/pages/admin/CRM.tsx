@@ -364,8 +364,8 @@ export default function CRM() {
                     <td className="p-4" onClick={() => navigate(`/admin/crm/${lead.id}`)}>
                       <span className={lead.status === 'Closed Won' ? 'badge-success' : lead.status === 'Closed Lost' ? 'badge-danger' : 'badge-info'}>{lead.status}</span>
                     </td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.lead_by_name || lead.added_by_name || '—'}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.assigned_to_name || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{resolveAddedBy(lead) || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{resolveAssignedTo(lead) || '—'}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-1">
                         {perm.canEdit && (
