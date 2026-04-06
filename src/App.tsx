@@ -26,6 +26,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import Reports from "./pages/admin/Reports";
 import AdminSettings from "./pages/admin/AdminSettings";
 import Permissions from "./pages/admin/Permissions";
+import RolesPermissions from "./pages/admin/RolesPermissions";
 
 // Employee
 import EmpDashboard from "./pages/emp/EmpDashboard";
@@ -84,6 +85,7 @@ const App = () => (
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="permissions" element={<Permissions />} />
+          <Route path="roles" element={<RolesPermissions />} />
         </Route>
 
         {/* Employee Portal */}

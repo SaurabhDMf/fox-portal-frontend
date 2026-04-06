@@ -15,7 +15,7 @@ const PERM_ACTIONS = ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_e
 const PERM_LABELS: Record<string, string> = { can_view: 'View', can_create: 'Create', can_edit: 'Edit', can_delete: 'Delete', can_export: 'Export' };
 
 
-const roles = [
+const fallbackRoles = [
   { value: 'admin', label: 'Admin' },
   { value: 'sales_manager', label: 'Sales Manager' },
   { value: 'sales_rep', label: 'Sales Rep' },
@@ -60,6 +60,17 @@ export default function AdminUsers() {
   const [viewPerms, setViewPerms] = useState<Record<string, any> | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
   const qc = useQueryClient();
+
+  const { data: apiRoles } = useQuery({
+    queryKey: ['roles'],
+    queryFn: async () => {
+      const res = await api.get('/roles');
+      const d = res.data?.data || res.data;
+      const list = Array.isArray(d) ? d : d?.roles || [];
+      return list.map((r: any) => ({ value: r.name, label: r.label || r.name }));
+    },
+  });
+  const roles = (apiRoles && apiRoles.length > 0) ? apiRoles : fallbackRoles;
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['users', search],
