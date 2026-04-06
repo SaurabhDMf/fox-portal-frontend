@@ -262,8 +262,8 @@ export default function CRM() {
   // Build a lookup map: user id -> full_name (for resolving names client-side)
   const userNameMap: Record<string, string> = {};
   usersArr.forEach((u: any) => { if (u.id && u.full_name) userNameMap[u.id] = u.full_name; });
-  const resolveAddedBy = (lead: any) => lead.lead_by_name || lead.added_by_name || userNameMap[lead.added_by] || '';
-  const resolveAssignedTo = (lead: any) => lead.assigned_to_name || userNameMap[lead.assigned_to] || '';
+  const resolveAddedBy = (lead: any) => lead.added_by_name || lead.lead_by_name || userNameMap[lead.added_by] || '';
+  const resolveAssignedTo = (lead: any) => lead.assigned_name || lead.assigned_to_name || userNameMap[lead.assigned_to] || '';
 
   const inputCls = "px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
