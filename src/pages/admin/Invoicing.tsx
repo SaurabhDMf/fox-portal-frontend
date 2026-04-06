@@ -1,85 +1,43 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { Plus, X, Send, Trash2, DollarSign, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Plus, Send, DollarSign, CheckCircle, Clock, AlertTriangle, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
 import { useModulePermission } from '@/hooks/usePermission';
 import { dummyInvoices } from '@/lib/dummyData';
+import InvoiceCreateModal from '@/components/invoicing/InvoiceCreateModal';
+import InvoicePrintView from '@/components/invoicing/InvoicePrintView';
 
 const statusTabs = ['All', 'Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled'];
-
-interface LineItem {
-  description: string;
-  quantity: number;
-  unit_price: number;
-}
 
 export default function Invoicing() {
   const perm = useModulePermission('invoicing');
   const [tab, setTab] = useState('All');
   const [showCreate, setShowCreate] = useState(false);
-  const [showDetail, setShowDetail] = useState<any>(null);
+  const [showPrint, setShowPrint] = useState<any>(null);
   const qc = useQueryClient();
-
-  const [form, setForm] = useState({
-    client_id: '',
-    due_date: '',
-    currency: 'USD',
-    discount_pct: 0,
-    tax_pct: 0,
-    notes: '',
-  });
-  const [items, setItems] = useState<LineItem[]>([{ description: '', quantity: 1, unit_price: 0 }]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['invoices', tab],
     queryFn: () => api.get('/invoices', { params: { status: tab === 'All' ? undefined : tab } }).then(r => r.data),
   });
 
-  const { data: clients = [] } = useQuery({
-    queryKey: ['clients-list'],
-    queryFn: () => api.get('/clients').then(r => r.data?.clients || r.data || []),
-  });
-
   const rawInvoices = data?.invoices || (Array.isArray(data) ? data : []);
   const invoices = (Array.isArray(rawInvoices) && rawInvoices.length > 0) ? rawInvoices : dummyInvoices;
   const stats = data?.stats || { total_billed: 155500, collected: 80000, outstanding: 67000, overdue: 8500 };
-  const clientsArr = Array.isArray(clients) ? clients : [];
-
-  const createMut = useMutation({
-    mutationFn: () => api.post('/invoices', { ...form, items: items.filter(i => i.description) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['invoices'] });
-      setShowCreate(false);
-      setItems([{ description: '', quantity: 1, unit_price: 0 }]);
-      toast.success('Invoice created');
-    },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
-  });
 
   const sendMut = useMutation({
     mutationFn: (id: string) => api.post(`/invoices/${id}/send`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['invoices'] }); toast.success('Invoice sent'); },
   });
 
-  const subtotal = items.reduce((s, i) => s + i.quantity * i.unit_price, 0);
-  const discount = subtotal * (form.discount_pct / 100);
-  const taxable = subtotal - discount;
-  const tax = taxable * (form.tax_pct / 100);
-  const total = taxable + tax;
-
-  const addItem = () => setItems([...items, { description: '', quantity: 1, unit_price: 0 }]);
-  const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
-  const updateItem = (idx: number, field: keyof LineItem, value: string | number) =>
-    setItems(items.map((item, i) => i === idx ? { ...item, [field]: value } : item));
-
   const viewDetail = async (inv: any) => {
     try {
       const { data } = await api.get(`/invoices/${inv.id}`);
-      setShowDetail(data);
+      setShowPrint(data);
     } catch {
-      setShowDetail(inv);
+      setShowPrint(inv);
     }
   };
 
@@ -126,11 +84,16 @@ export default function Invoicing() {
                   <span className={inv.status === 'Paid' ? 'badge-success' : inv.status === 'Overdue' ? 'badge-danger' : inv.status === 'Sent' ? 'badge-info' : inv.status === 'Cancelled' ? 'badge-neutral' : 'badge-warning'}>{inv.status}</span>
                 </td>
                 <td className="p-4" onClick={e => e.stopPropagation()}>
-                  {inv.status === 'Draft' && (
-                    <button onClick={() => sendMut.mutate(inv.id)} className="text-xs flex items-center gap-1 text-primary hover:underline">
-                      <Send className="h-3 w-3" /> Send
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => viewDetail(inv)} className="text-xs flex items-center gap-1 text-muted-foreground hover:text-foreground">
+                      <FileText className="h-3 w-3" /> View
                     </button>
-                  )}
+                    {inv.status === 'Draft' && (
+                      <button onClick={() => sendMut.mutate(inv.id)} className="text-xs flex items-center gap-1 text-primary hover:underline">
+                        <Send className="h-3 w-3" /> Send
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -138,108 +101,8 @@ export default function Invoicing() {
         </table>
       </div>
 
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-2xl p-6 space-y-5 animate-slide-up max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Create Invoice</h2>
-              <button onClick={() => setShowCreate(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">Select Client</option>
-                {clientsArr.map((c: any) => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-              </select>
-              <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-              <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="INR">INR</option><option value="AED">AED</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Line Items</label>
-                <button onClick={addItem} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="h-3 w-3" /> Add Item</button>
-              </div>
-              {items.map((item, idx) => (
-                <div key={idx} className="flex gap-2 items-start">
-                  <input placeholder="Description" value={item.description} onChange={e => updateItem(idx, 'description', e.target.value)} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-                  <input type="number" placeholder="Qty" value={item.quantity} onChange={e => updateItem(idx, 'quantity', Number(e.target.value))} className="w-20 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" min="1" />
-                  <input type="number" placeholder="Price" value={item.unit_price} onChange={e => updateItem(idx, 'unit_price', Number(e.target.value))} className="w-28 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" min="0" step="0.01" />
-                  <span className="py-2 text-sm font-medium w-24 text-right">${(item.quantity * item.unit_price).toFixed(2)}</span>
-                  {items.length > 1 && <button onClick={() => removeItem(idx)} className="p-2 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground whitespace-nowrap">Discount %</label>
-                <input type="number" value={form.discount_pct} onChange={e => setForm(f => ({ ...f, discount_pct: Number(e.target.value) }))} className="w-20 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" min="0" max="100" />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground whitespace-nowrap">Tax %</label>
-                <input type="number" value={form.tax_pct} onChange={e => setForm(f => ({ ...f, tax_pct: Number(e.target.value) }))} className="w-20 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" min="0" max="100" />
-              </div>
-            </div>
-            <div className="bg-secondary/50 rounded-lg p-4 space-y-1 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-              {form.discount_pct > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount ({form.discount_pct}%)</span><span className="text-destructive">-${discount.toFixed(2)}</span></div>}
-              {form.tax_pct > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Tax ({form.tax_pct}%)</span><span>${tax.toFixed(2)}</span></div>}
-              <div className="flex justify-between font-bold text-base pt-2 border-t border-border"><span>Total</span><span>${total.toFixed(2)}</span></div>
-            </div>
-            <textarea placeholder="Notes (optional)" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
-              <button onClick={() => createMut.mutate()} disabled={createMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-                {createMut.isPending ? 'Creating...' : 'Create Invoice'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-2xl p-6 space-y-5 animate-slide-up max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Invoice {showDetail.invoice_number || ''}</h2>
-              <button onClick={() => setShowDetail(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="bg-secondary/30 rounded-xl p-6 space-y-4">
-              <div className="flex justify-between">
-                <div><div className="text-xs text-muted-foreground">Bill To</div><div className="font-medium">{showDetail.client_name || 'Client'}</div></div>
-                <div className="text-right"><div className="text-xs text-muted-foreground">Due Date</div><div>{showDetail.due_date ? new Date(showDetail.due_date).toLocaleDateString() : '—'}</div></div>
-              </div>
-              <div className="flex justify-between">
-                <div><div className="text-xs text-muted-foreground">Status</div><span className={showDetail.status === 'Paid' ? 'badge-success' : showDetail.status === 'Overdue' ? 'badge-danger' : 'badge-warning'}>{showDetail.status}</span></div>
-                <div className="text-right"><div className="text-xs text-muted-foreground">Currency</div><div>{showDetail.currency || 'USD'}</div></div>
-              </div>
-              {showDetail.items && (
-                <table className="w-full text-sm">
-                  <thead><tr className="text-xs text-muted-foreground border-b border-border"><th className="text-left pb-2">Description</th><th className="text-right pb-2">Qty</th><th className="text-right pb-2">Price</th><th className="text-right pb-2">Total</th></tr></thead>
-                  <tbody>
-                    {(showDetail.items as any[]).map((item: any, i: number) => (
-                      <tr key={i} className="border-b border-border/50">
-                        <td className="py-2">{item.description}</td><td className="py-2 text-right">{item.quantity}</td>
-                        <td className="py-2 text-right">${Number(item.unit_price || 0).toFixed(2)}</td>
-                        <td className="py-2 text-right font-medium">${(item.quantity * item.unit_price).toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              <div className="text-right space-y-1 pt-2"><div className="text-2xl font-bold">${Number(showDetail.total || 0).toLocaleString()}</div></div>
-            </div>
-            <div className="flex gap-2 justify-end">
-              {showDetail.status === 'Draft' && (
-                <button onClick={() => { sendMut.mutate(showDetail.id); setShowDetail(null); }} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all flex items-center gap-2">
-                  <Send className="h-4 w-4" /> Send Invoice
-                </button>
-              )}
-              <button onClick={() => setShowDetail(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showCreate && <InvoiceCreateModal onClose={() => setShowCreate(false)} />}
+      {showPrint && <InvoicePrintView invoice={showPrint} onClose={() => setShowPrint(null)} />}
     </div>
   );
 }

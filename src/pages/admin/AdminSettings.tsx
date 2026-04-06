@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { User, Shield, Bell, Palette, Pencil, X, Building2, KeyRound } from 'lucide-react';
+import CompanySettings from '@/components/settings/CompanySettings';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -42,8 +43,6 @@ export default function AdminSettings() {
   const [saving, setSaving] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: user?.full_name || '', department: user?.department || '', job_title: user?.job_title || '' });
-  const [companyForm, setCompanyForm] = useState({ company_name: '', website: '', industry: '', address: '', phone: '' });
-  const [editingCompany, setEditingCompany] = useState(false);
   const [notifications, setNotifications] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(notificationSettings.map(n => [n.key, true]))
   );
@@ -155,64 +154,7 @@ export default function AdminSettings() {
       )}
 
       {/* Company Profile */}
-      {tab === 'company' && (
-        <div className="glass-card p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Company Profile</h2>
-            <button onClick={() => setEditingCompany(!editingCompany)} className="flex items-center gap-1.5 text-xs text-primary hover:underline">
-              {editingCompany ? <><X className="h-3.5 w-3.5" /> Cancel</> : <><Pencil className="h-3.5 w-3.5" /> Edit Company</>}
-            </button>
-          </div>
-          {editingCompany ? (
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground">Company Name</label>
-                  <input value={companyForm.company_name} onChange={e => setCompanyForm(f => ({ ...f, company_name: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Website</label>
-                  <input value={companyForm.website} onChange={e => setCompanyForm(f => ({ ...f, website: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Industry</label>
-                  <input value={companyForm.industry} onChange={e => setCompanyForm(f => ({ ...f, industry: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Phone</label>
-                  <input value={companyForm.phone} onChange={e => setCompanyForm(f => ({ ...f, phone: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Address</label>
-                <input value={companyForm.address} onChange={e => setCompanyForm(f => ({ ...f, address: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => setEditingCompany(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
-                <button onClick={async () => {
-                  setSaving(true);
-                  try {
-                    await api.put('/organization/profile', companyForm);
-                    toast.success('Company profile updated');
-                    setEditingCompany(false);
-                  } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); }
-                  finally { setSaving(false); }
-                }} disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-                  {saving ? 'Saving...' : 'Save Company'}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label className="text-xs text-muted-foreground">Company Name</label><p className="text-sm font-medium mt-0.5">{companyForm.company_name || '—'}</p></div>
-              <div><label className="text-xs text-muted-foreground">Website</label><p className="text-sm font-medium mt-0.5">{companyForm.website || '—'}</p></div>
-              <div><label className="text-xs text-muted-foreground">Industry</label><p className="text-sm font-medium mt-0.5">{companyForm.industry || '—'}</p></div>
-              <div><label className="text-xs text-muted-foreground">Phone</label><p className="text-sm font-medium mt-0.5">{companyForm.phone || '—'}</p></div>
-              <div className="md:col-span-2"><label className="text-xs text-muted-foreground">Address</label><p className="text-sm font-medium mt-0.5">{companyForm.address || '—'}</p></div>
-            </div>
-          )}
-        </div>
-      )}
+      {tab === 'company' && <CompanySettings />}
 
       {/* Security */}
       {tab === 'security' && (
