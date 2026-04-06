@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, useQuery as useRolesQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
 import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2, Shield, Check, X as XIcon } from 'lucide-react';
@@ -60,6 +60,17 @@ export default function AdminUsers() {
   const [viewPerms, setViewPerms] = useState<Record<string, any> | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
   const qc = useQueryClient();
+
+  const { data: apiRoles } = useQuery({
+    queryKey: ['roles'],
+    queryFn: async () => {
+      const res = await api.get('/roles');
+      const d = res.data?.data || res.data;
+      const list = Array.isArray(d) ? d : d?.roles || [];
+      return list.map((r: any) => ({ value: r.name, label: r.label || r.name }));
+    },
+  });
+  const roles = (apiRoles && apiRoles.length > 0) ? apiRoles : fallbackRoles;
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['users', search],
