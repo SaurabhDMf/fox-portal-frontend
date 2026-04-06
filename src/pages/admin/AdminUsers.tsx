@@ -36,6 +36,9 @@ const emptyForm = {
 
 export default function AdminUsers() {
   const perm = useModulePermission('users');
+  const role = useRole();
+  const isAdmin = role === 'admin' || role === 'super_admin';
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
