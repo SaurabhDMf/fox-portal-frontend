@@ -11,8 +11,7 @@ const tabs = [
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'permissions', label: 'Permissions', icon: KeyRound, adminOnly: true },
-  { id: 'roles', label: 'Roles & Permissions', icon: Shield, adminOnly: true },
+  { id: 'roles', label: 'Roles & Permissions', icon: KeyRound, adminOnly: true },
 ];
 
 const notificationSettings = [
