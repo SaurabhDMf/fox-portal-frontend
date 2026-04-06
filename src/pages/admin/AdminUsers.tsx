@@ -124,17 +124,38 @@ export default function AdminUsers() {
     'On Leave': allUsers.filter((u: any) => u.status === 'on_leave').length,
   };
 
-  const openEdit = (u: any) => {
+  const populateForm = (u: any) => {
     setForm({
       full_name: u.full_name || '', email: u.email || '', phone: u.phone || '', role: u.role || 'sales_rep',
-      employment_type: u.employment_type || 'Full-time', department: u.department || '', job_title: u.job_title || '',
-      password: '', date_of_joining: u.date_of_joining || '', reporting_to: u.reporting_to || '',
+      employment_type: u.employment_type || 'full_time', department: u.department || '', job_title: u.job_title || '',
+      password: '', date_of_joining: u.date_of_joining ? u.date_of_joining.substring(0, 10) : '',
+      reporting_to: u.manager_id || u.reporting_to || '',
       salary: u.salary || '', address: u.address || '', emergency_contact: u.emergency_contact || '',
       emergency_phone: u.emergency_phone || '', notes: u.notes || '',
       bank_name: u.bank_name || '', bank_account: u.bank_account || '', ifsc_code: u.ifsc_code || '', pan_number: u.pan_number || '',
     });
+  };
+
+  const openEdit = async (u: any) => {
     setFormTab('basic');
-    setShowEdit(u);
+    try {
+      const res = await api.get(`/users/${u.id}`);
+      const full = res.data?.data || res.data;
+      populateForm(full);
+      setShowEdit(full);
+    } catch {
+      populateForm(u);
+      setShowEdit(u);
+    }
+  };
+
+  const openView = async (u: any) => {
+    try {
+      const res = await api.get(`/users/${u.id}`);
+      setShowView(res.data?.data || res.data);
+    } catch {
+      setShowView(u);
+    }
   };
 
   const openAdd = () => {
@@ -194,7 +215,15 @@ export default function AdminUsers() {
             </select>
           </div>
           <div><label className={labelCls}>Date of Joining</label><input type="date" value={form.date_of_joining} onChange={e => setForm(f => ({ ...f, date_of_joining: e.target.value }))} className={inputCls} /></div>
-          <div><label className={labelCls}>Reporting To</label><input placeholder="Manager name" value={form.reporting_to} onChange={e => setForm(f => ({ ...f, reporting_to: e.target.value }))} className={inputCls} /></div>
+          <div>
+            <label className={labelCls}>Reporting To</label>
+            <select value={form.reporting_to} onChange={e => setForm(f => ({ ...f, reporting_to: e.target.value }))} className={inputCls}>
+              <option value="">Select Manager</option>
+              {rawUsers.filter((u: any) => ['admin', 'sales_manager', 'super_admin'].includes(u.role)).map((u: any) => (
+                <option key={u.id} value={u.id}>{u.full_name} ({u.role?.replace(/_/g, ' ')})</option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
@@ -307,7 +336,7 @@ export default function AdminUsers() {
                 </td>
                 <td className="p-4">
                   <div className="flex items-center gap-1">
-                    <button onClick={() => setShowView(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="View"><Eye className="h-4 w-4" /></button>
+                    <button onClick={() => openView(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="View"><Eye className="h-4 w-4" /></button>
                     <button onClick={() => openEdit(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Edit"><Pencil className="h-4 w-4" /></button>
                     <button onClick={() => openTarget(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Set Sales Target"><Target className="h-4 w-4" /></button>
                     {isAdmin && (
@@ -454,7 +483,7 @@ export default function AdminUsers() {
                   <div><span className="text-xs text-muted-foreground">Job Title</span><p className="text-sm font-medium">{showView.job_title || '—'}</p></div>
                   <div><span className="text-xs text-muted-foreground">Employment Type</span><p className="text-sm font-medium">{showView.employment_type?.replace(/_/g, ' ') || '—'}</p></div>
                   <div><span className="text-xs text-muted-foreground">Date of Joining</span><p className="text-sm font-medium">{showView.date_of_joining ? new Date(showView.date_of_joining).toLocaleDateString() : '—'}</p></div>
-                  <div><span className="text-xs text-muted-foreground">Reporting To</span><p className="text-sm font-medium">{showView.reporting_to || '—'}</p></div>
+                  <div><span className="text-xs text-muted-foreground">Reporting To</span><p className="text-sm font-medium">{showView.manager_name || showView.reporting_to || '—'}</p></div>
                   <div><span className="text-xs text-muted-foreground">Sales Target</span><p className="text-sm font-medium">{(showView.monthly_target || showView.sales_target) ? `$${Number(showView.monthly_target || showView.sales_target).toLocaleString()}` : '—'}</p></div>
                 </div>
               </div>

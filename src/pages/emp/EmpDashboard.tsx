@@ -37,13 +37,9 @@ export default function EmpDashboard() {
   const perf = perfData || {};
   const targetAmount = Number(perf.monthly_target || 0);
   const achievedAmount = Number(perf.achieved || 0);
-  const remainingAmount = Math.max(0, targetAmount - achievedAmount);
-  const progressPct = targetAmount > 0 ? Math.min(100, Math.round((achievedAmount / targetAmount) * 100)) : 0;
-
-  // Calculate days remaining in current month
-  const now = new Date();
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const daysRemaining = lastDay - now.getDate();
+  const remainingAmount = Number(perf.remaining ?? Math.max(0, targetAmount - achievedAmount));
+  const progressPct = Number(perf.percentage ?? (targetAmount > 0 ? Math.min(100, Math.round((achievedAmount / targetAmount) * 100)) : 0));
+  const daysRemaining = Number(perf.days_remaining ?? (() => { const now = new Date(); return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate(); })());
 
   return (
     <div className="page-container">
