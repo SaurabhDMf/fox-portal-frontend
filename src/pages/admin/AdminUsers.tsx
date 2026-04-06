@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target } from 'lucide-react';
+import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
 import { dummyUsers } from '@/lib/dummyData';
