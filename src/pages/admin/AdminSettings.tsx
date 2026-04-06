@@ -83,7 +83,7 @@ export default function AdminSettings() {
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto">
         {tabs.filter(t => !t.adminOnly || isAdmin).map(t => (
-          <button key={t.id} onClick={() => t.id === 'permissions' ? navigate('/admin/permissions') : t.id === 'roles' ? navigate('/admin/roles') : setTab(t.id)} className={`flex items-center gap-2 text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+          <button key={t.id} onClick={() => t.id === 'roles' ? navigate('/admin/roles') : setTab(t.id)} className={`flex items-center gap-2 text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
             <t.icon className="h-3.5 w-3.5" /> {t.label}
           </button>
         ))}
