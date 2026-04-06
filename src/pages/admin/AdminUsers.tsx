@@ -49,7 +49,12 @@ export default function AdminUsers() {
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['users', search],
-    queryFn: () => api.get('/users', { params: { search } }).then(r => r.data?.users || r.data || []),
+    queryFn: () => api.get('/users', { params: { search } }).then(r => {
+      const d = r.data;
+      const list = d?.users || d?.data || (Array.isArray(d) ? d : []);
+      console.log('[AdminUsers] raw response:', d, 'parsed list:', list);
+      return list;
+    }),
   });
 
   const createMut = useMutation({
