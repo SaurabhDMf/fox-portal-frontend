@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2 } from 'lucide-react';
+import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2, Shield, Check, X as XIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission, useRole } from '@/hooks/usePermission';
 
@@ -9,6 +9,11 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
+
+const PERM_MODULES = ['crm', 'invoicing', 'clients', 'chat', 'projects', 'vault', 'payroll', 'tracker', 'tickets', 'users', 'reports'] as const;
+const PERM_ACTIONS = ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_export'] as const;
+const PERM_LABELS: Record<string, string> = { can_view: 'View', can_create: 'Create', can_edit: 'Edit', can_delete: 'Delete', can_export: 'Export' };
+
 
 const roles = [
   { value: 'admin', label: 'Admin' },
@@ -51,6 +56,8 @@ export default function AdminUsers() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
   const [formTab, setFormTab] = useState('basic');
+  const [viewTab, setViewTab] = useState<'details' | 'permissions'>('details');
+  const [viewPerms, setViewPerms] = useState<Record<string, any> | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
   const qc = useQueryClient();
 
@@ -150,11 +157,23 @@ export default function AdminUsers() {
   };
 
   const openView = async (u: any) => {
+    setViewTab('details');
+    setViewPerms(null);
     try {
       const res = await api.get(`/users/${u.id}`);
       setShowView(res.data?.data || res.data);
     } catch {
       setShowView(u);
+    }
+    // Fetch user permissions
+    if (isAdmin) {
+      try {
+        const pRes = await api.get(`/permissions/user/${u.id}`);
+        const pd = pRes.data?.data || pRes.data;
+        setViewPerms(pd?.permissions || null);
+      } catch {
+        setViewPerms(null);
+      }
     }
   };
 
@@ -474,6 +493,20 @@ export default function AdminUsers() {
                 <span className={showView.status === 'active' ? 'badge-success' : showView.status === 'on_leave' ? 'badge-warning' : 'badge-danger'}>{showView.status?.replace(/_/g, ' ')}</span>
               </div>
             </div>
+
+            {/* View Tabs */}
+            <div className="flex gap-1 border-b border-border pb-2">
+              <button onClick={() => setViewTab('details')} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors ${viewTab === 'details' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+                <Eye className="h-3.5 w-3.5" /> Details
+              </button>
+              {isAdmin && (
+                <button onClick={() => setViewTab('permissions')} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors ${viewTab === 'permissions' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+                  <Shield className="h-3.5 w-3.5" /> Permissions
+                </button>
+              )}
+            </div>
+
+            {viewTab === 'details' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="glass-card p-4 space-y-3">
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Work Details</h4>
@@ -513,6 +546,50 @@ export default function AdminUsers() {
                 </div>
               )}
             </div>
+            )}
+
+            {viewTab === 'permissions' && (
+              <div className="glass-card overflow-hidden">
+                {viewPerms ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">Module</th>
+                          {PERM_ACTIONS.map(a => (
+                            <th key={a} className="text-center px-2 py-2 text-xs font-semibold text-muted-foreground uppercase">{PERM_LABELS[a]}</th>
+                          ))}
+                          <th className="text-center px-2 py-2 text-xs font-semibold text-muted-foreground uppercase">Scope</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {PERM_MODULES.map(mod => {
+                          const mp = viewPerms[mod];
+                          return (
+                            <tr key={mod} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
+                              <td className="px-3 py-2 font-medium capitalize">{mod}</td>
+                              {PERM_ACTIONS.map(a => (
+                                <td key={a} className="text-center px-2 py-2">
+                                  {mp?.[a] ? <Check className="h-3.5 w-3.5 text-emerald-500 mx-auto" /> : <XIcon className="h-3.5 w-3.5 text-muted-foreground/40 mx-auto" />}
+                                </td>
+                              ))}
+                              <td className="text-center px-2 py-2">
+                                <span className={`text-xs px-1.5 py-0.5 rounded-full ${mp?.own_only ? 'bg-amber-500/15 text-amber-500' : 'bg-emerald-500/15 text-emerald-500'}`}>
+                                  {mp?.own_only ? 'Own' : 'All'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-sm text-muted-foreground">No permissions data available for this user.</div>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowView(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Close</button>
             </div>
