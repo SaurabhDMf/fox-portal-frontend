@@ -157,11 +157,23 @@ export default function AdminUsers() {
   };
 
   const openView = async (u: any) => {
+    setViewTab('details');
+    setViewPerms(null);
     try {
       const res = await api.get(`/users/${u.id}`);
       setShowView(res.data?.data || res.data);
     } catch {
       setShowView(u);
+    }
+    // Fetch user permissions
+    if (isAdmin) {
+      try {
+        const pRes = await api.get(`/permissions/user/${u.id}`);
+        const pd = pRes.data?.data || pRes.data;
+        setViewPerms(pd?.permissions || null);
+      } catch {
+        setViewPerms(null);
+      }
     }
   };
 
