@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
+import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { User, Shield, Bell, Palette, Pencil, X, Building2 } from 'lucide-react';
+import { User, Shield, Bell, Palette, Pencil, X, Building2, KeyRound } from 'lucide-react';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -10,6 +11,7 @@ const tabs = [
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'permissions', label: 'Permissions', icon: KeyRound, adminOnly: true },
 ];
 
 const notificationSettings = [
@@ -33,7 +35,9 @@ const accentColors = [
 export default function AdminSettings() {
   const user = useAuthStore(s => s.user);
   const setAuth = useAuthStore(s => s.setAuth);
+  const navigate = useNavigate();
   const [tab, setTab] = useState('profile');
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
   const [pw, setPw] = useState({ current: '', newPw: '', confirm: '' });
   const [saving, setSaving] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -78,8 +82,8 @@ export default function AdminSettings() {
 
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto">
-        {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+        {tabs.filter(t => !t.adminOnly || isAdmin).map(t => (
+          <button key={t.id} onClick={() => t.id === 'permissions' ? navigate('/admin/permissions') : setTab(t.id)} className={`flex items-center gap-2 text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
             <t.icon className="h-3.5 w-3.5" /> {t.label}
           </button>
         ))}

@@ -84,7 +84,12 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
   const visibleItems = navItems.filter((item) => {
     // Always show items without a module key (Dashboard, Settings, Profile)
     if (!item.module) return true;
-    // Check role-based permission first
+    // Check API-level permissions first (from login response)
+    if (permissions && Object.keys(permissions).length > 0) {
+      const mp = permissions[item.module];
+      if (mp && !mp.can_view) return false;
+    }
+    // Check role-based permission
     if (!canAccessModule(role, item.module as Module)) return false;
     // Then check enabled_modules from backend
     if (enabledModules && enabledModules.length > 0) {
