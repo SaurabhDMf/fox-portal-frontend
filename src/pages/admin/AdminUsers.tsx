@@ -3,8 +3,12 @@ import api from '@/lib/api';
 import { useState } from 'react';
 import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useModulePermission } from '@/hooks/usePermission';
+import { useModulePermission, useRole } from '@/hooks/usePermission';
 import { dummyUsers } from '@/lib/dummyData';
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 
 const roles = [
   { value: 'admin', label: 'Admin' },
@@ -32,6 +36,9 @@ const emptyForm = {
 
 export default function AdminUsers() {
   const perm = useModulePermission('users');
+  const role = useRole();
+  const isAdmin = role === 'admin' || role === 'super_admin';
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
@@ -302,8 +309,8 @@ export default function AdminUsers() {
                     <button onClick={() => setShowView(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="View"><Eye className="h-4 w-4" /></button>
                     <button onClick={() => openEdit(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Edit"><Pencil className="h-4 w-4" /></button>
                     <button onClick={() => openTarget(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Set Sales Target"><Target className="h-4 w-4" /></button>
-                    {perm.canDelete && (
-                      <button onClick={() => { if (confirm(`Delete ${u.full_name}?`)) deleteMut.mutate(u.id); }} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                    {isAdmin && (
+                      <button onClick={() => setDeleteTarget(u)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive" title="Deactivate"><Trash2 className="h-4 w-4" /></button>
                     )}
                   </div>
                 </td>
@@ -465,6 +472,27 @@ export default function AdminUsers() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to deactivate <strong>{deleteTarget?.full_name}</strong>? They will no longer be able to access the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (deleteTarget) deleteMut.mutate(deleteTarget.id); setDeleteTarget(null); }}
+            >
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
