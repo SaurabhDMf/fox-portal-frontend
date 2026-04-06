@@ -14,10 +14,6 @@ const PERM_MODULES = ['crm', 'invoicing', 'clients', 'chat', 'projects', 'vault'
 const PERM_ACTIONS = ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_export'] as const;
 const PERM_LABELS: Record<string, string> = { can_view: 'View', can_create: 'Create', can_edit: 'Edit', can_delete: 'Delete', can_export: 'Export' };
 
-import {
-  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
-} from '@/components/ui/alert-dialog';
 
 const roles = [
   { value: 'admin', label: 'Admin' },
