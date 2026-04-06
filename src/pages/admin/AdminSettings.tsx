@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { User, Shield, Bell, Palette, Pencil, X, Building2, KeyRound } from 'lucide-react';
+import CompanySettings from '@/components/settings/CompanySettings';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
