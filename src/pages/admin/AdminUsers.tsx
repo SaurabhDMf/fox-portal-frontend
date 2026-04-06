@@ -309,8 +309,8 @@ export default function AdminUsers() {
                     <button onClick={() => setShowView(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="View"><Eye className="h-4 w-4" /></button>
                     <button onClick={() => openEdit(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Edit"><Pencil className="h-4 w-4" /></button>
                     <button onClick={() => openTarget(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Set Sales Target"><Target className="h-4 w-4" /></button>
-                    {perm.canDelete && (
-                      <button onClick={() => { if (confirm(`Delete ${u.full_name}?`)) deleteMut.mutate(u.id); }} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                    {isAdmin && (
+                      <button onClick={() => setDeleteTarget(u)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive" title="Deactivate"><Trash2 className="h-4 w-4" /></button>
                     )}
                   </div>
                 </td>
