@@ -415,7 +415,7 @@ export default function AdminUsers() {
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowTarget(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
               <button
-                onClick={() => targetMut.mutate({ id: showTarget.id, monthly_target: Number(targetAmount) })}
+                onClick={() => targetMut.mutate({ id: showTarget.id, monthly_target: Number(targetAmount), target_month: targetMonth })}
                 disabled={targetMut.isPending || !targetAmount}
                 className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
               >
