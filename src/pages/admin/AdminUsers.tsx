@@ -56,6 +56,8 @@ export default function AdminUsers() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
   const [formTab, setFormTab] = useState('basic');
+  const [viewTab, setViewTab] = useState<'details' | 'permissions'>('details');
+  const [viewPerms, setViewPerms] = useState<Record<string, any> | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
   const qc = useQueryClient();
 
