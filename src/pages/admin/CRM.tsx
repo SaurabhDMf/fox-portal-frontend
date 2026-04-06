@@ -259,6 +259,12 @@ export default function CRM() {
   const presalesUsers = usersArr;
   const managerUsers = usersArr;
 
+  // Build a lookup map: user id -> full_name (for resolving names client-side)
+  const userNameMap: Record<string, string> = {};
+  usersArr.forEach((u: any) => { if (u.id && u.full_name) userNameMap[u.id] = u.full_name; });
+  const resolveAddedBy = (lead: any) => lead.lead_by_name || lead.added_by_name || userNameMap[lead.added_by] || '';
+  const resolveAssignedTo = (lead: any) => lead.assigned_to_name || userNameMap[lead.assigned_to] || '';
+
   const inputCls = "px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
   const handleAddStatus = () => {
@@ -358,8 +364,8 @@ export default function CRM() {
                     <td className="p-4" onClick={() => navigate(`/admin/crm/${lead.id}`)}>
                       <span className={lead.status === 'Closed Won' ? 'badge-success' : lead.status === 'Closed Lost' ? 'badge-danger' : 'badge-info'}>{lead.status}</span>
                     </td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.lead_by_name || lead.added_by_name || '—'}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.assigned_to_name || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{resolveAddedBy(lead) || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{resolveAssignedTo(lead) || '—'}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-1">
                         {perm.canEdit && (
@@ -411,7 +417,7 @@ export default function CRM() {
                         {getLeadPurpose(lead) && <div className="text-xs text-muted-foreground">{getLeadPurpose(lead)}</div>}
                         {getLeadCountry(lead) && <div className="text-xs text-muted-foreground">{getLeadCountry(lead)}</div>}
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                          {lead.assigned_to_name && <span>→ {lead.assigned_to_name}</span>}
+                          {resolveAssignedTo(lead) && <span>→ {resolveAssignedTo(lead)}</span>}
                           {lead.created_at && <span>{new Date(lead.created_at).toLocaleDateString()}</span>}
                         </div>
                       </div>
