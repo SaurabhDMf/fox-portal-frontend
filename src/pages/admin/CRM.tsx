@@ -205,7 +205,11 @@ export default function CRM() {
 
   const { data: users = [] } = useQuery({
     queryKey: ['users-list'],
-    queryFn: () => api.get('/users').then(r => r.data?.users || r.data || []).catch(() => []),
+    queryFn: () => api.get('/users').then(r => {
+      const list = r.data?.users || r.data?.data || r.data || [];
+      console.log('[CRM] Users list from API:', list);
+      return Array.isArray(list) ? list : [];
+    }).catch(() => []),
   });
 
   const createMut = useMutation({
