@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission, useRole } from '@/hooks/usePermission';
-import { dummyUsers } from '@/lib/dummyData';
+
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
@@ -107,7 +107,7 @@ export default function AdminUsers() {
   });
 
   const rawUsers = Array.isArray(data) ? data : [];
-  const allUsers = rawUsers.length > 0 ? rawUsers : dummyUsers;
+  const allUsers = rawUsers;
   const users = allUsers.filter((u: any) => {
     if (tab === 'All') return true;
     if (tab === 'Active') return u.status === 'active';
