@@ -493,6 +493,20 @@ export default function AdminUsers() {
                 <span className={showView.status === 'active' ? 'badge-success' : showView.status === 'on_leave' ? 'badge-warning' : 'badge-danger'}>{showView.status?.replace(/_/g, ' ')}</span>
               </div>
             </div>
+
+            {/* View Tabs */}
+            <div className="flex gap-1 border-b border-border pb-2">
+              <button onClick={() => setViewTab('details')} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors ${viewTab === 'details' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+                <Eye className="h-3.5 w-3.5" /> Details
+              </button>
+              {isAdmin && (
+                <button onClick={() => setViewTab('permissions')} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors ${viewTab === 'permissions' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+                  <Shield className="h-3.5 w-3.5" /> Permissions
+                </button>
+              )}
+            </div>
+
+            {viewTab === 'details' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="glass-card p-4 space-y-3">
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Work Details</h4>
