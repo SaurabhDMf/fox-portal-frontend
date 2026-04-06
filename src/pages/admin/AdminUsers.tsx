@@ -95,10 +95,11 @@ export default function AdminUsers() {
   });
 
   const targetMut = useMutation({
-    mutationFn: (d: { id: string; monthly_target: number }) =>
-      api.put(`/users/${d.id}`, { monthly_target: d.monthly_target }),
+    mutationFn: (d: { id: string; monthly_target: number; target_month: string }) =>
+      api.post(`/users/${d.id}/sales-target`, { monthly_target: d.monthly_target, target_month: d.target_month }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
+      qc.invalidateQueries({ queryKey: ['my-performance'] });
       setShowTarget(null);
       setTargetAmount('');
       toast.success('Sales target set successfully');
