@@ -155,7 +155,7 @@ export default function Vault() {
       <VaultShareModal
         open={!!shareTarget}
         onClose={() => setShareTarget(null)}
-        onSubmit={(userIds, canEdit) => shareTarget && shareMut.mutate({ type: shareTarget.type, id: shareTarget.id, user_ids: userIds, can_edit: canEdit })}
+        onSubmit={(ids, canEdit, shareType) => shareTarget && shareMut.mutate({ type: shareTarget.type, id: shareTarget.id, user_ids: ids, can_edit: canEdit })}
         isPending={shareMut.isPending}
         title={shareTarget?.type === 'folder' ? 'Share Folder' : 'Share Credential'}
       />
