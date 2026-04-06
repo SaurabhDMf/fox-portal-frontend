@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useQuery as useRolesQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
 import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2, Shield, Check, X as XIcon } from 'lucide-react';
@@ -15,7 +15,7 @@ const PERM_ACTIONS = ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_e
 const PERM_LABELS: Record<string, string> = { can_view: 'View', can_create: 'Create', can_edit: 'Edit', can_delete: 'Delete', can_export: 'Export' };
 
 
-const roles = [
+const fallbackRoles = [
   { value: 'admin', label: 'Admin' },
   { value: 'sales_manager', label: 'Sales Manager' },
   { value: 'sales_rep', label: 'Sales Rep' },
