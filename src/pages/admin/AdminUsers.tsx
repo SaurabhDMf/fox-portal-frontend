@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target } from 'lucide-react';
+import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
 import { dummyUsers } from '@/lib/dummyData';
@@ -76,6 +76,15 @@ export default function AdminUsers() {
       toast.success('User updated');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api.delete(`/users/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User deleted successfully');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting user'),
   });
 
   const targetMut = useMutation({
@@ -293,6 +302,9 @@ export default function AdminUsers() {
                     <button onClick={() => setShowView(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="View"><Eye className="h-4 w-4" /></button>
                     <button onClick={() => openEdit(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Edit"><Pencil className="h-4 w-4" /></button>
                     <button onClick={() => openTarget(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Set Sales Target"><Target className="h-4 w-4" /></button>
+                    {perm.canDelete && (
+                      <button onClick={() => { if (confirm(`Delete ${u.full_name}?`)) deleteMut.mutate(u.id); }} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                    )}
                   </div>
                 </td>
               </tr>
