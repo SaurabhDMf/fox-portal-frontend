@@ -417,7 +417,7 @@ export default function CRM() {
                         {getLeadPurpose(lead) && <div className="text-xs text-muted-foreground">{getLeadPurpose(lead)}</div>}
                         {getLeadCountry(lead) && <div className="text-xs text-muted-foreground">{getLeadCountry(lead)}</div>}
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                          {lead.assigned_to_name && <span>→ {lead.assigned_to_name}</span>}
+                          {resolveAssignedTo(lead) && <span>→ {resolveAssignedTo(lead)}</span>}
                           {lead.created_at && <span>{new Date(lead.created_at).toLocaleDateString()}</span>}
                         </div>
                       </div>
