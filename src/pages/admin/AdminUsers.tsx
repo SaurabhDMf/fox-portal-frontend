@@ -78,6 +78,15 @@ export default function AdminUsers() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api.delete(`/users/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User deleted successfully');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting user'),
+  });
+
   const targetMut = useMutation({
     mutationFn: (d: { id: string; monthly_target: number }) =>
       api.put(`/users/${d.id}`, { monthly_target: d.monthly_target }),
