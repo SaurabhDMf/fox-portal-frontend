@@ -451,8 +451,9 @@ export default function AdminUsers() {
                   <div><span className="text-xs text-muted-foreground">Role</span><p className="text-sm font-medium capitalize">{showView.role?.replace(/_/g, ' ')}</p></div>
                   <div><span className="text-xs text-muted-foreground">Department</span><p className="text-sm font-medium">{showView.department || '—'}</p></div>
                   <div><span className="text-xs text-muted-foreground">Job Title</span><p className="text-sm font-medium">{showView.job_title || '—'}</p></div>
-                  <div><span className="text-xs text-muted-foreground">Employment Type</span><p className="text-sm font-medium">{showView.employment_type || '—'}</p></div>
+                  <div><span className="text-xs text-muted-foreground">Employment Type</span><p className="text-sm font-medium">{showView.employment_type?.replace(/_/g, ' ') || '—'}</p></div>
                   <div><span className="text-xs text-muted-foreground">Date of Joining</span><p className="text-sm font-medium">{showView.date_of_joining ? new Date(showView.date_of_joining).toLocaleDateString() : '—'}</p></div>
+                  <div><span className="text-xs text-muted-foreground">Reporting To</span><p className="text-sm font-medium">{showView.reporting_to || '—'}</p></div>
                   <div><span className="text-xs text-muted-foreground">Sales Target</span><p className="text-sm font-medium">{(showView.monthly_target || showView.sales_target) ? `$${Number(showView.monthly_target || showView.sales_target).toLocaleString()}` : '—'}</p></div>
                 </div>
               </div>
@@ -465,6 +466,22 @@ export default function AdminUsers() {
                   <div><span className="text-xs text-muted-foreground">Emergency Phone</span><p className="text-sm font-medium">{showView.emergency_phone || '—'}</p></div>
                 </div>
               </div>
+              <div className="glass-card p-4 space-y-3 md:col-span-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Payroll & Bank Details</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+                  <div><span className="text-xs text-muted-foreground">Salary (Monthly)</span><p className="text-sm font-medium">{showView.salary ? `$${Number(showView.salary).toLocaleString()}` : '—'}</p></div>
+                  <div><span className="text-xs text-muted-foreground">PAN Number</span><p className="text-sm font-medium">{showView.pan_number || '—'}</p></div>
+                  <div><span className="text-xs text-muted-foreground">Bank Name</span><p className="text-sm font-medium">{showView.bank_name || '—'}</p></div>
+                  <div><span className="text-xs text-muted-foreground">Bank Account</span><p className="text-sm font-medium">{showView.bank_account || '—'}</p></div>
+                  <div><span className="text-xs text-muted-foreground">IFSC Code</span><p className="text-sm font-medium">{showView.ifsc_code || '—'}</p></div>
+                </div>
+              </div>
+              {showView.notes && (
+                <div className="glass-card p-4 space-y-3 md:col-span-2">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notes</h4>
+                  <p className="text-sm">{showView.notes}</p>
+                </div>
+              )}
             </div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowView(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Close</button>
