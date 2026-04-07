@@ -5,6 +5,7 @@ import type { ProjectMember } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { Plus, X, Shield, User, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useRole } from '@/hooks/usePermission';
 
 interface Props {
   projectId: string;
@@ -17,6 +18,8 @@ const ROLE_CONFIG: Record<string, { icon: typeof Shield; label: string; class: s
 };
 
 export default function MembersView({ projectId }: Props) {
+  const role = useRole();
+  const canManage = role === 'admin' || role === 'super_admin' || role === 'manager' || role === 'sales_manager';
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState('');
