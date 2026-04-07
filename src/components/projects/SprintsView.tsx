@@ -87,6 +87,12 @@ export default function SprintsView({ projectId }: Props) {
             </div>
           );
         })}
+        {sprints.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-sm text-muted-foreground mb-2">No sprints yet</p>
+            <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first sprint →</button>
+          </div>
+        )}
       </div>
 
       {/* Create Sprint modal */}

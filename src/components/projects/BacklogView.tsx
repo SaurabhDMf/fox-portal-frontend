@@ -3,15 +3,16 @@ import api from '@/lib/api';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS, type ProjectTask, type Sprint } from '@/lib/projectTypes';
 
 import { useState } from 'react';
-import { Play } from 'lucide-react';
+import { Play, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Props {
   projectId: string;
   onTaskClick: (task: ProjectTask) => void;
+  onCreateTask?: () => void;
 }
 
-export default function BacklogView({ projectId, onTaskClick }: Props) {
+export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Props) {
   const qc = useQueryClient();
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
@@ -79,6 +80,16 @@ export default function BacklogView({ projectId, onTaskClick }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Header with create button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Backlog</h3>
+        {onCreateTask && (
+          <button onClick={onCreateTask} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+            <Plus className="h-3 w-3" /> New Task
+          </button>
+        )}
+      </div>
+
       {/* Sprint sections */}
       {sprints.filter(s => s.status !== 'Completed').map(sprint => (
         <div
@@ -110,7 +121,6 @@ export default function BacklogView({ projectId, onTaskClick }: Props) {
 
       {/* Backlog grouped by epic */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Backlog</h3>
 
         {Object.entries(epicGroups).map(([epicId, group]) => (
           <div key={epicId} className="space-y-1">
@@ -130,6 +140,12 @@ export default function BacklogView({ projectId, onTaskClick }: Props) {
               <span className="text-xs text-muted-foreground">({noEpicTasks.length})</span>
             </div>
             {noEpicTasks.map(t => <TaskRow key={t.id} task={t} />)}
+          </div>
+        )}
+        {backlog.length === 0 && Object.keys(epicGroups).length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-sm text-muted-foreground mb-2">No tasks in the backlog</p>
+            {onCreateTask && <button onClick={onCreateTask} className="text-sm text-primary hover:underline">Create your first task →</button>}
           </div>
         )}
       </div>

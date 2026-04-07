@@ -55,7 +55,8 @@ export default function Projects() {
           return [...withoutDuplicate, newProject];
         });
       }
-      qc.invalidateQueries({ queryKey: ['projects'] });
+      // Delay refetch to let the backend commit
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['projects'] }), 1500);
       setShowCreate(false);
       setForm({ name: '', client_id: '', description: '', status: 'Active', priority: 'Medium', due_date: '', start_date: '', color: '#3B82F6' });
       toast.success('Project created');
@@ -134,7 +135,10 @@ export default function Projects() {
           </div>
         ))}
         {projects.length === 0 && !isLoading && (
-          <div className="col-span-full text-center py-16 text-muted-foreground text-sm">No projects found</div>
+          <div className="col-span-full text-center py-16">
+            <p className="text-muted-foreground text-sm mb-3">No projects found</p>
+            {perm.canCreate && <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first project →</button>}
+          </div>
         )}
       </div>
 
