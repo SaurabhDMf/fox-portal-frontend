@@ -12,6 +12,18 @@ const statusOptions = ['Active', 'On Hold', 'Completed', 'Cancelled'];
 const priorityOptions = ['Critical', 'High', 'Medium', 'Low'];
 const COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
 
+const extractProjects = (payload: any): Project[] => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.projects)) return payload.projects;
+  if (Array.isArray(payload?.data?.projects)) return payload.data.projects;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.data?.items)) return payload.data.items;
+  return [];
+};
+
+const extractProject = (payload: any) => payload?.project || payload?.data?.project || payload?.data || payload;
+
 export default function Projects() {
   const perm = useModulePermission('projects');
   const [search, setSearch] = useState('');
@@ -20,9 +32,10 @@ export default function Projects() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { data, isLoading, isError } = useQuery({
+  const { data = [], isLoading, isError } = useQuery({
     queryKey: ['projects', search],
-    queryFn: () => api.get('/projects', { params: { search } }).then(r => r.data?.projects || r.data || []),
+    queryFn: () => api.get('/projects', { params: { search } }).then(r => extractProjects(r.data)),
+    placeholderData: (previousData) => previousData,
   });
 
   const { data: clients = [] } = useQuery({
@@ -34,11 +47,12 @@ export default function Projects() {
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post('/projects', d),
     onSuccess: (res) => {
-      const newProject = res.data?.project || res.data;
+      const newProject = extractProject(res.data);
       if (newProject?.id) {
         qc.setQueryData(['projects', search], (old: any) => {
           const prev = Array.isArray(old) ? old : [];
-          return [...prev, newProject];
+          const withoutDuplicate = prev.filter((project: any) => project?.id !== newProject.id);
+          return [...withoutDuplicate, newProject];
         });
       }
       qc.invalidateQueries({ queryKey: ['projects'] });
