@@ -53,6 +53,11 @@ function RootRedirect() {
   return <Navigate to="/login" replace />;
 }
 
+function PermissionsLoader({ children }: { children: React.ReactNode }) {
+  usePermissionsRefresh();
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <Toaster
