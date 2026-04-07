@@ -28,8 +28,7 @@ interface Props {
 const colors = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
 export default function VaultFolderSidebar({ folders, selectedFolder, onSelect, canCreate, onShareFolder, onFolderCreated, onFolderRenamed, onFolderDeleted }: Props) {
-  const currentUserId = useAuthStore((s) => s.user?.id) || '';
-  console.log('[VaultSidebar] currentUserId:', currentUserId, 'folders:', folders.map(f => ({ id: f.id, name: f.name, created_by: f.created_by })));
+  const currentUserId = useAuthStore((s) => s.user?.id) || undefined;
   const [showCreate, setShowCreate] = useState(false);
   const [folderName, setFolderName] = useState('');
   const [folderColor, setFolderColor] = useState('#3b82f6');

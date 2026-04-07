@@ -51,16 +51,15 @@ interface Props {
   canDelete: boolean;
 }
 
+const isEnabled = (value: boolean | number | string | undefined) => value === true || value === 1 || value === '1' || value === 'true';
+
 export default function VaultCredentialCard({ cred, onEdit, onShare, onDelete, canEdit, canDelete }: Props) {
   const [revealed, setRevealed] = useState(false);
   const [revealedPw, setRevealedPw] = useState('');
 
-  // is_owner: 1/true = owner, 0/false = shared. If undefined, assume owner.
-  const isOwner = cred.is_owner === undefined || cred.is_owner === null
-    ? true
-    : (cred.is_owner === true || cred.is_owner === 1 || (cred.is_owner as any) === '1');
+  const isOwner = cred.is_owner === undefined || cred.is_owner === null ? true : isEnabled(cred.is_owner);
   const isShared = !isOwner;
-  const sharedCanEdit = cred.shared_can_edit === true || cred.shared_can_edit === 1 as any || (cred.shared_can_edit as any) === '1';
+  const sharedCanEdit = isEnabled(cred.shared_can_edit);
   const showEdit = canEdit && (isOwner || sharedCanEdit);
   const showDelete = canDelete && isOwner;
   const showShare = isOwner;
