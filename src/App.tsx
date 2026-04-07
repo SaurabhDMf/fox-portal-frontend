@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "@/stores/authStore";
+import { usePermissionsRefresh } from "@/hooks/usePermissionsRefresh";
 
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
