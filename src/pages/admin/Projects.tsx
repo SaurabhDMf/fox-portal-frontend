@@ -20,7 +20,7 @@ export default function Projects() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { data = [], isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['projects', search],
     queryFn: () => api.get('/projects', { params: { search } }).then(r => r.data?.projects || r.data || []),
   });
@@ -50,7 +50,7 @@ export default function Projects() {
   });
 
   const rawProjects = Array.isArray(data) ? data : [];
-  const projects: Project[] = rawProjects.length > 0 ? rawProjects : dummyProjectsEnhanced;
+  const projects: Project[] = isError ? dummyProjectsEnhanced : rawProjects;
   const clientsArr = Array.isArray(clients) ? clients : [];
   const basePath = window.location.pathname.startsWith('/emp') ? '/emp' : '/admin';
 
