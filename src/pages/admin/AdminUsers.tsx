@@ -1,8 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2, Shield, Check, X as XIcon } from 'lucide-react';
+import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2, Shield, Check, X as XIcon, MoreVertical, Power, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/stores/authStore';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { useModulePermission, useRole } from '@/hooks/usePermission';
 
 import {
@@ -42,8 +46,11 @@ const emptyForm = {
 export default function AdminUsers() {
   const perm = useModulePermission('users');
   const role = useRole();
+  const currentUserId = useAuthStore((s) => s.user?.id);
   const isAdmin = role === 'admin' || role === 'super_admin';
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<any>(null);
+  const [permanentDeleteConfirmName, setPermanentDeleteConfirmName] = useState('');
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
@@ -110,6 +117,24 @@ export default function AdminUsers() {
       toast.success('User deleted successfully');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting user'),
+  });
+
+  const activateMut = useMutation({
+    mutationFn: (id: string) => api.post(`/users/${id}/activate`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User activated successfully');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error activating user'),
+  });
+
+  const permanentDeleteMut = useMutation({
+    mutationFn: (id: string) => api.delete(`/users/${id}/permanent`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User permanently deleted');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error permanently deleting user'),
   });
 
   const targetMut = useMutation({
@@ -369,8 +394,27 @@ export default function AdminUsers() {
                     <button onClick={() => openView(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="View"><Eye className="h-4 w-4" /></button>
                     <button onClick={() => openEdit(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Edit"><Pencil className="h-4 w-4" /></button>
                     <button onClick={() => openTarget(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Set Sales Target"><Target className="h-4 w-4" /></button>
-                    {isAdmin && (
-                      <button onClick={() => setDeleteTarget(u)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive" title="Deactivate"><Trash2 className="h-4 w-4" /></button>
+                    {isAdmin && u.id !== currentUserId && u.role !== 'super_admin' && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="More actions"><MoreVertical className="h-4 w-4" /></button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {(u.status === 'inactive' || u.status === 'terminated' || u.is_active === 0) ? (
+                            <DropdownMenuItem onClick={() => activateMut.mutate(u.id)} className="gap-2">
+                              <Power className="h-4 w-4 text-[hsl(var(--success))]" /> Activate
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => setDeleteTarget(u)} className="gap-2">
+                              <UserX className="h-4 w-4 text-[hsl(var(--warning))]" /> Deactivate
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => { setPermanentDeleteTarget(u); setPermanentDeleteConfirmName(''); }} className="gap-2 text-destructive focus:text-destructive">
+                            <Trash2 className="h-4 w-4" /> Delete Permanently
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
                 </td>
@@ -624,6 +668,43 @@ export default function AdminUsers() {
               onClick={() => { if (deleteTarget) deleteMut.mutate(deleteTarget.id); setDeleteTarget(null); }}
             >
               Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <AlertDialog open={!!permanentDeleteTarget} onOpenChange={(open) => { if (!open) { setPermanentDeleteTarget(null); setPermanentDeleteConfirmName(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Delete User Permanently
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <span className="block">This cannot be undone. All data associated with <strong>{permanentDeleteTarget?.full_name}</strong> will be unlinked.</span>
+              <span className="block text-sm">Type <strong>{permanentDeleteTarget?.full_name}</strong> to confirm:</span>
+              <input
+                value={permanentDeleteConfirmName}
+                onChange={(e) => setPermanentDeleteConfirmName(e.target.value)}
+                placeholder="Type user's full name..."
+                className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-destructive/50"
+              />
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={permanentDeleteConfirmName !== permanentDeleteTarget?.full_name}
+              onClick={() => {
+                if (permanentDeleteTarget && permanentDeleteConfirmName === permanentDeleteTarget.full_name) {
+                  permanentDeleteMut.mutate(permanentDeleteTarget.id);
+                  setPermanentDeleteTarget(null);
+                  setPermanentDeleteConfirmName('');
+                }
+              }}
+            >
+              {permanentDeleteMut.isPending ? 'Deleting...' : 'Delete Permanently'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
