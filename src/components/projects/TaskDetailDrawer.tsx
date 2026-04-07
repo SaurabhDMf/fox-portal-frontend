@@ -12,7 +12,7 @@ interface Props {
   projectId: string;
 }
 
-const TYPES = ['Task', 'Bug', 'Story', 'Feature', 'Subtask'];
+const TYPES = ['Story', 'Task', 'Bug', 'Subtask'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 
 export default function TaskDetailDrawer({ task: initialTask, onClose, projectId }: Props) {

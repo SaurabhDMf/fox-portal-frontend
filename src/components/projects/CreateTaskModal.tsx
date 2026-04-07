@@ -11,14 +11,15 @@ interface Props {
   onClose: () => void;
 }
 
-const TYPES = ['Task', 'Bug', 'Story', 'Feature', 'Subtask'];
+const TYPES = ['Story', 'Task', 'Bug', 'Subtask'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 
 export default function CreateTaskModal({ projectId, defaultStatus, onClose }: Props) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    title: '', type: 'Task', priority: 'Medium', status: defaultStatus || 'Open',
+    title: '', type: 'Story', priority: 'Medium', status: defaultStatus || 'Open',
     assignee_ids: [] as string[], epic_id: '', sprint_id: '', story_points: '', due_date: '',
+    parent_task_id: '',
   });
 
   const { data: membersRaw } = useQuery({
