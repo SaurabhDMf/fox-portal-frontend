@@ -33,7 +33,14 @@ export default function Projects() {
 
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post('/projects', d),
-    onSuccess: () => {
+    onSuccess: (res) => {
+      const newProject = res.data?.project || res.data;
+      if (newProject?.id) {
+        qc.setQueryData(['projects', search], (old: any) => {
+          const prev = Array.isArray(old) ? old : [];
+          return [...prev, newProject];
+        });
+      }
       qc.invalidateQueries({ queryKey: ['projects'] });
       setShowCreate(false);
       setForm({ name: '', client_id: '', description: '', status: 'Active', priority: 'Medium', due_date: '', start_date: '', color: '#3B82F6' });
