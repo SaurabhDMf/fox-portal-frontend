@@ -45,7 +45,7 @@ export default function Vault() {
   const [editCred, setEditCred] = useState<any>(null);
   const [shareTarget, setShareTarget] = useState<{ type: 'folder' | 'credential'; id: string } | null>(null);
   const [savingCred, setSavingCred] = useState(false);
-  const [sharingPending, setSharingPending] = useState(false);
+  
 
   // Load folders and credentials from API
   useEffect(() => {
