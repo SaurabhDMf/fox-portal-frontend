@@ -1,13 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
-import type { Sprint } from '@/lib/projectTypes';
+import type { Sprint, ProjectTask } from '@/lib/projectTypes';
+import { TASK_TYPE_CONFIG, PRIORITY_COLORS } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { Plus, X, Play, CheckCircle2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Props {
   projectId: string;
+  onTaskClick?: (task: ProjectTask) => void;
 }
 
 export default function SprintsView({ projectId }: Props) {
