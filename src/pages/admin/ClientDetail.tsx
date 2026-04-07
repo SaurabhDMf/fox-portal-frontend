@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { ArrowLeft, Pencil } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ClientFormModal, { type ClientFormData } from '@/components/clients/ClientFormModal';
 
@@ -11,6 +11,7 @@ export default function ClientDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [showEdit, setShowEdit] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: client, isLoading } = useQuery({
     queryKey: ['client', id],
@@ -39,6 +40,16 @@ export default function ClientDetail() {
     mutationFn: (d: ClientFormData) => api.put(`/clients/${id}`, d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['client', id] }); qc.invalidateQueries({ queryKey: ['clients'] }); setShowEdit(false); toast.success('Client updated'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: () => api.delete(`/clients/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      toast.success('Client deleted');
+      navigate('/admin/clients');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to delete'),
   });
 
   if (isLoading) return <div className="page-container"><div className="glass-card h-64 animate-pulse" /></div>;
@@ -75,6 +86,9 @@ export default function ClientDetail() {
               </div>
               <button onClick={() => setShowEdit(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">
                 <Pencil className="h-3.5 w-3.5" /> Edit
+              </button>
+              <button onClick={() => setShowDeleteConfirm(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                <Trash2 className="h-3.5 w-3.5" /> Delete
               </button>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -166,6 +180,23 @@ export default function ClientDetail() {
         initial={client}
         isEdit
       />
+
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold">Delete Client</h2>
+            <p className="text-sm text-muted-foreground">Are you sure you want to delete <strong>{client.company_name || 'this client'}</strong>? This action cannot be undone.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={() => deleteMut.mutate()} disabled={deleteMut.isPending} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {deleteMut.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
