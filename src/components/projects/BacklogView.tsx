@@ -17,9 +17,21 @@ export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Pr
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
 
-  const { data: backlogRaw } = useQuery({
+  const { data: backlogRaw, isLoading } = useQuery({
     queryKey: ['project-backlog', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/backlog`).then(r => extractProjectArray<ProjectTask>(r.data, ['tasks', 'backlog'])),
+    queryFn: async () => {
+      try {
+        const r = await api.get(`/projects/${projectId}/backlog`);
+        const tasks = extractProjectArray<ProjectTask>(r.data, ['tasks', 'backlog']);
+        if (tasks.length > 0) return tasks;
+      } catch {}
+      // Fallback: fetch all project tasks (backlog = tasks without a sprint)
+      try {
+        const r = await api.get(`/projects/${projectId}/tasks`);
+        return extractProjectArray<ProjectTask>(r.data, ['tasks']);
+      } catch {}
+      return [];
+    },
   });
   const backlog: ProjectTask[] = Array.isArray(backlogRaw) ? backlogRaw : [];
 
