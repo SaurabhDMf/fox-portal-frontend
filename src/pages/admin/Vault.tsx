@@ -56,10 +56,12 @@ export default function Vault() {
           api.get('/vault/folders'),
           api.get('/vault/credentials'),
         ]);
-        const fData = fRes.data?.folders || fRes.data || [];
-        const cData = cRes.data?.credentials || cRes.data || [];
+        const fData = fRes.data?.data || fRes.data?.folders || fRes.data || [];
+        const cData = cRes.data?.data || cRes.data?.credentials || cRes.data || [];
         const fArr: VaultFolder[] = Array.isArray(fData) ? fData : [];
         const cArr: VaultCred[] = Array.isArray(cData) ? cData : [];
+        console.log('[Vault] folders from API:', fArr);
+        console.log('[Vault] credentials from API:', cArr);
         // Recount
         setFolders(fArr.map(f => ({ ...f, credential_count: cArr.filter(c => c.folder_id === f.id).length })));
         setCreds(cArr);
