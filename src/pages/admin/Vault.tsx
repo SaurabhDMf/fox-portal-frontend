@@ -15,6 +15,8 @@ interface VaultFolder {
   name: string;
   color?: string;
   credential_count?: number;
+  created_by?: string;
+  owner_name?: string;
 }
 
 interface VaultCred {

@@ -55,8 +55,8 @@ export default function VaultCredentialCard({ cred, onEdit, onShare, onDelete, c
   const [revealed, setRevealed] = useState(false);
   const [revealedPw, setRevealedPw] = useState('');
 
-  const isShared = cred.is_owner === false;
-  const sharedCanEdit = cred.shared_can_edit !== false;
+  const isShared = cred.is_owner === false || cred.is_owner === 0 as any;
+  const sharedCanEdit = cred.shared_can_edit === true || cred.shared_can_edit === 1 as any;
   const showEdit = canEdit && (!isShared || sharedCanEdit);
   const showDelete = canDelete && (!isShared || sharedCanEdit);
 
