@@ -67,6 +67,7 @@ const App = () => (
       }}
     />
     <BrowserRouter>
+      <PermissionsLoader>
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<Login />} />
