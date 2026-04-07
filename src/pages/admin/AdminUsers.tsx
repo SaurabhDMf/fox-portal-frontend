@@ -418,8 +418,6 @@ export default function AdminUsers() {
                     )}
                   </div>
                 </td>
-                  </div>
-                </td>
               </tr>
             ))}
             {users.length === 0 && !isLoading && (
