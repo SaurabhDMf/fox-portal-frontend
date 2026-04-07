@@ -25,6 +25,33 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
     queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => extractProjectArray<Sprint>(r.data, ['sprints'])),
   });
   const sprints: Sprint[] = Array.isArray(sprintsRaw) ? sprintsRaw : [];
+  const [expandedSprints, setExpandedSprints] = useState<Set<string>>(new Set());
+
+  // Fetch tasks for expanded sprints
+  const sprintIds = Array.from(expandedSprints);
+  const { data: sprintTasksMap } = useQuery({
+    queryKey: ['sprint-tasks', projectId, sprintIds],
+    queryFn: async () => {
+      const results: Record<string, ProjectTask[]> = {};
+      await Promise.all(sprintIds.map(async sid => {
+        const r = await api.get(`/projects/${projectId}/board`, { params: { sprint_id: sid } });
+        const board = r.data?.board || r.data?.data?.board || r.data || {};
+        const tasks: ProjectTask[] = [];
+        Object.values(board).forEach((col: any) => { if (Array.isArray(col)) tasks.push(...col); });
+        results[sid] = tasks;
+      }));
+      return results;
+    },
+    enabled: sprintIds.length > 0,
+  });
+
+  const toggleExpand = (sid: string) => {
+    setExpandedSprints(prev => {
+      const next = new Set(prev);
+      next.has(sid) ? next.delete(sid) : next.add(sid);
+      return next;
+    });
+  };
 
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post(`/projects/${projectId}/sprints`, d),
