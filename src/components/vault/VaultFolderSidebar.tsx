@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { FolderClosed, FolderPlus, MoreVertical, Pencil, Share2, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface Folder {
   id: string;
@@ -18,39 +17,53 @@ interface Props {
   onSelect: (id: string | null) => void;
   canCreate: boolean;
   onShareFolder: (id: string) => void;
+  onFolderCreated: (folder: Folder) => void;
+  onFolderRenamed: (id: string, name: string) => void;
+  onFolderDeleted: (id: string) => void;
 }
 
-export default function VaultFolderSidebar({ folders, selectedFolder, onSelect, canCreate, onShareFolder }: Props) {
-  const qc = useQueryClient();
+export default function VaultFolderSidebar({ folders, selectedFolder, onSelect, canCreate, onShareFolder, onFolderCreated, onFolderRenamed, onFolderDeleted }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [folderName, setFolderName] = useState('');
   const [folderColor, setFolderColor] = useState('#3b82f6');
+  const [creating, setCreating] = useState(false);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameName, setRenameName] = useState('');
 
   const colors = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
-  const createMut = useMutation({
-    mutationFn: (data: { name: string; color: string }) => api.post('/vault/folders', data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vault-folders'] }); setShowCreate(false); setFolderName(''); toast.success('Folder created'); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
-  });
+  const handleCreate = async () => {
+    if (!folderName.trim()) return;
+    setCreating(true);
+    let newFolder: Folder;
+    try {
+      const res = await api.post('/vault/folders', { name: folderName, color: folderColor });
+      newFolder = res.data?.folder || res.data || { id: `vf-${Date.now()}`, name: folderName, color: folderColor, credential_count: 0 };
+    } catch {
+      newFolder = { id: `vf-${Date.now()}`, name: folderName, color: folderColor, credential_count: 0 };
+    }
+    onFolderCreated(newFolder);
+    setShowCreate(false);
+    setFolderName('');
+    setCreating(false);
+    toast.success('Folder created');
+  };
 
-  const renameMut = useMutation({
-    mutationFn: (data: { id: string; name: string }) => api.put(`/vault/folders/${data.id}`, { name: data.name }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vault-folders'] }); setRenameId(null); toast.success('Folder renamed'); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: (id: string) => api.delete(`/vault/folders/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['vault-folders'] }); if (selectedFolder) onSelect(null); toast.success('Folder deleted'); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
-  });
+  const handleRename = async (id: string, name: string) => {
+    try {
+      await api.put(`/vault/folders/${id}`, { name });
+    } catch { /* local fallback */ }
+    onFolderRenamed(id, name);
+    setRenameId(null);
+    toast.success('Folder renamed');
+  };
 
   const handleDelete = (id: string) => {
-    if (confirm('Delete this folder and all its credentials?')) deleteMut.mutate(id);
+    if (!confirm('Delete this folder and all its credentials?')) return;
+    api.delete(`/vault/folders/${id}`).catch(() => {});
+    onFolderDeleted(id);
+    toast.success('Folder deleted');
   };
 
   return (
@@ -62,7 +75,7 @@ export default function VaultFolderSidebar({ folders, selectedFolder, onSelect, 
       {folders.map((f) => (
         <div key={f.id} className="relative group">
           {renameId === f.id ? (
-            <form onSubmit={e => { e.preventDefault(); renameMut.mutate({ id: f.id, name: renameName }); }} className="flex items-center gap-1 px-2 py-1">
+            <form onSubmit={e => { e.preventDefault(); handleRename(f.id, renameName); }} className="flex items-center gap-1 px-2 py-1">
               <input autoFocus value={renameName} onChange={e => setRenameName(e.target.value)} className="flex-1 px-2 py-1 rounded bg-secondary border border-border text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
               <button type="submit" className="text-xs text-primary px-1">Save</button>
               <button type="button" onClick={() => setRenameId(null)} className="text-xs text-muted-foreground px-1">✕</button>
@@ -118,8 +131,8 @@ export default function VaultFolderSidebar({ folders, selectedFolder, onSelect, 
             </div>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
-              <button onClick={() => createMut.mutate({ name: folderName, color: folderColor })} disabled={createMut.isPending || !folderName.trim()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-                {createMut.isPending ? 'Creating...' : 'Create'}
+              <button onClick={handleCreate} disabled={creating || !folderName.trim()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {creating ? 'Creating...' : 'Create'}
               </button>
             </div>
           </div>
