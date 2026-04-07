@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-
+import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -23,19 +23,19 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
 
   const { data: membersRaw } = useQuery({
     queryKey: ['project-members', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/members`).then(r => r.data?.members || r.data || []),
+    queryFn: () => api.get(`/projects/${projectId}/members`).then(r => extractProjectArray(r.data, ['members', 'users'])),
   });
   const members = Array.isArray(membersRaw) ? membersRaw : [];
 
   const { data: epicsRaw } = useQuery({
     queryKey: ['project-epics', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/epics`).then(r => r.data?.epics || r.data || []),
+    queryFn: () => api.get(`/projects/${projectId}/epics`).then(r => extractProjectArray(r.data, ['epics'])),
   });
   const epics = Array.isArray(epicsRaw) ? epicsRaw : [];
 
   const { data: sprintsRaw } = useQuery({
     queryKey: ['project-sprints', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => r.data?.sprints || r.data || []),
+    queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => extractProjectArray(r.data, ['sprints'])),
   });
   const sprints = Array.isArray(sprintsRaw) ? sprintsRaw : [];
 
@@ -47,9 +47,18 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
       epic_id: d.epic_id || undefined,
       sprint_id: d.sprint_id || undefined,
     }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['project-board', projectId] });
-      qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
+    onSuccess: (res) => {
+      const newTask = extractProjectEntity(res.data, ['task']);
+      if (newTask?.id) {
+        qc.setQueryData(['project-backlog', projectId], (old: any) => {
+          const prev = Array.isArray(old) ? old : [];
+          return prev.some((item: any) => item?.id === newTask.id) ? prev : [...prev, newTask];
+        });
+      }
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ['project-board', projectId] });
+        qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
+      }, 1200);
       onClose();
       toast.success('Task created');
     },

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { BOARD_COLUMNS, type ProjectTask } from '@/lib/projectTypes';
+import { extractProjectArray, extractProjectBoard } from '@/lib/projectResponse';
 
 import TaskCard from './TaskCard';
 import { useState } from 'react';
@@ -19,17 +20,17 @@ export default function KanbanBoard({ projectId, onTaskClick, onCreateTask }: Pr
 
   const { data: sprintsData } = useQuery({
     queryKey: ['project-sprints', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => r.data?.sprints || r.data || []),
+    queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => extractProjectArray(r.data, ['sprints'])),
   });
   const sprints = Array.isArray(sprintsData) ? sprintsData : [];
   const [selectedSprint, setSelectedSprint] = useState<string>('');
 
   const { data: boardData, isLoading } = useQuery({
     queryKey: ['project-board', projectId, selectedSprint],
-    queryFn: () => api.get(`/projects/${projectId}/board`, { params: selectedSprint ? { sprint_id: selectedSprint } : {} }).then(r => r.data?.board || r.data || {}),
+    queryFn: () => api.get(`/projects/${projectId}/board`, { params: selectedSprint ? { sprint_id: selectedSprint } : {} }).then(r => extractProjectBoard(r.data)),
   });
 
-  const rawBoard = boardData && typeof boardData === 'object' ? boardData : {};
+  const rawBoard = extractProjectBoard(boardData);
   const board: Record<string, ProjectTask[]> = {};
   BOARD_COLUMNS.forEach(col => { board[col] = rawBoard[col] || []; });
 

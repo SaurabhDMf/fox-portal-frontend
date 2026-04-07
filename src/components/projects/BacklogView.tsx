@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS, type ProjectTask, type Sprint } from '@/lib/projectTypes';
-
+import { extractProjectArray } from '@/lib/projectResponse';
 import { useState } from 'react';
 import { Play, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -18,13 +18,13 @@ export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Pr
 
   const { data: backlogRaw } = useQuery({
     queryKey: ['project-backlog', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/backlog`).then(r => r.data?.tasks || r.data || []),
+    queryFn: () => api.get(`/projects/${projectId}/backlog`).then(r => extractProjectArray<ProjectTask>(r.data, ['tasks', 'backlog'])),
   });
   const backlog: ProjectTask[] = Array.isArray(backlogRaw) ? backlogRaw : [];
 
   const { data: sprintsRaw } = useQuery({
     queryKey: ['project-sprints', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => r.data?.sprints || r.data || []),
+    queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => extractProjectArray<Sprint>(r.data, ['sprints'])),
   });
   const sprints: Sprint[] = Array.isArray(sprintsRaw) ? sprintsRaw : [];
 
