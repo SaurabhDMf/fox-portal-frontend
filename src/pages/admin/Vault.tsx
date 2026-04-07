@@ -160,21 +160,7 @@ export default function Vault() {
     }
   }, [deleteCredId, recount]);
 
-  const handleShare = useCallback(async (ids: string[], canEdit: boolean[], shareType: 'user' | 'client') => {
-    if (!shareTarget) return;
-    setSharingPending(true);
-    try {
-      const endpoint = shareTarget.type === 'folder'
-        ? `/vault/folders/${shareTarget.id}/share`
-        : `/vault/credentials/${shareTarget.id}/share`;
-      await api.post(endpoint, { user_ids: ids, can_edit: canEdit[0] ?? false });
-      toast.success('Shared successfully');
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || 'Failed to share');
-    }
-    setShareTarget(null);
-    setSharingPending(false);
-  }, [shareTarget]);
+  // Share logic is now handled inside VaultShareModal
 
   // --- Filtered credentials ---
   const filteredCreds = creds.filter(c => {
@@ -269,9 +255,7 @@ export default function Vault() {
       <VaultShareModal
         open={!!shareTarget}
         onClose={() => setShareTarget(null)}
-        onSubmit={handleShare}
-        isPending={sharingPending}
-        title={shareTarget?.type === 'folder' ? 'Share Folder' : 'Share Credential'}
+        shareTarget={shareTarget}
       />
 
       {/* Delete Credential Confirm */}
