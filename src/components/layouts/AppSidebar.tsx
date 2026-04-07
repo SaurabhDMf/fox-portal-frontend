@@ -54,16 +54,12 @@ const portalNav: NavItem[] = [
 ];
 
 function getNavItems(role: string): NavItem[] {
-  switch (role) {
-    case 'super_admin':
-    case 'admin':
-    case 'sales_manager':
-    case 'sales_rep': return adminNav;
-    case 'resource':
-    case 'freelancer': return empNav;
-    case 'client': return portalNav;
-    default: return [];
-  }
+  const adminRoles = ['super_admin', 'admin', 'sales_manager', 'sales_rep'];
+  const clientRoles = ['client'];
+  if (adminRoles.includes(role)) return adminNav;
+  if (clientRoles.includes(role)) return portalNav;
+  // All other roles (resource, freelancer, custom roles) → employee nav
+  return empNav;
 }
 
 const rootPaths = ['/admin', '/emp', '/portal'];
