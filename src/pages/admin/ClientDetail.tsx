@@ -87,6 +87,9 @@ export default function ClientDetail() {
               <button onClick={() => setShowEdit(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">
                 <Pencil className="h-3.5 w-3.5" /> Edit
               </button>
+              <button onClick={() => setShowDeleteConfirm(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               {client.email && <div><span className="text-muted-foreground">Email</span><div>{client.email}</div></div>}
