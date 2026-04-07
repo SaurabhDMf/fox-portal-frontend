@@ -173,8 +173,8 @@ export default function Vault() {
   });
 
   return (
-    <div className="page-container">
-      <div className="page-header">
+    <div className="page-container flex flex-col md:h-[calc(100vh-3.5rem)] md:overflow-hidden">
+      <div className="page-header flex-shrink-0">
         <div>
           <h1 className="page-title">Password Vault</h1>
           <p className="page-subtitle">Securely manage and share credentials</p>
@@ -186,7 +186,7 @@ export default function Vault() {
         )}
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap flex-shrink-0">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search across all folders..." className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
@@ -199,19 +199,21 @@ export default function Vault() {
         </div>
       </div>
 
-      <div className="flex gap-4 flex-col md:flex-row">
-        <VaultFolderSidebar
-          folders={folders}
-          selectedFolder={selectedFolder}
-          onSelect={setSelectedFolder}
-          canCreate={perm.canCreate}
-          onShareFolder={(id) => setShareTarget({ type: 'folder', id })}
-          onFolderCreated={handleFolderCreated}
-          onFolderRenamed={handleFolderRenamed}
-          onFolderDeleted={handleFolderDeleted}
-        />
+      <div className="flex flex-1 min-h-0 gap-4 flex-col md:flex-row">
+        <div className="w-full md:w-60 md:h-full md:flex-shrink-0 md:overflow-y-auto">
+          <VaultFolderSidebar
+            folders={folders}
+            selectedFolder={selectedFolder}
+            onSelect={setSelectedFolder}
+            canCreate={perm.canCreate}
+            onShareFolder={(id) => setShareTarget({ type: 'folder', id })}
+            onFolderCreated={handleFolderCreated}
+            onFolderRenamed={handleFolderRenamed}
+            onFolderDeleted={handleFolderDeleted}
+          />
+        </div>
 
-        <div className="flex-1 space-y-3">
+        <div className="flex-1 min-h-0 space-y-3 md:overflow-y-auto md:pr-1">
           {loading ? (
             [...Array(3)].map((_, i) => <div key={i} className="glass-card h-20 animate-pulse" />)
           ) : filteredCreds.length > 0 ? filteredCreds.map((cred) => (
