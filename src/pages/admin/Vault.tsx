@@ -136,20 +136,27 @@ export default function Vault() {
     }
   }, [editCred, recount]);
 
-  const handleDeleteCred = useCallback(async (id: string) => {
-    if (!confirm('Delete this credential permanently?')) return;
+  const [deleteCredId, setDeleteCredId] = useState<string | null>(null);
+  const [deletingCred, setDeletingCred] = useState(false);
+
+  const confirmDeleteCred = useCallback(async () => {
+    if (!deleteCredId) return;
+    setDeletingCred(true);
     try {
-      await api.delete(`/vault/credentials/${id}`);
+      await api.delete(`/vault/credentials/${deleteCredId}`);
       setCreds(prev => {
-        const next = prev.filter(c => c.id !== id);
+        const next = prev.filter(c => c.id !== deleteCredId);
         setFolders(fPrev => recount(next, fPrev));
         return next;
       });
       toast.success('Credential deleted');
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Failed to delete');
+    } finally {
+      setDeleteCredId(null);
+      setDeletingCred(false);
     }
-  }, [recount]);
+  }, [deleteCredId, recount]);
 
   const handleShare = useCallback(async (ids: string[], canEdit: boolean[], shareType: 'user' | 'client') => {
     if (!shareTarget) return;
@@ -226,7 +233,7 @@ export default function Vault() {
               cred={cred}
               onEdit={(c) => setEditCred(c)}
               onShare={(id) => setShareTarget({ type: 'credential', id })}
-              onDelete={handleDeleteCred}
+              onDelete={(id) => setDeleteCredId(id)}
               canEdit={perm.canEdit}
               canDelete={perm.canDelete}
             />
@@ -264,6 +271,22 @@ export default function Vault() {
         isPending={sharingPending}
         title={shareTarget?.type === 'folder' ? 'Share Folder' : 'Share Credential'}
       />
+
+      {/* Delete Credential Confirm */}
+      {deleteCredId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold text-destructive">Delete Credential</h2>
+            <p className="text-sm text-muted-foreground">Are you sure you want to delete this credential permanently? This action cannot be undone.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteCredId(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
+              <button onClick={confirmDeleteCred} disabled={deletingCred} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {deletingCred ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
