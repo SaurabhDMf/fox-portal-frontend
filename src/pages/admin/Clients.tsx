@@ -18,7 +18,7 @@ export default function Clients() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { data = [], isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['clients', type, search],
     queryFn: () => api.get('/clients', { params: { type: type === 'All' ? undefined : type, search } }).then(r => r.data?.clients || r.data || []),
   });
@@ -46,7 +46,7 @@ export default function Clients() {
   });
 
   const rawClients = Array.isArray(data) ? data : [];
-  const clients = rawClients.length > 0 ? rawClients : dummyClients;
+  const clients = isError ? dummyClients : rawClients;
   const usersArr = Array.isArray(users) ? users : [];
 
   return (
