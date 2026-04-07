@@ -142,6 +142,12 @@ export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Pr
             {noEpicTasks.map(t => <TaskRow key={t.id} task={t} />)}
           </div>
         )}
+        {backlog.length === 0 && Object.keys(epicGroups).length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-sm text-muted-foreground mb-2">No tasks in the backlog</p>
+            {onCreateTask && <button onClick={onCreateTask} className="text-sm text-primary hover:underline">Create your first task →</button>}
+          </div>
+        )}
       </div>
     </div>
   );
