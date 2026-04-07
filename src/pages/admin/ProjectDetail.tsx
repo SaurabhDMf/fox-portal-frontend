@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useState } from 'react';
 import { ArrowLeft, LayoutGrid, List, Zap, Timer, Users, Pencil, Trash2, X } from 'lucide-react';
-import { dummyProjectsEnhanced } from '@/lib/projectDummyData';
+
 import type { Project, ProjectTask } from '@/lib/projectTypes';
 import KanbanBoard from '@/components/projects/KanbanBoard';
 import BacklogView from '@/components/projects/BacklogView';
@@ -45,7 +45,7 @@ export default function ProjectDetail() {
     enabled: !!id,
   });
 
-  const project: Project | undefined = projectRaw || dummyProjectsEnhanced.find(p => p.id === id) || (id ? dummyProjectsEnhanced[0] : undefined);
+  const project: Project | undefined = projectRaw;
 
   const updateMut = useMutation({
     mutationFn: (d: typeof editForm) => api.put(`/projects/${id}`, d),

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS, type ProjectTask, type Sprint } from '@/lib/projectTypes';
-import { dummyBacklogTasks, dummySprints } from '@/lib/projectDummyData';
+
 import { useState } from 'react';
 import { Play } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -19,13 +19,13 @@ export default function BacklogView({ projectId, onTaskClick }: Props) {
     queryKey: ['project-backlog', projectId],
     queryFn: () => api.get(`/projects/${projectId}/backlog`).then(r => r.data?.tasks || r.data || []),
   });
-  const backlog: ProjectTask[] = Array.isArray(backlogRaw) && backlogRaw.length > 0 ? backlogRaw : dummyBacklogTasks;
+  const backlog: ProjectTask[] = Array.isArray(backlogRaw) ? backlogRaw : [];
 
   const { data: sprintsRaw } = useQuery({
     queryKey: ['project-sprints', projectId],
     queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => r.data?.sprints || r.data || []),
   });
-  const sprints: Sprint[] = Array.isArray(sprintsRaw) && sprintsRaw.length > 0 ? sprintsRaw : dummySprints;
+  const sprints: Sprint[] = Array.isArray(sprintsRaw) ? sprintsRaw : [];
 
   const moveToSprintMut = useMutation({
     mutationFn: ({ taskId, sprintId }: { taskId: string; sprintId: string }) =>

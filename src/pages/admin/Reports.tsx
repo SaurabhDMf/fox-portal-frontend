@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-import { dummyLeads, dummyInvoices } from '@/lib/dummyData';
+
 
 const CHART_COLORS = ['hsl(244, 94%, 62%)', 'hsl(157, 87%, 46%)', 'hsl(213, 100%, 62%)', 'hsl(35, 100%, 63%)', 'hsl(4, 100%, 64%)', 'hsl(240, 20%, 55%)'];
 
@@ -26,10 +26,8 @@ export default function Reports() {
     queryFn: () => api.get('/invoices').then(r => r.data?.invoices || r.data || []),
   });
 
-  const rawLeads = Array.isArray(leadsData) ? leadsData : [];
-  const leads = rawLeads.length > 0 ? rawLeads : dummyLeads;
-  const rawInvoices = Array.isArray(invoicesData) ? invoicesData : [];
-  const invoices = rawInvoices.length > 0 ? rawInvoices : dummyInvoices;
+  const leads = Array.isArray(leadsData) ? leadsData : [];
+  const invoices = Array.isArray(invoicesData) ? invoicesData : [];
 
   // Sales funnel
   const funnelStatuses = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Closed Won', 'Closed Lost'];

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { BOARD_COLUMNS, type ProjectTask } from '@/lib/projectTypes';
-import { dummyBoardTasks, dummySprints } from '@/lib/projectDummyData';
+
 import TaskCard from './TaskCard';
 import { useState } from 'react';
 import { Plus, Play } from 'lucide-react';
@@ -21,7 +21,7 @@ export default function KanbanBoard({ projectId, onTaskClick, onCreateTask }: Pr
     queryKey: ['project-sprints', projectId],
     queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => r.data?.sprints || r.data || []),
   });
-  const sprints = Array.isArray(sprintsData) && sprintsData.length > 0 ? sprintsData : dummySprints;
+  const sprints = Array.isArray(sprintsData) ? sprintsData : [];
   const [selectedSprint, setSelectedSprint] = useState<string>('');
 
   const { data: boardData, isLoading } = useQuery({
@@ -29,7 +29,7 @@ export default function KanbanBoard({ projectId, onTaskClick, onCreateTask }: Pr
     queryFn: () => api.get(`/projects/${projectId}/board`, { params: selectedSprint ? { sprint_id: selectedSprint } : {} }).then(r => r.data?.board || r.data || {}),
   });
 
-  const rawBoard = boardData && typeof boardData === 'object' && Object.keys(boardData).length > 0 ? boardData : dummyBoardTasks;
+  const rawBoard = boardData && typeof boardData === 'object' ? boardData : {};
   const board: Record<string, ProjectTask[]> = {};
   BOARD_COLUMNS.forEach(col => { board[col] = rawBoard[col] || []; });
 

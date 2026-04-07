@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { dummyEpics } from '@/lib/projectDummyData';
+
 import type { Epic } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
@@ -22,7 +22,7 @@ export default function EpicsView({ projectId }: Props) {
     queryKey: ['project-epics', projectId],
     queryFn: () => api.get(`/projects/${projectId}/epics`).then(r => r.data?.epics || r.data || []),
   });
-  const epics: Epic[] = Array.isArray(epicsRaw) && epicsRaw.length > 0 ? epicsRaw : dummyEpics;
+  const epics: Epic[] = Array.isArray(epicsRaw) ? epicsRaw : [];
 
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post(`/projects/${projectId}/epics`, d),
