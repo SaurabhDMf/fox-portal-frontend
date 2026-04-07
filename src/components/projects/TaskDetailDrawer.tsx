@@ -16,6 +16,29 @@ interface Props {
 const TYPES = ['Story', 'Task', 'Bug', 'Subtask'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 
+function EditableDescription({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  if (editing) {
+    return (
+      <div>
+        <h4 className="text-xs font-semibold text-muted-foreground mb-1">Description</h4>
+        <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={4} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" autoFocus />
+        <div className="flex gap-2 mt-1">
+          <button onClick={() => { onSave(draft); setEditing(false); }} className="px-3 py-1 rounded bg-primary text-primary-foreground text-xs font-medium">Save</button>
+          <button onClick={() => { setDraft(value); setEditing(false); }} className="px-3 py-1 rounded bg-secondary text-xs">Cancel</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div onClick={() => setEditing(true)} className="cursor-pointer group">
+      <h4 className="text-xs font-semibold text-muted-foreground mb-1">Description <Edit2 className="inline h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" /></h4>
+      <p className="text-sm text-muted-foreground">{value || 'No description. Click to add one.'}</p>
+    </div>
+  );
+}
+
 export default function TaskDetailDrawer({ task: initialTask, onClose, projectId }: Props) {
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<'activity' | 'timelog'>('activity');
