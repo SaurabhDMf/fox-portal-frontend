@@ -11,6 +11,7 @@ export default function ClientDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [showEdit, setShowEdit] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: client, isLoading } = useQuery({
     queryKey: ['client', id],
