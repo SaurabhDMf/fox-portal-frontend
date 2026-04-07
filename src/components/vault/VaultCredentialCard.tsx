@@ -113,7 +113,7 @@ export default function VaultCredentialCard({ cred, onEdit, onShare, onDelete, c
           {cred.category && <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${catColor}`}>{cred.category}</span>}
         </div>
         <div className="text-xs text-muted-foreground truncate">{cred.username}</div>
-        {cred.url && (
+        {urlHostname && (
           <a href={cred.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary truncate flex items-center gap-1 hover:underline">
             {urlHostname} <ExternalLink className="h-3 w-3 inline" />
           </a>
