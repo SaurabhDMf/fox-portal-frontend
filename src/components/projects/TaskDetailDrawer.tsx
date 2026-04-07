@@ -3,7 +3,7 @@ import api from '@/lib/api';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS, BOARD_COLUMNS, type ProjectTask } from '@/lib/projectTypes';
 import { extractProjectArray } from '@/lib/projectResponse';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2, Paperclip, Image, FileText, Download, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
