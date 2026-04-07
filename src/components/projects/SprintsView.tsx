@@ -3,7 +3,7 @@ import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import type { Sprint } from '@/lib/projectTypes';
 import { useState } from 'react';
-import { Plus, X, Play, CheckCircle2 } from 'lucide-react';
+import { Plus, X, Play, CheckCircle2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -14,6 +14,7 @@ export default function SprintsView({ projectId }: Props) {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [showComplete, setShowComplete] = useState<string | null>(null);
+  const [deleteSprintId, setDeleteSprintId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', goal: '', start_date: '', end_date: '' });
   const [moveIncompleteTo, setMoveIncompleteTo] = useState('backlog');
 
@@ -60,6 +61,17 @@ export default function SprintsView({ projectId }: Props) {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error completing sprint'),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: (sid: string) => api.delete(`/projects/${projectId}/sprints/${sid}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
+      setDeleteSprintId(null);
+      toast.success('Sprint deleted');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting sprint'),
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -96,6 +108,9 @@ export default function SprintsView({ projectId }: Props) {
                       <CheckCircle2 className="h-3 w-3" /> Complete
                     </button>
                   )}
+                  <button onClick={() => setDeleteSprintId(sprint.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete Sprint">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
               {sprint.task_count != null && (
@@ -153,6 +168,22 @@ export default function SprintsView({ projectId }: Props) {
               <button onClick={() => setShowComplete(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
               <button onClick={() => completeMut.mutate(showComplete)} disabled={completeMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
                 {completeMut.isPending ? 'Completing...' : 'Complete Sprint'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Sprint Confirmation */}
+      {deleteSprintId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold">Delete Sprint</h2>
+            <p className="text-sm text-muted-foreground">Are you sure you want to delete this sprint? Tasks will be moved to the backlog.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteSprintId(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={() => deleteMut.mutate(deleteSprintId)} disabled={deleteMut.isPending} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {deleteMut.isPending ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
