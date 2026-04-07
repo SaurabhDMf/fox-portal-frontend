@@ -30,7 +30,18 @@ export default function Clients() {
 
   const createMut = useMutation({
     mutationFn: (d: ClientFormData) => api.post('/clients', d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['clients'] }); setShowCreate(false); toast.success('Client created'); },
+    onSuccess: (res) => {
+      const newClient = res.data?.client || res.data;
+      if (newClient?.id) {
+        qc.setQueryData(['clients', type, search], (old: any) => {
+          const prev = Array.isArray(old) ? old : [];
+          return [...prev, newClient];
+        });
+      }
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      setShowCreate(false);
+      toast.success('Client created');
+    },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
