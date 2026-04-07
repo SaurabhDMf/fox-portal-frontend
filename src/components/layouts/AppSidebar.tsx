@@ -1,7 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useSidebarCollapsed } from './PortalLayout';
-import { canAccessModule, type Module } from '@/lib/permissions';
 import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
@@ -80,17 +79,21 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
   const visibleItems = navItems.filter((item) => {
     // Always show items without a module key (Dashboard, Settings, Profile)
     if (!item.module) return true;
-    // Check API-level permissions first (from login response)
+
+    // If enabledModules came from the API, strictly filter by it
+    if (enabledModules && enabledModules.length > 0) {
+      if (!enabledModules.includes(item.module)) return false;
+    }
+
+    // Check API-level permissions (from login/refresh response)
     if (permissions && Object.keys(permissions).length > 0) {
       const mp = permissions[item.module];
+      // If we have permission data for this module and can_view is false, hide it
       if (mp && !mp.can_view) return false;
+      // If we have permissions but this module isn't listed, hide it
+      if (!mp) return false;
     }
-    // Check role-based permission
-    if (!canAccessModule(role, item.module as Module)) return false;
-    // Then check enabled_modules from backend
-    if (enabledModules && enabledModules.length > 0) {
-      return enabledModules.includes(item.module);
-    }
+
     return true;
   });
 

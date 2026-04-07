@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "@/stores/authStore";
+import { usePermissionsRefresh } from "@/hooks/usePermissionsRefresh";
 
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -52,6 +53,11 @@ function RootRedirect() {
   return <Navigate to="/login" replace />;
 }
 
+function PermissionsLoader({ children }: { children: React.ReactNode }) {
+  usePermissionsRefresh();
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <Toaster
@@ -61,6 +67,7 @@ const App = () => (
       }}
     />
     <BrowserRouter>
+      <PermissionsLoader>
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<Login />} />
@@ -112,6 +119,7 @@ const App = () => (
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </PermissionsLoader>
     </BrowserRouter>
   </QueryClientProvider>
 );

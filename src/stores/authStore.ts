@@ -29,6 +29,7 @@ interface AuthState {
   enabledModules: string[];
   isAuthenticated: boolean;
   setAuth: (data: { accessToken: string; refreshToken: string; user: User; permissions: Record<string, Permission>; enabled_modules?: string[] }) => void;
+  setPermissions: (permissions: Record<string, Permission>, enabled_modules?: string[]) => void;
   logout: () => void;
   canView: (module: string) => boolean;
   canCreate: (module: string) => boolean;
@@ -54,6 +55,13 @@ export const useAuthStore = create<AuthState>()(
           enabledModules: data.enabled_modules || [],
           isAuthenticated: true,
         }),
+
+      setPermissions: (permissions, enabled_modules) =>
+        set((state) => ({
+          ...state,
+          permissions: permissions || state.permissions,
+          enabledModules: enabled_modules || state.enabledModules,
+        })),
 
       logout: () =>
         set({
