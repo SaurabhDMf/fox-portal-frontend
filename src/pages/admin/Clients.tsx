@@ -10,6 +10,16 @@ import ClientFormModal, { type ClientFormData } from '@/components/clients/Clien
 
 const types = ['All', 'VIP', 'Active', 'New', 'Inactive', 'At-Risk'];
 
+const extractClients = (payload: any): any[] => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.clients)) return payload.clients;
+  if (Array.isArray(payload?.data?.clients)) return payload.data.clients;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+};
+
+const extractClient = (payload: any) => payload?.client || payload?.data?.client || payload?.data || payload;
+
 export default function Clients() {
   const perm = useModulePermission('clients');
   const [type, setType] = useState('All');
@@ -18,9 +28,10 @@ export default function Clients() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { data, isLoading, isError } = useQuery({
+  const { data = [], isLoading, isError } = useQuery({
     queryKey: ['clients', type, search],
-    queryFn: () => api.get('/clients', { params: { type: type === 'All' ? undefined : type, search } }).then(r => r.data?.clients || r.data || []),
+    queryFn: () => api.get('/clients', { params: { type: type === 'All' ? undefined : type, search } }).then(r => extractClients(r.data)),
+    placeholderData: (previousData) => previousData,
   });
 
   const { data: users = [] } = useQuery({
@@ -31,11 +42,12 @@ export default function Clients() {
   const createMut = useMutation({
     mutationFn: (d: ClientFormData) => api.post('/clients', d),
     onSuccess: (res) => {
-      const newClient = res.data?.client || res.data;
+      const newClient = extractClient(res.data);
       if (newClient?.id) {
         qc.setQueryData(['clients', type, search], (old: any) => {
           const prev = Array.isArray(old) ? old : [];
-          return [...prev, newClient];
+          const withoutDuplicate = prev.filter((c: any) => c?.id !== newClient.id);
+          return [...withoutDuplicate, newClient];
         });
       }
       qc.invalidateQueries({ queryKey: ['clients'] });
