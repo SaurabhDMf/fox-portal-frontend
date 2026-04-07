@@ -3,7 +3,7 @@ import api from '@/lib/api';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS, type ProjectTask, type Sprint } from '@/lib/projectTypes';
 import { extractProjectArray } from '@/lib/projectResponse';
 import { useState } from 'react';
-import { Play, Plus } from 'lucide-react';
+import { Play, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -15,6 +15,7 @@ interface Props {
 export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Props) {
   const qc = useQueryClient();
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
 
   const { data: backlogRaw } = useQuery({
     queryKey: ['project-backlog', projectId],
@@ -41,6 +42,17 @@ export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Pr
   const startSprintMut = useMutation({
     mutationFn: (sprintId: string) => api.post(`/projects/${projectId}/sprints/${sprintId}/start`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); toast.success('Sprint started'); },
+  });
+
+  const deleteTaskMut = useMutation({
+    mutationFn: (taskId: string) => api.delete(`/tasks/${taskId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-board', projectId] });
+      setDeleteTaskId(null);
+      toast.success('Task deleted');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting task'),
   });
 
   // Group backlog by epic
@@ -74,6 +86,13 @@ export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Pr
           <div key={a.id} className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[9px] font-bold text-primary" title={a.full_name}>{a.full_name?.[0]}</div>
         ))}
         {task.story_points != null && <span className="text-[10px] font-semibold bg-secondary text-muted-foreground px-1.5 py-0.5 rounded">{task.story_points}</span>}
+        <button
+          onClick={(e) => { e.stopPropagation(); setDeleteTaskId(task.id); }}
+          className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+          title="Delete Task"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
     );
   };
@@ -149,6 +168,22 @@ export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Pr
           </div>
         )}
       </div>
+
+      {/* Delete Task Confirmation */}
+      {deleteTaskId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold">Delete Task</h2>
+            <p className="text-sm text-muted-foreground">Are you sure you want to delete this task? This action cannot be undone.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteTaskId(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={() => deleteTaskMut.mutate(deleteTaskId)} disabled={deleteTaskMut.isPending} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {deleteTaskMut.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

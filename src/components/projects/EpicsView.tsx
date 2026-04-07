@@ -3,7 +3,7 @@ import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import type { Epic } from '@/lib/projectTypes';
 import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -17,6 +17,7 @@ export default function EpicsView({ projectId }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ title: '', color: '#3B82F6', start_date: '', due_date: '' });
   const [selectedEpic, setSelectedEpic] = useState<Epic | null>(null);
+  const [deleteEpicId, setDeleteEpicId] = useState<string | null>(null);
 
   const { data: epicsRaw } = useQuery({
     queryKey: ['project-epics', projectId],
@@ -40,6 +41,17 @@ export default function EpicsView({ projectId }: Props) {
       toast.success('Epic created');
     },
     onError: () => toast.error('Error creating epic'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (epicId: string) => api.delete(`/projects/${projectId}/epics/${epicId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-epics', projectId] });
+      if (selectedEpic?.id === deleteEpicId) setSelectedEpic(null);
+      setDeleteEpicId(null);
+      toast.success('Epic deleted');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting epic'),
   });
 
   // Timeline calculation
@@ -66,7 +78,7 @@ export default function EpicsView({ projectId }: Props) {
           const width = Math.max(((end - start) / range) * 100, 5);
 
           return (
-            <div key={epic.id} className="flex items-center gap-3 cursor-pointer hover:bg-secondary/50 rounded-lg p-2 transition-colors" onClick={() => setSelectedEpic(epic)}>
+            <div key={epic.id} className="flex items-center gap-3 cursor-pointer hover:bg-secondary/50 rounded-lg p-2 transition-colors group" onClick={() => setSelectedEpic(epic)}>
               <div className="w-40 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded" style={{ background: epic.color }} />
@@ -83,6 +95,13 @@ export default function EpicsView({ projectId }: Props) {
                   <span className="text-[10px] font-bold text-white">{epic.progress || 0}%</span>
                 </div>
               </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); setDeleteEpicId(epic.id); }}
+                className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+                title="Delete Epic"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
             </div>
           );
         })}
@@ -97,12 +116,33 @@ export default function EpicsView({ projectId }: Props) {
               <div className="w-4 h-4 rounded" style={{ background: selectedEpic.color }} />
               <h3 className="font-semibold">{selectedEpic.title}</h3>
             </div>
-            <button onClick={() => setSelectedEpic(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setDeleteEpicId(selectedEpic.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete Epic">
+                <Trash2 className="h-4 w-4" />
+              </button>
+              <button onClick={() => setSelectedEpic(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div><span className="text-muted-foreground text-xs">Progress</span><p className="font-semibold">{selectedEpic.progress || 0}%</p></div>
             <div><span className="text-muted-foreground text-xs">Tasks</span><p className="font-semibold">{selectedEpic.done_count || 0}/{selectedEpic.task_count || 0}</p></div>
             <div><span className="text-muted-foreground text-xs">Due</span><p className="font-semibold">{selectedEpic.due_date ? new Date(selectedEpic.due_date).toLocaleDateString() : '—'}</p></div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      {deleteEpicId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold">Delete Epic</h2>
+            <p className="text-sm text-muted-foreground">Are you sure you want to delete this epic? Tasks assigned to it will be unlinked.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteEpicId(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={() => deleteMut.mutate(deleteEpicId)} disabled={deleteMut.isPending} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {deleteMut.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
