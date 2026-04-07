@@ -29,6 +29,7 @@ interface AuthState {
   enabledModules: string[];
   isAuthenticated: boolean;
   setAuth: (data: { accessToken: string; refreshToken: string; user: User; permissions: Record<string, Permission>; enabled_modules?: string[] }) => void;
+  setPermissions: (permissions: Record<string, Permission>, enabled_modules?: string[]) => void;
   logout: () => void;
   canView: (module: string) => boolean;
   canCreate: (module: string) => boolean;
