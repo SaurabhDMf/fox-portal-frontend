@@ -12,7 +12,7 @@ interface Props {
   onTaskClick?: (task: ProjectTask) => void;
 }
 
-export default function SprintsView({ projectId }: Props) {
+export default function SprintsView({ projectId, onTaskClick }: Props) {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [showComplete, setShowComplete] = useState<string | null>(null);
