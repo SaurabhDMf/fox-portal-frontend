@@ -89,7 +89,7 @@ const App = () => (
         </Route>
 
         {/* Employee Portal */}
-        <Route path="/emp" element={<ProtectedRoute allowedRoles={['resource', 'freelancer']}><PortalLayout /></ProtectedRoute>}>
+        <Route path="/emp" element={<ProtectedRoute denyRoles={['super_admin', 'admin', 'sales_manager', 'sales_rep', 'client']}><PortalLayout /></ProtectedRoute>}>
           <Route index element={<EmpDashboard />} />
           <Route path="tasks" element={<EmpTasks />} />
           <Route path="projects" element={<Projects />} />
