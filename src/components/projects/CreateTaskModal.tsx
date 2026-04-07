@@ -47,6 +47,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
       story_points: d.story_points ? Number(d.story_points) : undefined,
       epic_id: d.epic_id || undefined,
       sprint_id: d.sprint_id || undefined,
+      parent_task_id: d.parent_task_id || undefined,
     }),
     onSuccess: (res) => {
       const newTask = extractProjectEntity(res.data, ['task']);
