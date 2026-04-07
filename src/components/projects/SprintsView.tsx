@@ -1,0 +1,137 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '@/lib/api';
+import { dummySprints } from '@/lib/projectDummyData';
+import type { Sprint } from '@/lib/projectTypes';
+import { useState } from 'react';
+import { Plus, X, Play, CheckCircle2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+interface Props {
+  projectId: string;
+}
+
+export default function SprintsView({ projectId }: Props) {
+  const qc = useQueryClient();
+  const [showCreate, setShowCreate] = useState(false);
+  const [showComplete, setShowComplete] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: '', goal: '', start_date: '', end_date: '' });
+  const [moveIncompleteTo, setMoveIncompleteTo] = useState('backlog');
+
+  const { data: sprintsRaw } = useQuery({
+    queryKey: ['project-sprints', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => r.data?.sprints || r.data || []),
+  });
+  const sprints: Sprint[] = Array.isArray(sprintsRaw) && sprintsRaw.length > 0 ? sprintsRaw : dummySprints;
+
+  const createMut = useMutation({
+    mutationFn: (d: typeof form) => api.post(`/projects/${projectId}/sprints`, d),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); setShowCreate(false); setForm({ name: '', goal: '', start_date: '', end_date: '' }); toast.success('Sprint created'); },
+  });
+
+  const startMut = useMutation({
+    mutationFn: (sid: string) => api.post(`/projects/${projectId}/sprints/${sid}/start`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); toast.success('Sprint started'); },
+  });
+
+  const completeMut = useMutation({
+    mutationFn: (sid: string) => api.post(`/projects/${projectId}/sprints/${sid}/complete`, { move_incomplete_to: moveIncompleteTo }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); setShowComplete(null); toast.success('Sprint completed'); },
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Sprints</h3>
+        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+          <Plus className="h-3 w-3" /> New Sprint
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {sprints.map(sprint => {
+          const progress = sprint.task_count ? Math.round(((sprint.done_count || 0) / sprint.task_count) * 100) : 0;
+          return (
+            <div key={sprint.id} className="glass-card p-4 space-y-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-semibold text-sm">{sprint.name}</h4>
+                    <span className={sprint.status === 'Active' ? 'badge-success' : sprint.status === 'Completed' ? 'badge-info' : 'badge-neutral'}>{sprint.status}</span>
+                  </div>
+                  {sprint.goal && <p className="text-xs text-muted-foreground mt-1">{sprint.goal}</p>}
+                  {sprint.start_date && sprint.end_date && (
+                    <p className="text-xs text-muted-foreground">{new Date(sprint.start_date).toLocaleDateString()} — {new Date(sprint.end_date).toLocaleDateString()}</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {sprint.status === 'Planned' && (
+                    <button onClick={() => startMut.mutate(sprint.id)} className="flex items-center gap-1 px-3 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors">
+                      <Play className="h-3 w-3" /> Start
+                    </button>
+                  )}
+                  {sprint.status === 'Active' && (
+                    <button onClick={() => setShowComplete(sprint.id)} className="flex items-center gap-1 px-3 py-1 rounded-lg bg-[hsl(var(--success))]/10 text-[hsl(var(--success))] text-xs font-medium hover:bg-[hsl(var(--success))]/20 transition-colors">
+                      <CheckCircle2 className="h-3 w-3" /> Complete
+                    </button>
+                  )}
+                </div>
+              </div>
+              {sprint.task_count != null && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs"><span className="text-muted-foreground">Progress</span><span>{sprint.done_count || 0}/{sprint.task_count} tasks ({progress}%)</span></div>
+                  <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Create Sprint modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-md p-6 space-y-4 animate-slide-up">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">New Sprint</h2>
+              <button onClick={() => setShowCreate(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <input placeholder="Sprint Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <textarea placeholder="Sprint Goal" value={form.goal} onChange={e => setForm(f => ({ ...f, goal: e.target.value }))} rows={2} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="text-xs text-muted-foreground">Start</label><input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
+              <div><label className="text-xs text-muted-foreground">End</label><input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
+              <button onClick={() => createMut.mutate(form)} disabled={!form.name || createMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {createMut.isPending ? 'Creating...' : 'Create Sprint'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Sprint dialog */}
+      {showComplete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold">Complete Sprint</h2>
+            <p className="text-sm text-muted-foreground">Where should incomplete tasks go?</p>
+            <select value={moveIncompleteTo} onChange={e => setMoveIncompleteTo(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+              <option value="backlog">Move to Backlog</option>
+              {sprints.filter(s => s.status === 'Planned').map(s => <option key={s.id} value={s.id}>Move to {s.name}</option>)}
+            </select>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowComplete(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
+              <button onClick={() => completeMut.mutate(showComplete)} disabled={completeMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {completeMut.isPending ? 'Completing...' : 'Complete Sprint'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
