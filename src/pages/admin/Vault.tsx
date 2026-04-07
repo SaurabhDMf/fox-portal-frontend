@@ -136,20 +136,27 @@ export default function Vault() {
     }
   }, [editCred, recount]);
 
-  const handleDeleteCred = useCallback(async (id: string) => {
-    if (!confirm('Delete this credential permanently?')) return;
+  const [deleteCredId, setDeleteCredId] = useState<string | null>(null);
+  const [deletingCred, setDeletingCred] = useState(false);
+
+  const confirmDeleteCred = useCallback(async () => {
+    if (!deleteCredId) return;
+    setDeletingCred(true);
     try {
-      await api.delete(`/vault/credentials/${id}`);
+      await api.delete(`/vault/credentials/${deleteCredId}`);
       setCreds(prev => {
-        const next = prev.filter(c => c.id !== id);
+        const next = prev.filter(c => c.id !== deleteCredId);
         setFolders(fPrev => recount(next, fPrev));
         return next;
       });
       toast.success('Credential deleted');
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Failed to delete');
+    } finally {
+      setDeleteCredId(null);
+      setDeletingCred(false);
     }
-  }, [recount]);
+  }, [deleteCredId, recount]);
 
   const handleShare = useCallback(async (ids: string[], canEdit: boolean[], shareType: 'user' | 'client') => {
     if (!shareTarget) return;
