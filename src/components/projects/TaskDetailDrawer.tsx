@@ -121,6 +121,18 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     },
   });
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const deleteTaskMut = useMutation({
+    mutationFn: () => api.delete(`/tasks/${initialTask.id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-board', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
+      toast.success('Task deleted');
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to delete task'),
+  });
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
@@ -159,6 +171,9 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             <button onClick={() => watchMut.mutate()} className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${task.is_watching ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}>
               {task.is_watching ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
               {task.watchers_count || 0}
+            </button>
+            <button onClick={() => setShowDeleteConfirm(true)} className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete task">
+              <Trash2 className="h-4 w-4" />
             </button>
             <button onClick={onClose} className="p-1 rounded-md hover:bg-secondary"><X className="h-5 w-5" /></button>
           </div>
@@ -419,6 +434,22 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
           </div>
         </div>
       </div>
+
+      {/* Delete Task Confirmation */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold">Delete Task</h2>
+            <p className="text-sm text-muted-foreground">Are you sure you want to delete <strong>{task.task_number}</strong>? This action cannot be undone.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={() => deleteTaskMut.mutate()} disabled={deleteTaskMut.isPending} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {deleteTaskMut.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
