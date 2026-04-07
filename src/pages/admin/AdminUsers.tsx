@@ -119,6 +119,24 @@ export default function AdminUsers() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting user'),
   });
 
+  const activateMut = useMutation({
+    mutationFn: (id: string) => api.post(`/users/${id}/activate`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User activated successfully');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error activating user'),
+  });
+
+  const permanentDeleteMut = useMutation({
+    mutationFn: (id: string) => api.delete(`/users/${id}/permanent`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User permanently deleted');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error permanently deleting user'),
+  });
+
   const targetMut = useMutation({
     mutationFn: (d: { id: string; monthly_target: number; target_month: string }) =>
       api.post(`/users/${d.id}/sales-target`, { monthly_target: d.monthly_target, target_month: d.target_month }),
