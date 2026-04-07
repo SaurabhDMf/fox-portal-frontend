@@ -42,6 +42,16 @@ export default function ClientDetail() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: () => api.delete(`/clients/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      toast.success('Client deleted');
+      navigate('/admin/clients');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to delete'),
+  });
+
   if (isLoading) return <div className="page-container"><div className="glass-card h-64 animate-pulse" /></div>;
   if (!client) return <div className="page-container"><p className="text-muted-foreground">Client not found</p></div>;
 
