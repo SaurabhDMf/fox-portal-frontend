@@ -121,6 +121,18 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     },
   });
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const deleteTaskMut = useMutation({
+    mutationFn: () => api.delete(`/tasks/${initialTask.id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-board', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
+      toast.success('Task deleted');
+      onClose();
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to delete task'),
+  });
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
