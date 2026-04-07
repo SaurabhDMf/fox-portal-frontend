@@ -84,18 +84,15 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
     // Always show items without a module key (Dashboard, Settings, Profile)
     if (!item.module) return true;
 
-    // If enabledModules came from the API, strictly filter by it
+    // Strictly filter by enabled_modules — if the array exists, module MUST be in it
     if (enabledModules && enabledModules.length > 0) {
       if (!enabledModules.includes(item.module)) return false;
     }
 
-    // Check API-level permissions (from login/refresh response)
+    // Also check can_view permission — hide if explicitly denied
     if (permissions && Object.keys(permissions).length > 0) {
       const mp = permissions[item.module];
-      // If we have permission data for this module and can_view is false, hide it
-      if (mp && !mp.can_view) return false;
-      // If we have permissions but this module isn't listed, hide it
-      if (!mp) return false;
+      if (!mp || !mp.can_view) return false;
     }
 
     return true;

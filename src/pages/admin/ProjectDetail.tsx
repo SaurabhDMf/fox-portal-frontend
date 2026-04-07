@@ -37,6 +37,7 @@ export default function ProjectDetail() {
   const [createTaskStatus, setCreateTaskStatus] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', description: '', status: 'Active', priority: 'Medium', start_date: '', due_date: '', color: '#3B82F6' });
 
   const { data: projectRaw, isLoading } = useQuery({
@@ -56,6 +57,17 @@ export default function ProjectDetail() {
       toast.success('Project updated');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update'),
+  });
+
+  const cancelMut = useMutation({
+    mutationFn: () => api.put(`/projects/${id}`, { status: 'Cancelled' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project', id] });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      setShowCancelConfirm(false);
+      toast.success('Project cancelled');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to cancel'),
   });
 
   const deleteMut = useMutation({
@@ -109,6 +121,11 @@ export default function ProjectDetail() {
             <button onClick={openEdit} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit Project">
               <Pencil className="h-4 w-4" />
             </button>
+            {project.status !== 'Cancelled' && (
+              <button onClick={() => setShowCancelConfirm(true)} className="px-3 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-warning/10 hover:text-warning hover:border-warning/30 transition-colors" title="Cancel Project">
+                Cancel
+              </button>
+            )}
             <button onClick={() => setShowDeleteConfirm(true)} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete Project">
               <Trash2 className="h-4 w-4" />
             </button>
@@ -215,6 +232,22 @@ export default function ProjectDetail() {
               <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
               <button onClick={() => deleteMut.mutate()} disabled={deleteMut.isPending} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
                 {deleteMut.isPending ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Project Confirmation Modal */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold">Cancel Project</h2>
+            <p className="text-sm text-muted-foreground">Are you sure you want to cancel <strong>{project.name}</strong>? The project will be marked as Cancelled but not removed.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowCancelConfirm(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Go Back</button>
+              <button onClick={() => cancelMut.mutate()} disabled={cancelMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {cancelMut.isPending ? 'Cancelling...' : 'Confirm Cancel'}
               </button>
             </div>
           </div>
