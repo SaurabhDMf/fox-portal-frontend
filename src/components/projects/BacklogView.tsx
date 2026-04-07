@@ -19,13 +19,13 @@ export default function BacklogView({ projectId, onTaskClick }: Props) {
     queryKey: ['project-backlog', projectId],
     queryFn: () => api.get(`/projects/${projectId}/backlog`).then(r => r.data?.tasks || r.data || []),
   });
-  const backlog: ProjectTask[] = Array.isArray(backlogRaw) && backlogRaw.length > 0 ? backlogRaw : dummyBacklogTasks;
+  const backlog: ProjectTask[] = Array.isArray(backlogRaw) ? backlogRaw : [];
 
   const { data: sprintsRaw } = useQuery({
     queryKey: ['project-sprints', projectId],
     queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => r.data?.sprints || r.data || []),
   });
-  const sprints: Sprint[] = Array.isArray(sprintsRaw) && sprintsRaw.length > 0 ? sprintsRaw : dummySprints;
+  const sprints: Sprint[] = Array.isArray(sprintsRaw) ? sprintsRaw : [];
 
   const moveToSprintMut = useMutation({
     mutationFn: ({ taskId, sprintId }: { taskId: string; sprintId: string }) =>

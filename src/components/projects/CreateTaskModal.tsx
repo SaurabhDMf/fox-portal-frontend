@@ -25,19 +25,19 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
     queryKey: ['project-members', projectId],
     queryFn: () => api.get(`/projects/${projectId}/members`).then(r => r.data?.members || r.data || []),
   });
-  const members = Array.isArray(membersRaw) && membersRaw.length > 0 ? membersRaw : dummyMembers;
+  const members = Array.isArray(membersRaw) ? membersRaw : [];
 
   const { data: epicsRaw } = useQuery({
     queryKey: ['project-epics', projectId],
     queryFn: () => api.get(`/projects/${projectId}/epics`).then(r => r.data?.epics || r.data || []),
   });
-  const epics = Array.isArray(epicsRaw) && epicsRaw.length > 0 ? epicsRaw : dummyEpics;
+  const epics = Array.isArray(epicsRaw) ? epicsRaw : [];
 
   const { data: sprintsRaw } = useQuery({
     queryKey: ['project-sprints', projectId],
     queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => r.data?.sprints || r.data || []),
   });
-  const sprints = Array.isArray(sprintsRaw) && sprintsRaw.length > 0 ? sprintsRaw : dummySprints;
+  const sprints = Array.isArray(sprintsRaw) ? sprintsRaw : [];
 
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post('/tasks', {
