@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useState } from 'react';
 import { ArrowLeft, LayoutGrid, List, Zap, Timer, Users, Pencil, Trash2, X } from 'lucide-react';
-
+import { extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectTask } from '@/lib/projectTypes';
 import KanbanBoard from '@/components/projects/KanbanBoard';
 import BacklogView from '@/components/projects/BacklogView';

@@ -37,18 +37,28 @@ export default function SprintsView({ projectId }: Props) {
       setShowCreate(false);
       setForm({ name: '', goal: '', start_date: '', end_date: '' });
       toast.success('Sprint created');
+    },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error creating sprint'),
   });
 
   const startMut = useMutation({
     mutationFn: (sid: string) => api.post(`/projects/${projectId}/sprints/${sid}/start`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); toast.success('Sprint started'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
+      toast.success('Sprint started');
+    },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error starting sprint'),
+  });
 
   const completeMut = useMutation({
     mutationFn: (sid: string) => api.post(`/projects/${projectId}/sprints/${sid}/complete`, { move_incomplete_to: moveIncompleteTo }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); setShowComplete(null); toast.success('Sprint completed'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
+      setShowComplete(null);
+      toast.success('Sprint completed');
+    },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error completing sprint'),
+  });
 
   return (
     <div className="space-y-4">
@@ -82,7 +92,7 @@ export default function SprintsView({ projectId }: Props) {
                     </button>
                   )}
                   {sprint.status === 'Active' && (
-                    <button onClick={() => setShowComplete(sprint.id)} className="flex items-center gap-1 px-3 py-1 rounded-lg bg-[hsl(var(--success))]/10 text-[hsl(var(--success))] text-xs font-medium hover:bg-[hsl(var(--success))]/20 transition-colors">
+                    <button onClick={() => setShowComplete(sprint.id)} className="flex items-center gap-1 px-3 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors">
                       <CheckCircle2 className="h-3 w-3" /> Complete
                     </button>
                   )}
@@ -107,7 +117,6 @@ export default function SprintsView({ projectId }: Props) {
         )}
       </div>
 
-      {/* Create Sprint modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-md p-6 space-y-4 animate-slide-up">
@@ -131,7 +140,6 @@ export default function SprintsView({ projectId }: Props) {
         </div>
       )}
 
-      {/* Complete Sprint dialog */}
       {showComplete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
