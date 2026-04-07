@@ -88,7 +88,15 @@ export default function VaultCredentialCard({ cred, onEdit, onShare, onDelete, c
     }
   };
 
-  const faviconUrl = cred.url ? `https://www.google.com/s2/favicons?domain=${new URL(cred.url).hostname}&sz=32` : null;
+  let faviconUrl: string | null = null;
+  let urlHostname: string | null = null;
+  try {
+    if (cred.url) {
+      const parsed = new URL(cred.url);
+      urlHostname = parsed.hostname;
+      faviconUrl = `https://www.google.com/s2/favicons?domain=${urlHostname}&sz=32`;
+    }
+  } catch { /* invalid URL */ }
   const strength = getStrength(revealedPw || cred.password_strength || '');
   const catColor = categoryColors[cred.category || 'Other'] || categoryColors.Other;
 
@@ -107,7 +115,7 @@ export default function VaultCredentialCard({ cred, onEdit, onShare, onDelete, c
         <div className="text-xs text-muted-foreground truncate">{cred.username}</div>
         {cred.url && (
           <a href={cred.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary truncate flex items-center gap-1 hover:underline">
-            {new URL(cred.url).hostname} <ExternalLink className="h-3 w-3 inline" />
+            {urlHostname} <ExternalLink className="h-3 w-3 inline" />
           </a>
         )}
         {(revealedPw || cred.password_strength) && (
