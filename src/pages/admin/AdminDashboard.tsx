@@ -1,12 +1,41 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import StatCard from '@/components/ui/StatCard';
-import { DollarSign, Users, Target, AlertTriangle, Plus, FileText, MessageSquare, Clock } from 'lucide-react';
+import { DollarSign, Users, Target, AlertTriangle, FileText, MessageSquare, Clock, LayoutDashboard, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { dummyDashboardStats, dummyLeads, dummyInvoices } from '@/lib/dummyData';
+import MyDashboard from '@/pages/MyDashboard';
 
 export default function AdminDashboard() {
+  const [view, setView] = useState<'personal' | 'org'>('personal');
+  const navigate = useNavigate();
+  const canCreate = useAuthStore(s => s.canCreate);
+
+  if (view === 'personal') {
+    return (
+      <div>
+        {/* View Toggle */}
+        <div className="page-container">
+          <div className="flex gap-1 mb-0">
+            <button onClick={() => setView('personal')} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground">
+              <User className="h-4 w-4" /> My Dashboard
+            </button>
+            <button onClick={() => setView('org')} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+              <LayoutDashboard className="h-4 w-4" /> Organization
+            </button>
+          </div>
+        </div>
+        <MyDashboard />
+      </div>
+    );
+  }
+
+  return <OrgDashboard onSwitchView={() => setView('personal')} />;
+}
+
+function OrgDashboard({ onSwitchView }: { onSwitchView: () => void }) {
   const navigate = useNavigate();
   const canCreate = useAuthStore(s => s.canCreate);
 
@@ -36,8 +65,18 @@ export default function AdminDashboard() {
 
   return (
     <div className="page-container">
+      {/* View Toggle */}
+      <div className="flex gap-1 mb-4">
+        <button onClick={onSwitchView} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors">
+          <Users className="h-4 w-4" /> My Dashboard
+        </button>
+        <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground">
+          <LayoutDashboard className="h-4 w-4" /> Organization
+        </button>
+      </div>
+
       <div className="page-header">
-        <div><h1 className="page-title">Dashboard</h1><p className="page-subtitle">Business overview</p></div>
+        <div><h1 className="page-title">Organization Dashboard</h1><p className="page-subtitle">Business overview</p></div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -47,7 +86,6 @@ export default function AdminDashboard() {
         <StatCard label="Overdue" value={s.overdue_amount ? `$${Number(s.overdue_amount).toLocaleString()}` : '$0'} icon={AlertTriangle} iconColor="text-destructive" />
       </div>
 
-      {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {quickActions.map(a => (
           <button key={a.label} onClick={() => navigate(a.path)} className="glass-card-hover p-4 flex items-center gap-3 text-sm font-medium">
@@ -58,7 +96,6 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Recent Leads */}
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold">Recent Leads</h2>
@@ -80,7 +117,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Overdue Invoices */}
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold">Overdue Invoices</h2>
