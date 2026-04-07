@@ -110,27 +110,9 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
         {epics.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No epics yet</p>}
       </div>
 
-      {/* Epic side panel */}
+      {/* Epic side panel with tasks */}
       {selectedEpic && (
-        <div className="glass-card p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ background: selectedEpic.color }} />
-              <h3 className="font-semibold">{selectedEpic.title}</h3>
-            </div>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setDeleteEpicId(selectedEpic.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete Epic">
-                <Trash2 className="h-4 w-4" />
-              </button>
-              <button onClick={() => setSelectedEpic(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div><span className="text-muted-foreground text-xs">Progress</span><p className="font-semibold">{selectedEpic.progress || 0}%</p></div>
-            <div><span className="text-muted-foreground text-xs">Tasks</span><p className="font-semibold">{selectedEpic.done_count || 0}/{selectedEpic.task_count || 0}</p></div>
-            <div><span className="text-muted-foreground text-xs">Due</span><p className="font-semibold">{selectedEpic.due_date ? new Date(selectedEpic.due_date).toLocaleDateString() : '—'}</p></div>
-          </div>
-        </div>
+        <EpicDetailPanel epic={selectedEpic} projectId={projectId} onClose={() => setSelectedEpic(null)} onDelete={() => setDeleteEpicId(selectedEpic.id)} onTaskClick={onTaskClick} />
       )}
 
       {/* Delete Confirmation */}
