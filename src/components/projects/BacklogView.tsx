@@ -121,7 +121,6 @@ export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Pr
 
       {/* Backlog grouped by epic */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Backlog</h3>
 
         {Object.entries(epicGroups).map(([epicId, group]) => (
           <div key={epicId} className="space-y-1">
