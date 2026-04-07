@@ -271,6 +271,22 @@ export default function Vault() {
         isPending={sharingPending}
         title={shareTarget?.type === 'folder' ? 'Share Folder' : 'Share Credential'}
       />
+
+      {/* Delete Credential Confirm */}
+      {deleteCredId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold text-destructive">Delete Credential</h2>
+            <p className="text-sm text-muted-foreground">Are you sure you want to delete this credential permanently? This action cannot be undone.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteCredId(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
+              <button onClick={confirmDeleteCred} disabled={deletingCred} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {deletingCred ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
