@@ -40,6 +40,12 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
   });
   const sprints = Array.isArray(sprintsRaw) ? sprintsRaw : [];
 
+  const { data: backlogRaw } = useQuery({
+    queryKey: ['project-backlog', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/backlog`).then(r => extractProjectArray(r.data, ['tasks', 'backlog'])),
+  });
+  const parentTasks = (Array.isArray(backlogRaw) ? backlogRaw : []).filter((t: any) => t.type !== 'Subtask');
+
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post('/tasks', {
       ...d,
@@ -85,13 +91,27 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
         <input placeholder="Task title *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" autoFocus />
 
         <div className="grid grid-cols-2 gap-3">
-          <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+          <select value={form.type} onChange={e => {
+            const newType = e.target.value;
+            setForm(f => ({ ...f, type: newType, parent_task_id: newType === 'Subtask' ? f.parent_task_id : '' }));
+          }} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
+
+        {/* Parent task for Sub-tasks */}
+        {form.type === 'Subtask' && (
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Parent Task *</label>
+            <select value={form.parent_task_id} onChange={e => setForm(f => ({ ...f, parent_task_id: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+              <option value="">Select parent task...</option>
+              {parentTasks.map((t: any) => <option key={t.id} value={t.id}>{t.task_number} — {t.title}</option>)}
+            </select>
+          </div>
+        )}
 
         {/* Assignees multi-select */}
         <div>
