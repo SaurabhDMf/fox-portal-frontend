@@ -135,7 +135,10 @@ export default function Projects() {
           </div>
         ))}
         {projects.length === 0 && !isLoading && (
-          <div className="col-span-full text-center py-16 text-muted-foreground text-sm">No projects found</div>
+          <div className="col-span-full text-center py-16">
+            <p className="text-muted-foreground text-sm mb-3">No projects found</p>
+            {perm.canCreate && <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first project →</button>}
+          </div>
         )}
       </div>
 
