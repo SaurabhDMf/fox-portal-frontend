@@ -37,6 +37,7 @@ export default function ProjectDetail() {
   const [createTaskStatus, setCreateTaskStatus] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', description: '', status: 'Active', priority: 'Medium', start_date: '', due_date: '', color: '#3B82F6' });
 
   const { data: projectRaw, isLoading } = useQuery({
