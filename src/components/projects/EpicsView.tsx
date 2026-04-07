@@ -164,3 +164,51 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
     </div>
   );
 }
+
+function EpicDetailPanel({ epic, projectId, onClose, onDelete, onTaskClick }: { epic: Epic; projectId: string; onClose: () => void; onDelete: () => void; onTaskClick?: (t: ProjectTask) => void }) {
+  const { data: backlogRaw } = useQuery({
+    queryKey: ['project-backlog', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/backlog`).then(r => extractProjectArray<ProjectTask>(r.data, ['tasks', 'backlog'])),
+  });
+  const epicTasks = (Array.isArray(backlogRaw) ? backlogRaw : []).filter((t: ProjectTask) => t.epic_id === epic.id);
+
+  return (
+    <div className="glass-card p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded" style={{ background: epic.color }} />
+          <h3 className="font-semibold">{epic.title}</h3>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={onDelete} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete Epic">
+            <Trash2 className="h-4 w-4" />
+          </button>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-4 text-sm">
+        <div><span className="text-muted-foreground text-xs">Progress</span><p className="font-semibold">{epic.progress || 0}%</p></div>
+        <div><span className="text-muted-foreground text-xs">Tasks</span><p className="font-semibold">{epic.done_count || 0}/{epic.task_count || 0}</p></div>
+        <div><span className="text-muted-foreground text-xs">Due</span><p className="font-semibold">{epic.due_date ? new Date(epic.due_date).toLocaleDateString() : '—'}</p></div>
+      </div>
+      {/* Child tasks */}
+      <div className="border-t border-border pt-3 space-y-1">
+        <h4 className="text-xs font-semibold text-muted-foreground mb-2">Stories / Tasks / Bugs</h4>
+        {epicTasks.map(task => {
+          const tc = TASK_TYPE_CONFIG[task.type] || TASK_TYPE_CONFIG.Task;
+          const pc = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.Medium;
+          return (
+            <div key={task.id} onClick={() => onTaskClick?.(task)} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors">
+              <span className="text-sm">{tc.icon}</span>
+              <span className="text-xs font-mono text-muted-foreground w-16 flex-shrink-0">{task.task_number}</span>
+              <span className="text-sm font-medium flex-1 truncate">{task.title}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{task.status}</span>
+              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc }} title={task.priority} />
+            </div>
+          );
+        })}
+        {epicTasks.length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No tasks in this epic</p>}
+      </div>
+    </div>
+  );
+}
