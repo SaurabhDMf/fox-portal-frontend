@@ -11,14 +11,15 @@ interface Props {
   onClose: () => void;
 }
 
-const TYPES = ['Task', 'Bug', 'Story', 'Feature', 'Subtask'];
+const TYPES = ['Story', 'Task', 'Bug', 'Subtask'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 
 export default function CreateTaskModal({ projectId, defaultStatus, onClose }: Props) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    title: '', type: 'Task', priority: 'Medium', status: defaultStatus || 'Open',
+    title: '', type: 'Story', priority: 'Medium', status: defaultStatus || 'Open',
     assignee_ids: [] as string[], epic_id: '', sprint_id: '', story_points: '', due_date: '',
+    parent_task_id: '',
   });
 
   const { data: membersRaw } = useQuery({
@@ -39,6 +40,12 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
   });
   const sprints = Array.isArray(sprintsRaw) ? sprintsRaw : [];
 
+  const { data: backlogRaw } = useQuery({
+    queryKey: ['project-backlog', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/backlog`).then(r => extractProjectArray(r.data, ['tasks', 'backlog'])),
+  });
+  const parentTasks = (Array.isArray(backlogRaw) ? backlogRaw : []).filter((t: any) => t.type !== 'Subtask');
+
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post('/tasks', {
       ...d,
@@ -46,6 +53,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
       story_points: d.story_points ? Number(d.story_points) : undefined,
       epic_id: d.epic_id || undefined,
       sprint_id: d.sprint_id || undefined,
+      parent_task_id: d.parent_task_id || undefined,
     }),
     onSuccess: (res) => {
       const newTask = extractProjectEntity(res.data, ['task']);
@@ -83,13 +91,27 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
         <input placeholder="Task title *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" autoFocus />
 
         <div className="grid grid-cols-2 gap-3">
-          <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+          <select value={form.type} onChange={e => {
+            const newType = e.target.value;
+            setForm(f => ({ ...f, type: newType, parent_task_id: newType === 'Subtask' ? f.parent_task_id : '' }));
+          }} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
           <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
+
+        {/* Parent task for Sub-tasks */}
+        {form.type === 'Subtask' && (
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Parent Task *</label>
+            <select value={form.parent_task_id} onChange={e => setForm(f => ({ ...f, parent_task_id: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+              <option value="">Select parent task...</option>
+              {parentTasks.map((t: any) => <option key={t.id} value={t.id}>{t.task_number} — {t.title}</option>)}
+            </select>
+          </div>
+        )}
 
         {/* Assignees multi-select */}
         <div>
@@ -125,8 +147,8 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
 
         <div className="flex gap-2 justify-end">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
-          <button onClick={() => createMut.mutate(form)} disabled={!form.title || createMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-            {createMut.isPending ? 'Creating...' : 'Create Task'}
+          <button onClick={() => createMut.mutate(form)} disabled={!form.title || (form.type === 'Subtask' && !form.parent_task_id) || createMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+            {createMut.isPending ? 'Creating...' : `Create ${form.type}`}
           </button>
         </div>
       </div>

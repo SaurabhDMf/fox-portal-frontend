@@ -153,8 +153,8 @@ export default function ProjectDetail() {
         <KanbanBoard projectId={id!} onTaskClick={setSelectedTask} onCreateTask={(status) => setCreateTaskStatus(status || 'Open')} />
       )}
       {activeTab === 'backlog' && <BacklogView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskStatus('Open')} />}
-      {activeTab === 'epics' && <EpicsView projectId={id!} />}
-      {activeTab === 'sprints' && <SprintsView projectId={id!} />}
+      {activeTab === 'epics' && <EpicsView projectId={id!} onTaskClick={setSelectedTask} />}
+      {activeTab === 'sprints' && <SprintsView projectId={id!} onTaskClick={setSelectedTask} />}
       {activeTab === 'members' && <MembersView projectId={id!} />}
 
       {selectedTask && (

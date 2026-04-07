@@ -23,12 +23,12 @@ export const dummyEpics: Epic[] = [
 
 export const dummyBoardTasks: Record<string, ProjectTask[]> = {
   'Open': [
-    { id: 'tk1', task_number: 'PRJ-12', title: 'Add dark mode toggle to settings', type: 'Feature', status: 'Open', priority: 'Medium', assignees: [{ id: 'u5', full_name: 'Priya Singh' }], labels: [{ id: 'l1', name: 'UI', color: '#3B82F6' }], story_points: 3, epic_name: 'Dashboard Module', epic_color: '#10B981' },
+    { id: 'tk1', task_number: 'PRJ-12', title: 'Add dark mode toggle to settings', type: 'Story', status: 'Open', priority: 'Medium', assignees: [{ id: 'u5', full_name: 'Priya Singh' }], labels: [{ id: 'l1', name: 'UI', color: '#3B82F6' }], story_points: 3, epic_name: 'Dashboard Module', epic_color: '#10B981' },
     { id: 'tk2', task_number: 'PRJ-13', title: 'Fix pagination on clients list', type: 'Bug', status: 'Open', priority: 'High', assignees: [{ id: 'u7', full_name: 'Sneha Reddy' }], story_points: 2 },
     { id: 'tk3', task_number: 'PRJ-14', title: 'Create onboarding flow wireframes', type: 'Story', status: 'Open', priority: 'Low', story_points: 5, labels: [{ id: 'l2', name: 'Design', color: '#8B5CF6' }] },
   ],
   'In Progress': [
-    { id: 'tk4', task_number: 'PRJ-10', title: 'Implement WebSocket for real-time chat', type: 'Feature', status: 'In Progress', priority: 'Critical', assignees: [{ id: 'u5', full_name: 'Priya Singh' }, { id: 'u7', full_name: 'Sneha Reddy' }], story_points: 8, epic_name: 'API Integration', epic_color: '#F59E0B', labels: [{ id: 'l3', name: 'Backend', color: '#EF4444' }] },
+    { id: 'tk4', task_number: 'PRJ-10', title: 'Implement WebSocket for real-time chat', type: 'Story', status: 'In Progress', priority: 'Critical', assignees: [{ id: 'u5', full_name: 'Priya Singh' }, { id: 'u7', full_name: 'Sneha Reddy' }], story_points: 8, epic_name: 'API Integration', epic_color: '#F59E0B', labels: [{ id: 'l3', name: 'Backend', color: '#EF4444' }] },
     { id: 'tk5', task_number: 'PRJ-11', title: 'Design invoice print template', type: 'Task', status: 'In Progress', priority: 'Medium', assignees: [{ id: 'u6', full_name: 'Vikram Joshi' }], story_points: 3 },
   ],
   'Review': [
@@ -44,12 +44,12 @@ export const dummyBoardTasks: Record<string, ProjectTask[]> = {
 };
 
 export const dummyBacklogTasks: ProjectTask[] = [
-  { id: 'bt1', task_number: 'PRJ-15', title: 'Implement file upload for vault', type: 'Feature', status: 'Open', priority: 'High', story_points: 8, epic_id: 'e3', epic_name: 'API Integration', epic_color: '#F59E0B' },
-  { id: 'bt2', task_number: 'PRJ-16', title: 'Add email notification system', type: 'Feature', status: 'Open', priority: 'Medium', story_points: 13, epic_id: 'e3', epic_name: 'API Integration', epic_color: '#F59E0B' },
+  { id: 'bt1', task_number: 'PRJ-15', title: 'Implement file upload for vault', type: 'Story', status: 'Open', priority: 'High', story_points: 8, epic_id: 'e3', epic_name: 'API Integration', epic_color: '#F59E0B' },
+  { id: 'bt2', task_number: 'PRJ-16', title: 'Add email notification system', type: 'Story', status: 'Open', priority: 'Medium', story_points: 13, epic_id: 'e3', epic_name: 'API Integration', epic_color: '#F59E0B' },
   { id: 'bt3', task_number: 'PRJ-17', title: 'Create analytics dashboard widgets', type: 'Story', status: 'Open', priority: 'Low', story_points: 5, epic_id: 'e2', epic_name: 'Dashboard Module', epic_color: '#10B981' },
   { id: 'bt4', task_number: 'PRJ-18', title: 'Mobile nav drawer', type: 'Task', status: 'Open', priority: 'Medium', story_points: 3, epic_id: 'e4', epic_name: 'Mobile Responsiveness', epic_color: '#8B5CF6' },
   { id: 'bt5', task_number: 'PRJ-19', title: 'Fix date picker timezone issue', type: 'Bug', status: 'Open', priority: 'High', story_points: 2 },
-  { id: 'bt6', task_number: 'PRJ-20', title: 'Add CSV export for reports', type: 'Feature', status: 'Open', priority: 'Low', story_points: 3 },
+  { id: 'bt6', task_number: 'PRJ-20', title: 'Add CSV export for reports', type: 'Story', status: 'Open', priority: 'Low', story_points: 3 },
 ];
 
 export const dummyMembers: ProjectMember[] = [

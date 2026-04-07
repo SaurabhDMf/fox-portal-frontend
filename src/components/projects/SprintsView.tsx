@@ -1,16 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
-import type { Sprint } from '@/lib/projectTypes';
+import type { Sprint, ProjectTask } from '@/lib/projectTypes';
+import { TASK_TYPE_CONFIG, PRIORITY_COLORS } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { Plus, X, Play, CheckCircle2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Props {
   projectId: string;
+  onTaskClick?: (task: ProjectTask) => void;
 }
 
-export default function SprintsView({ projectId }: Props) {
+export default function SprintsView({ projectId, onTaskClick }: Props) {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [showComplete, setShowComplete] = useState<string | null>(null);
@@ -23,6 +25,33 @@ export default function SprintsView({ projectId }: Props) {
     queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => extractProjectArray<Sprint>(r.data, ['sprints'])),
   });
   const sprints: Sprint[] = Array.isArray(sprintsRaw) ? sprintsRaw : [];
+  const [expandedSprints, setExpandedSprints] = useState<Set<string>>(new Set());
+
+  // Fetch tasks for expanded sprints
+  const sprintIds = Array.from(expandedSprints);
+  const { data: sprintTasksMap } = useQuery({
+    queryKey: ['sprint-tasks', projectId, sprintIds],
+    queryFn: async () => {
+      const results: Record<string, ProjectTask[]> = {};
+      await Promise.all(sprintIds.map(async sid => {
+        const r = await api.get(`/projects/${projectId}/board`, { params: { sprint_id: sid } });
+        const board = r.data?.board || r.data?.data?.board || r.data || {};
+        const tasks: ProjectTask[] = [];
+        Object.values(board).forEach((col: any) => { if (Array.isArray(col)) tasks.push(...col); });
+        results[sid] = tasks;
+      }));
+      return results;
+    },
+    enabled: sprintIds.length > 0,
+  });
+
+  const toggleExpand = (sid: string) => {
+    setExpandedSprints(prev => {
+      const next = new Set(prev);
+      next.has(sid) ? next.delete(sid) : next.add(sid);
+      return next;
+    });
+  };
 
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post(`/projects/${projectId}/sprints`, d),
@@ -87,14 +116,15 @@ export default function SprintsView({ projectId }: Props) {
           return (
             <div key={sprint.id} className="glass-card p-4 space-y-3">
               <div className="flex items-start justify-between">
-                <div>
+                <div className="cursor-pointer flex-1" onClick={() => toggleExpand(sprint.id)}>
                   <div className="flex items-center gap-2">
+                    <span className={`text-xs transition-transform ${expandedSprints.has(sprint.id) ? 'rotate-90' : ''}`}>▶</span>
                     <h4 className="font-semibold text-sm">{sprint.name}</h4>
                     <span className={sprint.status === 'Active' ? 'badge-success' : sprint.status === 'Completed' ? 'badge-info' : 'badge-neutral'}>{sprint.status}</span>
                   </div>
-                  {sprint.goal && <p className="text-xs text-muted-foreground mt-1">{sprint.goal}</p>}
+                  {sprint.goal && <p className="text-xs text-muted-foreground mt-1 ml-5">{sprint.goal}</p>}
                   {sprint.start_date && sprint.end_date && (
-                    <p className="text-xs text-muted-foreground">{new Date(sprint.start_date).toLocaleDateString()} — {new Date(sprint.end_date).toLocaleDateString()}</p>
+                    <p className="text-xs text-muted-foreground ml-5">{new Date(sprint.start_date).toLocaleDateString()} — {new Date(sprint.end_date).toLocaleDateString()}</p>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -119,6 +149,27 @@ export default function SprintsView({ projectId }: Props) {
                   <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
                     <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress}%` }} />
                   </div>
+                </div>
+              )}
+              {/* Expanded sprint tasks */}
+              {expandedSprints.has(sprint.id) && (
+                <div className="border-t border-border pt-3 space-y-1">
+                  {(sprintTasksMap?.[sprint.id] || []).map((task: ProjectTask) => {
+                    const tc = TASK_TYPE_CONFIG[task.type] || TASK_TYPE_CONFIG.Task;
+                    const pc = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.Medium;
+                    return (
+                      <div key={task.id} onClick={() => onTaskClick?.(task)} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors">
+                        <span className="text-sm">{tc.icon}</span>
+                        <span className="text-xs font-mono text-muted-foreground w-16 flex-shrink-0">{task.task_number}</span>
+                        <span className="text-sm font-medium flex-1 truncate">{task.title}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{task.status}</span>
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc }} title={task.priority} />
+                      </div>
+                    );
+                  })}
+                  {(sprintTasksMap?.[sprint.id] || []).length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-3">No tasks in this sprint</p>
+                  )}
                 </div>
               )}
             </div>

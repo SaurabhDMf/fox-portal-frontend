@@ -3,7 +3,7 @@ export interface ProjectTask {
   task_number: string;
   title: string;
   description?: string;
-  type: 'Feature' | 'Bug' | 'Task' | 'Story' | 'Subtask';
+  type: 'Story' | 'Task' | 'Bug' | 'Subtask';
   status: string;
   priority: 'Critical' | 'High' | 'Medium' | 'Low';
   assignees?: { id: string; full_name: string; avatar_url?: string }[];
@@ -78,10 +78,9 @@ export interface Project {
 }
 
 export const TASK_TYPE_CONFIG: Record<string, { icon: string; color: string }> = {
-  Feature: { icon: '⚡', color: 'hsl(270 60% 60%)' },
-  Bug: { icon: '🐛', color: 'hsl(4 100% 64%)' },
-  Task: { icon: '✅', color: 'hsl(213 100% 62%)' },
   Story: { icon: '📖', color: 'hsl(157 87% 46%)' },
+  Task: { icon: '✅', color: 'hsl(213 100% 62%)' },
+  Bug: { icon: '🐛', color: 'hsl(4 100% 64%)' },
   Subtask: { icon: '↳', color: 'hsl(220 10% 50%)' },
 };
 
