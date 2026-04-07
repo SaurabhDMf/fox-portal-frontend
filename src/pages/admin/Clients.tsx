@@ -2,20 +2,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
 import { dummyClients } from '@/lib/dummyData';
+import ClientFormModal, { type ClientFormData } from '@/components/clients/ClientFormModal';
 
-const types = ['All', 'VIP', 'Active', 'New', 'At-Risk'];
-const industries = ['Technology', 'Healthcare', 'Finance', 'Education', 'Retail', 'Manufacturing', 'Services', 'Other'];
+const types = ['All', 'VIP', 'Active', 'New', 'Inactive', 'At-Risk'];
 
 export default function Clients() {
   const perm = useModulePermission('clients');
   const [type, setType] = useState('All');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ company_name: '', industry: '', client_type: 'Active', website: '', account_manager_id: '', contact_name: '', email: '', phone: '', address_line1: '', address_line2: '', city: '', state: '', postal_code: '', country: '' });
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -30,7 +29,7 @@ export default function Clients() {
   });
 
   const createMut = useMutation({
-    mutationFn: (d: typeof form) => api.post('/clients', d),
+    mutationFn: (d: ClientFormData) => api.post('/clients', d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['clients'] }); setShowCreate(false); toast.success('Client created'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
@@ -92,56 +91,13 @@ export default function Clients() {
         )}
       </div>
 
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-lg p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Add Client</h2>
-              <button onClick={() => setShowCreate(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
-            </div>
-            <input placeholder="Company Name" value={form.company_name} onChange={e => setForm(f => ({ ...f, company_name: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-
-            <p className="text-xs text-muted-foreground font-medium pt-1">Contact Information</p>
-            <input placeholder="Contact Person Name" value={form.contact_name} onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            <div className="grid grid-cols-2 gap-3">
-              <input placeholder="Email Address" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-              <input placeholder="Phone Number" type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            </div>
-
-            <p className="text-xs text-muted-foreground font-medium pt-1">Billing Address</p>
-            <input placeholder="Address Line 1" value={form.address_line1} onChange={e => setForm(f => ({ ...f, address_line1: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            <input placeholder="Address Line 2" value={form.address_line2} onChange={e => setForm(f => ({ ...f, address_line2: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            <div className="grid grid-cols-3 gap-3">
-              <input placeholder="City" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-              <input placeholder="State" value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-              <input placeholder="Postal Code" value={form.postal_code} onChange={e => setForm(f => ({ ...f, postal_code: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            </div>
-            <input placeholder="Country" value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-
-            <p className="text-xs text-muted-foreground font-medium pt-1">Business Details</p>
-            <div className="grid grid-cols-2 gap-3">
-              <select value={form.industry} onChange={e => setForm(f => ({ ...f, industry: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">Select Industry</option>
-                {industries.map(i => <option key={i} value={i}>{i}</option>)}
-              </select>
-              <select value={form.client_type} onChange={e => setForm(f => ({ ...f, client_type: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                {['Active', 'VIP', 'New', 'At-Risk'].map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <input placeholder="Website URL" value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            <select value={form.account_manager_id} onChange={e => setForm(f => ({ ...f, account_manager_id: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-              <option value="">Select Account Manager</option>
-              {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
-            </select>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
-              <button onClick={() => createMut.mutate(form)} disabled={createMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-                {createMut.isPending ? 'Creating...' : 'Add Client'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ClientFormModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onSubmit={(d) => createMut.mutate(d)}
+        isPending={createMut.isPending}
+        users={usersArr}
+      />
     </div>
   );
 }
