@@ -30,8 +30,11 @@ export default function MembersView({ projectId }: Props) {
   const members: ProjectMember[] = Array.isArray(membersRaw) ? membersRaw : [];
 
   const { data: usersRaw } = useQuery({
-    queryKey: ['all-users'],
-    queryFn: () => api.get('/users').then(r => r.data?.users || r.data || []),
+    queryKey: ['all-users', search],
+    queryFn: () => api.get('/users', { params: search ? { search } : undefined }).then(r => {
+      const d = r.data;
+      return d?.users || d?.data?.users || d?.data?.items || d?.items || d?.data || d || [];
+    }),
     enabled: showAdd,
   });
   const allUsers = Array.isArray(usersRaw) ? usersRaw : [];
