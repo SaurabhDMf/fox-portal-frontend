@@ -233,7 +233,7 @@ export default function Vault() {
               cred={cred}
               onEdit={(c) => setEditCred(c)}
               onShare={(id) => setShareTarget({ type: 'credential', id })}
-              onDelete={handleDeleteCred}
+              onDelete={(id) => setDeleteCredId(id)}
               canEdit={perm.canEdit}
               canDelete={perm.canDelete}
             />
