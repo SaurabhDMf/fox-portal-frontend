@@ -38,8 +38,8 @@ interface Credential {
   url?: string;
   category?: string;
   password_strength?: string;
-  is_owner?: boolean;
-  shared_can_edit?: boolean;
+  is_owner?: boolean | number | string;
+  shared_can_edit?: boolean | number | string;
 }
 
 interface Props {
