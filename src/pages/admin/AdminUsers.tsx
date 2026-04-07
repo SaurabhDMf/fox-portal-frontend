@@ -394,9 +394,30 @@ export default function AdminUsers() {
                     <button onClick={() => openView(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="View"><Eye className="h-4 w-4" /></button>
                     <button onClick={() => openEdit(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Edit"><Pencil className="h-4 w-4" /></button>
                     <button onClick={() => openTarget(u)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Set Sales Target"><Target className="h-4 w-4" /></button>
-                    {isAdmin && (
-                      <button onClick={() => setDeleteTarget(u)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive" title="Deactivate"><Trash2 className="h-4 w-4" /></button>
+                    {isAdmin && u.id !== currentUserId && u.role !== 'super_admin' && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="More actions"><MoreVertical className="h-4 w-4" /></button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {(u.status === 'inactive' || u.status === 'terminated' || u.is_active === 0) ? (
+                            <DropdownMenuItem onClick={() => activateMut.mutate(u.id)} className="gap-2">
+                              <Power className="h-4 w-4 text-[hsl(var(--success))]" /> Activate
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => setDeleteTarget(u)} className="gap-2">
+                              <UserX className="h-4 w-4 text-[hsl(var(--warning))]" /> Deactivate
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => { setPermanentDeleteTarget(u); setPermanentDeleteConfirmName(''); }} className="gap-2 text-destructive focus:text-destructive">
+                            <Trash2 className="h-4 w-4" /> Delete Permanently
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
+                  </div>
+                </td>
                   </div>
                 </td>
               </tr>
