@@ -55,7 +55,8 @@ export default function Projects() {
           return [...withoutDuplicate, newProject];
         });
       }
-      qc.invalidateQueries({ queryKey: ['projects'] });
+      // Delay refetch to let the backend commit
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['projects'] }), 1500);
       setShowCreate(false);
       setForm({ name: '', client_id: '', description: '', status: 'Active', priority: 'Medium', due_date: '', start_date: '', color: '#3B82F6' });
       toast.success('Project created');
