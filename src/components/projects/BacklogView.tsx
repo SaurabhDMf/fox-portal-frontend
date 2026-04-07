@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS, type ProjectTask, type Sprint } from '@/lib/projectTypes';
-import { dummyBacklogTasks, dummySprints } from '@/lib/projectDummyData';
+
 import { useState } from 'react';
 import { Play } from 'lucide-react';
 import toast from 'react-hot-toast';

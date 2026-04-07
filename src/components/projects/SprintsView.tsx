@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { dummySprints } from '@/lib/projectDummyData';
+
 import type { Sprint } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { Plus, X, Play, CheckCircle2 } from 'lucide-react';
@@ -21,7 +21,7 @@ export default function SprintsView({ projectId }: Props) {
     queryKey: ['project-sprints', projectId],
     queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => r.data?.sprints || r.data || []),
   });
-  const sprints: Sprint[] = Array.isArray(sprintsRaw) && sprintsRaw.length > 0 ? sprintsRaw : dummySprints;
+  const sprints: Sprint[] = Array.isArray(sprintsRaw) ? sprintsRaw : [];
 
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post(`/projects/${projectId}/sprints`, d),

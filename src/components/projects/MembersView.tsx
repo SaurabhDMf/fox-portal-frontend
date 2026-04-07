@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { dummyMembers } from '@/lib/projectDummyData';
+
 import type { ProjectMember } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { Plus, X, Shield, User, Eye } from 'lucide-react';
@@ -27,7 +27,7 @@ export default function MembersView({ projectId }: Props) {
     queryKey: ['project-members', projectId],
     queryFn: () => api.get(`/projects/${projectId}/members`).then(r => r.data?.members || r.data || []),
   });
-  const members: ProjectMember[] = Array.isArray(membersRaw) && membersRaw.length > 0 ? membersRaw : dummyMembers;
+  const members: ProjectMember[] = Array.isArray(membersRaw) ? membersRaw : [];
 
   const { data: usersRaw } = useQuery({
     queryKey: ['all-users'],

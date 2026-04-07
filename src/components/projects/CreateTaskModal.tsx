@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { dummyMembers, dummyEpics, dummySprints } from '@/lib/projectDummyData';
+
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';

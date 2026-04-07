@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
-import { dummyClients } from '@/lib/dummyData';
+
 import ClientFormModal, { type ClientFormData } from '@/components/clients/ClientFormModal';
 
 const types = ['All', 'VIP', 'Active', 'New', 'Inactive', 'At-Risk'];
@@ -58,7 +58,7 @@ export default function Clients() {
   });
 
   const rawClients = Array.isArray(data) ? data : [];
-  const clients = isError ? dummyClients : rawClients;
+  const clients = rawClients;
   const usersArr = Array.isArray(users) ? users : [];
 
   return (

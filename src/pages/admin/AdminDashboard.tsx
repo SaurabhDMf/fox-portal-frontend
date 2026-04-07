@@ -5,7 +5,7 @@ import StatCard from '@/components/ui/StatCard';
 import { DollarSign, Users, Target, AlertTriangle, FileText, MessageSquare, Clock, LayoutDashboard, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
-import { dummyDashboardStats, dummyLeads, dummyInvoices } from '@/lib/dummyData';
+
 import MyDashboard from '@/pages/MyDashboard';
 
 export default function AdminDashboard() {
@@ -52,9 +52,9 @@ function OrgDashboard({ onSwitchView }: { onSwitchView: () => void }) {
     queryFn: () => api.get('/invoices', { params: { status: 'Overdue' } }).then(r => r.data?.invoices || r.data || []),
   });
 
-  const s = stats || dummyDashboardStats;
-  const leadsArr = (Array.isArray(recentLeads) && recentLeads.length > 0) ? recentLeads : dummyLeads;
-  const overdueArr = (Array.isArray(overdueInvoices) && overdueInvoices.length > 0) ? overdueInvoices : dummyInvoices.filter(i => i.status === 'Overdue');
+  const s = stats || {};
+  const leadsArr = Array.isArray(recentLeads) ? recentLeads : [];
+  const overdueArr = Array.isArray(overdueInvoices) ? overdueInvoices : [];
 
   const quickActions = [
     { label: 'New Lead', icon: Target, path: '/admin/crm', show: canCreate('crm') },

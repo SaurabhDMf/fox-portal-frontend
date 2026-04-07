@@ -5,7 +5,7 @@ import { Plus, Send, DollarSign, CheckCircle, Clock, AlertTriangle, FileText } f
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
 import { useModulePermission } from '@/hooks/usePermission';
-import { dummyInvoices } from '@/lib/dummyData';
+
 import InvoiceCreateModal from '@/components/invoicing/InvoiceCreateModal';
 import InvoicePrintView from '@/components/invoicing/InvoicePrintView';
 
@@ -24,8 +24,8 @@ export default function Invoicing() {
   });
 
   const rawInvoices = data?.invoices || (Array.isArray(data) ? data : []);
-  const invoices = (Array.isArray(rawInvoices) && rawInvoices.length > 0) ? rawInvoices : dummyInvoices;
-  const stats = data?.stats || { total_billed: 155500, collected: 80000, outstanding: 67000, overdue: 8500 };
+  const invoices = Array.isArray(rawInvoices) ? rawInvoices : [];
+  const stats = data?.stats || { total_billed: 0, collected: 0, outstanding: 0, overdue: 0 };
 
   const sendMut = useMutation({
     mutationFn: (id: string) => api.post(`/invoices/${id}/send`),

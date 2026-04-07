@@ -5,7 +5,7 @@ import { Plus, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
-import { dummyProjectsEnhanced } from '@/lib/projectDummyData';
+
 import type { Project } from '@/lib/projectTypes';
 
 const statusOptions = ['Active', 'On Hold', 'Completed', 'Cancelled'];
@@ -64,7 +64,7 @@ export default function Projects() {
   });
 
   const rawProjects = Array.isArray(data) ? data : [];
-  const projects: Project[] = isError ? dummyProjectsEnhanced : rawProjects;
+  const projects: Project[] = rawProjects;
   const clientsArr = Array.isArray(clients) ? clients : [];
   const basePath = window.location.pathname.startsWith('/emp') ? '/emp' : '/admin';
 

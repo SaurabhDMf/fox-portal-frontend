@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS, BOARD_COLUMNS, type ProjectTask } from '@/lib/projectTypes';
-import { dummyTaskComments, dummyActivityLog, dummyTimeLogs } from '@/lib/projectDummyData';
+
 import { useState } from 'react';
 import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -37,19 +37,19 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     queryKey: ['task-comments', initialTask.id],
     queryFn: () => api.get(`/tasks/${initialTask.id}/comments`).then(r => r.data?.comments || r.data || []),
   });
-  const comments = Array.isArray(commentsRaw) && commentsRaw.length > 0 ? commentsRaw : dummyTaskComments;
+  const comments = Array.isArray(commentsRaw) ? commentsRaw : [];
 
   const { data: activityRaw } = useQuery({
     queryKey: ['task-activity', initialTask.id],
     queryFn: () => api.get(`/tasks/${initialTask.id}/activity`).then(r => r.data?.activity || r.data || []),
   });
-  const activity = Array.isArray(activityRaw) && activityRaw.length > 0 ? activityRaw : dummyActivityLog;
+  const activity = Array.isArray(activityRaw) ? activityRaw : [];
 
   const { data: timeLogsRaw } = useQuery({
     queryKey: ['task-timelogs', initialTask.id],
     queryFn: () => api.get(`/tasks/${initialTask.id}/timelogs`).then(r => r.data?.timelogs || r.data || []),
   });
-  const timeLogs = Array.isArray(timeLogsRaw) && timeLogsRaw.length > 0 ? timeLogsRaw : dummyTimeLogs;
+  const timeLogs = Array.isArray(timeLogsRaw) ? timeLogsRaw : [];
 
   const updateMut = useMutation({
     mutationFn: (d: any) => api.put(`/tasks/${initialTask.id}`, d),
