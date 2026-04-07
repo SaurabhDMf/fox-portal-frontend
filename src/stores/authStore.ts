@@ -77,16 +77,12 @@ export const useAuthStore = create<AuthState>()(
 
       getRedirectPath: () => {
         const role = get().user?.role;
-        switch (role) {
-          case 'super_admin':
-          case 'admin':
-          case 'sales_manager':
-          case 'sales_rep': return '/admin';
-          case 'resource':
-          case 'freelancer': return '/emp';
-          case 'client': return '/portal';
-          default: return '/login';
-        }
+        const adminRoles = ['super_admin', 'admin', 'sales_manager', 'sales_rep'];
+        const clientRoles = ['client'];
+        if (adminRoles.includes(role || '')) return '/admin';
+        if (clientRoles.includes(role || '')) return '/portal';
+        if (role) return '/emp'; // All other authenticated roles → employee portal
+        return '/login';
       },
     }),
     { name: 'ubp-auth' }
