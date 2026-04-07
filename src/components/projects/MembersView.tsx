@@ -5,6 +5,7 @@ import type { ProjectMember } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { Plus, X, Shield, User, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useRole } from '@/hooks/usePermission';
 
 interface Props {
   projectId: string;
@@ -17,6 +18,8 @@ const ROLE_CONFIG: Record<string, { icon: typeof Shield; label: string; class: s
 };
 
 export default function MembersView({ projectId }: Props) {
+  const role = useRole();
+  const canManage = role === 'admin' || role === 'super_admin' || role === 'manager' || role === 'sales_manager';
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState('');
@@ -55,9 +58,11 @@ export default function MembersView({ projectId }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Team Members ({members.length})</h3>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-          <Plus className="h-3 w-3" /> Add Member
-        </button>
+        {canManage && (
+          <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+            <Plus className="h-3 w-3" /> Add Member
+          </button>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -73,7 +78,7 @@ export default function MembersView({ projectId }: Props) {
                 {member.email && <p className="text-xs text-muted-foreground">{member.email}</p>}
               </div>
               <span className={rc.class}>{rc.label}</span>
-              {member.role !== 'lead' && (
+              {canManage && member.role !== 'lead' && (
                 <button onClick={() => removeMut.mutate(member.id)} className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                   <X className="h-4 w-4" />
                 </button>
