@@ -1,18 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
-import type { Epic } from '@/lib/projectTypes';
+import type { Epic, ProjectTask } from '@/lib/projectTypes';
+import { TASK_TYPE_CONFIG, PRIORITY_COLORS } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { Plus, X, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Props {
   projectId: string;
+  onTaskClick?: (task: ProjectTask) => void;
 }
 
 const COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
 
-export default function EpicsView({ projectId }: Props) {
+export default function EpicsView({ projectId, onTaskClick }: Props) {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ title: '', color: '#3B82F6', start_date: '', due_date: '' });
