@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS, BOARD_COLUMNS, type ProjectTask } from '@/lib/projectTypes';
+import { extractProjectArray } from '@/lib/projectResponse';
 
-import { useState } from 'react';
-import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2 } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2, Paperclip, Image, FileText, Download, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -25,10 +26,12 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const [timeForm, setTimeForm] = useState({ hours: '', date: new Date().toISOString().split('T')[0], description: '' });
   const [showSubtask, setShowSubtask] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState('');
+  const [showAssigneePicker, setShowAssigneePicker] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: taskDetail } = useQuery({
     queryKey: ['task-detail', initialTask.id],
-    queryFn: () => api.get(`/tasks/${initialTask.id}`).then(r => r.data),
+    queryFn: () => api.get(`/tasks/${initialTask.id}`).then(r => r.data?.task || r.data?.data?.task || r.data),
     initialData: initialTask,
   });
   const task = taskDetail || initialTask;
@@ -51,9 +54,27 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   });
   const timeLogs = Array.isArray(timeLogsRaw) ? timeLogsRaw : [];
 
+  const { data: membersRaw } = useQuery({
+    queryKey: ['project-members', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/members`).then(r => extractProjectArray(r.data, ['members', 'users'])),
+    enabled: showAssigneePicker,
+  });
+  const members = Array.isArray(membersRaw) ? membersRaw : [];
+
+  const { data: attachmentsRaw } = useQuery({
+    queryKey: ['task-attachments', initialTask.id],
+    queryFn: async () => {
+      try {
+        const r = await api.get(`/tasks/${initialTask.id}/attachments`);
+        return r.data?.attachments || r.data?.data?.attachments || r.data || [];
+      } catch { return task.attachments || []; }
+    },
+  });
+  const attachments = Array.isArray(attachmentsRaw) ? attachmentsRaw : (task.attachments || []);
+
   const updateMut = useMutation({
     mutationFn: (d: any) => api.put(`/tasks/${initialTask.id}`, d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); qc.invalidateQueries({ queryKey: ['project-board', projectId] }); toast.success('Updated'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); qc.invalidateQueries({ queryKey: ['project-board', projectId] }); qc.invalidateQueries({ queryKey: ['project-backlog', projectId] }); toast.success('Updated'); },
   });
 
   const commentMut = useMutation({
@@ -76,7 +97,54 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); setShowSubtask(false); setSubtaskTitle(''); toast.success('Subtask added'); },
   });
 
+  const uploadMut = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return api.post(`/tasks/${initialTask.id}/attachments`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['task-attachments', initialTask.id] });
+      qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] });
+      toast.success('File uploaded');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Upload failed'),
+  });
+
+  const deleteAttachmentMut = useMutation({
+    mutationFn: (attachmentId: string) => api.delete(`/tasks/${initialTask.id}/attachments/${attachmentId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['task-attachments', initialTask.id] });
+      toast.success('Attachment removed');
+    },
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach(f => uploadMut.mutate(f));
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const toggleAssignee = (userId: string) => {
+    const currentIds = task.assignee_ids || task.assignees?.map((a: any) => a.id) || [];
+    const newIds = currentIds.includes(userId)
+      ? currentIds.filter((id: string) => id !== userId)
+      : [...currentIds, userId];
+    updateMut.mutate({ assignee_ids: newIds });
+    setShowAssigneePicker(false);
+  };
+
   const tc = TASK_TYPE_CONFIG[task.type] || TASK_TYPE_CONFIG.Task;
+
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName?.split('.').pop()?.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '')) return <Image className="h-4 w-4 text-primary" />;
+    return <FileText className="h-4 w-4 text-muted-foreground" />;
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -127,16 +195,40 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
 
           {/* Details grid */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <span className="text-xs text-muted-foreground">Assignees</span>
-              <div className="flex flex-wrap gap-1 mt-1">
+            {/* Assignees with picker */}
+            <div className="relative">
+              <div className="flex items-center gap-1 mb-1">
+                <span className="text-xs text-muted-foreground">Assignees</span>
+                <button onClick={() => setShowAssigneePicker(!showAssigneePicker)} className="p-0.5 rounded hover:bg-secondary text-muted-foreground hover:text-primary transition-colors" title="Assign member">
+                  <UserPlus className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1">
                 {task.assignees?.map(a => (
                   <div key={a.id} className="flex items-center gap-1 bg-secondary rounded-full px-2 py-0.5">
                     <div className="w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center text-[9px] font-bold text-primary">{a.full_name?.[0]}</div>
                     <span className="text-xs">{a.full_name}</span>
+                    <button onClick={() => toggleAssignee(a.id)} className="text-muted-foreground hover:text-destructive ml-0.5"><X className="h-2.5 w-2.5" /></button>
                   </div>
                 )) || <span className="text-xs text-muted-foreground">Unassigned</span>}
+                {(!task.assignees || task.assignees.length === 0) && <span className="text-xs text-muted-foreground">Unassigned</span>}
               </div>
+              {/* Assignee dropdown */}
+              {showAssigneePicker && (
+                <div className="absolute top-full left-0 z-20 mt-1 w-64 bg-card border border-border rounded-lg shadow-lg p-2 space-y-1 max-h-48 overflow-y-auto">
+                  {members.map((m: any) => {
+                    const isAssigned = task.assignees?.some((a: any) => a.id === (m.user_id || m.id)) || task.assignee_ids?.includes(m.user_id || m.id);
+                    return (
+                      <button key={m.user_id || m.id} onClick={() => toggleAssignee(m.user_id || m.id)} className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm transition-colors ${isAssigned ? 'bg-primary/10 text-primary' : 'hover:bg-secondary'}`}>
+                        <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[9px] font-bold text-primary">{m.full_name?.[0]}</div>
+                        <span className="flex-1 truncate">{m.full_name}</span>
+                        {isAssigned && <span className="text-[10px]">✓</span>}
+                      </button>
+                    );
+                  })}
+                  {members.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">No members found</p>}
+                </div>
+              )}
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Reporter</span>
@@ -178,13 +270,53 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             </div>
           )}
 
+          {/* Attachments */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-semibold text-muted-foreground">Attachments</h4>
+              <div className="flex items-center gap-1">
+                <button onClick={() => fileInputRef.current?.click()} className="text-xs text-primary hover:underline flex items-center gap-1">
+                  <Paperclip className="h-3 w-3" /> Attach File
+                </button>
+                <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip" className="hidden" onChange={handleFileSelect} />
+              </div>
+            </div>
+            {uploadMut.isPending && <p className="text-xs text-muted-foreground animate-pulse">Uploading...</p>}
+            <div className="space-y-1.5">
+              {attachments.map((att: any) => (
+                <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 group">
+                  {getFileIcon(att.file_name)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{att.file_name}</p>
+                    {att.created_at && <p className="text-[10px] text-muted-foreground">{new Date(att.created_at).toLocaleDateString()}</p>}
+                  </div>
+                  {att.file_url && (
+                    <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Download">
+                      <Download className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+                  <button onClick={() => deleteAttachmentMut.mutate(att.id)} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all" title="Remove">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+              {attachments.length === 0 && !uploadMut.isPending && (
+                <div className="text-center py-4 border border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors" onClick={() => fileInputRef.current?.click()}>
+                  <Paperclip className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
+                  <p className="text-xs text-muted-foreground">Drop files here or click to attach</p>
+                  <p className="text-[10px] text-muted-foreground">Images, docs, PDFs, screenshots</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Subtasks */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-xs font-semibold text-muted-foreground">Subtasks</h4>
               <button onClick={() => setShowSubtask(true)} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="h-3 w-3" /> Add</button>
             </div>
-            {task.subtasks?.map(st => (
+            {task.subtasks?.map((st: any) => (
               <div key={st.id} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-secondary/50">
                 <input type="checkbox" checked={st.status === 'Done'} readOnly className="rounded border-border" />
                 <span className="text-xs font-mono text-muted-foreground">{st.task_number}</span>

@@ -25,6 +25,7 @@ export interface ProjectTask {
   watchers_count?: number;
   is_watching?: boolean;
   comments_count?: number;
+  attachments?: { id: string; file_name: string; file_url: string; file_type?: string; uploaded_by?: string; created_at?: string }[];
   created_at?: string;
   updated_at?: string;
 }
