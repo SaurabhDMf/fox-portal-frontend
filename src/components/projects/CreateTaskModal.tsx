@@ -17,7 +17,7 @@ const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 export default function CreateTaskModal({ projectId, defaultStatus, onClose }: Props) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    title: '', type: 'Story', priority: 'Medium', status: defaultStatus || 'Open',
+    title: '', description: '', type: 'Story', priority: 'Medium', status: defaultStatus || 'Open',
     assignee_ids: [] as string[], epic_id: '', sprint_id: '', story_points: '', due_date: '',
     parent_task_id: '',
   });
@@ -89,6 +89,8 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
         </div>
 
         <input placeholder="Task title *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" autoFocus />
+
+        <textarea placeholder="Description (optional)" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
 
         <div className="grid grid-cols-2 gap-3">
           <select value={form.type} onChange={e => {

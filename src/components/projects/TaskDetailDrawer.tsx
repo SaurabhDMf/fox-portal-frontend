@@ -203,10 +203,10 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
           )}
 
           {/* Description */}
-          <div>
-            <h4 className="text-xs font-semibold text-muted-foreground mb-1">Description</h4>
-            <p className="text-sm text-muted-foreground">{task.description || 'No description. Click to add one.'}</p>
-          </div>
+          <EditableDescription
+            value={task.description || ''}
+            onSave={(desc) => updateMut.mutate({ description: desc })}
+          />
 
           {/* Details grid */}
           <div className="grid grid-cols-2 gap-4">
