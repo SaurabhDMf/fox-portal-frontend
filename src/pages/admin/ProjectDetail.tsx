@@ -59,6 +59,17 @@ export default function ProjectDetail() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update'),
   });
 
+  const cancelMut = useMutation({
+    mutationFn: () => api.put(`/projects/${id}`, { status: 'Cancelled' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project', id] });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      setShowCancelConfirm(false);
+      toast.success('Project cancelled');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to cancel'),
+  });
+
   const deleteMut = useMutation({
     mutationFn: () => api.delete(`/projects/${id}`),
     onSuccess: () => {
