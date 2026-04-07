@@ -101,7 +101,13 @@ const App = () => (
           <Route path="tasks" element={<EmpTasks />} />
           <Route path="projects" element={<Projects />} />
           <Route path="projects/:id" element={<ProjectDetail />} />
+          <Route path="crm" element={<CRM />} />
+          <Route path="crm/:id" element={<LeadDetail />} />
+          <Route path="invoicing" element={<Invoicing />} />
           <Route path="chat" element={<Chat />} />
+          <Route path="vault" element={<Vault />} />
+          <Route path="tickets" element={<Tickets />} />
+          <Route path="tickets/:id" element={<TicketDetail />} />
           <Route path="tracker" element={<Tracker />} />
           <Route path="payroll" element={<Payroll />} />
           <Route path="profile" element={<EmpProfile />} />
