@@ -56,6 +56,13 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: true,
         }),
 
+      setPermissions: (permissions, enabled_modules) =>
+        set((state) => ({
+          ...state,
+          permissions: permissions || state.permissions,
+          enabledModules: enabled_modules || state.enabledModules,
+        })),
+
       logout: () =>
         set({
           accessToken: null,
