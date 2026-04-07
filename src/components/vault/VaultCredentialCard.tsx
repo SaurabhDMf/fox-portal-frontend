@@ -55,10 +55,12 @@ export default function VaultCredentialCard({ cred, onEdit, onShare, onDelete, c
   const [revealed, setRevealed] = useState(false);
   const [revealedPw, setRevealedPw] = useState('');
 
-  const isShared = cred.is_owner === false || cred.is_owner === 0 as any;
+  const isOwner = cred.is_owner === true || cred.is_owner === 1 as any;
+  const isShared = !isOwner;
   const sharedCanEdit = cred.shared_can_edit === true || cred.shared_can_edit === 1 as any;
-  const showEdit = canEdit && (!isShared || sharedCanEdit);
-  const showDelete = canDelete && (!isShared || sharedCanEdit);
+  const showEdit = canEdit && (isOwner || sharedCanEdit);
+  const showDelete = canDelete && isOwner;
+  const showShare = isOwner;
 
   useEffect(() => {
     if (!revealed) return;
@@ -139,9 +141,11 @@ export default function VaultCredentialCard({ cred, onEdit, onShare, onDelete, c
             <Pencil className="h-4 w-4" />
           </button>
         )}
-        <button onClick={() => onShare(cred.id)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Share">
-          <Share2 className="h-4 w-4" />
-        </button>
+        {showShare && (
+          <button onClick={() => onShare(cred.id)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Share">
+            <Share2 className="h-4 w-4" />
+          </button>
+        )}
         {showDelete && (
           <button onClick={() => onDelete(cred.id)} className="p-1.5 rounded-md hover:bg-secondary text-destructive" title="Delete">
             <Trash2 className="h-4 w-4" />
