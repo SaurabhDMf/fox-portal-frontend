@@ -46,8 +46,11 @@ const emptyForm = {
 export default function AdminUsers() {
   const perm = useModulePermission('users');
   const role = useRole();
+  const currentUserId = useAuthStore((s) => s.user?.id);
   const isAdmin = role === 'admin' || role === 'super_admin';
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<any>(null);
+  const [permanentDeleteConfirmName, setPermanentDeleteConfirmName] = useState('');
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('All');
   const [showAdd, setShowAdd] = useState(false);
