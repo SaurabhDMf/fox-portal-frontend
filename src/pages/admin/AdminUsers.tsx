@@ -672,6 +672,43 @@ export default function AdminUsers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <AlertDialog open={!!permanentDeleteTarget} onOpenChange={(open) => { if (!open) { setPermanentDeleteTarget(null); setPermanentDeleteConfirmName(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Delete User Permanently
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <span className="block">This cannot be undone. All data associated with <strong>{permanentDeleteTarget?.full_name}</strong> will be unlinked.</span>
+              <span className="block text-sm">Type <strong>{permanentDeleteTarget?.full_name}</strong> to confirm:</span>
+              <input
+                value={permanentDeleteConfirmName}
+                onChange={(e) => setPermanentDeleteConfirmName(e.target.value)}
+                placeholder="Type user's full name..."
+                className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-destructive/50"
+              />
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={permanentDeleteConfirmName !== permanentDeleteTarget?.full_name}
+              onClick={() => {
+                if (permanentDeleteTarget && permanentDeleteConfirmName === permanentDeleteTarget.full_name) {
+                  permanentDeleteMut.mutate(permanentDeleteTarget.id);
+                  setPermanentDeleteTarget(null);
+                  setPermanentDeleteConfirmName('');
+                }
+              }}
+            >
+              {permanentDeleteMut.isPending ? 'Deleting...' : 'Delete Permanently'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
