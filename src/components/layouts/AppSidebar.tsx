@@ -35,11 +35,11 @@ const adminNav: NavItem[] = [
 
 const empNav: NavItem[] = [
   { label: 'Dashboard', path: '/emp', icon: LayoutDashboard },
-  { label: 'Tasks', path: '/emp/tasks', icon: ListChecks },
-  { label: 'Projects', path: '/emp/projects', icon: FolderKanban },
-  { label: 'Chat', path: '/emp/chat', icon: MessageSquare },
-  { label: 'Tracker', path: '/emp/tracker', icon: Clock },
-  { label: 'Payroll', path: '/emp/payroll', icon: Wallet },
+  { label: 'Tasks', path: '/emp/tasks', icon: ListChecks, module: 'projects' },
+  { label: 'Projects', path: '/emp/projects', icon: FolderKanban, module: 'projects' },
+  { label: 'Chat', path: '/emp/chat', icon: MessageSquare, module: 'chat' },
+  { label: 'Tracker', path: '/emp/tracker', icon: Clock, module: 'tracker' },
+  { label: 'Payroll', path: '/emp/payroll', icon: Wallet, module: 'payroll' },
   { label: 'Profile', path: '/emp/profile', icon: Users },
 ];
 
