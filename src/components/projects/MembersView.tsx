@@ -25,7 +25,7 @@ export default function MembersView({ projectId }: Props) {
 
   const { data: membersRaw } = useQuery({
     queryKey: ['project-members', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/members`).then(r => r.data?.members || r.data || []),
+    queryFn: () => api.get(`/projects/${projectId}/members`).then(r => extractProjectArray<ProjectMember>(r.data, ['members', 'users'])),
   });
   const members: ProjectMember[] = Array.isArray(membersRaw) ? membersRaw : [];
 

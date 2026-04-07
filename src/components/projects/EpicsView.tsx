@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-
+import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import type { Epic } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
@@ -20,13 +20,25 @@ export default function EpicsView({ projectId }: Props) {
 
   const { data: epicsRaw } = useQuery({
     queryKey: ['project-epics', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/epics`).then(r => r.data?.epics || r.data || []),
+    queryFn: () => api.get(`/projects/${projectId}/epics`).then(r => extractProjectArray<Epic>(r.data, ['epics'])),
   });
   const epics: Epic[] = Array.isArray(epicsRaw) ? epicsRaw : [];
 
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post(`/projects/${projectId}/epics`, d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-epics', projectId] }); setShowCreate(false); setForm({ title: '', color: '#3B82F6', start_date: '', due_date: '' }); toast.success('Epic created'); },
+    onSuccess: (res) => {
+      const newEpic = extractProjectEntity<Epic>(res.data, ['epic']);
+      if (newEpic?.id) {
+        qc.setQueryData(['project-epics', projectId], (old: any) => {
+          const prev = Array.isArray(old) ? old : [];
+          return prev.some((item: any) => item?.id === newEpic.id) ? prev : [...prev, newEpic];
+        });
+      }
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['project-epics', projectId] }), 1200);
+      setShowCreate(false);
+      setForm({ title: '', color: '#3B82F6', start_date: '', due_date: '' });
+      toast.success('Epic created');
+    },
     onError: () => toast.error('Error creating epic'),
   });
 

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-
+import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import type { Sprint } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { Plus, X, Play, CheckCircle2 } from 'lucide-react';
@@ -19,24 +19,36 @@ export default function SprintsView({ projectId }: Props) {
 
   const { data: sprintsRaw } = useQuery({
     queryKey: ['project-sprints', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => r.data?.sprints || r.data || []),
+    queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => extractProjectArray<Sprint>(r.data, ['sprints'])),
   });
   const sprints: Sprint[] = Array.isArray(sprintsRaw) ? sprintsRaw : [];
 
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post(`/projects/${projectId}/sprints`, d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); setShowCreate(false); setForm({ name: '', goal: '', start_date: '', end_date: '' }); toast.success('Sprint created'); },
+    onSuccess: (res) => {
+      const newSprint = extractProjectEntity<Sprint>(res.data, ['sprint']);
+      if (newSprint?.id) {
+        qc.setQueryData(['project-sprints', projectId], (old: any) => {
+          const prev = Array.isArray(old) ? old : [];
+          return prev.some((item: any) => item?.id === newSprint.id) ? prev : [...prev, newSprint];
+        });
+      }
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }), 1200);
+      setShowCreate(false);
+      setForm({ name: '', goal: '', start_date: '', end_date: '' });
+      toast.success('Sprint created');
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error creating sprint'),
   });
 
   const startMut = useMutation({
     mutationFn: (sid: string) => api.post(`/projects/${projectId}/sprints/${sid}/start`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); toast.success('Sprint started'); },
-  });
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error starting sprint'),
 
   const completeMut = useMutation({
     mutationFn: (sid: string) => api.post(`/projects/${projectId}/sprints/${sid}/complete`, { move_incomplete_to: moveIncompleteTo }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); setShowComplete(null); toast.success('Sprint completed'); },
-  });
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error completing sprint'),
 
   return (
     <div className="space-y-4">

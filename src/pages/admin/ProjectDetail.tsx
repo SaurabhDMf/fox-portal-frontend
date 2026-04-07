@@ -41,7 +41,7 @@ export default function ProjectDetail() {
 
   const { data: projectRaw, isLoading } = useQuery({
     queryKey: ['project', id],
-    queryFn: () => api.get(`/projects/${id}`).then(r => r.data?.project || r.data?.data || r.data),
+    queryFn: () => api.get(`/projects/${id}`).then(r => extractProjectEntity<Project>(r.data, ['project'])),
     enabled: !!id,
   });
 
