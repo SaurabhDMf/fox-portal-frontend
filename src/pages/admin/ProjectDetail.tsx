@@ -237,6 +237,22 @@ export default function ProjectDetail() {
           </div>
         </div>
       )}
+
+      {/* Cancel Project Confirmation Modal */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold">Cancel Project</h2>
+            <p className="text-sm text-muted-foreground">Are you sure you want to cancel <strong>{project.name}</strong>? The project will be marked as Cancelled but not removed.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowCancelConfirm(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Go Back</button>
+              <button onClick={() => cancelMut.mutate()} disabled={cancelMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {cancelMut.isPending ? 'Cancelling...' : 'Confirm Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
