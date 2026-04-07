@@ -121,6 +121,11 @@ export default function ProjectDetail() {
             <button onClick={openEdit} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit Project">
               <Pencil className="h-4 w-4" />
             </button>
+            {project.status !== 'Cancelled' && (
+              <button onClick={() => setShowCancelConfirm(true)} className="px-3 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-warning/10 hover:text-warning hover:border-warning/30 transition-colors" title="Cancel Project">
+                Cancel
+              </button>
+            )}
             <button onClick={() => setShowDeleteConfirm(true)} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete Project">
               <Trash2 className="h-4 w-4" />
             </button>
