@@ -1,8 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Plus, Search, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
-import { dummyVaultFolders, dummyVaultCreds } from '@/lib/dummyData';
 import VaultFolderSidebar from '@/components/vault/VaultFolderSidebar';
 import VaultCredentialCard from '@/components/vault/VaultCredentialCard';
 import VaultCredentialModal, { type CredentialForm } from '@/components/vault/VaultCredentialModal';
@@ -34,10 +33,9 @@ interface VaultCred {
 
 export default function Vault() {
   const perm = useModulePermission('vault');
-  const [folders, setFolders] = useState<VaultFolder[]>(() =>
-    dummyVaultFolders.map(f => ({ ...f, credential_count: dummyVaultCreds.filter(c => c.folder_id === f.id).length }))
-  );
-  const [creds, setCreds] = useState<VaultCred[]>(() => [...dummyVaultCreds]);
+  const [folders, setFolders] = useState<VaultFolder[]>([]);
+  const [creds, setCreds] = useState<VaultCred[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -47,12 +45,38 @@ export default function Vault() {
   const [savingCred, setSavingCred] = useState(false);
   const [sharingPending, setSharingPending] = useState(false);
 
-  // Recount folder credentials
+  // Load folders and credentials from API
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [fRes, cRes] = await Promise.all([
+          api.get('/vault/folders'),
+          api.get('/vault/credentials'),
+        ]);
+        const fData = fRes.data?.folders || fRes.data || [];
+        const cData = cRes.data?.credentials || cRes.data || [];
+        const fArr: VaultFolder[] = Array.isArray(fData) ? fData : [];
+        const cArr: VaultCred[] = Array.isArray(cData) ? cData : [];
+        // Recount
+        setFolders(fArr.map(f => ({ ...f, credential_count: cArr.filter(c => c.folder_id === f.id).length })));
+        setCreds(cArr);
+      } catch {
+        // API unavailable — start empty
+        setFolders([]);
+        setCreds([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
   const recount = useCallback((allCreds: VaultCred[], allFolders: VaultFolder[]) => {
     return allFolders.map(f => ({ ...f, credential_count: allCreds.filter(c => c.folder_id === f.id).length }));
   }, []);
 
-  // --- Folder CRUD (handled by sidebar, we pass callbacks) ---
+  // --- Folder callbacks ---
   const handleFolderCreated = useCallback((folder: VaultFolder) => {
     setFolders(prev => recount(creds, [...prev, folder]));
   }, [creds, recount]);
@@ -76,33 +100,17 @@ export default function Vault() {
     try {
       const res = await api.post('/vault/credentials', { ...data, folder_id: data.folder_id || undefined });
       const newCred = res.data?.credential || res.data;
-      setCreds(prev => {
-        const next = [...prev, newCred];
-        setFolders(fPrev => recount(next, fPrev));
-        return next;
-      });
+      if (newCred?.id) {
+        setCreds(prev => {
+          const next = [...prev, newCred];
+          setFolders(fPrev => recount(next, fPrev));
+          return next;
+        });
+      }
       setShowCreate(false);
       toast.success('Credential saved');
-    } catch {
-      // Fallback: save locally
-      const newCred: VaultCred = {
-        id: `vc-${Date.now()}`,
-        title: data.title,
-        username: data.username,
-        password: data.password,
-        url: data.url,
-        category: data.category,
-        notes: data.notes,
-        folder_id: data.folder_id || undefined,
-        is_owner: true,
-      };
-      setCreds(prev => {
-        const next = [...prev, newCred];
-        setFolders(fPrev => recount(next, fPrev));
-        return next;
-      });
-      setShowCreate(false);
-      toast.success('Credential saved locally');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Failed to save credential');
     } finally {
       setSavingCred(false);
     }
@@ -112,40 +120,48 @@ export default function Vault() {
     if (!editCred) return;
     setSavingCred(true);
     try {
-      await api.put(`/vault/credentials/${editCred.id}`, { ...data, folder_id: data.folder_id || undefined });
-    } catch {
-      // fallback local
+      const res = await api.put(`/vault/credentials/${editCred.id}`, { ...data, folder_id: data.folder_id || undefined });
+      const updated = res.data?.credential || res.data || { ...editCred, ...data };
+      setCreds(prev => {
+        const next = prev.map(c => c.id === editCred.id ? { ...c, ...updated, folder_id: data.folder_id || undefined } : c);
+        setFolders(fPrev => recount(next, fPrev));
+        return next;
+      });
+      setEditCred(null);
+      toast.success('Credential updated');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Failed to update');
+    } finally {
+      setSavingCred(false);
     }
-    setCreds(prev => {
-      const next = prev.map(c => c.id === editCred.id ? { ...c, ...data, folder_id: data.folder_id || undefined } : c);
-      setFolders(fPrev => recount(next, fPrev));
-      return next;
-    });
-    setEditCred(null);
-    setSavingCred(false);
-    toast.success('Credential updated');
   }, [editCred, recount]);
 
-  const handleDeleteCred = useCallback((id: string) => {
+  const handleDeleteCred = useCallback(async (id: string) => {
     if (!confirm('Delete this credential permanently?')) return;
-    api.delete(`/vault/credentials/${id}`).catch(() => {});
-    setCreds(prev => {
-      const next = prev.filter(c => c.id !== id);
-      setFolders(fPrev => recount(next, fPrev));
-      return next;
-    });
-    toast.success('Credential deleted');
+    try {
+      await api.delete(`/vault/credentials/${id}`);
+      setCreds(prev => {
+        const next = prev.filter(c => c.id !== id);
+        setFolders(fPrev => recount(next, fPrev));
+        return next;
+      });
+      toast.success('Credential deleted');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Failed to delete');
+    }
   }, [recount]);
 
   const handleShare = useCallback(async (ids: string[], canEdit: boolean[], shareType: 'user' | 'client') => {
     if (!shareTarget) return;
     setSharingPending(true);
     try {
-      const endpoint = shareTarget.type === 'folder' ? `/vault/folders/${shareTarget.id}/share` : `/vault/credentials/${shareTarget.id}/share`;
+      const endpoint = shareTarget.type === 'folder'
+        ? `/vault/folders/${shareTarget.id}/share`
+        : `/vault/credentials/${shareTarget.id}/share`;
       await api.post(endpoint, { user_ids: ids, can_edit: canEdit[0] ?? false });
       toast.success('Shared successfully');
-    } catch {
-      toast.success('Share saved (will sync when online)');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Failed to share');
     }
     setShareTarget(null);
     setSharingPending(false);
@@ -202,7 +218,9 @@ export default function Vault() {
         />
 
         <div className="flex-1 space-y-3">
-          {filteredCreds.length > 0 ? filteredCreds.map((cred) => (
+          {loading ? (
+            [...Array(3)].map((_, i) => <div key={i} className="glass-card h-20 animate-pulse" />)
+          ) : filteredCreds.length > 0 ? filteredCreds.map((cred) => (
             <VaultCredentialCard
               key={cred.id}
               cred={cred}
