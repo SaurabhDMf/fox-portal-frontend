@@ -3,8 +3,8 @@ import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import type { Epic, ProjectTask } from '@/lib/projectTypes';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS } from '@/lib/projectTypes';
-import { useState } from 'react';
-import { Plus, X, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, X, Trash2, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -14,9 +14,17 @@ interface Props {
 
 const COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
 
+function buildEpicPayload(form: { title: string; color: string; start_date: string; due_date: string }) {
+  const payload: Record<string, any> = { title: form.title, color: form.color };
+  if (form.start_date) payload.start_date = form.start_date;
+  if (form.due_date) payload.due_date = form.due_date;
+  return payload;
+}
+
 export default function EpicsView({ projectId, onTaskClick }: Props) {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  const [editEpic, setEditEpic] = useState<Epic | null>(null);
   const [form, setForm] = useState({ title: '', color: '#3B82F6', start_date: '', due_date: '' });
   const [selectedEpic, setSelectedEpic] = useState<Epic | null>(null);
   const [deleteEpicId, setDeleteEpicId] = useState<string | null>(null);
@@ -28,8 +36,13 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
   const epics: Epic[] = Array.isArray(epicsRaw) ? epicsRaw : [];
 
   const createMut = useMutation({
-    mutationFn: (d: typeof form) => api.post(`/projects/${projectId}/epics`, d),
+    mutationFn: (d: typeof form) => {
+      const payload = buildEpicPayload(d);
+      console.log('[Epic] create payload:', payload);
+      return api.post(`/projects/${projectId}/epics`, payload);
+    },
     onSuccess: (res) => {
+      console.log('[Epic] create response:', res.data);
       const newEpic = extractProjectEntity<Epic>(res.data, ['epic']);
       if (newEpic?.id) {
         qc.setQueryData(['project-epics', projectId], (old: any) => {
@@ -37,12 +50,43 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
           return prev.some((item: any) => item?.id === newEpic.id) ? prev : [...prev, newEpic];
         });
       }
-      setTimeout(() => qc.invalidateQueries({ queryKey: ['project-epics', projectId] }), 1200);
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['project-epics', projectId] }), 1500);
       setShowCreate(false);
       setForm({ title: '', color: '#3B82F6', start_date: '', due_date: '' });
       toast.success('Epic created');
     },
-    onError: () => toast.error('Error creating epic'),
+    onError: (e: any) => {
+      console.error('[Epic] create error:', e.response?.status, e.response?.data);
+      toast.error(e.response?.data?.message || 'Error creating epic');
+    },
+  });
+
+  const updateMut = useMutation({
+    mutationFn: ({ epicId, data }: { epicId: string; data: typeof form }) => {
+      const payload = buildEpicPayload(data);
+      console.log('[Epic] update payload:', payload);
+      return api.put(`/projects/${projectId}/epics/${epicId}`, payload);
+    },
+    onSuccess: (res) => {
+      console.log('[Epic] update response:', res.data);
+      const updated = extractProjectEntity<Epic>(res.data, ['epic']);
+      if (updated?.id) {
+        qc.setQueryData(['project-epics', projectId], (old: any) => {
+          const prev = Array.isArray(old) ? old : [];
+          return prev.map((e: any) => e.id === updated.id ? { ...e, ...updated } : e);
+        });
+        // Update selected epic if it's the one being edited
+        if (selectedEpic?.id === updated.id) setSelectedEpic({ ...selectedEpic, ...updated });
+      }
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['project-epics', projectId] }), 1500);
+      setEditEpic(null);
+      setForm({ title: '', color: '#3B82F6', start_date: '', due_date: '' });
+      toast.success('Epic updated');
+    },
+    onError: (e: any) => {
+      console.error('[Epic] update error:', e.response?.status, e.response?.data);
+      toast.error(e.response?.data?.message || 'Error updating epic');
+    },
   });
 
   const deleteMut = useMutation({
@@ -56,6 +100,16 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting epic'),
   });
 
+  const openEdit = (epic: Epic) => {
+    setEditEpic(epic);
+    setForm({
+      title: epic.title,
+      color: epic.color || '#3B82F6',
+      start_date: epic.start_date?.split('T')[0] || '',
+      due_date: epic.due_date?.split('T')[0] || '',
+    });
+  };
+
   // Timeline calculation
   const allDates = epics.flatMap(e => [e.start_date, e.due_date].filter(Boolean)).map(d => new Date(d!).getTime());
   const minDate = allDates.length > 0 ? Math.min(...allDates) : Date.now();
@@ -66,7 +120,7 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Epics Timeline</h3>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+        <button onClick={() => { setEditEpic(null); setForm({ title: '', color: '#3B82F6', start_date: '', due_date: '' }); setShowCreate(true); }} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all">
           <Plus className="h-3 w-3" /> New Epic
         </button>
       </div>
@@ -98,6 +152,13 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
                 </div>
               </div>
               <button
+                onClick={(e) => { e.stopPropagation(); openEdit(epic); }}
+                className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-secondary text-muted-foreground hover:text-foreground transition-all"
+                title="Edit Epic"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
                 onClick={(e) => { e.stopPropagation(); setDeleteEpicId(epic.id); }}
                 className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
                 title="Delete Epic"
@@ -112,7 +173,7 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
 
       {/* Epic side panel with tasks */}
       {selectedEpic && (
-        <EpicDetailPanel epic={selectedEpic} projectId={projectId} onClose={() => setSelectedEpic(null)} onDelete={() => setDeleteEpicId(selectedEpic.id)} onTaskClick={onTaskClick} />
+        <EpicDetailPanel epic={selectedEpic} projectId={projectId} onClose={() => setSelectedEpic(null)} onDelete={() => setDeleteEpicId(selectedEpic.id)} onEdit={() => openEdit(selectedEpic)} onTaskClick={onTaskClick} />
       )}
 
       {/* Delete Confirmation */}
@@ -131,13 +192,13 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
         </div>
       )}
 
-      {/* Create modal */}
-      {showCreate && (
+      {/* Create / Edit modal */}
+      {(showCreate || editEpic) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-md p-6 space-y-4 animate-slide-up">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">New Epic</h2>
-              <button onClick={() => setShowCreate(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+              <h2 className="text-lg font-semibold">{editEpic ? 'Edit Epic' : 'New Epic'}</h2>
+              <button onClick={() => { setShowCreate(false); setEditEpic(null); }} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
             </div>
             <input placeholder="Epic title *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             <div className="space-y-1">
@@ -153,9 +214,13 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
               <div><label className="text-xs text-muted-foreground">Due Date</label><input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" /></div>
             </div>
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
-              <button onClick={() => createMut.mutate(form)} disabled={!form.title || createMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-                {createMut.isPending ? 'Creating...' : 'Create Epic'}
+              <button onClick={() => { setShowCreate(false); setEditEpic(null); }} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
+              <button
+                onClick={() => editEpic ? updateMut.mutate({ epicId: editEpic.id, data: form }) : createMut.mutate(form)}
+                disabled={!form.title || createMut.isPending || updateMut.isPending}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
+              >
+                {(createMut.isPending || updateMut.isPending) ? 'Saving...' : editEpic ? 'Update Epic' : 'Create Epic'}
               </button>
             </div>
           </div>
@@ -165,10 +230,21 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
   );
 }
 
-function EpicDetailPanel({ epic, projectId, onClose, onDelete, onTaskClick }: { epic: Epic; projectId: string; onClose: () => void; onDelete: () => void; onTaskClick?: (t: ProjectTask) => void }) {
+function EpicDetailPanel({ epic, projectId, onClose, onDelete, onEdit, onTaskClick }: { epic: Epic; projectId: string; onClose: () => void; onDelete: () => void; onEdit: () => void; onTaskClick?: (t: ProjectTask) => void }) {
   const { data: backlogRaw } = useQuery({
     queryKey: ['project-backlog', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/backlog`).then(r => extractProjectArray<ProjectTask>(r.data, ['tasks', 'backlog'])),
+    queryFn: async () => {
+      try {
+        const r = await api.get(`/projects/${projectId}/backlog`);
+        const tasks = extractProjectArray<ProjectTask>(r.data, ['tasks', 'backlog', 'items']);
+        if (tasks.length > 0) return tasks;
+      } catch {}
+      try {
+        const r = await api.get(`/projects/${projectId}/tasks`);
+        return extractProjectArray<ProjectTask>(r.data, ['tasks']);
+      } catch {}
+      return [];
+    },
   });
   const epicTasks = (Array.isArray(backlogRaw) ? backlogRaw : []).filter((t: ProjectTask) => t.epic_id === epic.id);
 
@@ -180,6 +256,9 @@ function EpicDetailPanel({ epic, projectId, onClose, onDelete, onTaskClick }: { 
           <h3 className="font-semibold">{epic.title}</h3>
         </div>
         <div className="flex items-center gap-1">
+          <button onClick={onEdit} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit Epic">
+            <Pencil className="h-4 w-4" />
+          </button>
           <button onClick={onDelete} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete Epic">
             <Trash2 className="h-4 w-4" />
           </button>
