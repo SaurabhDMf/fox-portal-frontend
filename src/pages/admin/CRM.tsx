@@ -254,7 +254,12 @@ export default function CRM() {
   };
 
   const rawLeads = Array.isArray(leads) ? leads : [];
-  const leadsArr = rawLeads;
+  const sortedLeads = [...rawLeads].sort((a: any, b: any) => {
+    const dateA = new Date(a.created_at || 0).getTime();
+    const dateB = new Date(b.created_at || 0).getTime();
+    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+  });
+  const leadsArr = sortedLeads;
   const apiUsers = Array.isArray(users) ? users : [];
   const usersArr = apiUsers.length > 0 ? apiUsers : fallbackUsers;
   const presalesUsers = usersArr;
