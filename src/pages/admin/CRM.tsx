@@ -154,6 +154,7 @@ export default function CRM() {
   const user = useAuthStore(s => s.user);
   const perm = useModulePermission('crm');
   const [view, setView] = useState<'list' | 'kanban'>('list');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
