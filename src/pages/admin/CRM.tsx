@@ -340,7 +340,9 @@ export default function CRM() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-                <th className="p-4">Created</th>
+                <th className="p-4 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}>
+                  <span className="flex items-center gap-1">Created {sortOrder === 'desc' ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}</span>
+                </th>
                 <th className="p-4">Name</th>
                 <th className="p-4">Email</th>
                 <th className="p-4">Phone</th>
