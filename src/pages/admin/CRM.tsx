@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useModulePermission } from '@/hooks/usePermission';
-import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, Check, Pencil } from 'lucide-react';
+import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, ChevronUp, Check, Pencil, ArrowUpDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 
@@ -154,6 +154,7 @@ export default function CRM() {
   const user = useAuthStore(s => s.user);
   const perm = useModulePermission('crm');
   const [view, setView] = useState<'list' | 'kanban'>('list');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
@@ -253,7 +254,12 @@ export default function CRM() {
   };
 
   const rawLeads = Array.isArray(leads) ? leads : [];
-  const leadsArr = rawLeads;
+  const sortedLeads = [...rawLeads].sort((a: any, b: any) => {
+    const dateA = new Date(a.created_at || 0).getTime();
+    const dateB = new Date(b.created_at || 0).getTime();
+    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+  });
+  const leadsArr = sortedLeads;
   const apiUsers = Array.isArray(users) ? users : [];
   const usersArr = apiUsers.length > 0 ? apiUsers : fallbackUsers;
   const presalesUsers = usersArr;
@@ -334,7 +340,9 @@ export default function CRM() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-                <th className="p-4">Created</th>
+                <th className="p-4 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}>
+                  <span className="flex items-center gap-1">Created {sortOrder === 'desc' ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}</span>
+                </th>
                 <th className="p-4">Name</th>
                 <th className="p-4">Email</th>
                 <th className="p-4">Phone</th>
