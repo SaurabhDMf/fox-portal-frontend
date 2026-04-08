@@ -47,15 +47,26 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
   const parentTasks = (Array.isArray(backlogRaw) ? backlogRaw : []).filter((t: any) => t.type !== 'Subtask');
 
   const createMut = useMutation({
-    mutationFn: (d: typeof form) => api.post('/tasks', {
-      ...d,
-      project_id: projectId,
-      story_points: d.story_points ? Number(d.story_points) : undefined,
-      epic_id: d.epic_id || undefined,
-      sprint_id: d.sprint_id || undefined,
-      parent_task_id: d.parent_task_id || undefined,
-    }),
+    mutationFn: (d: typeof form) => {
+      const payload: Record<string, any> = {
+        title: d.title,
+        type: d.type,
+        priority: d.priority,
+        status: d.status,
+        project_id: projectId,
+      };
+      if (d.description?.trim()) payload.description = d.description.trim();
+      if (d.assignee_ids.length > 0) payload.assignee_ids = d.assignee_ids;
+      if (d.epic_id) payload.epic_id = d.epic_id;
+      if (d.sprint_id) payload.sprint_id = d.sprint_id;
+      if (d.parent_task_id) payload.parent_task_id = d.parent_task_id;
+      if (d.story_points) payload.story_points = Number(d.story_points);
+      if (d.due_date) payload.due_date = d.due_date;
+      console.log('[CreateTask] payload:', payload);
+      return api.post('/tasks', payload);
+    },
     onSuccess: (res) => {
+      console.log('[CreateTask] response:', res.data);
       const newTask = extractProjectEntity(res.data, ['task']);
       if (newTask?.id) {
         qc.setQueryData(['project-backlog', projectId], (old: any) => {
@@ -66,11 +77,14 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
       setTimeout(() => {
         qc.invalidateQueries({ queryKey: ['project-board', projectId] });
         qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
-      }, 1200);
+      }, 1500);
       onClose();
       toast.success('Task created');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+    onError: (e: any) => {
+      console.error('[CreateTask] error:', e.response?.status, e.response?.data);
+      toast.error(e.response?.data?.message || e.response?.data?.error || 'Failed to create task');
+    },
   });
 
   const toggleAssignee = (userId: string) => {

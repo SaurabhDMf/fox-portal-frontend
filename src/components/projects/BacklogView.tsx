@@ -22,14 +22,20 @@ export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Pr
     queryFn: async () => {
       try {
         const r = await api.get(`/projects/${projectId}/backlog`);
-        const tasks = extractProjectArray<ProjectTask>(r.data, ['tasks', 'backlog']);
+        console.log('[Backlog] /backlog response:', r.data);
+        const tasks = extractProjectArray<ProjectTask>(r.data, ['tasks', 'backlog', 'items']);
         if (tasks.length > 0) return tasks;
-      } catch {}
-      // Fallback: fetch all project tasks (backlog = tasks without a sprint)
+      } catch (err: any) {
+        console.warn('[Backlog] /backlog failed:', err.response?.status, err.response?.data);
+      }
+      // Fallback: fetch all project tasks
       try {
         const r = await api.get(`/projects/${projectId}/tasks`);
+        console.log('[Backlog] /tasks fallback response:', r.data);
         return extractProjectArray<ProjectTask>(r.data, ['tasks']);
-      } catch {}
+      } catch (err: any) {
+        console.error('[Backlog] /tasks fallback failed:', err.response?.status, err.response?.data);
+      }
       return [];
     },
   });
