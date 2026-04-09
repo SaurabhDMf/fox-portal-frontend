@@ -50,6 +50,7 @@ export interface Epic {
   progress?: number;
   task_count?: number;
   done_count?: number;
+  sprint_id?: string;
 }
 
 export interface ProjectMember {
