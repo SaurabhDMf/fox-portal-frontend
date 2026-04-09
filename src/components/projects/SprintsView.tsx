@@ -1,15 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
-import type { Sprint, ProjectTask } from '@/lib/projectTypes';
+import type { Sprint, ProjectTask, Epic } from '@/lib/projectTypes';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS } from '@/lib/projectTypes';
 import { useState } from 'react';
-import { Plus, X, Play, CheckCircle2, Trash2 } from 'lucide-react';
+import { Plus, X, Play, CheckCircle2, Trash2, ChevronRight, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Props {
   projectId: string;
   onTaskClick?: (task: ProjectTask) => void;
+}
+
+interface HierarchyEpic {
+  id: string;
+  title: string;
+  color: string;
+  stories?: ProjectTask[];
+  tasks?: ProjectTask[];
+  bugs?: ProjectTask[];
+}
+
+interface SprintHierarchy {
+  sprint: Sprint;
+  epics: HierarchyEpic[];
+  unlinked_tasks?: ProjectTask[];
 }
 
 export default function SprintsView({ projectId, onTaskClick }: Props) {
@@ -19,26 +34,38 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
   const [deleteSprintId, setDeleteSprintId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', goal: '', start_date: '', end_date: '' });
   const [moveIncompleteTo, setMoveIncompleteTo] = useState('backlog');
+  const [expandedSprints, setExpandedSprints] = useState<Set<string>>(new Set());
+  const [expandedEpics, setExpandedEpics] = useState<Set<string>>(new Set());
+  const [expandedStories, setExpandedStories] = useState<Set<string>>(new Set());
 
   const { data: sprintsRaw } = useQuery({
     queryKey: ['project-sprints', projectId],
     queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => extractProjectArray<Sprint>(r.data, ['sprints'])),
   });
   const sprints: Sprint[] = Array.isArray(sprintsRaw) ? sprintsRaw : [];
-  const [expandedSprints, setExpandedSprints] = useState<Set<string>>(new Set());
 
-  // Fetch tasks for expanded sprints
+  // Fetch hierarchy for expanded sprints
   const sprintIds = Array.from(expandedSprints);
-  const { data: sprintTasksMap } = useQuery({
-    queryKey: ['sprint-tasks', projectId, sprintIds],
+  const { data: hierarchyMap } = useQuery({
+    queryKey: ['sprint-hierarchy', projectId, sprintIds],
     queryFn: async () => {
-      const results: Record<string, ProjectTask[]> = {};
+      const results: Record<string, SprintHierarchy> = {};
       await Promise.all(sprintIds.map(async sid => {
-        const r = await api.get(`/projects/${projectId}/board`, { params: { sprint_id: sid } });
-        const board = r.data?.board || r.data?.data?.board || r.data || {};
-        const tasks: ProjectTask[] = [];
-        Object.values(board).forEach((col: any) => { if (Array.isArray(col)) tasks.push(...col); });
-        results[sid] = tasks;
+        try {
+          const r = await api.get(`/projects/${projectId}/sprints/${sid}/hierarchy`);
+          const data = r.data?.data || r.data;
+          results[sid] = data;
+        } catch (err) {
+          console.warn('[SprintsView] hierarchy fallback for', sid);
+          // Fallback: fetch board tasks
+          try {
+            const r = await api.get(`/projects/${projectId}/board`, { params: { sprint_id: sid } });
+            const board = r.data?.board || r.data?.data?.board || r.data || {};
+            const tasks: ProjectTask[] = [];
+            Object.values(board).forEach((col: any) => { if (Array.isArray(col)) tasks.push(...col); });
+            results[sid] = { sprint: sprints.find(s => s.id === sid)!, epics: [], unlinked_tasks: tasks };
+          } catch {}
+        }
       }));
       return results;
     },
@@ -49,6 +76,22 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
     setExpandedSprints(prev => {
       const next = new Set(prev);
       next.has(sid) ? next.delete(sid) : next.add(sid);
+      return next;
+    });
+  };
+
+  const toggleEpic = (epicId: string) => {
+    setExpandedEpics(prev => {
+      const next = new Set(prev);
+      next.has(epicId) ? next.delete(epicId) : next.add(epicId);
+      return next;
+    });
+  };
+
+  const toggleStory = (storyId: string) => {
+    setExpandedStories(prev => {
+      const next = new Set(prev);
+      next.has(storyId) ? next.delete(storyId) : next.add(storyId);
       return next;
     });
   };
@@ -101,6 +144,38 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting sprint'),
   });
 
+  const TaskRow = ({ task, indent = 0 }: { task: ProjectTask; indent?: number }) => {
+    const tc = TASK_TYPE_CONFIG[task.type] || TASK_TYPE_CONFIG.Task;
+    const pc = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.Medium;
+    const hasChildren = task.subtasks && task.subtasks.length > 0;
+    const isExpanded = expandedStories.has(task.id);
+
+    return (
+      <>
+        <div
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors"
+          style={{ paddingLeft: `${12 + indent * 20}px` }}
+          onClick={() => onTaskClick?.(task)}
+        >
+          {hasChildren && (
+            <button onClick={(e) => { e.stopPropagation(); toggleStory(task.id); }} className="p-0.5">
+              {isExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+            </button>
+          )}
+          {!hasChildren && <span className="w-4" />}
+          <span className="text-sm">{tc.icon}</span>
+          <span className="text-xs font-mono text-muted-foreground w-16 flex-shrink-0">{task.task_number}</span>
+          <span className="text-sm font-medium flex-1 truncate">{task.title}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{task.status}</span>
+          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc }} title={task.priority} />
+        </div>
+        {hasChildren && isExpanded && task.subtasks!.map(sub => (
+          <TaskRow key={sub.id} task={sub} indent={indent + 1} />
+        ))}
+      </>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -113,18 +188,22 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
       <div className="space-y-3">
         {sprints.map(sprint => {
           const progress = sprint.task_count ? Math.round(((sprint.done_count || 0) / sprint.task_count) * 100) : 0;
+          const hierarchy = hierarchyMap?.[sprint.id];
+          const epics = hierarchy?.epics || [];
+          const unlinkedTasks = hierarchy?.unlinked_tasks || [];
+
           return (
             <div key={sprint.id} className="glass-card p-4 space-y-3">
               <div className="flex items-start justify-between">
                 <div className="cursor-pointer flex-1" onClick={() => toggleExpand(sprint.id)}>
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs transition-transform ${expandedSprints.has(sprint.id) ? 'rotate-90' : ''}`}>▶</span>
+                    {expandedSprints.has(sprint.id) ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                     <h4 className="font-semibold text-sm">{sprint.name}</h4>
                     <span className={sprint.status === 'Active' ? 'badge-success' : sprint.status === 'Completed' ? 'badge-info' : 'badge-neutral'}>{sprint.status}</span>
                   </div>
-                  {sprint.goal && <p className="text-xs text-muted-foreground mt-1 ml-5">{sprint.goal}</p>}
+                  {sprint.goal && <p className="text-xs text-muted-foreground mt-1 ml-6">{sprint.goal}</p>}
                   {sprint.start_date && sprint.end_date && (
-                    <p className="text-xs text-muted-foreground ml-5">{new Date(sprint.start_date).toLocaleDateString()} — {new Date(sprint.end_date).toLocaleDateString()}</p>
+                    <p className="text-xs text-muted-foreground ml-6">{new Date(sprint.start_date).toLocaleDateString()} — {new Date(sprint.end_date).toLocaleDateString()}</p>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -151,23 +230,47 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
                   </div>
                 </div>
               )}
-              {/* Expanded sprint tasks */}
+
+              {/* Expanded: hierarchy view */}
               {expandedSprints.has(sprint.id) && (
                 <div className="border-t border-border pt-3 space-y-1">
-                  {(sprintTasksMap?.[sprint.id] || []).map((task: ProjectTask) => {
-                    const tc = TASK_TYPE_CONFIG[task.type] || TASK_TYPE_CONFIG.Task;
-                    const pc = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.Medium;
+                  {/* Epics */}
+                  {epics.map((epic: HierarchyEpic) => {
+                    const allEpicTasks = [...(epic.stories || []), ...(epic.tasks || []), ...(epic.bugs || [])];
+                    const isEpicOpen = expandedEpics.has(epic.id);
                     return (
-                      <div key={task.id} onClick={() => onTaskClick?.(task)} className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors">
-                        <span className="text-sm">{tc.icon}</span>
-                        <span className="text-xs font-mono text-muted-foreground w-16 flex-shrink-0">{task.task_number}</span>
-                        <span className="text-sm font-medium flex-1 truncate">{task.title}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{task.status}</span>
-                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc }} title={task.priority} />
+                      <div key={epic.id}>
+                        <div
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors"
+                          onClick={() => toggleEpic(epic.id)}
+                        >
+                          {isEpicOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                          <div className="w-3 h-3 rounded" style={{ background: epic.color }} />
+                          <span className="text-sm font-semibold">{epic.title}</span>
+                          <span className="text-[10px] text-muted-foreground">({allEpicTasks.length} items)</span>
+                        </div>
+                        {isEpicOpen && allEpicTasks.map(task => (
+                          <TaskRow key={task.id} task={task} indent={1} />
+                        ))}
                       </div>
                     );
                   })}
-                  {(sprintTasksMap?.[sprint.id] || []).length === 0 && (
+
+                  {/* Unlinked tasks (no epic) */}
+                  {unlinkedTasks.length > 0 && (
+                    <>
+                      {epics.length > 0 && (
+                        <div className="px-3 py-1.5">
+                          <span className="text-xs font-semibold text-muted-foreground">No Epic</span>
+                        </div>
+                      )}
+                      {unlinkedTasks.map(task => (
+                        <TaskRow key={task.id} task={task} />
+                      ))}
+                    </>
+                  )}
+
+                  {epics.length === 0 && unlinkedTasks.length === 0 && (
                     <p className="text-xs text-muted-foreground text-center py-3">No tasks in this sprint</p>
                   )}
                 </div>
@@ -225,7 +328,6 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
         </div>
       )}
 
-      {/* Delete Sprint Confirmation */}
       {deleteSprintId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
