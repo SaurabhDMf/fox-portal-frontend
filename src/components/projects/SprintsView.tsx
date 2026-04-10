@@ -12,19 +12,20 @@ interface Props {
   onTaskClick?: (task: ProjectTask) => void;
 }
 
+interface HierarchyStory extends ProjectTask {
+  tasks?: ProjectTask[];
+}
+
 interface HierarchyEpic {
   id: string;
   title: string;
   color: string;
-  stories?: ProjectTask[];
-  tasks?: ProjectTask[];
-  bugs?: ProjectTask[];
+  stories?: HierarchyStory[];
 }
 
 interface SprintHierarchy {
   sprint: Sprint;
   epics: HierarchyEpic[];
-  unlinked_tasks?: ProjectTask[];
 }
 
 export default function SprintsView({ projectId, onTaskClick }: Props) {
@@ -44,7 +45,6 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
   });
   const sprints: Sprint[] = Array.isArray(sprintsRaw) ? sprintsRaw : [];
 
-  // Fetch hierarchy for expanded sprints
   const sprintIds = Array.from(expandedSprints);
   const { data: hierarchyMap } = useQuery({
     queryKey: ['sprint-hierarchy', projectId, sprintIds],
@@ -56,15 +56,8 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
           const data = r.data?.data || r.data;
           results[sid] = data;
         } catch (err) {
-          console.warn('[SprintsView] hierarchy fallback for', sid);
-          // Fallback: fetch board tasks
-          try {
-            const r = await api.get(`/projects/${projectId}/board`, { params: { sprint_id: sid } });
-            const board = r.data?.board || r.data?.data?.board || r.data || {};
-            const tasks: ProjectTask[] = [];
-            Object.values(board).forEach((col: any) => { if (Array.isArray(col)) tasks.push(...col); });
-            results[sid] = { sprint: sprints.find(s => s.id === sid)!, epics: [], unlinked_tasks: tasks };
-          } catch {}
+          console.warn('[SprintsView] hierarchy fetch failed for', sid);
+          results[sid] = { sprint: sprints.find(s => s.id === sid)!, epics: [] };
         }
       }));
       return results;
@@ -73,27 +66,13 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
   });
 
   const toggleExpand = (sid: string) => {
-    setExpandedSprints(prev => {
-      const next = new Set(prev);
-      next.has(sid) ? next.delete(sid) : next.add(sid);
-      return next;
-    });
+    setExpandedSprints(prev => { const n = new Set(prev); n.has(sid) ? n.delete(sid) : n.add(sid); return n; });
   };
-
-  const toggleEpic = (epicId: string) => {
-    setExpandedEpics(prev => {
-      const next = new Set(prev);
-      next.has(epicId) ? next.delete(epicId) : next.add(epicId);
-      return next;
-    });
+  const toggleEpic = (id: string) => {
+    setExpandedEpics(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
-
-  const toggleStory = (storyId: string) => {
-    setExpandedStories(prev => {
-      const next = new Set(prev);
-      next.has(storyId) ? next.delete(storyId) : next.add(storyId);
-      return next;
-    });
+  const toggleStory = (id: string) => {
+    setExpandedStories(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
 
   const createMut = useMutation({
@@ -116,62 +95,66 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
 
   const startMut = useMutation({
     mutationFn: (sid: string) => api.post(`/projects/${projectId}/sprints/${sid}/start`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
-      toast.success('Sprint started');
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); toast.success('Sprint started'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error starting sprint'),
   });
 
   const completeMut = useMutation({
     mutationFn: (sid: string) => api.post(`/projects/${projectId}/sprints/${sid}/complete`, { move_incomplete_to: moveIncompleteTo }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
-      setShowComplete(null);
-      toast.success('Sprint completed');
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); setShowComplete(null); toast.success('Sprint completed'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error completing sprint'),
   });
 
   const deleteMut = useMutation({
     mutationFn: (sid: string) => api.delete(`/projects/${projectId}/sprints/${sid}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
-      qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
-      setDeleteSprintId(null);
-      toast.success('Sprint deleted');
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); qc.invalidateQueries({ queryKey: ['project-backlog', projectId] }); setDeleteSprintId(null); toast.success('Sprint deleted'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting sprint'),
   });
 
-  const TaskRow = ({ task, indent = 0 }: { task: ProjectTask; indent?: number }) => {
+  const LeafTaskRow = ({ task, indent }: { task: ProjectTask; indent: number }) => {
     const tc = TASK_TYPE_CONFIG[task.type] || TASK_TYPE_CONFIG.Task;
     const pc = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.Medium;
-    const hasChildren = task.subtasks && task.subtasks.length > 0;
-    const isExpanded = expandedStories.has(task.id);
+    return (
+      <div
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors"
+        style={{ paddingLeft: `${12 + indent * 20}px` }}
+        onClick={() => onTaskClick?.(task)}
+      >
+        <span className="w-4" />
+        <span className="text-sm">{tc.icon}</span>
+        <span className="text-xs font-mono text-muted-foreground w-16 flex-shrink-0">{task.task_number}</span>
+        <span className="text-sm font-medium flex-1 truncate">{task.title}</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{task.status}</span>
+        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc }} title={task.priority} />
+      </div>
+    );
+  };
+
+  const StoryRow = ({ story, indent }: { story: HierarchyStory; indent: number }) => {
+    const tc = TASK_TYPE_CONFIG.Story;
+    const pc = PRIORITY_COLORS[story.priority] || PRIORITY_COLORS.Medium;
+    const children = story.tasks || [];
+    const isOpen = expandedStories.has(story.id);
 
     return (
       <>
         <div
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors"
           style={{ paddingLeft: `${12 + indent * 20}px` }}
-          onClick={() => onTaskClick?.(task)}
+          onClick={() => onTaskClick?.(story)}
         >
-          {hasChildren && (
-            <button onClick={(e) => { e.stopPropagation(); toggleStory(task.id); }} className="p-0.5">
-              {isExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+          {children.length > 0 ? (
+            <button onClick={(e) => { e.stopPropagation(); toggleStory(story.id); }} className="p-0.5">
+              {isOpen ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
             </button>
-          )}
-          {!hasChildren && <span className="w-4" />}
+          ) : <span className="w-4" />}
           <span className="text-sm">{tc.icon}</span>
-          <span className="text-xs font-mono text-muted-foreground w-16 flex-shrink-0">{task.task_number}</span>
-          <span className="text-sm font-medium flex-1 truncate">{task.title}</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{task.status}</span>
-          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc }} title={task.priority} />
+          <span className="text-xs font-mono text-muted-foreground w-16 flex-shrink-0">{story.task_number}</span>
+          <span className="text-sm font-medium flex-1 truncate">{story.title}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{story.status}</span>
+          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc }} title={story.priority} />
         </div>
-        {hasChildren && isExpanded && task.subtasks!.map(sub => (
-          <TaskRow key={sub.id} task={sub} indent={indent + 1} />
-        ))}
+        {isOpen && children.map(t => <LeafTaskRow key={t.id} task={t} indent={indent + 1} />)}
       </>
     );
   };
@@ -190,7 +173,6 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
           const progress = sprint.task_count ? Math.round(((sprint.done_count || 0) / sprint.task_count) * 100) : 0;
           const hierarchy = hierarchyMap?.[sprint.id];
           const epics = hierarchy?.epics || [];
-          const unlinkedTasks = hierarchy?.unlinked_tasks || [];
 
           return (
             <div key={sprint.id} className="glass-card p-4 space-y-3">
@@ -231,12 +213,11 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
                 </div>
               )}
 
-              {/* Expanded: hierarchy view */}
+              {/* Expanded: Sprint → Epic → Story → Task/Bug */}
               {expandedSprints.has(sprint.id) && (
                 <div className="border-t border-border pt-3 space-y-1">
-                  {/* Epics */}
                   {epics.map((epic: HierarchyEpic) => {
-                    const allEpicTasks = [...(epic.stories || []), ...(epic.tasks || []), ...(epic.bugs || [])];
+                    const stories = epic.stories || [];
                     const isEpicOpen = expandedEpics.has(epic.id);
                     return (
                       <div key={epic.id}>
@@ -247,31 +228,20 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
                           {isEpicOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                           <div className="w-3 h-3 rounded" style={{ background: epic.color }} />
                           <span className="text-sm font-semibold">{epic.title}</span>
-                          <span className="text-[10px] text-muted-foreground">({allEpicTasks.length} items)</span>
+                          <span className="text-[10px] text-muted-foreground">({stories.length} stories)</span>
                         </div>
-                        {isEpicOpen && allEpicTasks.map(task => (
-                          <TaskRow key={task.id} task={task} indent={1} />
+                        {isEpicOpen && stories.map((story: HierarchyStory) => (
+                          <StoryRow key={story.id} story={story} indent={1} />
                         ))}
+                        {isEpicOpen && stories.length === 0 && (
+                          <p className="text-[10px] text-muted-foreground py-1 pl-10">No stories in this epic</p>
+                        )}
                       </div>
                     );
                   })}
 
-                  {/* Unlinked tasks (no epic) */}
-                  {unlinkedTasks.length > 0 && (
-                    <>
-                      {epics.length > 0 && (
-                        <div className="px-3 py-1.5">
-                          <span className="text-xs font-semibold text-muted-foreground">No Epic</span>
-                        </div>
-                      )}
-                      {unlinkedTasks.map(task => (
-                        <TaskRow key={task.id} task={task} />
-                      ))}
-                    </>
-                  )}
-
-                  {epics.length === 0 && unlinkedTasks.length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center py-3">No tasks in this sprint</p>
+                  {epics.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-3">No epics in this sprint</p>
                   )}
                 </div>
               )}
@@ -332,7 +302,7 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
             <h2 className="text-lg font-semibold">Delete Sprint</h2>
-            <p className="text-sm text-muted-foreground">Are you sure you want to delete this sprint? Tasks will be moved to the backlog.</p>
+            <p className="text-sm text-muted-foreground">Are you sure? Epics will be moved back to the backlog.</p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setDeleteSprintId(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
               <button onClick={() => deleteMut.mutate(deleteSprintId)} disabled={deleteMut.isPending} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
