@@ -14,6 +14,31 @@ interface Props {
 
 const COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
 
+function buildEpicRollups(tasks: ProjectTask[]) {
+  const taskMap = new Map(tasks.map(task => [task.id, task]));
+
+  const resolveEpicId = (task: ProjectTask, visited = new Set<string>()): string | undefined => {
+    if (task.epic_id) return task.epic_id;
+    if (!task.parent_task_id || visited.has(task.id)) return undefined;
+
+    visited.add(task.id);
+    const parentTask = taskMap.get(task.parent_task_id);
+    return parentTask ? resolveEpicId(parentTask, visited) : undefined;
+  };
+
+  return tasks.reduce<Record<string, { total: number; done: number; open: number }>>((acc, task) => {
+    const epicId = resolveEpicId(task);
+    if (!epicId) return acc;
+
+    const current = acc[epicId] || { total: 0, done: 0, open: 0 };
+    current.total += 1;
+    if (task.status === 'Done') current.done += 1;
+    else current.open += 1;
+    acc[epicId] = current;
+    return acc;
+  }, {});
+}
+
 function buildEpicPayload(form: { title: string; color: string; start_date: string; due_date: string; sprint_id: string }) {
   const payload: Record<string, any> = { title: form.title, color: form.color };
   if (form.start_date) payload.start_date = form.start_date;
@@ -30,11 +55,35 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
   const [selectedEpic, setSelectedEpic] = useState<Epic | null>(null);
   const [deleteEpicId, setDeleteEpicId] = useState<string | null>(null);
 
-  const { data: epicsRaw } = useQuery({
+  const { data: epicsRaw, isLoading: epicsLoading } = useQuery({
     queryKey: ['project-epics', projectId],
     queryFn: () => api.get(`/projects/${projectId}/epics`).then(r => extractProjectArray<Epic>(r.data, ['epics'])),
   });
   const epics: Epic[] = Array.isArray(epicsRaw) ? epicsRaw : [];
+
+  const { data: tasksRaw, isLoading: tasksLoading } = useQuery({
+    queryKey: ['project-epic-task-rollups', projectId],
+    queryFn: () => api.get('/tasks', { params: { project_id: projectId } }).then(r => extractProjectArray<ProjectTask>(r.data, ['tasks'])),
+  });
+  const epicRollups = buildEpicRollups(Array.isArray(tasksRaw) ? tasksRaw : []);
+  const epicsWithCounts = epics.map((epic) => {
+    const live = epicRollups[epic.id];
+    const totalTasks = live?.total ?? epic.total_tasks ?? epic.task_count ?? 0;
+    const doneTasks = live?.done ?? epic.done_tasks ?? epic.done_count ?? 0;
+    const openTasks = live?.open ?? epic.open_tasks ?? Math.max(totalTasks - doneTasks, 0);
+    const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : epic.progress || 0;
+
+    return {
+      ...epic,
+      task_count: totalTasks,
+      total_tasks: totalTasks,
+      done_count: doneTasks,
+      done_tasks: doneTasks,
+      open_tasks: openTasks,
+      progress,
+    } as Epic & { done_tasks?: number };
+  });
+  const activeEpic = selectedEpic ? epicsWithCounts.find((epic) => epic.id === selectedEpic.id) || selectedEpic : null;
 
   const { data: sprintsRaw } = useQuery({
     queryKey: ['project-sprints', projectId],
@@ -119,7 +168,8 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
 
       {/* Timeline */}
       <div className="glass-card p-4 space-y-3">
-        {epics.map(epic => {
+        {(epicsLoading || tasksLoading) && epics.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">Loading epics…</p>}
+        {epicsWithCounts.map(epic => {
           const start = epic.start_date ? new Date(epic.start_date).getTime() : minDate;
           const end = epic.due_date ? new Date(epic.due_date).getTime() : maxDate;
           const left = ((start - minDate) / range) * 100;
@@ -152,12 +202,12 @@ export default function EpicsView({ projectId, onTaskClick }: Props) {
             </div>
           );
         })}
-        {epics.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No epics yet</p>}
+        {epicsWithCounts.length === 0 && !(epicsLoading || tasksLoading) && <p className="text-sm text-muted-foreground text-center py-8">No epics yet</p>}
       </div>
 
       {/* Epic detail panel with stories fetched from API */}
-      {selectedEpic && (
-        <EpicDetailPanel epic={selectedEpic} projectId={projectId} onClose={() => setSelectedEpic(null)} onDelete={() => setDeleteEpicId(selectedEpic.id)} onEdit={() => openEdit(selectedEpic)} onTaskClick={onTaskClick} />
+      {activeEpic && (
+        <EpicDetailPanel epic={activeEpic} projectId={projectId} onClose={() => setSelectedEpic(null)} onDelete={() => setDeleteEpicId(activeEpic.id)} onEdit={() => openEdit(activeEpic)} onTaskClick={onTaskClick} />
       )}
 
       {/* Delete Confirmation */}
