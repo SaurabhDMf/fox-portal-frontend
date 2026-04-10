@@ -6,6 +6,7 @@ export interface ProjectTask {
   type: 'Story' | 'Task' | 'Bug' | 'Subtask';
   status: string;
   priority: 'Critical' | 'High' | 'Medium' | 'Low';
+  stage?: string;
   assignees?: { id: string; full_name: string; avatar_url?: string }[];
   assignee_ids?: string[];
   reporter?: { id: string; full_name: string };
@@ -22,6 +23,7 @@ export interface ProjectTask {
   logged_hours?: number;
   parent_task_id?: string;
   subtasks?: ProjectTask[];
+  tasks?: ProjectTask[];
   watchers_count?: number;
   is_watching?: boolean;
   comments_count?: number;
@@ -51,6 +53,10 @@ export interface Epic {
   task_count?: number;
   done_count?: number;
   sprint_id?: string;
+  sprint_name?: string;
+  total_tasks?: number;
+  open_tasks?: number;
+  stories?: ProjectTask[];
 }
 
 export interface ProjectMember {
@@ -94,3 +100,5 @@ export const PRIORITY_COLORS: Record<string, string> = {
 };
 
 export const BOARD_COLUMNS = ['Open', 'In Progress', 'Review', 'Done', 'Cancelled'];
+
+export const WORKFLOW_STAGES = ['Design', 'Development', 'Integration', 'Testing', 'Done'];
