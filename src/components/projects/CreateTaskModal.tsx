@@ -129,8 +129,6 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
 
   const canSubmit = () => {
     if (!form.title) return false;
-    if (itemType === 'Story' && !form.epic_id) return false;
-    if ((itemType === 'Task' || itemType === 'Bug') && !form.parent_task_id) return false;
     return true;
   };
 
@@ -171,9 +169,9 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
         {/* Story: pick parent Epic */}
         {itemType === 'Story' && (
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Parent Epic *</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Parent Epic (optional)</label>
             <select value={form.epic_id} onChange={e => setForm(f => ({ ...f, epic_id: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-              <option value="">Select an epic...</option>
+              <option value="">None (standalone story)</option>
               {epics.map((e: Epic) => <option key={e.id} value={e.id}>{e.title}</option>)}
             </select>
           </div>
@@ -182,9 +180,9 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
         {/* Task/Bug: pick parent Story */}
         {(itemType === 'Task' || itemType === 'Bug') && (
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Parent Story *</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Parent Story (optional — leave empty for standalone {itemType})</label>
             <select value={form.parent_task_id} onChange={e => setForm(f => ({ ...f, parent_task_id: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-              <option value="">Select a story...</option>
+              <option value="">None (standalone {itemType.toLowerCase()})</option>
               {stories.map((s: any) => <option key={s.id} value={s.id}>{s.task_number} — {s.title}</option>)}
             </select>
           </div>
