@@ -65,6 +65,40 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
     enabled: sprintIds.length > 0,
   });
 
+  // Fetch tasks for expanded epics that have no stories/tasks in hierarchy
+  const expandedEpicIds = Array.from(expandedEpics);
+  const { data: epicTasksMap } = useQuery({
+    queryKey: ['sprint-epic-tasks', projectId, expandedEpicIds],
+    queryFn: async () => {
+      const results: Record<string, ProjectTask[]> = {};
+      await Promise.all(expandedEpicIds.map(async eid => {
+        try {
+          const r = await api.get('/tasks', { params: { project_id: projectId, epic_id: eid } });
+          results[eid] = extractProjectArray<ProjectTask>(r.data, ['tasks']);
+        } catch { results[eid] = []; }
+      }));
+      return results;
+    },
+    enabled: expandedEpicIds.length > 0,
+  });
+
+  // Fetch subtasks for expanded stories
+  const expandedStoryIds = Array.from(expandedStories);
+  const { data: storySubtasksMap } = useQuery({
+    queryKey: ['sprint-story-subtasks', projectId, expandedStoryIds],
+    queryFn: async () => {
+      const results: Record<string, ProjectTask[]> = {};
+      await Promise.all(expandedStoryIds.map(async sid => {
+        try {
+          const r = await api.get('/tasks', { params: { parent_task_id: sid } });
+          results[sid] = extractProjectArray<ProjectTask>(r.data, ['tasks']);
+        } catch { results[sid] = []; }
+      }));
+      return results;
+    },
+    enabled: expandedStoryIds.length > 0,
+  });
+
   const toggleExpand = (sid: string) => {
     setExpandedSprints(prev => { const n = new Set(prev); n.has(sid) ? n.delete(sid) : n.add(sid); return n; });
   };
