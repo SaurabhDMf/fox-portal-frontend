@@ -2,13 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { ArrowLeft, LayoutGrid, List, Zap, Timer, Users, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowLeft, LayoutGrid, List, Zap, Timer, Users, Pencil, Trash2, X, Archive } from 'lucide-react';
 import { extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectTask } from '@/lib/projectTypes';
 import KanbanBoard from '@/components/projects/KanbanBoard';
 import TasksListView from '@/components/projects/TasksListView';
 import EpicsView from '@/components/projects/EpicsView';
 import SprintsView from '@/components/projects/SprintsView';
+import BacklogView from '@/components/projects/BacklogView';
 import MembersView from '@/components/projects/MembersView';
 import TaskDetailDrawer from '@/components/projects/TaskDetailDrawer';
 import CreateTaskModal from '@/components/projects/CreateTaskModal';
@@ -17,8 +18,9 @@ import toast from 'react-hot-toast';
 const TABS = [
   { id: 'board', label: 'Board', icon: LayoutGrid },
   { id: 'tasks', label: 'Tasks', icon: List },
-  { id: 'epics', label: 'Epics', icon: Zap },
   { id: 'sprints', label: 'Sprints', icon: Timer },
+  { id: 'backlog', label: 'Backlog', icon: Archive },
+  { id: 'epics', label: 'Modules', icon: Zap },
   { id: 'members', label: 'Members', icon: Users },
 ] as const;
 
