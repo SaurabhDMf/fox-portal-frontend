@@ -446,5 +446,3 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
     </div>
   );
 }
-
-import React from 'react';
