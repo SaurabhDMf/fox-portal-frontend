@@ -48,7 +48,20 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
   // For Task/Bug: need to pick a parent Story
   const { data: storiesRaw } = useQuery({
     queryKey: ['project-stories', projectId],
-    queryFn: () => api.get('/tasks', { params: { project_id: projectId, type: 'Story' } }).then(r => extractProjectArray(r.data, ['tasks'])),
+    queryFn: async () => {
+      try {
+        const r = await api.get('/tasks', { params: { project_id: projectId, type: 'Story' } });
+        const stories = extractProjectArray(r.data, ['tasks']);
+        if (stories.length > 0) return stories;
+      } catch {}
+      // Fallback: fetch all project tasks and filter client-side
+      try {
+        const r = await api.get('/tasks', { params: { project_id: projectId } });
+        const all = extractProjectArray(r.data, ['tasks']);
+        const storyTasks = all.filter((t: any) => t.type === 'Story');
+        return storyTasks.length > 0 ? storyTasks : all.filter((t: any) => t.type !== 'Subtask');
+      } catch { return []; }
+    },
     enabled: itemType === 'Task' || itemType === 'Bug',
   });
   const stories = Array.isArray(storiesRaw) ? storiesRaw : [];
