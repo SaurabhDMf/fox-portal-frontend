@@ -36,7 +36,13 @@ export default function KanbanBoard({ projectId, onTaskClick, onCreateTask }: Pr
 
   const updateTaskMut = useMutation({
     mutationFn: ({ taskId, status }: { taskId: string; status: string }) => api.put(`/tasks/${taskId}`, { status }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-board', projectId] }); toast.success('Task moved'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-board', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-backlog-tasks', projectId] });
+      qc.invalidateQueries({ queryKey: ['sprint-hierarchy', projectId] });
+      toast.success('Task moved');
+    },
     onError: () => toast.error('Failed to move task'),
   });
 

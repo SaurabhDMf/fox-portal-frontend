@@ -42,7 +42,11 @@ export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Pr
     queryFn: async () => {
       try {
         const r = await api.get('/tasks', { params: { project_id: projectId, backlog: true } });
-        return extractProjectArray<ProjectTask>(r.data, ['tasks']);
+        const backlogTasks = extractProjectArray<ProjectTask>(r.data, ['tasks']);
+        if (backlogTasks.length > 0) return backlogTasks;
+        // Fallback: fetch all project tasks so nothing is hidden
+        const all = await api.get('/tasks', { params: { project_id: projectId } });
+        return extractProjectArray<ProjectTask>(all.data, ['tasks']);
       } catch {
         try {
           const r = await api.get('/tasks', { params: { project_id: projectId } });
@@ -64,8 +68,11 @@ export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Pr
       api.put(`/projects/${projectId}/epics/${epicId}`, { sprint_id: sprintId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-backlog-tasks', projectId] });
       qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
       qc.invalidateQueries({ queryKey: ['project-epics', projectId] });
+      qc.invalidateQueries({ queryKey: ['sprint-hierarchy', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-board', projectId] });
       setSprintPickerEpicId(null);
       toast.success('Epic added to sprint');
     },
