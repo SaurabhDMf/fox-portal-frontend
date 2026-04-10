@@ -18,6 +18,100 @@ const TYPES = ['Story', 'Task', 'Bug', 'Subtask'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 
 const getMemberId = (member: any) => member?.user_id || member?.id;
+const toArray = <T,>(value: T | T[] | null | undefined): T[] => Array.isArray(value) ? value : value ? [value] : [];
+const getPersonName = (person: any) => person?.full_name || person?.name || person?.user_name || person?.display_name || person?.username || person?.email || '';
+
+function buildPerson(person: any, fallbackId?: string, fallbackName?: string) {
+  const id = getMemberId(person) || fallbackId;
+  const full_name = getPersonName(person) || fallbackName;
+  return id || full_name ? { id: id || full_name || 'unknown', full_name: full_name || 'Unknown', avatar_url: person?.avatar_url } : undefined;
+}
+
+function normalizeTaskEntity(rawTask: any, members: any[] = []): ProjectTask {
+  const extracted = extractProjectEntity<ProjectTask>(rawTask, ['task']);
+  const task = extracted && typeof extracted === 'object' && !Array.isArray(extracted) ? extracted as any : rawTask as any;
+
+  if (!task || typeof task !== 'object' || Array.isArray(task)) return rawTask as ProjectTask;
+
+  const assigneeIds = [...new Set([
+    ...toArray(task.assignee_ids),
+    ...toArray(task.assignee_id),
+    ...toArray(task.assigned_to_id),
+    ...toArray(task.assigned_user_ids),
+  ].map((value: any) => typeof value === 'string' ? value : getMemberId(value)).filter((value: any) => typeof value === 'string' && value.trim()))];
+
+  const assigneeCandidates = [
+    ...toArray(task.assignees),
+    ...toArray(task.assignee),
+    ...toArray(task.assigned_users),
+    ...toArray(task.assigned_to_user),
+    ...toArray(typeof task.assigned_to === 'object' ? task.assigned_to : null),
+  ];
+
+  const assignees = (
+    assigneeIds.length > 0
+      ? assigneeIds.map((id) => {
+          const existing = assigneeCandidates.find((candidate: any) => getMemberId(candidate) === id);
+          const member = members.find((candidate: any) => getMemberId(candidate) === id);
+          return buildPerson(existing || member, id, getPersonName(existing || member));
+        })
+      : assigneeCandidates.map((candidate: any) => buildPerson(candidate))
+  ).filter(Boolean);
+
+  if (assignees.length === 0 && (task.assignee_name || task.assigned_to_name)) {
+    assignees.push({
+      id: assigneeIds[0] || task.assignee_id || task.assigned_to_id || String(task.assignee_name || task.assigned_to_name),
+      full_name: task.assignee_name || task.assigned_to_name,
+    });
+  }
+
+  const reporter =
+    buildPerson(task.reporter ?? task.reported_by ?? task.created_by_user, task.reporter_id ?? task.reported_by_id, task.reporter_name ?? task.reported_by_name) ||
+    (task.reporter_name || task.reported_by_name
+      ? { id: task.reporter_id || task.reported_by_id || String(task.reporter_name || task.reported_by_name), full_name: task.reporter_name || task.reported_by_name }
+      : undefined);
+
+  return {
+    ...task,
+    stage: task.stage || task.workflow_stage || task.current_stage || undefined,
+    assignee_ids: assigneeIds,
+    assignees,
+    reporter,
+  };
+}
+
+function normalizeCommentEntity(comment: any) {
+  return {
+    ...comment,
+    text: comment?.text || comment?.message || comment?.content || comment?.comment || '',
+    user_name: comment?.user_name || comment?.author_name || comment?.created_by_name || getPersonName(comment?.user || comment?.author || comment?.created_by) || 'Unknown',
+  };
+}
+
+function normalizeActivityEntity(activity: any) {
+  return {
+    ...activity,
+    action: activity?.action || activity?.message || activity?.description || activity?.event || 'updated the task',
+    user_name: activity?.user_name || activity?.actor_name || activity?.created_by_name || getPersonName(activity?.user || activity?.actor || activity?.created_by) || 'Someone',
+  };
+}
+
+function normalizeTimeLogEntity(timeLog: any) {
+  return {
+    ...timeLog,
+    user_name: timeLog?.user_name || timeLog?.logged_by_name || getPersonName(timeLog?.user || timeLog?.logged_by) || 'Unknown',
+  };
+}
+
+function normalizeHandoffEntity(handoff: any) {
+  return {
+    ...handoff,
+    from_stage: handoff?.from_stage || handoff?.stage_from || handoff?.previous_stage,
+    to_stage: handoff?.to_stage || handoff?.stage_to || handoff?.stage,
+    from_user_name: handoff?.from_user_name || handoff?.handed_by_name || getPersonName(handoff?.from_user || handoff?.handed_by) || 'Someone',
+    to_user_name: handoff?.to_user_name || handoff?.assignee_name || getPersonName(handoff?.to_user || handoff?.assignee) || 'Unassigned',
+  };
+}
 
 function sanitizeTaskPatch(patch: Record<string, any>) {
   const payload: Record<string, any> = {};
@@ -80,45 +174,33 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
 
   const { data: taskDetail } = useQuery({
     queryKey: ['task-detail', initialTask.id],
-    queryFn: () => api.get(`/tasks/${initialTask.id}`).then(r => extractProjectEntity<ProjectTask>(r.data, ['task']) || initialTask),
-    initialData: initialTask,
+    queryFn: () => api.get(`/tasks/${initialTask.id}`).then(r => normalizeTaskEntity(r.data)),
+    initialData: normalizeTaskEntity(initialTask),
   });
-  const task = taskDetail || initialTask;
+  const task = normalizeTaskEntity(taskDetail || initialTask, members);
 
   // Fixed endpoints: extract from .data
   const { data: commentsRaw } = useQuery({
     queryKey: ['task-comments', initialTask.id],
-    queryFn: () => api.get(`/tasks/${initialTask.id}/comments`).then(r => {
-      const d = r.data;
-      return d?.data || d?.comments || (Array.isArray(d) ? d : []);
-    }),
+    queryFn: () => api.get(`/tasks/${initialTask.id}/comments`).then(r => extractProjectArray(r.data, ['comments']).map(normalizeCommentEntity)),
   });
   const comments = Array.isArray(commentsRaw) ? commentsRaw : [];
 
   const { data: activityRaw } = useQuery({
     queryKey: ['task-activity', initialTask.id],
-    queryFn: () => api.get(`/tasks/${initialTask.id}/activity`).then(r => {
-      const d = r.data;
-      return d?.data || d?.activity || (Array.isArray(d) ? d : []);
-    }),
+    queryFn: () => api.get(`/tasks/${initialTask.id}/activity`).then(r => extractProjectArray(r.data, ['activity']).map(normalizeActivityEntity)),
   });
   const activity = Array.isArray(activityRaw) ? activityRaw : [];
 
   const { data: timeLogsRaw } = useQuery({
     queryKey: ['task-timelogs', initialTask.id],
-    queryFn: () => api.get(`/tasks/${initialTask.id}/timelogs`).then(r => {
-      const d = r.data;
-      return d?.data || d?.timelogs || (Array.isArray(d) ? d : []);
-    }),
+    queryFn: () => api.get(`/tasks/${initialTask.id}/timelogs`).then(r => extractProjectArray(r.data, ['timelogs']).map(normalizeTimeLogEntity)),
   });
   const timeLogs = Array.isArray(timeLogsRaw) ? timeLogsRaw : [];
 
   const { data: handoffsRaw } = useQuery({
     queryKey: ['task-handoffs', initialTask.id],
-    queryFn: () => api.get(`/tasks/${initialTask.id}/handoffs`).then(r => {
-      const d = r.data;
-      return d?.data || d?.handoffs || (Array.isArray(d) ? d : []);
-    }),
+    queryFn: () => api.get(`/tasks/${initialTask.id}/handoffs`).then(r => extractProjectArray(r.data, ['handoffs']).map(normalizeHandoffEntity)),
   });
   const handoffs = Array.isArray(handoffsRaw) ? handoffsRaw : [];
 
@@ -178,7 +260,8 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     if ('due_date' in patch) nextTask.due_date = patch.due_date || undefined;
     if ('story_points' in patch) nextTask.story_points = patch.story_points == null || patch.story_points === '' ? undefined : Number(patch.story_points);
     if ('description' in patch) nextTask.description = patch.description;
-    return nextTask;
+    if ('stage' in patch) nextTask.stage = patch.stage || undefined;
+    return normalizeTaskEntity(nextTask, members);
   };
 
   const invalidateTaskQueries = () => {
@@ -188,7 +271,17 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   };
 
   const updateMut = useMutation({
-    mutationFn: (d: Record<string, any>) => api.put(`/tasks/${initialTask.id}`, d),
+    mutationFn: async (d: Record<string, any>) => {
+      try {
+        return await api.put(`/tasks/${initialTask.id}`, d);
+      } catch (error: any) {
+        if ((error.response?.status === 400 || error.response?.status === 422) && 'stage' in d) {
+          const { stage, ...rest } = d;
+          return api.put(`/tasks/${initialTask.id}`, { ...rest, workflow_stage: stage || null });
+        }
+        throw error;
+      }
+    },
     onMutate: async (patch) => {
       await qc.cancelQueries({ queryKey: ['task-detail', initialTask.id] });
       const previousTask = qc.getQueryData<ProjectTask>(['task-detail', initialTask.id]);
@@ -196,7 +289,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
       return { previousTask };
     },
     onSuccess: (res, patch) => {
-      const updatedTask = extractProjectEntity<ProjectTask>(res.data, ['task']);
+      const updatedTask = normalizeTaskEntity(res.data, members);
       if (updatedTask) qc.setQueryData<ProjectTask>(['task-detail', initialTask.id], (c) => buildOptimisticTask({ ...(c || task), ...updatedTask }, patch));
       invalidateTaskQueries();
       setTimeout(invalidateTaskQueries, 1200);
@@ -215,8 +308,31 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   };
 
   const commentMut = useMutation({
-    mutationFn: (text: string) => api.post(`/tasks/${initialTask.id}/comments`, { text }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['task-comments', initialTask.id] }); setCommentText(''); toast.success('Comment added'); },
+    mutationFn: async (text: string) => {
+      const trimmed = text.trim();
+      try {
+        return await api.post(`/tasks/${initialTask.id}/comments`, { text: trimmed });
+      } catch (error: any) {
+        if (error.response?.status === 400 || error.response?.status === 422) {
+          try {
+            return await api.post(`/tasks/${initialTask.id}/comments`, { message: trimmed });
+          } catch (fallbackError: any) {
+            if (fallbackError.response?.status === 400 || fallbackError.response?.status === 422) {
+              return api.post(`/tasks/${initialTask.id}/comments`, { content: trimmed });
+            }
+            throw fallbackError;
+          }
+        }
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['task-comments', initialTask.id] });
+      qc.invalidateQueries({ queryKey: ['task-activity', initialTask.id] });
+      setCommentText('');
+      toast.success('Comment added');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Failed to send message'),
   });
 
   const watchMut = useMutation({
@@ -515,8 +631,8 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             {activeTab === 'activity' && (
               <div className="space-y-4">
                 <div className="flex gap-2">
-                  <input placeholder="Add a comment..." value={commentText} onChange={e => setCommentText(e.target.value)} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onKeyDown={e => { if (e.key === 'Enter' && commentText) commentMut.mutate(commentText); }} />
-                  <button onClick={() => commentText && commentMut.mutate(commentText)} disabled={!commentText} className="p-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
+                  <input placeholder="Add a comment..." value={commentText} onChange={e => setCommentText(e.target.value)} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onKeyDown={e => { const nextComment = commentText.trim(); if (e.key === 'Enter' && nextComment) commentMut.mutate(nextComment); }} />
+                  <button onClick={() => { const nextComment = commentText.trim(); if (nextComment) commentMut.mutate(nextComment); }} disabled={!commentText.trim() || commentMut.isPending} className="p-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
                     <Send className="h-4 w-4" />
                   </button>
                 </div>
