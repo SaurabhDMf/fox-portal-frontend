@@ -100,9 +100,12 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
       }
       qc.invalidateQueries({ queryKey: ['project-board', projectId] });
       qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
-      qc.invalidateQueries({ queryKey: ['project-all-tasks', projectId] });
       qc.invalidateQueries({ queryKey: ['project-epics', projectId] });
       qc.invalidateQueries({ queryKey: ['sprint-hierarchy', projectId] });
+      // Delay refetch of all-tasks so backend has time to commit
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ['project-all-tasks', projectId] });
+      }, 1500);
       onClose();
       toast.success(`${itemType} created`);
     },

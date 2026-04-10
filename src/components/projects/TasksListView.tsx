@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Plus, Search } from 'lucide-react';
 
@@ -32,6 +32,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
       const r = await api.get('/tasks', { params: { project_id: projectId } });
       return extractProjectArray<ProjectTask>(r.data, ['tasks']);
     },
+    placeholderData: keepPreviousData,
   });
   const tasks: ProjectTask[] = Array.isArray(raw) ? raw : [];
 
