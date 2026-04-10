@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { Plus, Search } from 'lucide-react';
+
 import api from '@/lib/api';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { extractProjectArray } from '@/lib/projectResponse';
 import type { ProjectTask } from '@/lib/projectTypes';
-import { TASK_TYPE_CONFIG, PRIORITY_COLORS } from '@/lib/projectTypes';
-import { useState } from 'react';
-import { Plus, Search } from 'lucide-react';
 
 interface Props {
   projectId: string;
@@ -13,12 +14,26 @@ interface Props {
 }
 
 const STATUS_FILTERS = ['All', 'Open', 'In Progress', 'Review', 'Done', 'Cancelled'];
-const TYPE_FILTERS = ['All', 'Story', 'Task', 'Bug', 'Subtask'];
+
+const formatDate = (value?: string) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
+};
+
+const getAssignedTo = (task: ProjectTask) => {
+  if (!task.assignees?.length) return '—';
+  return task.assignees.map((assignee) => assignee.full_name).filter(Boolean).join(', ');
+};
+
+const getClassification = (task: ProjectTask) => {
+  const values = [task.type, task.epic_name, task.sprint_name].filter(Boolean);
+  return values.length > 0 ? values.join(' / ') : task.type || '—';
+};
 
 export default function TasksListView({ projectId, onTaskClick, onCreateTask }: Props) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [typeFilter, setTypeFilter] = useState('All');
 
   const { data: tasksRaw, isLoading } = useQuery({
     queryKey: ['project-all-tasks', projectId],
@@ -29,12 +44,27 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
   });
   const allTasks: ProjectTask[] = Array.isArray(tasksRaw) ? tasksRaw : [];
 
-  const filtered = allTasks.filter(t => {
-    if (statusFilter !== 'All' && t.status !== statusFilter) return false;
-    if (typeFilter !== 'All' && t.type !== typeFilter) return false;
-    if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !t.task_number?.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return allTasks.filter((task) => {
+      if (statusFilter !== 'All' && task.status !== statusFilter) return false;
+      if (!query) return true;
+
+      return [
+        task.title,
+        task.task_number,
+        task.priority,
+        task.status,
+        task.type,
+        task.epic_name,
+        task.sprint_name,
+        task.assignees?.map((assignee) => assignee.full_name).join(' '),
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    });
+  }, [allTasks, search, statusFilter]);
 
   return (
     <div className="space-y-4">
@@ -64,55 +94,66 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none">
           {STATUS_FILTERS.map(s => <option key={s} value={s}>{s === 'All' ? 'All Statuses' : s}</option>)}
         </select>
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="px-3 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none">
-          {TYPE_FILTERS.map(t => <option key={t} value={t}>{t === 'All' ? 'All Types' : t}</option>)}
-        </select>
       </div>
 
-      {/* Task List */}
-      {isLoading && <p className="text-sm text-muted-foreground text-center py-8">Loading tasks…</p>}
-
-      <div className="space-y-1">
-        {filtered.map(task => {
-          const tc = TASK_TYPE_CONFIG[task.type] || TASK_TYPE_CONFIG.Task;
-          const pc = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.Medium;
-          return (
-            <div
-              key={task.id}
-              onClick={() => onTaskClick?.(task)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg glass-card hover:bg-secondary/50 cursor-pointer transition-colors"
-            >
-              <span className="text-sm">{tc.icon}</span>
-              <span className="text-xs font-mono text-muted-foreground w-20 flex-shrink-0">{task.task_number}</span>
-              <span className="text-sm font-medium flex-1 truncate">{task.title}</span>
-              {task.epic_name && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded hidden sm:inline" style={{ background: `${task.epic_color || '#888'}22`, color: task.epic_color || '#888' }}>{task.epic_name}</span>
-              )}
-              {task.sprint_name && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/50 text-accent-foreground hidden sm:inline">{task.sprint_name}</span>
-              )}
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{task.status}</span>
-              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc }} title={task.priority} />
-              {task.assignees && task.assignees.length > 0 ? (
-                <div className="flex -space-x-1">
-                  {task.assignees.slice(0, 3).map(a => (
-                    <div key={a.id} className="w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center text-[8px] font-bold text-primary border border-card">{a.full_name?.[0]}</div>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-[10px] text-muted-foreground">—</span>
-              )}
-            </div>
-          );
-        })}
+      <div className="glass-card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Task name</TableHead>
+              <TableHead>Created date</TableHead>
+              <TableHead>Assigned to</TableHead>
+              <TableHead>Due date</TableHead>
+              <TableHead>Priority</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Stories / Epic / Sprint</TableHead>
+              <TableHead>Edit</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">Loading tasks…</TableCell>
+              </TableRow>
+            ) : filtered.length > 0 ? (
+              filtered.map(task => (
+                <TableRow key={task.id} className="cursor-pointer" onClick={() => onTaskClick?.(task)}>
+                  <TableCell>
+                    <div className="min-w-[220px]">
+                      <p className="font-medium text-foreground">{task.title}</p>
+                      <p className="text-xs text-muted-foreground">{task.task_number || task.type}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell>{formatDate(task.created_at)}</TableCell>
+                  <TableCell>{getAssignedTo(task)}</TableCell>
+                  <TableCell>{formatDate(task.due_date)}</TableCell>
+                  <TableCell>{task.priority || '—'}</TableCell>
+                  <TableCell>{task.status || '—'}</TableCell>
+                  <TableCell>{getClassification(task)}</TableCell>
+                  <TableCell>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onTaskClick?.(task);
+                      }}
+                      className="px-2.5 py-1 rounded-md bg-secondary text-foreground text-xs font-medium hover:bg-muted transition-colors"
+                    >
+                      Edit
+                    </button>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                  {search || statusFilter !== 'All' ? 'No tasks match your filters' : 'No tasks yet'}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
-
-      {filtered.length === 0 && !isLoading && (
-        <div className="text-center py-12">
-          <p className="text-sm text-muted-foreground mb-2">{search || statusFilter !== 'All' || typeFilter !== 'All' ? 'No tasks match your filters' : 'No tasks yet'}</p>
-          {onCreateTask && <button onClick={onCreateTask} className="text-sm text-primary hover:underline">Create a task →</button>}
-        </div>
-      )}
     </div>
   );
 }
