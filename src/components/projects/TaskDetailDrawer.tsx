@@ -124,7 +124,6 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const { data: membersRaw } = useQuery({
     queryKey: ['project-members', projectId],
     queryFn: () => api.get(`/projects/${projectId}/members`).then(r => extractProjectArray(r.data, ['members', 'users'])),
-    enabled: showAssigneePicker,
   });
   const members = Array.isArray(membersRaw) ? membersRaw : [];
 
@@ -421,7 +420,10 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Stage</span>
-              <p className="text-sm font-medium">{task.stage || '—'}</p>
+              <select value={task.stage || ''} onChange={e => submitTaskUpdate({ stage: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="">No Stage</option>
+                {WORKFLOW_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Time Tracked</span>
