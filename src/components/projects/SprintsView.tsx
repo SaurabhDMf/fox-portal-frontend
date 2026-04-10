@@ -167,7 +167,12 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
   const StoryRow = ({ story, indent }: { story: HierarchyStory; indent: number }) => {
     const tc = TASK_TYPE_CONFIG.Story;
     const pc = PRIORITY_COLORS[story.priority] || PRIORITY_COLORS.Medium;
-    const children = story.tasks || [];
+    // Merge hierarchy tasks with fetched subtasks
+    const hierarchyChildren = story.tasks || [];
+    const fetchedChildren = storySubtasksMap?.[story.id] || [];
+    const mergedMap = new Map<string, ProjectTask>();
+    [...hierarchyChildren, ...fetchedChildren].forEach(t => mergedMap.set(t.id, t));
+    const children = Array.from(mergedMap.values());
     const isOpen = expandedStories.has(story.id);
 
     return (
@@ -175,20 +180,22 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
         <div
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors"
           style={{ paddingLeft: `${12 + indent * 20}px` }}
-          onClick={() => onTaskClick?.(story)}
+          onClick={() => { toggleStory(story.id); }}
         >
-          {children.length > 0 ? (
-            <button onClick={(e) => { e.stopPropagation(); toggleStory(story.id); }} className="p-0.5">
-              {isOpen ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
-            </button>
-          ) : <span className="w-4" />}
+          <button onClick={(e) => { e.stopPropagation(); toggleStory(story.id); }} className="p-0.5">
+            {isOpen ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+          </button>
           <span className="text-sm">{tc.icon}</span>
           <span className="text-xs font-mono text-muted-foreground w-16 flex-shrink-0">{story.task_number}</span>
           <span className="text-sm font-medium flex-1 truncate">{story.title}</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{story.status}</span>
+          <span className="text-[10px] text-muted-foreground">({children.length} tasks)</span>
           <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc }} title={story.priority} />
         </div>
-        {isOpen && children.map(t => <LeafTaskRow key={t.id} task={t} indent={indent + 1} />)}
+        {isOpen && children.length > 0 && children.map(t => <LeafTaskRow key={t.id} task={t} indent={indent + 1} />)}
+        {isOpen && children.length === 0 && (
+          <p className="text-[10px] text-muted-foreground py-1" style={{ paddingLeft: `${12 + (indent + 1) * 20}px` }}>No tasks under this story</p>
+        )}
       </>
     );
   };
