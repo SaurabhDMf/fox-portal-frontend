@@ -42,7 +42,11 @@ export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Pr
     queryFn: async () => {
       try {
         const r = await api.get('/tasks', { params: { project_id: projectId, backlog: true } });
-        return extractProjectArray<ProjectTask>(r.data, ['tasks']);
+        const backlogTasks = extractProjectArray<ProjectTask>(r.data, ['tasks']);
+        if (backlogTasks.length > 0) return backlogTasks;
+        // Fallback: fetch all project tasks so nothing is hidden
+        const all = await api.get('/tasks', { params: { project_id: projectId } });
+        return extractProjectArray<ProjectTask>(all.data, ['tasks']);
       } catch {
         try {
           const r = await api.get('/tasks', { params: { project_id: projectId } });
