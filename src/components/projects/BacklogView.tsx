@@ -68,8 +68,11 @@ export default function BacklogView({ projectId, onTaskClick, onCreateTask }: Pr
       api.put(`/projects/${projectId}/epics/${epicId}`, { sprint_id: sprintId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-backlog-tasks', projectId] });
       qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
       qc.invalidateQueries({ queryKey: ['project-epics', projectId] });
+      qc.invalidateQueries({ queryKey: ['sprint-hierarchy', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-board', projectId] });
       setSprintPickerEpicId(null);
       toast.success('Epic added to sprint');
     },
