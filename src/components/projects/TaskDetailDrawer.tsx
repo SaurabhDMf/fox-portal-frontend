@@ -33,6 +33,7 @@ function sanitizeTaskPatch(patch: Record<string, any>) {
   if ('sprint_id' in patch) payload.sprint_id = patch.sprint_id || null;
   if ('parent_task_id' in patch) payload.parent_task_id = patch.parent_task_id || null;
   if ('due_date' in patch) payload.due_date = patch.due_date || null;
+  if ('stage' in patch) payload.stage = patch.stage || null;
   if ('story_points' in patch) {
     if (patch.story_points === '' || patch.story_points == null) payload.story_points = null;
     else { const p = Number(patch.story_points); if (Number.isFinite(p)) payload.story_points = p; }
