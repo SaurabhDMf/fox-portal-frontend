@@ -258,8 +258,23 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
               {expandedSprints.has(sprint.id) && (
                 <div className="border-t border-border pt-3 space-y-1">
                   {epics.map((epic: HierarchyEpic) => {
-                    const stories = epic.stories || [];
+                    const hierarchyStories = epic.stories || [];
+                    // Merge with fetched epic tasks
+                    const fetchedEpicTasks = epicTasksMap?.[epic.id] || [];
+                    // Separate stories from non-story tasks
+                    const storyMap = new Map<string, HierarchyStory>();
+                    hierarchyStories.forEach(s => storyMap.set(s.id, s));
+                    const nonStoryTasks: ProjectTask[] = [];
+                    fetchedEpicTasks.forEach(t => {
+                      if (t.type === 'Story' && !storyMap.has(t.id)) {
+                        storyMap.set(t.id, t as HierarchyStory);
+                      } else if (t.type !== 'Story' && !storyMap.has(t.id)) {
+                        nonStoryTasks.push(t);
+                      }
+                    });
+                    const allStories = Array.from(storyMap.values());
                     const isEpicOpen = expandedEpics.has(epic.id);
+                    const totalItems = allStories.length + nonStoryTasks.length;
                     return (
                       <div key={epic.id}>
                         <div
@@ -269,13 +284,16 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
                           {isEpicOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                           <div className="w-3 h-3 rounded" style={{ background: epic.color }} />
                           <span className="text-sm font-semibold">{epic.title}</span>
-                          <span className="text-[10px] text-muted-foreground">({stories.length} stories)</span>
+                          <span className="text-[10px] text-muted-foreground">({allStories.length} stories{nonStoryTasks.length > 0 ? `, ${nonStoryTasks.length} tasks` : ''})</span>
                         </div>
-                        {isEpicOpen && stories.map((story: HierarchyStory) => (
+                        {isEpicOpen && allStories.map((story: HierarchyStory) => (
                           <StoryRow key={story.id} story={story} indent={1} />
                         ))}
-                        {isEpicOpen && stories.length === 0 && (
-                          <p className="text-[10px] text-muted-foreground py-1 pl-10">No stories in this epic</p>
+                        {isEpicOpen && nonStoryTasks.map(t => (
+                          <LeafTaskRow key={t.id} task={t} indent={1} />
+                        ))}
+                        {isEpicOpen && totalItems === 0 && (
+                          <p className="text-[10px] text-muted-foreground py-1 pl-10">No items in this epic</p>
                         )}
                       </div>
                     );
