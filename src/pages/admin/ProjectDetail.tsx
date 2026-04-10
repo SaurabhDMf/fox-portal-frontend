@@ -36,7 +36,7 @@ export default function ProjectDetail() {
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabId>('board');
   const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
-  const [createTaskStatus, setCreateTaskStatus] = useState<string | null>(null);
+  const [createTaskDefaults, setCreateTaskDefaults] = useState<{ status?: string; sprint_id?: string; epic_id?: string } | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -169,19 +169,28 @@ export default function ProjectDetail() {
       </div>
 
       {activeTab === 'board' && (
-        <KanbanBoard projectId={id!} onTaskClick={setSelectedTask} onCreateTask={(status) => setCreateTaskStatus(status || 'Open')} />
+        <KanbanBoard projectId={id!} onTaskClick={setSelectedTask} onCreateTask={(status) => setCreateTaskDefaults({ status: status || 'Open' })} />
       )}
-      {activeTab === 'tasks' && <TasksListView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskStatus('Open')} />}
+      {activeTab === 'tasks' && <TasksListView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />}
       {activeTab === 'epics' && <EpicsView projectId={id!} onTaskClick={setSelectedTask} />}
-      {activeTab === 'sprints' && <SprintsView projectId={id!} onTaskClick={setSelectedTask} />}
+      {activeTab === 'sprints' && (
+        <SprintsView
+          projectId={id!}
+          onTaskClick={setSelectedTask}
+          onCreateTask={(defaults) => setCreateTaskDefaults({ status: 'Open', ...defaults })}
+        />
+      )}
+      {activeTab === 'backlog' && (
+        <BacklogView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />
+      )}
       {activeTab === 'members' && <MembersView projectId={id!} />}
 
       {selectedTask && (
         <TaskDetailDrawer task={selectedTask} onClose={() => setSelectedTask(null)} projectId={id!} />
       )}
 
-      {createTaskStatus !== null && (
-        <CreateTaskModal projectId={id!} defaultStatus={createTaskStatus} onClose={() => setCreateTaskStatus(null)} />
+      {createTaskDefaults !== null && (
+        <CreateTaskModal projectId={id!} defaultStatus={createTaskDefaults.status} defaultSprintId={createTaskDefaults.sprint_id} defaultEpicId={createTaskDefaults.epic_id} onClose={() => setCreateTaskDefaults(null)} />
       )}
 
       {/* Edit Project Modal */}
