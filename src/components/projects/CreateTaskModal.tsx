@@ -9,6 +9,8 @@ import toast from 'react-hot-toast';
 interface Props {
   projectId: string;
   defaultStatus?: string;
+  defaultSprintId?: string;
+  defaultEpicId?: string;
   onClose: () => void;
 }
 
@@ -18,7 +20,7 @@ const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 const STATUS_OPTIONS = ['Open', 'In Progress', 'Review', 'Done', 'Cancelled'];
 const STAGES = ['Design', 'Development', 'Integration', 'Testing', 'Done'];
 
-export default function CreateTaskModal({ projectId, defaultStatus, onClose }: Props) {
+export default function CreateTaskModal({ projectId, defaultStatus, defaultSprintId, defaultEpicId, onClose }: Props) {
   const qc = useQueryClient();
   const [itemType, setItemType] = useState<ItemType>('Task');
   const [form, setForm] = useState({
@@ -28,8 +30,8 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
     status: defaultStatus || 'Open',
     stage: '',
     assignee_ids: [] as string[],
-    epic_id: '',
-    sprint_id: '',
+    epic_id: defaultEpicId || '',
+    sprint_id: defaultSprintId || '',
     parent_task_id: '',
     story_points: '',
     due_date: '',
@@ -103,6 +105,8 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
       qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
       qc.invalidateQueries({ queryKey: ['project-epics', projectId] });
       qc.invalidateQueries({ queryKey: ['sprint-hierarchy', projectId] });
+      qc.invalidateQueries({ queryKey: ['sprint-detail-hierarchy', projectId] });
+      qc.invalidateQueries({ queryKey: ['sprint-detail-tasks', projectId] });
       onClose();
       toast.success(`${itemType} created`);
     },
@@ -154,9 +158,9 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
           </select>
         </div>
 
-        {/* Epic (optional) */}
+        {/* Module (optional) */}
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Epic (optional)</label>
+          <label className="text-xs text-muted-foreground mb-1 block">Module (optional)</label>
           <select value={form.epic_id} onChange={e => set('epic_id', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             <option value="">None</option>
             {epics.map((ep: Epic) => <option key={ep.id} value={ep.id}>{ep.title}</option>)}

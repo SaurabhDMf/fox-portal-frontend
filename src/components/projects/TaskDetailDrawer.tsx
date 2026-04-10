@@ -274,6 +274,8 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     qc.invalidateQueries({ queryKey: ['project-epics', projectId] });
     qc.invalidateQueries({ queryKey: ['project-epic-task-rollups', projectId] });
     qc.invalidateQueries({ queryKey: ['sprint-hierarchy', projectId] });
+    qc.invalidateQueries({ queryKey: ['sprint-detail-hierarchy', projectId] });
+    qc.invalidateQueries({ queryKey: ['sprint-detail-tasks', projectId] });
     qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
   };
 
@@ -521,9 +523,9 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
               <p className="text-sm">{task.reporter?.full_name || '—'}</p>
             </div>
             <div>
-              <span className="text-xs text-muted-foreground">Epic</span>
+              <span className="text-xs text-muted-foreground">Module</span>
               <select value={task.epic_id || ''} onChange={e => submitTaskUpdate({ epic_id: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">No Epic</option>
+                <option value="">No Module</option>
                 {epics.map((epic) => <option key={epic.id} value={epic.id}>{epic.title}</option>)}
               </select>
             </div>
