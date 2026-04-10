@@ -65,6 +65,23 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
     enabled: sprintIds.length > 0,
   });
 
+  const { data: sprintTasksMap } = useQuery({
+    queryKey: ['sprint-tasks-fallback', projectId, sprintIds],
+    queryFn: async () => {
+      const results: Record<string, ProjectTask[]> = {};
+      await Promise.all(sprintIds.map(async sid => {
+        try {
+          const r = await api.get('/tasks', { params: { project_id: projectId, sprint_id: sid } });
+          results[sid] = extractProjectArray<ProjectTask>(r.data, ['tasks']);
+        } catch {
+          results[sid] = [];
+        }
+      }));
+      return results;
+    },
+    enabled: sprintIds.length > 0,
+  });
+
   // Fetch tasks for expanded epics that have no stories/tasks in hierarchy
   const expandedEpicIds = Array.from(expandedEpics);
   const { data: epicTasksMap } = useQuery({
@@ -213,7 +230,27 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
         {sprints.map(sprint => {
           const progress = sprint.task_count ? Math.round(((sprint.done_count || 0) / sprint.task_count) * 100) : 0;
           const hierarchy = hierarchyMap?.[sprint.id];
-          const epics = hierarchy?.epics || [];
+          const fallbackSprintTasks = sprintTasksMap?.[sprint.id] || [];
+          const epicMap = new Map<string, HierarchyEpic>();
+
+          (hierarchy?.epics || []).forEach((epic: HierarchyEpic) => {
+            epicMap.set(epic.id, epic);
+          });
+
+          fallbackSprintTasks.forEach((task) => {
+            if (!task.epic_id) return;
+            if (epicMap.has(task.epic_id)) return;
+
+            epicMap.set(task.epic_id, {
+              id: task.epic_id,
+              title: task.epic_name || 'Untitled Epic',
+              color: task.epic_color || 'hsl(var(--muted))',
+              stories: [],
+            });
+          });
+
+          const epics = Array.from(epicMap.values());
+          const standaloneSprintTasks = fallbackSprintTasks.filter((task) => !task.epic_id && !task.parent_task_id);
 
           return (
             <div key={sprint.id} className="glass-card p-4 space-y-3">
@@ -299,7 +336,11 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
                     );
                   })}
 
-                  {epics.length === 0 && (
+                  {standaloneSprintTasks.map(task => (
+                    <LeafTaskRow key={task.id} task={task} indent={0} />
+                  ))}
+
+                  {epics.length === 0 && standaloneSprintTasks.length === 0 && (
                     <p className="text-xs text-muted-foreground text-center py-3">No epics in this sprint</p>
                   )}
                 </div>
