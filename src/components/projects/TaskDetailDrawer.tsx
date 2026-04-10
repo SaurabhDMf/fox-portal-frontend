@@ -62,6 +62,7 @@ function normalizeTaskEntity(rawTask: any, members: any[] = []): ProjectTask {
     assignees.push({
       id: assigneeIds[0] || task.assignee_id || task.assigned_to_id || String(task.assignee_name || task.assigned_to_name),
       full_name: task.assignee_name || task.assigned_to_name,
+      avatar_url: undefined,
     });
   }
 
@@ -177,7 +178,6 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     queryFn: () => api.get(`/tasks/${initialTask.id}`).then(r => normalizeTaskEntity(r.data)),
     initialData: normalizeTaskEntity(initialTask),
   });
-  const task = normalizeTaskEntity(taskDetail || initialTask, members);
 
   // Fixed endpoints: extract from .data
   const { data: commentsRaw } = useQuery({
@@ -209,6 +209,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     queryFn: () => api.get(`/projects/${projectId}/members`).then(r => extractProjectArray(r.data, ['members', 'users'])),
   });
   const members = Array.isArray(membersRaw) ? membersRaw : [];
+  const task = normalizeTaskEntity(taskDetail || initialTask, members);
 
   const { data: epicsRaw } = useQuery({
     queryKey: ['project-epics', projectId],
