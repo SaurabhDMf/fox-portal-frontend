@@ -138,7 +138,7 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
     const pc = PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.Medium;
     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
     const isExpanded = expandedTasks.has(task.id);
-    const assigneeName = task.assignee_name || task.assignees?.[0]?.full_name || '';
+    const assigneeName = (task as any).assignee_name || task.assignees?.[0]?.full_name || '';
 
     return (
       <>
