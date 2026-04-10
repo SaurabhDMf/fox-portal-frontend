@@ -6,7 +6,7 @@ import { ArrowLeft, LayoutGrid, List, Zap, Timer, Users, Pencil, Trash2, X } fro
 import { extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectTask } from '@/lib/projectTypes';
 import KanbanBoard from '@/components/projects/KanbanBoard';
-import BacklogView from '@/components/projects/BacklogView';
+import TasksListView from '@/components/projects/TasksListView';
 import EpicsView from '@/components/projects/EpicsView';
 import SprintsView from '@/components/projects/SprintsView';
 import MembersView from '@/components/projects/MembersView';
@@ -16,7 +16,7 @@ import toast from 'react-hot-toast';
 
 const TABS = [
   { id: 'board', label: 'Board', icon: LayoutGrid },
-  { id: 'backlog', label: 'Backlog', icon: List },
+  { id: 'tasks', label: 'Tasks', icon: List },
   { id: 'epics', label: 'Epics', icon: Zap },
   { id: 'sprints', label: 'Sprints', icon: Timer },
   { id: 'members', label: 'Members', icon: Users },
@@ -169,7 +169,7 @@ export default function ProjectDetail() {
       {activeTab === 'board' && (
         <KanbanBoard projectId={id!} onTaskClick={setSelectedTask} onCreateTask={(status) => setCreateTaskStatus(status || 'Open')} />
       )}
-      {activeTab === 'backlog' && <BacklogView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskStatus('Open')} />}
+      {activeTab === 'tasks' && <TasksListView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskStatus('Open')} />}
       {activeTab === 'epics' && <EpicsView projectId={id!} onTaskClick={setSelectedTask} />}
       {activeTab === 'sprints' && <SprintsView projectId={id!} onTaskClick={setSelectedTask} />}
       {activeTab === 'members' && <MembersView projectId={id!} />}
