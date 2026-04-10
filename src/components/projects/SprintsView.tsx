@@ -65,6 +65,40 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
     enabled: sprintIds.length > 0,
   });
 
+  // Fetch tasks for expanded epics that have no stories/tasks in hierarchy
+  const expandedEpicIds = Array.from(expandedEpics);
+  const { data: epicTasksMap } = useQuery({
+    queryKey: ['sprint-epic-tasks', projectId, expandedEpicIds],
+    queryFn: async () => {
+      const results: Record<string, ProjectTask[]> = {};
+      await Promise.all(expandedEpicIds.map(async eid => {
+        try {
+          const r = await api.get('/tasks', { params: { project_id: projectId, epic_id: eid } });
+          results[eid] = extractProjectArray<ProjectTask>(r.data, ['tasks']);
+        } catch { results[eid] = []; }
+      }));
+      return results;
+    },
+    enabled: expandedEpicIds.length > 0,
+  });
+
+  // Fetch subtasks for expanded stories
+  const expandedStoryIds = Array.from(expandedStories);
+  const { data: storySubtasksMap } = useQuery({
+    queryKey: ['sprint-story-subtasks', projectId, expandedStoryIds],
+    queryFn: async () => {
+      const results: Record<string, ProjectTask[]> = {};
+      await Promise.all(expandedStoryIds.map(async sid => {
+        try {
+          const r = await api.get('/tasks', { params: { parent_task_id: sid } });
+          results[sid] = extractProjectArray<ProjectTask>(r.data, ['tasks']);
+        } catch { results[sid] = []; }
+      }));
+      return results;
+    },
+    enabled: expandedStoryIds.length > 0,
+  });
+
   const toggleExpand = (sid: string) => {
     setExpandedSprints(prev => { const n = new Set(prev); n.has(sid) ? n.delete(sid) : n.add(sid); return n; });
   };
@@ -133,7 +167,12 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
   const StoryRow = ({ story, indent }: { story: HierarchyStory; indent: number }) => {
     const tc = TASK_TYPE_CONFIG.Story;
     const pc = PRIORITY_COLORS[story.priority] || PRIORITY_COLORS.Medium;
-    const children = story.tasks || [];
+    // Merge hierarchy tasks with fetched subtasks
+    const hierarchyChildren = story.tasks || [];
+    const fetchedChildren = storySubtasksMap?.[story.id] || [];
+    const mergedMap = new Map<string, ProjectTask>();
+    [...hierarchyChildren, ...fetchedChildren].forEach(t => mergedMap.set(t.id, t));
+    const children = Array.from(mergedMap.values());
     const isOpen = expandedStories.has(story.id);
 
     return (
@@ -141,20 +180,22 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
         <div
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-secondary/50 cursor-pointer transition-colors"
           style={{ paddingLeft: `${12 + indent * 20}px` }}
-          onClick={() => onTaskClick?.(story)}
+          onClick={() => { toggleStory(story.id); }}
         >
-          {children.length > 0 ? (
-            <button onClick={(e) => { e.stopPropagation(); toggleStory(story.id); }} className="p-0.5">
-              {isOpen ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
-            </button>
-          ) : <span className="w-4" />}
+          <button onClick={(e) => { e.stopPropagation(); toggleStory(story.id); }} className="p-0.5">
+            {isOpen ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />}
+          </button>
           <span className="text-sm">{tc.icon}</span>
           <span className="text-xs font-mono text-muted-foreground w-16 flex-shrink-0">{story.task_number}</span>
           <span className="text-sm font-medium flex-1 truncate">{story.title}</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{story.status}</span>
+          <span className="text-[10px] text-muted-foreground">({children.length} tasks)</span>
           <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pc }} title={story.priority} />
         </div>
-        {isOpen && children.map(t => <LeafTaskRow key={t.id} task={t} indent={indent + 1} />)}
+        {isOpen && children.length > 0 && children.map(t => <LeafTaskRow key={t.id} task={t} indent={indent + 1} />)}
+        {isOpen && children.length === 0 && (
+          <p className="text-[10px] text-muted-foreground py-1" style={{ paddingLeft: `${12 + (indent + 1) * 20}px` }}>No tasks under this story</p>
+        )}
       </>
     );
   };
@@ -217,8 +258,23 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
               {expandedSprints.has(sprint.id) && (
                 <div className="border-t border-border pt-3 space-y-1">
                   {epics.map((epic: HierarchyEpic) => {
-                    const stories = epic.stories || [];
+                    const hierarchyStories = epic.stories || [];
+                    // Merge with fetched epic tasks
+                    const fetchedEpicTasks = epicTasksMap?.[epic.id] || [];
+                    // Separate stories from non-story tasks
+                    const storyMap = new Map<string, HierarchyStory>();
+                    hierarchyStories.forEach(s => storyMap.set(s.id, s));
+                    const nonStoryTasks: ProjectTask[] = [];
+                    fetchedEpicTasks.forEach(t => {
+                      if (t.type === 'Story' && !storyMap.has(t.id)) {
+                        storyMap.set(t.id, t as HierarchyStory);
+                      } else if (t.type !== 'Story' && !storyMap.has(t.id)) {
+                        nonStoryTasks.push(t);
+                      }
+                    });
+                    const allStories = Array.from(storyMap.values());
                     const isEpicOpen = expandedEpics.has(epic.id);
+                    const totalItems = allStories.length + nonStoryTasks.length;
                     return (
                       <div key={epic.id}>
                         <div
@@ -228,13 +284,16 @@ export default function SprintsView({ projectId, onTaskClick }: Props) {
                           {isEpicOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                           <div className="w-3 h-3 rounded" style={{ background: epic.color }} />
                           <span className="text-sm font-semibold">{epic.title}</span>
-                          <span className="text-[10px] text-muted-foreground">({stories.length} stories)</span>
+                          <span className="text-[10px] text-muted-foreground">({allStories.length} stories{nonStoryTasks.length > 0 ? `, ${nonStoryTasks.length} tasks` : ''})</span>
                         </div>
-                        {isEpicOpen && stories.map((story: HierarchyStory) => (
+                        {isEpicOpen && allStories.map((story: HierarchyStory) => (
                           <StoryRow key={story.id} story={story} indent={1} />
                         ))}
-                        {isEpicOpen && stories.length === 0 && (
-                          <p className="text-[10px] text-muted-foreground py-1 pl-10">No stories in this epic</p>
+                        {isEpicOpen && nonStoryTasks.map(t => (
+                          <LeafTaskRow key={t.id} task={t} indent={1} />
+                        ))}
+                        {isEpicOpen && totalItems === 0 && (
+                          <p className="text-[10px] text-muted-foreground py-1 pl-10">No items in this epic</p>
                         )}
                       </div>
                     );
