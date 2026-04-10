@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { TASK_TYPE_CONFIG, PRIORITY_COLORS, BOARD_COLUMNS, type ProjectTask } from '@/lib/projectTypes';
-import { extractProjectArray } from '@/lib/projectResponse';
+import { TASK_TYPE_CONFIG, BOARD_COLUMNS, type Epic, type ProjectTask, type Sprint } from '@/lib/projectTypes';
+import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2, Paperclip, Image, FileText, Download, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -15,6 +15,41 @@ interface Props {
 
 const TYPES = ['Story', 'Task', 'Bug', 'Subtask'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
+
+const getMemberId = (member: any) => member?.user_id || member?.id;
+
+function sanitizeTaskPatch(patch: Record<string, any>) {
+  const payload: Record<string, any> = {};
+
+  if ('title' in patch) {
+    const title = String(patch.title ?? '').trim();
+    if (title) payload.title = title;
+  }
+
+  if ('description' in patch) payload.description = typeof patch.description === 'string' ? patch.description.trim() : '';
+  if ('type' in patch && patch.type) payload.type = patch.type;
+  if ('status' in patch && patch.status) payload.status = patch.status;
+  if ('priority' in patch && patch.priority) payload.priority = patch.priority;
+
+  if ('assignee_ids' in patch && Array.isArray(patch.assignee_ids)) {
+    payload.assignee_ids = [...new Set(patch.assignee_ids.filter((id: string) => typeof id === 'string' && id.trim()))];
+  }
+
+  if ('epic_id' in patch) payload.epic_id = patch.epic_id || null;
+  if ('sprint_id' in patch) payload.sprint_id = patch.sprint_id || null;
+  if ('parent_task_id' in patch) payload.parent_task_id = patch.parent_task_id || null;
+  if ('due_date' in patch) payload.due_date = patch.due_date || null;
+
+  if ('story_points' in patch) {
+    if (patch.story_points === '' || patch.story_points == null) payload.story_points = null;
+    else {
+      const parsed = Number(patch.story_points);
+      if (Number.isFinite(parsed)) payload.story_points = parsed;
+    }
+  }
+
+  return payload;
+}
 
 function EditableDescription({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [editing, setEditing] = useState(false);
@@ -54,7 +89,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
 
   const { data: taskDetail } = useQuery({
     queryKey: ['task-detail', initialTask.id],
-    queryFn: () => api.get(`/tasks/${initialTask.id}`).then(r => r.data?.task || r.data?.data?.task || r.data),
+    queryFn: () => api.get(`/tasks/${initialTask.id}`).then(r => extractProjectEntity<ProjectTask>(r.data, ['task']) || initialTask),
     initialData: initialTask,
   });
   const task = taskDetail || initialTask;
@@ -84,6 +119,18 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   });
   const members = Array.isArray(membersRaw) ? membersRaw : [];
 
+  const { data: epicsRaw } = useQuery({
+    queryKey: ['project-epics', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/epics`).then(r => extractProjectArray<Epic>(r.data, ['epics'])),
+  });
+  const epics = Array.isArray(epicsRaw) ? epicsRaw : [];
+
+  const { data: sprintsRaw } = useQuery({
+    queryKey: ['project-sprints', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => extractProjectArray<Sprint>(r.data, ['sprints'])),
+  });
+  const sprints = Array.isArray(sprintsRaw) ? sprintsRaw : [];
+
   const { data: attachmentsRaw } = useQuery({
     queryKey: ['task-attachments', initialTask.id],
     queryFn: async () => {
@@ -95,10 +142,81 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   });
   const attachments = Array.isArray(attachmentsRaw) ? attachmentsRaw : (task.attachments || []);
 
+  const buildOptimisticTask = (currentTask: ProjectTask, patch: Record<string, any>): ProjectTask => {
+    const nextTask: ProjectTask = { ...currentTask, ...patch };
+
+    if ('assignee_ids' in patch) {
+      const nextIds = Array.isArray(patch.assignee_ids) ? patch.assignee_ids : [];
+      nextTask.assignee_ids = nextIds;
+      nextTask.assignees = nextIds
+        .map((id: string) => {
+          const member = members.find((item: any) => getMemberId(item) === id);
+          const existing = currentTask.assignees?.find((assignee: any) => getMemberId(assignee) === id || assignee?.id === id);
+          if (member) return { id, full_name: member.full_name, avatar_url: member.avatar_url };
+          return existing;
+        })
+        .filter(Boolean) as ProjectTask['assignees'];
+    }
+
+    if ('epic_id' in patch) {
+      const epic = epics.find((item) => item.id === patch.epic_id);
+      nextTask.epic_id = patch.epic_id || undefined;
+      nextTask.epic_name = epic?.title;
+      nextTask.epic_color = epic?.color;
+    }
+
+    if ('sprint_id' in patch) {
+      const sprint = sprints.find((item) => item.id === patch.sprint_id);
+      nextTask.sprint_id = patch.sprint_id || undefined;
+      nextTask.sprint_name = sprint?.name;
+    }
+
+    if ('parent_task_id' in patch) nextTask.parent_task_id = patch.parent_task_id || undefined;
+    if ('due_date' in patch) nextTask.due_date = patch.due_date || undefined;
+    if ('story_points' in patch) nextTask.story_points = patch.story_points == null || patch.story_points === '' ? undefined : Number(patch.story_points);
+    if ('description' in patch) nextTask.description = patch.description;
+
+    return nextTask;
+  };
+
+  const invalidateTaskQueries = () => {
+    qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] });
+    qc.invalidateQueries({ queryKey: ['project-board', projectId] });
+    qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
+  };
+
   const updateMut = useMutation({
-    mutationFn: (d: any) => api.put(`/tasks/${initialTask.id}`, d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); qc.invalidateQueries({ queryKey: ['project-board', projectId] }); qc.invalidateQueries({ queryKey: ['project-backlog', projectId] }); toast.success('Updated'); },
+    mutationFn: (d: Record<string, any>) => api.put(`/tasks/${initialTask.id}`, d),
+    onMutate: async (patch) => {
+      await qc.cancelQueries({ queryKey: ['task-detail', initialTask.id] });
+      const previousTask = qc.getQueryData<ProjectTask>(['task-detail', initialTask.id]);
+      const currentTask = previousTask || task;
+
+      qc.setQueryData(['task-detail', initialTask.id], buildOptimisticTask(currentTask, patch));
+
+      return { previousTask };
+    },
+    onSuccess: (res, patch) => {
+      const updatedTask = extractProjectEntity<ProjectTask>(res.data, ['task']);
+      if (updatedTask) {
+        qc.setQueryData<ProjectTask>(['task-detail', initialTask.id], (current) => buildOptimisticTask({ ...(current || task), ...updatedTask }, patch));
+      }
+
+      invalidateTaskQueries();
+      setTimeout(invalidateTaskQueries, 1200);
+      toast.success('Updated');
+    },
+    onError: (e: any, _patch, context) => {
+      if (context?.previousTask) qc.setQueryData(['task-detail', initialTask.id], context.previousTask);
+      toast.error(e.response?.data?.message || e.response?.data?.error || 'Failed to update task');
+    },
   });
+
+  const submitTaskUpdate = (patch: Record<string, any>) => {
+    const payload = sanitizeTaskPatch(patch);
+    if (Object.keys(payload).length === 0) return;
+    updateMut.mutate(payload);
+  };
 
   const commentMut = useMutation({
     mutationFn: (text: string) => api.post(`/tasks/${initialTask.id}/comments`, { text }),
@@ -116,8 +234,64 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   });
 
   const subtaskMut = useMutation({
-    mutationFn: (title: string) => api.post('/tasks', { title, type: 'Subtask', project_id: projectId, parent_task_id: initialTask.id }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); setShowSubtask(false); setSubtaskTitle(''); toast.success('Subtask added'); },
+    mutationFn: (title: string) => {
+      const payload: Record<string, any> = {
+        title: title.trim(),
+        type: 'Subtask',
+        priority: task.priority || 'Medium',
+        status: 'Open',
+        project_id: projectId,
+        parent_task_id: initialTask.id,
+      };
+
+      if (task.epic_id) payload.epic_id = task.epic_id;
+      if (task.sprint_id) payload.sprint_id = task.sprint_id;
+      if (task.assignee_ids?.length) payload.assignee_ids = task.assignee_ids;
+
+      return api.post('/tasks', payload);
+    },
+    onMutate: async (title) => {
+      await qc.cancelQueries({ queryKey: ['task-detail', initialTask.id] });
+      const previousTask = qc.getQueryData<ProjectTask>(['task-detail', initialTask.id]);
+      const tempId = `temp-subtask-${Date.now()}`;
+
+      qc.setQueryData<ProjectTask>(['task-detail', initialTask.id], (current) => ({
+        ...(current || task),
+        subtasks: [
+          ...((current || task).subtasks || []),
+          {
+            id: tempId,
+            task_number: 'NEW',
+            title: title.trim(),
+            type: 'Subtask',
+            status: 'Open',
+            priority: task.priority || 'Medium',
+          },
+        ],
+      }));
+
+      return { previousTask, tempId };
+    },
+    onSuccess: (res, _title, context) => {
+      const createdSubtask = extractProjectEntity<ProjectTask>(res.data, ['task']);
+
+      if (createdSubtask) {
+        qc.setQueryData<ProjectTask>(['task-detail', initialTask.id], (current) => ({
+          ...(current || task),
+          subtasks: ((current || task).subtasks || []).map((subtask) => subtask.id === context?.tempId ? createdSubtask : subtask),
+        }));
+      }
+
+      invalidateTaskQueries();
+      setTimeout(invalidateTaskQueries, 1200);
+      setShowSubtask(false);
+      setSubtaskTitle('');
+      toast.success('Subtask added');
+    },
+    onError: (e: any, _title, context) => {
+      if (context?.previousTask) qc.setQueryData(['task-detail', initialTask.id], context.previousTask);
+      toast.error(e.response?.data?.message || e.response?.data?.error || 'Failed to add subtask');
+    },
   });
 
   const uploadMut = useMutation({
@@ -165,12 +339,18 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   };
 
   const toggleAssignee = (userId: string) => {
-    const currentIds = task.assignee_ids || task.assignees?.map((a: any) => a.id) || [];
+    const currentIds = task.assignee_ids || task.assignees?.map((a: any) => getMemberId(a) || a.id) || [];
     const newIds = currentIds.includes(userId)
       ? currentIds.filter((id: string) => id !== userId)
       : [...currentIds, userId];
-    updateMut.mutate({ assignee_ids: newIds });
+    submitTaskUpdate({ assignee_ids: newIds });
     setShowAssigneePicker(false);
+  };
+
+  const addSubtask = () => {
+    const title = subtaskTitle.trim();
+    if (!title) return;
+    subtaskMut.mutate(title);
   };
 
   const tc = TASK_TYPE_CONFIG[task.type] || TASK_TYPE_CONFIG.Task;
@@ -205,13 +385,13 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
         <div className="p-4 md:p-6 space-y-6">
           {/* Dropdowns row */}
           <div className="flex flex-wrap gap-2">
-            <select value={task.type} onChange={e => updateMut.mutate({ type: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
+            <select value={task.type} onChange={e => submitTaskUpdate({ type: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
               {TYPES.map(t => <option key={t} value={t}>{TASK_TYPE_CONFIG[t]?.icon} {t}</option>)}
             </select>
-            <select value={task.status} onChange={e => updateMut.mutate({ status: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
+            <select value={task.status} onChange={e => submitTaskUpdate({ status: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
               {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <select value={task.priority} onChange={e => updateMut.mutate({ priority: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
+            <select value={task.priority} onChange={e => submitTaskUpdate({ priority: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
               {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
@@ -219,7 +399,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
           {/* Title */}
           {isEditingTitle ? (
             <div className="flex gap-2">
-              <input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-primary/50" autoFocus onBlur={() => { updateMut.mutate({ title: editTitle }); setIsEditingTitle(false); }} onKeyDown={e => { if (e.key === 'Enter') { updateMut.mutate({ title: editTitle }); setIsEditingTitle(false); } }} />
+              <input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-primary/50" autoFocus onBlur={() => { submitTaskUpdate({ title: editTitle }); setIsEditingTitle(false); }} onKeyDown={e => { if (e.key === 'Enter') { submitTaskUpdate({ title: editTitle }); setIsEditingTitle(false); } }} />
             </div>
           ) : (
             <h1 className="text-lg font-semibold cursor-pointer hover:text-primary transition-colors" onClick={() => setIsEditingTitle(true)}>{task.title}</h1>
@@ -228,7 +408,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
           {/* Description */}
           <EditableDescription
             value={task.description || ''}
-            onSave={(desc) => updateMut.mutate({ description: desc })}
+            onSave={(desc) => submitTaskUpdate({ description: desc })}
           />
 
           {/* Details grid */}
@@ -255,9 +435,10 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
               {showAssigneePicker && (
                 <div className="absolute top-full left-0 z-20 mt-1 w-64 bg-card border border-border rounded-lg shadow-lg p-2 space-y-1 max-h-48 overflow-y-auto">
                   {members.map((m: any) => {
-                    const isAssigned = task.assignees?.some((a: any) => a.id === (m.user_id || m.id)) || task.assignee_ids?.includes(m.user_id || m.id);
+                    const memberId = getMemberId(m);
+                    const isAssigned = task.assignees?.some((a: any) => getMemberId(a) === memberId || a.id === memberId) || task.assignee_ids?.includes(memberId);
                     return (
-                      <button key={m.user_id || m.id} onClick={() => toggleAssignee(m.user_id || m.id)} className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm transition-colors ${isAssigned ? 'bg-primary/10 text-primary' : 'hover:bg-secondary'}`}>
+                      <button key={memberId} onClick={() => toggleAssignee(memberId)} className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm transition-colors ${isAssigned ? 'bg-primary/10 text-primary' : 'hover:bg-secondary'}`}>
                         <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[9px] font-bold text-primary">{m.full_name?.[0]}</div>
                         <span className="flex-1 truncate">{m.full_name}</span>
                         {isAssigned && <span className="text-[10px]">✓</span>}
@@ -274,13 +455,17 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Epic</span>
-              {task.epic_name ? (
-                <div className="flex items-center gap-1 mt-1"><div className="w-2.5 h-2.5 rounded" style={{ background: task.epic_color }} /><span className="text-sm">{task.epic_name}</span></div>
-              ) : <p className="text-sm text-muted-foreground">None</p>}
+              <select value={task.epic_id || ''} onChange={e => submitTaskUpdate({ epic_id: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="">No Epic</option>
+                {epics.map((epic) => <option key={epic.id} value={epic.id}>{epic.title}</option>)}
+              </select>
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Sprint</span>
-              <p className="text-sm">{task.sprint_name || '—'}</p>
+              <select value={task.sprint_id || ''} onChange={e => submitTaskUpdate({ sprint_id: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="">No Sprint</option>
+                {sprints.filter((sprint) => sprint.status !== 'Completed').map((sprint) => <option key={sprint.id} value={sprint.id}>{sprint.name}</option>)}
+              </select>
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Story Points</span>
@@ -364,8 +549,8 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             {(!task.subtasks || task.subtasks.length === 0) && !showSubtask && <p className="text-xs text-muted-foreground">No subtasks</p>}
             {showSubtask && (
               <div className="flex gap-2 mt-1">
-                <input placeholder="Subtask title" value={subtaskTitle} onChange={e => setSubtaskTitle(e.target.value)} className="flex-1 px-2 py-1 rounded bg-secondary border border-border text-sm focus:outline-none" autoFocus onKeyDown={e => { if (e.key === 'Enter' && subtaskTitle) subtaskMut.mutate(subtaskTitle); }} />
-                <button onClick={() => subtaskTitle && subtaskMut.mutate(subtaskTitle)} className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs">Add</button>
+                <input placeholder="Subtask title" value={subtaskTitle} onChange={e => setSubtaskTitle(e.target.value)} className="flex-1 px-2 py-1 rounded bg-secondary border border-border text-sm focus:outline-none" autoFocus onKeyDown={e => { if (e.key === 'Enter' && subtaskTitle.trim()) addSubtask(); }} />
+                <button onClick={addSubtask} className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs">Add</button>
                 <button onClick={() => setShowSubtask(false)} className="px-2 py-1 rounded text-xs text-muted-foreground hover:bg-secondary">Cancel</button>
               </div>
             )}
