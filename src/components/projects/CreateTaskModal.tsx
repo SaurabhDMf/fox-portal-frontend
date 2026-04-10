@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import type { Epic, Sprint } from '@/lib/projectTypes';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -13,17 +13,27 @@ interface Props {
 }
 
 type ItemType = 'Epic' | 'Story' | 'Task' | 'Bug';
-const ITEM_TYPES: ItemType[] = ['Epic', 'Story', 'Task', 'Bug'];
+const ITEM_TYPES: ItemType[] = ['Task', 'Story', 'Bug', 'Epic'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
+const STATUS_OPTIONS = ['Open', 'In Progress', 'Review', 'Done', 'Cancelled'];
 
 export default function CreateTaskModal({ projectId, defaultStatus, onClose }: Props) {
   const qc = useQueryClient();
-  const [itemType, setItemType] = useState<ItemType>('Story');
+  const [itemType, setItemType] = useState<ItemType>('Task');
   const [form, setForm] = useState({
     title: '', description: '', priority: 'Medium', status: defaultStatus || 'Open',
     assignee_ids: [] as string[], epic_id: '', sprint_id: '', parent_task_id: '',
     story_points: '', due_date: '', color: '#3B82F6',
   });
+
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      epic_id: itemType === 'Story' ? prev.epic_id : '',
+      sprint_id: itemType === 'Epic' ? prev.sprint_id : '',
+      parent_task_id: itemType === 'Task' || itemType === 'Bug' ? prev.parent_task_id : '',
+    }));
+  }, [itemType]);
 
   const { data: membersRaw } = useQuery({
     queryKey: ['project-members', projectId],
@@ -34,7 +44,6 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
   const { data: epicsRaw } = useQuery({
     queryKey: ['project-epics', projectId],
     queryFn: () => api.get(`/projects/${projectId}/epics`).then(r => extractProjectArray<Epic>(r.data, ['epics'])),
-    enabled: itemType === 'Story',
   });
   const epics = Array.isArray(epicsRaw) ? epicsRaw : [];
 
@@ -62,7 +71,6 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
         return storyTasks.length > 0 ? storyTasks : all.filter((t: any) => t.type !== 'Subtask');
       } catch { return []; }
     },
-    enabled: itemType === 'Task' || itemType === 'Bug',
   });
   const stories = Array.isArray(storiesRaw) ? storiesRaw : [];
 
@@ -83,6 +91,9 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
         priority: d.priority,
         status: d.status,
         project_id: projectId,
+        epic_id: null,
+        sprint_id: null,
+        parent_task_id: null,
       };
       if (d.description?.trim()) payload.description = d.description.trim();
       if (d.assignee_ids.length > 0) payload.assignee_ids = d.assignee_ids;
@@ -147,6 +158,14 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
           ))}
         </div>
 
+        <p className="text-xs text-muted-foreground">
+          {itemType === 'Task' || itemType === 'Bug'
+            ? 'Leave Parent Story empty to create a main task. Select one only if this should sit under that story.'
+            : itemType === 'Story'
+              ? 'Epic is optional. Leave it empty to create a standalone story.'
+              : 'Sprint is optional. Leave it empty to keep this epic in the backlog.'}
+        </p>
+
         <input placeholder={`${itemType} title *`} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" autoFocus />
 
         {itemType !== 'Epic' && (
@@ -190,9 +209,14 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
 
         {/* Priority (not for Epic) */}
         {itemType !== 'Epic' && (
-          <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-            {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <div className="grid grid-cols-2 gap-3">
+            <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+              {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+              {STATUS_OPTIONS.map(status => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </div>
         )}
 
         {/* Assignees (not for Epic) */}
