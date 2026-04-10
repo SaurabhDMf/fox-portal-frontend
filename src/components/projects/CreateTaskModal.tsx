@@ -9,6 +9,8 @@ import toast from 'react-hot-toast';
 interface Props {
   projectId: string;
   defaultStatus?: string;
+  defaultSprintId?: string;
+  defaultEpicId?: string;
   onClose: () => void;
 }
 
@@ -18,7 +20,7 @@ const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 const STATUS_OPTIONS = ['Open', 'In Progress', 'Review', 'Done', 'Cancelled'];
 const STAGES = ['Design', 'Development', 'Integration', 'Testing', 'Done'];
 
-export default function CreateTaskModal({ projectId, defaultStatus, onClose }: Props) {
+export default function CreateTaskModal({ projectId, defaultStatus, defaultSprintId, defaultEpicId, onClose }: Props) {
   const qc = useQueryClient();
   const [itemType, setItemType] = useState<ItemType>('Task');
   const [form, setForm] = useState({
@@ -28,8 +30,8 @@ export default function CreateTaskModal({ projectId, defaultStatus, onClose }: P
     status: defaultStatus || 'Open',
     stage: '',
     assignee_ids: [] as string[],
-    epic_id: '',
-    sprint_id: '',
+    epic_id: defaultEpicId || '',
+    sprint_id: defaultSprintId || '',
     parent_task_id: '',
     story_points: '',
     due_date: '',
