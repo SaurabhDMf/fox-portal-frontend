@@ -605,10 +605,70 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
               <button onClick={() => setShowSubtask(true)} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="h-3 w-3" /> Add</button>
             </div>
             {task.subtasks?.map((st: any) => (
-              <div key={st.id} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-secondary/50">
-                <input type="checkbox" checked={st.status === 'Done'} readOnly className="rounded border-border" />
+              <div key={st.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-secondary/50 flex-wrap">
+                {/* Checkbox + Title */}
+                <input
+                  type="checkbox"
+                  checked={st.status === 'Done'}
+                  onChange={() => {
+                    const newStatus = st.status === 'Done' ? 'Open' : 'Done';
+                    api.put(`/tasks/${st.id}`, { status: newStatus }).then(() => {
+                      qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] });
+                      toast.success(`Subtask ${newStatus === 'Done' ? 'completed' : 'reopened'}`);
+                    }).catch(() => toast.error('Failed to update subtask'));
+                  }}
+                  className="rounded border-border cursor-pointer"
+                />
                 <span className="text-xs font-mono text-muted-foreground">{st.task_number}</span>
-                <span className={`text-sm ${st.status === 'Done' ? 'line-through text-muted-foreground' : ''}`}>{st.title}</span>
+                <span className={`text-sm flex-1 min-w-[80px] ${st.status === 'Done' ? 'line-through text-muted-foreground' : ''}`}>{st.title}</span>
+
+                {/* Status */}
+                <select
+                  value={st.status || 'Open'}
+                  onChange={(e) => {
+                    api.put(`/tasks/${st.id}`, { status: e.target.value }).then(() => {
+                      qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] });
+                      toast.success('Status updated');
+                    }).catch(() => toast.error('Failed to update'));
+                  }}
+                  className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer"
+                >
+                  {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+
+                {/* Assignee */}
+                <select
+                  value={st.assignee_ids?.[0] || st.assignees?.[0]?.id || ''}
+                  onChange={(e) => {
+                    const payload: Record<string, any> = e.target.value
+                      ? { assignee_id: e.target.value }
+                      : { assignee_id: null };
+                    api.put(`/tasks/${st.id}`, payload).then(() => {
+                      qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] });
+                      toast.success('Assignee updated');
+                    }).catch(() => toast.error('Failed to update'));
+                  }}
+                  className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer max-w-[100px]"
+                >
+                  <option value="">Unassigned</option>
+                  {members.map((m: any) => {
+                    const uid = getMemberId(m);
+                    return <option key={uid} value={uid}>{getPersonName(m)}</option>;
+                  })}
+                </select>
+
+                {/* Due Date */}
+                <input
+                  type="date"
+                  value={st.due_date ? st.due_date.slice(0, 10) : ''}
+                  onChange={(e) => {
+                    api.put(`/tasks/${st.id}`, { due_date: e.target.value || null }).then(() => {
+                      qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] });
+                      toast.success('Due date updated');
+                    }).catch(() => toast.error('Failed to update'));
+                  }}
+                  className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer"
+                />
               </div>
             ))}
             {(!task.subtasks || task.subtasks.length === 0) && !showSubtask && <p className="text-xs text-muted-foreground">No subtasks</p>}
