@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
-import type { Epic, Sprint } from '@/lib/projectTypes';
+import type { Epic, Sprint, ProjectTask } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -19,6 +19,15 @@ const ITEM_TYPES: ItemType[] = ['Task', 'Story', 'Bug', 'Feature'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 const STATUS_OPTIONS = ['Open', 'In Progress', 'Review', 'Done', 'Cancelled'];
 const STAGES = ['Design', 'Development', 'Integration', 'Testing', 'Done'];
+
+function upsertTask<T extends { id: string }>(list: T[] = [], task: T): T[] {
+  const index = list.findIndex((item) => item.id === task.id);
+  if (index === -1) return [...list, task];
+
+  const next = [...list];
+  next[index] = { ...next[index], ...task };
+  return next;
+}
 
 export default function CreateTaskModal({ projectId, defaultStatus, defaultSprintId, defaultEpicId, onClose }: Props) {
   const qc = useQueryClient();
@@ -72,6 +81,72 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
   });
   const stories = Array.isArray(storiesRaw) ? storiesRaw : [];
 
+  const updateSprintCaches = (task: ProjectTask, targetSprintId: string) => {
+    qc.setQueryData(['sprint-detail-tasks', projectId, targetSprintId], (old: any) => {
+      if (!Array.isArray(old)) return task.parent_task_id ? old : [task];
+      if (!task.parent_task_id) return upsertTask(old, task);
+
+      return old.map((item: any) => item.id === task.parent_task_id
+        ? { ...item, subtasks: upsertTask(item.subtasks || [], task) }
+        : item);
+    });
+
+    qc.setQueryData(['sprint-detail-hierarchy', projectId, targetSprintId], (old: any) => {
+      if (!old || typeof old !== 'object') return old;
+
+      const moduleKey = Array.isArray(old.modules) || !Array.isArray(old.epics) ? 'modules' : 'epics';
+      const currentModules = Array.isArray(old[moduleKey]) ? [...old[moduleKey]] : [];
+      const attachToParent = (items: any[] = []) => items.map((item) => {
+        if (item.id === task.parent_task_id) {
+          return { ...item, subtasks: upsertTask(item.subtasks || [], task) };
+        }
+
+        return {
+          ...item,
+          tasks: Array.isArray(item.tasks) ? attachToParent(item.tasks) : item.tasks,
+          subtasks: Array.isArray(item.subtasks) ? attachToParent(item.subtasks) : item.subtasks,
+        };
+      });
+
+      if (task.parent_task_id) {
+        return {
+          ...old,
+          [moduleKey]: currentModules.map((module: any) => ({ ...module, tasks: attachToParent(module.tasks || []) })),
+          unassigned_tasks: attachToParent(old.unassigned_tasks || []),
+        };
+      }
+
+      if (task.epic_id) {
+        const moduleIndex = currentModules.findIndex((module: any) => module.id === task.epic_id);
+        if (moduleIndex >= 0) {
+          currentModules[moduleIndex] = {
+            ...currentModules[moduleIndex],
+            tasks: upsertTask(currentModules[moduleIndex].tasks || [], task),
+          };
+        } else {
+          currentModules.push({
+            id: task.epic_id,
+            title: task.epic_name || (task as any).module_title || (task as any).epic_title || 'Module',
+            color: task.epic_color || 'hsl(var(--primary))',
+            tasks: [task],
+          });
+        }
+
+        return {
+          ...old,
+          [moduleKey]: currentModules,
+          unassigned_tasks: (old.unassigned_tasks || []).filter((item: any) => item.id !== task.id),
+        };
+      }
+
+      return {
+        ...old,
+        [moduleKey]: currentModules,
+        unassigned_tasks: upsertTask(old.unassigned_tasks || [], task),
+      };
+    });
+  };
+
   const createMut = useMutation({
     mutationFn: () => {
       const payload: Record<string, any> = {
@@ -94,19 +169,21 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
     },
     onSuccess: async (res) => {
       await qc.cancelQueries({ queryKey: ['project-all-tasks', projectId] });
-      const newTask = extractProjectEntity(res.data, ['task']);
+      const newTask = (extractProjectEntity<ProjectTask>(res.data, ['task']) || res.data) as ProjectTask;
       if (newTask?.id) {
         qc.setQueryData(['project-all-tasks', projectId], (old: any) => {
           const prev = Array.isArray(old) ? old : [];
           return prev.some((t: any) => t?.id === newTask.id) ? prev : [...prev, newTask];
         });
+
+        const targetSprintId = newTask.sprint_id || form.sprint_id || defaultSprintId;
+        if (targetSprintId) updateSprintCaches(newTask, targetSprintId);
       }
       qc.invalidateQueries({ queryKey: ['project-board', projectId] });
       qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
       qc.invalidateQueries({ queryKey: ['project-epics', projectId] });
       qc.invalidateQueries({ queryKey: ['sprint-hierarchy', projectId] });
-      qc.invalidateQueries({ queryKey: ['sprint-detail-hierarchy', projectId] });
-      qc.invalidateQueries({ queryKey: ['sprint-detail-tasks', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
       onClose();
       toast.success(`${itemType} created`);
     },

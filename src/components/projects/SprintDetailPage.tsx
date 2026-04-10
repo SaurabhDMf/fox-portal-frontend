@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
@@ -37,6 +37,46 @@ interface Props {
   onCreateTask: (defaults?: { sprint_id?: string; epic_id?: string }) => void;
 }
 
+const fallbackHierarchy = { sprint: {}, modules: [], unassigned_tasks: [] };
+
+function normalizeHierarchyTask(task: any): HierarchyTask {
+  const assigneeName = task?.assignee_name || task?.assignees?.[0]?.full_name || task?.assignee?.full_name;
+  const assigneeId = task?.assignee_id || task?.assignees?.[0]?.id || task?.assignee?.id;
+
+  return {
+    ...task,
+    type: task?.type || 'Task',
+    status: task?.status || 'Open',
+    priority: task?.priority || 'Medium',
+    assignees: Array.isArray(task?.assignees) && task.assignees.length > 0
+      ? task.assignees
+      : assigneeName
+        ? [{ id: assigneeId || assigneeName, full_name: assigneeName, avatar_url: task?.assignee_avatar }]
+        : [],
+    subtasks: Array.isArray(task?.subtasks) ? task.subtasks.map(normalizeHierarchyTask) : [],
+  };
+}
+
+function dedupeTasks(tasks: any[] = []): HierarchyTask[] {
+  const map = new Map<string, HierarchyTask>();
+
+  tasks.forEach((task) => {
+    const normalized = normalizeHierarchyTask(task);
+    if (!normalized?.id) return;
+
+    const previous = map.get(normalized.id);
+    map.set(normalized.id, previous
+      ? {
+          ...previous,
+          ...normalized,
+          subtasks: dedupeTasks([...(previous.subtasks || []), ...(normalized.subtasks || [])]),
+        }
+      : normalized);
+  });
+
+  return Array.from(map.values());
+}
+
 export default function SprintDetailPage({ projectId, sprintId, sprintName, onBack, onTaskClick, onCreateTask }: Props) {
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<'hierarchy' | 'table'>('hierarchy');
@@ -52,13 +92,12 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
       try {
         const r = await api.get(`/projects/${projectId}/sprints/${sprintId}/hierarchy`);
         return r.data?.data || r.data;
-      } catch { return { sprint: {}, modules: [], unassigned_tasks: [] }; }
+      } catch { return fallbackHierarchy; }
     },
+    placeholderData: (previousData) => previousData,
   });
 
-  const hierarchy = hierarchyRaw || { sprint: {}, modules: [], unassigned_tasks: [] };
-  const modules: HierarchyModule[] = hierarchy.modules || hierarchy.epics || [];
-  const unassignedTasks: ProjectTask[] = hierarchy.unassigned_tasks || [];
+  const hierarchy = hierarchyRaw || fallbackHierarchy;
   const sprint = hierarchy.sprint || {};
 
   // Fetch sprint tasks for table view
@@ -75,8 +114,96 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
         } catch { return []; }
       }
     },
+    placeholderData: (previousData) => previousData,
   });
-  const sprintTasks = Array.isArray(sprintTasksRaw) ? sprintTasksRaw : [];
+  const fallbackSprintTasks = Array.isArray(sprintTasksRaw) ? sprintTasksRaw.map(normalizeHierarchyTask) : [];
+
+  const { modules, unassignedTasks, sprintTasks } = useMemo(() => {
+    const hierarchyModules = ((hierarchy.modules || hierarchy.epics || []) as HierarchyModule[]).map((module) => ({
+      ...module,
+      tasks: dedupeTasks(module.tasks || []),
+    }));
+    const moduleMap = new Map<string, HierarchyModule>();
+    const unassignedMap = new Map<string, HierarchyTask>();
+    const childTaskMap = new Map<string, HierarchyTask[]>();
+
+    hierarchyModules.forEach((module) => {
+      moduleMap.set(module.id, {
+        ...module,
+        tasks: dedupeTasks(module.tasks || []),
+      });
+    });
+
+    fallbackSprintTasks.forEach((task) => {
+      if (task.parent_task_id) {
+        const current = childTaskMap.get(task.parent_task_id) || [];
+        childTaskMap.set(task.parent_task_id, dedupeTasks([...current, task]));
+      }
+    });
+
+    const attachSubtasks = (task: HierarchyTask): HierarchyTask => ({
+      ...task,
+      subtasks: dedupeTasks([...(task.subtasks || []), ...(childTaskMap.get(task.id) || [])]),
+    });
+
+    fallbackSprintTasks
+      .filter((task) => !task.parent_task_id)
+      .map(attachSubtasks)
+      .forEach((task) => {
+        const moduleId = task.epic_id;
+        const moduleTitle = task.epic_name || (task as any).module_title || (task as any).epic_title;
+
+        if (moduleId || moduleTitle) {
+          const key = moduleId || `module-${moduleTitle}`;
+          const existing = moduleMap.get(key) || {
+            id: moduleId || key,
+            title: moduleTitle || 'Module',
+            color: task.epic_color || 'hsl(var(--primary))',
+            tasks: [],
+          };
+
+          moduleMap.set(key, {
+            ...existing,
+            color: existing.color || task.epic_color || 'hsl(var(--primary))',
+            tasks: dedupeTasks([...(existing.tasks || []), task]),
+          });
+          return;
+        }
+
+        unassignedMap.set(task.id, task);
+      });
+
+    dedupeTasks(hierarchy.unassigned_tasks || []).map(attachSubtasks).forEach((task) => {
+      unassignedMap.set(task.id, task);
+    });
+
+    const mergedModules = Array.from(moduleMap.values()).map((module) => {
+      const tasks = dedupeTasks((module.tasks || []).map(attachSubtasks));
+      const total = module.total_tasks ?? tasks.length;
+      const done = module.done_tasks ?? tasks.filter((task) => task.status === 'Done').length;
+
+      return {
+        ...module,
+        tasks,
+        total_tasks: total,
+        done_tasks: done,
+        open_tasks: module.open_tasks ?? Math.max(total - done, 0),
+      };
+    });
+
+    const mergedUnassignedTasks = dedupeTasks(Array.from(unassignedMap.values()));
+    const mergedSprintTasks = dedupeTasks([
+      ...mergedModules.flatMap((module) => module.tasks || []),
+      ...mergedUnassignedTasks,
+      ...fallbackSprintTasks.filter((task) => !task.parent_task_id).map(attachSubtasks),
+    ]);
+
+    return {
+      modules: mergedModules,
+      unassignedTasks: mergedUnassignedTasks,
+      sprintTasks: mergedSprintTasks,
+    };
+  }, [fallbackSprintTasks, hierarchy]);
 
   // Members for assignee display
   const { data: membersRaw } = useQuery({
