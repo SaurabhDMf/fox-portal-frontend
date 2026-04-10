@@ -55,6 +55,7 @@ export interface Epic {
   sprint_id?: string;
   sprint_name?: string;
   total_tasks?: number;
+  done_tasks?: number;
   open_tasks?: number;
   stories?: ProjectTask[];
 }

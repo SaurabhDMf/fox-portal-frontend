@@ -270,7 +270,9 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     qc.invalidateQueries({ queryKey: ['project-board', projectId] });
     qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
     qc.invalidateQueries({ queryKey: ['project-backlog-tasks', projectId] });
+    qc.invalidateQueries({ queryKey: ['project-all-tasks', projectId] });
     qc.invalidateQueries({ queryKey: ['project-epics', projectId] });
+    qc.invalidateQueries({ queryKey: ['project-epic-task-rollups', projectId] });
     qc.invalidateQueries({ queryKey: ['sprint-hierarchy', projectId] });
     qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
   };
