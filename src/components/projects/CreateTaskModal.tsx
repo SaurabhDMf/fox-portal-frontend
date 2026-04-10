@@ -105,6 +105,8 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
       qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
       qc.invalidateQueries({ queryKey: ['project-epics', projectId] });
       qc.invalidateQueries({ queryKey: ['sprint-hierarchy', projectId] });
+      qc.invalidateQueries({ queryKey: ['sprint-detail-hierarchy', projectId] });
+      qc.invalidateQueries({ queryKey: ['sprint-detail-tasks', projectId] });
       onClose();
       toast.success(`${itemType} created`);
     },
@@ -156,9 +158,9 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
           </select>
         </div>
 
-        {/* Epic (optional) */}
+        {/* Module (optional) */}
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Epic (optional)</label>
+          <label className="text-xs text-muted-foreground mb-1 block">Module (optional)</label>
           <select value={form.epic_id} onChange={e => set('epic_id', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             <option value="">None</option>
             {epics.map((ep: Epic) => <option key={ep.id} value={ep.id}>{ep.title}</option>)}
