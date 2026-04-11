@@ -576,6 +576,47 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
           </div>
         </div>
       )}
+
+      {editingSubtask && (
+        <SubtaskEditModal
+          subtask={editingSubtask}
+          onClose={() => setEditingSubtask(null)}
+          onSuccess={(updated) => {
+            const updateInList = (list: any[]) => list?.map((t: any) => {
+              if (t.id === updated.id) return { ...t, ...updated };
+              if (t.subtasks) return { ...t, subtasks: updateInList(t.subtasks) };
+              if (t.tasks) return { ...t, tasks: updateInList(t.tasks) };
+              return t;
+            });
+            qc.setQueryData(['sprint-detail-hierarchy', projectId, sprintId], (old: any) => {
+              if (!old) return old;
+              return { ...old, modules: (old.modules || old.epics || []).map((m: any) => ({ ...m, tasks: updateInList(m.tasks || []) })), unassigned_tasks: updateInList(old.unassigned_tasks || []) };
+            });
+            qc.setQueryData(['sprint-detail-tasks', projectId, sprintId], (old: any) => Array.isArray(old) ? updateInList(old) : old);
+            setEditingSubtask(null);
+          }}
+        />
+      )}
+      {deletingSubtask && (
+        <SubtaskDeleteConfirm
+          subtaskId={deletingSubtask.id}
+          subtaskTitle={deletingSubtask.title}
+          onClose={() => setDeletingSubtask(null)}
+          onDeleted={(id) => {
+            const removeFromList = (list: any[]): any[] => list?.map((t: any) => {
+              if (t.subtasks) return { ...t, subtasks: t.subtasks.filter((s: any) => s.id !== id) };
+              if (t.tasks) return { ...t, tasks: removeFromList(t.tasks) };
+              return t;
+            }).filter((t: any) => t.id !== id);
+            qc.setQueryData(['sprint-detail-hierarchy', projectId, sprintId], (old: any) => {
+              if (!old) return old;
+              return { ...old, modules: (old.modules || old.epics || []).map((m: any) => ({ ...m, tasks: removeFromList(m.tasks || []) })), unassigned_tasks: removeFromList(old.unassigned_tasks || []) };
+            });
+            qc.setQueryData(['sprint-detail-tasks', projectId, sprintId], (old: any) => Array.isArray(old) ? removeFromList(old) : old);
+            setDeletingSubtask(null);
+          }}
+        />
+      )}
     </div>
   );
 }
