@@ -123,7 +123,7 @@ const App = () => (
           <Route path="profile" element={<EmpProfile />} />
         </Route>
 
-        {/* Client Portal */}
+        {/* Legacy Client Portal (redirect) */}
         <Route path="/portal" element={<ProtectedRoute allowedRoles={['client']}><PortalLayout /></ProtectedRoute>}>
           <Route index element={<ClientDashboard />} />
           <Route path="invoices" element={<ClientInvoices />} />
@@ -131,6 +131,17 @@ const App = () => (
           <Route path="documents" element={<ClientDocuments />} />
           <Route path="messages" element={<Chat />} />
           <Route path="support" element={<ClientSupport />} />
+        </Route>
+
+        {/* New Client Portal */}
+        <Route path="/client-portal" element={<ProtectedRoute allowedRoles={['client']}><ClientPortalLayout /></ProtectedRoute>}>
+          <Route index element={<CPDashboard />} />
+          <Route path="invoices" element={<CPInvoices />} />
+          <Route path="projects" element={<CPProjects />} />
+          <Route path="documents" element={<CPDocuments />} />
+          <Route path="vault" element={<CPVault />} />
+          <Route path="support" element={<CPSupport />} />
+          <Route path="profile" element={<CPProfile />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
