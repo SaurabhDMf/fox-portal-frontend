@@ -88,7 +88,7 @@ export const useAuthStore = create<AuthState>()(
         const adminRoles = ['super_admin', 'admin', 'sales_manager', 'sales_rep'];
         const clientRoles = ['client'];
         if (adminRoles.includes(role || '')) return '/admin';
-        if (clientRoles.includes(role || '')) return '/portal';
+        if (clientRoles.includes(role || '')) return '/client-portal';
         if (role) return '/emp'; // All other authenticated roles → employee portal
         return '/login';
       },
