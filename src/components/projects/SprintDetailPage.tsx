@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState as useReactState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, Plus, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModuleFormModal from './ModuleFormModal';
+import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
 
 interface HierarchyModule {
   id: string;
@@ -84,6 +85,8 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [moduleModal, setModuleModal] = useState<{ mode: 'create' | 'edit'; module?: HierarchyModule } | null>(null);
   const [deleteModuleId, setDeleteModuleId] = useState<string | null>(null);
+  const [editingSubtask, setEditingSubtask] = useState<any>(null);
+  const [deletingSubtask, setDeletingSubtask] = useState<any>(null);
 
   // Fetch hierarchy
   const { data: hierarchyRaw } = useQuery({
