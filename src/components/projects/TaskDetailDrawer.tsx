@@ -3,6 +3,7 @@ import api from '@/lib/api';
 import { TASK_TYPE_CONFIG, BOARD_COLUMNS, WORKFLOW_STAGES, type Epic, type ProjectTask, type Sprint } from '@/lib/projectTypes';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import HandoffModal from './HandoffModal';
+import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
 
 import { useState, useRef } from 'react';
 import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2, Paperclip, Image, FileText, Download, UserPlus, ArrowRightLeft } from 'lucide-react';
@@ -171,6 +172,8 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [showAssigneePicker, setShowAssigneePicker] = useState(false);
   const [showHandoff, setShowHandoff] = useState(false);
+  const [editingSubtask, setEditingSubtask] = useState<any>(null);
+  const [deletingSubtask, setDeletingSubtask] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: taskDetail } = useQuery({
@@ -626,7 +629,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
               <button onClick={() => setShowSubtask(true)} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="h-3 w-3" /> Add</button>
             </div>
             {task.subtasks?.map((st: any) => (
-              <div key={st.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-secondary/50 flex-wrap">
+              <div key={st.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-secondary/50 flex-wrap group">
                 {/* Checkbox + Title */}
                 <input
                   type="checkbox"
@@ -690,6 +693,9 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                   }}
                   className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer"
                 />
+
+                {/* Edit & Delete */}
+                <SubtaskRowActions subtask={st} onEdit={(s) => setEditingSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
               </div>
             ))}
             {(!task.subtasks || task.subtasks.length === 0) && !showSubtask && <p className="text-xs text-muted-foreground">No subtasks</p>}
@@ -838,6 +844,37 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
           projectId={projectId}
           currentStage={task.stage}
           onClose={() => setShowHandoff(false)}
+        />
+      )}
+
+      {/* Subtask Edit Modal */}
+      {editingSubtask && (
+        <SubtaskEditModal
+          subtask={editingSubtask}
+          onClose={() => setEditingSubtask(null)}
+          onSuccess={(updated) => {
+            qc.setQueryData<ProjectTask>(['task-detail', initialTask.id], (c) => ({
+              ...(c || task),
+              subtasks: ((c || task).subtasks || []).map((s: any) => s.id === updated.id ? { ...s, ...updated } : s),
+            }));
+            setEditingSubtask(null);
+          }}
+        />
+      )}
+
+      {/* Subtask Delete Confirm */}
+      {deletingSubtask && (
+        <SubtaskDeleteConfirm
+          subtaskId={deletingSubtask.id}
+          subtaskTitle={deletingSubtask.title}
+          onClose={() => setDeletingSubtask(null)}
+          onDeleted={(id) => {
+            qc.setQueryData<ProjectTask>(['task-detail', initialTask.id], (c) => ({
+              ...(c || task),
+              subtasks: ((c || task).subtasks || []).filter((s: any) => s.id !== id),
+            }));
+            setDeletingSubtask(null);
+          }}
         />
       )}
     </div>

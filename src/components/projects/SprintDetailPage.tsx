@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, Plus, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModuleFormModal from './ModuleFormModal';
+import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
 
 interface HierarchyModule {
   id: string;
@@ -84,6 +85,8 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [moduleModal, setModuleModal] = useState<{ mode: 'create' | 'edit'; module?: HierarchyModule } | null>(null);
   const [deleteModuleId, setDeleteModuleId] = useState<string | null>(null);
+  const [editingSubtask, setEditingSubtask] = useState<any>(null);
+  const [deletingSubtask, setDeletingSubtask] = useState<any>(null);
 
   // Fetch hierarchy
   const { data: hierarchyRaw } = useQuery({
@@ -300,7 +303,7 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
           </select>
         </div>
         {isExpanded && hasSubtasks && task.subtasks!.map(st => (
-          <div key={st.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-secondary/30 transition-colors" style={{ paddingLeft: `${12 + (indent + 1) * 24}px` }}>
+          <div key={st.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-secondary/30 transition-colors group" style={{ paddingLeft: `${12 + (indent + 1) * 24}px` }}>
             <span className="w-4 text-muted-foreground text-xs">↳</span>
             <span className="text-xs font-mono text-muted-foreground w-16 flex-shrink-0">{st.task_number}</span>
             <span className="text-sm flex-1 truncate cursor-pointer hover:text-primary" onClick={() => onTaskClick(st)}>{st.title}</span>
@@ -325,6 +328,7 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
               onChange={e => updateTaskStatus(st.id, 'due_date', e.target.value || null)}
               className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer"
             />
+            <SubtaskRowActions subtask={st} onEdit={(s) => setEditingSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
           </div>
         ))}
       </>
@@ -501,7 +505,7 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
                         </td>
                       </tr>
                       {isExpanded && task.subtasks?.map(st => (
-                        <tr key={st.id} className="border-b border-border bg-secondary/20">
+                        <tr key={st.id} className="border-b border-border bg-secondary/20 group">
                           <td className="px-3 py-1.5 pl-8"><span className="text-xs font-mono text-muted-foreground">{st.task_number}</span></td>
                           <td className="px-3 py-1.5 text-sm cursor-pointer hover:text-primary" onClick={() => onTaskClick(st)}>↳ {st.title}</td>
                           <td className="px-3 py-1.5"><span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground">Subtask</span></td>
@@ -524,7 +528,9 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
                             </select>
                           </td>
                           <td className="px-3 py-1.5" />
-                          <td className="px-3 py-1.5" />
+                          <td className="px-3 py-1.5">
+                            <SubtaskRowActions subtask={st} onEdit={(s) => setEditingSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
+                          </td>
                         </tr>
                       ))}
                     </React.Fragment>
@@ -569,6 +575,47 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
             </div>
           </div>
         </div>
+      )}
+
+      {editingSubtask && (
+        <SubtaskEditModal
+          subtask={editingSubtask}
+          onClose={() => setEditingSubtask(null)}
+          onSuccess={(updated) => {
+            const updateInList = (list: any[]) => list?.map((t: any) => {
+              if (t.id === updated.id) return { ...t, ...updated };
+              if (t.subtasks) return { ...t, subtasks: updateInList(t.subtasks) };
+              if (t.tasks) return { ...t, tasks: updateInList(t.tasks) };
+              return t;
+            });
+            qc.setQueryData(['sprint-detail-hierarchy', projectId, sprintId], (old: any) => {
+              if (!old) return old;
+              return { ...old, modules: (old.modules || old.epics || []).map((m: any) => ({ ...m, tasks: updateInList(m.tasks || []) })), unassigned_tasks: updateInList(old.unassigned_tasks || []) };
+            });
+            qc.setQueryData(['sprint-detail-tasks', projectId, sprintId], (old: any) => Array.isArray(old) ? updateInList(old) : old);
+            setEditingSubtask(null);
+          }}
+        />
+      )}
+      {deletingSubtask && (
+        <SubtaskDeleteConfirm
+          subtaskId={deletingSubtask.id}
+          subtaskTitle={deletingSubtask.title}
+          onClose={() => setDeletingSubtask(null)}
+          onDeleted={(id) => {
+            const removeFromList = (list: any[]): any[] => list?.map((t: any) => {
+              if (t.subtasks) return { ...t, subtasks: t.subtasks.filter((s: any) => s.id !== id) };
+              if (t.tasks) return { ...t, tasks: removeFromList(t.tasks) };
+              return t;
+            }).filter((t: any) => t.id !== id);
+            qc.setQueryData(['sprint-detail-hierarchy', projectId, sprintId], (old: any) => {
+              if (!old) return old;
+              return { ...old, modules: (old.modules || old.epics || []).map((m: any) => ({ ...m, tasks: removeFromList(m.tasks || []) })), unassigned_tasks: removeFromList(old.unassigned_tasks || []) };
+            });
+            qc.setQueryData(['sprint-detail-tasks', projectId, sprintId], (old: any) => Array.isArray(old) ? removeFromList(old) : old);
+            setDeletingSubtask(null);
+          }}
+        />
       )}
     </div>
   );
