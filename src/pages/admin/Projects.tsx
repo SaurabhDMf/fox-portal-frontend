@@ -40,8 +40,10 @@ export default function Projects() {
 
   const { data: clients = [] } = useQuery({
     queryKey: ['clients-list'],
-    queryFn: () => api.get('/clients').then(r => r.data?.clients || r.data || []),
-    enabled: showCreate,
+    queryFn: () => api.get('/clients').then(r => {
+      const d = r.data?.clients || r.data?.data || r.data;
+      return Array.isArray(d) ? d : [];
+    }),
   });
 
   const createMut = useMutation({
