@@ -405,7 +405,28 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const deleteTaskMut = useMutation({
     mutationFn: () => api.delete(`/tasks/${initialTask.id}`),
-    onSuccess: () => { invalidateTaskQueries(); toast.success('Task deleted'); onClose(); },
+    onSuccess: () => {
+      // Immediately remove from all task lists (optimistic removal)
+      qc.setQueryData(['project-all-tasks'], (old: any) => {
+        if (!old || !Array.isArray(old)) return old;
+        return old.filter((t: any) => t.id !== initialTask.id);
+      });
+      // Also remove from any filtered query variants
+      qc.getQueryCache().getAll().forEach(query => {
+        const key = query.queryKey;
+        if (key[0] === 'project-all-tasks' && Array.isArray(query.state.data)) {
+          qc.setQueryData(key, (old: any) => {
+            if (!old || !Array.isArray(old)) return old;
+            return old.filter((t: any) => t.id !== initialTask.id);
+          });
+        }
+      });
+      // Remove from task-detail cache if present
+      qc.removeQueries({ queryKey: ['task-detail', initialTask.id] });
+      invalidateTaskQueries();
+      toast.success('Task deleted');
+      onClose();
+    },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to delete task'),
   });
 
