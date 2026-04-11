@@ -512,7 +512,6 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
                               onChange={(userId) => updateTaskStatus(st.id, 'assignee_id', userId)}
                             />
                           </td>
-                          </td>
                           <td className="px-3 py-1.5">
                             <input type="date" value={st.due_date ? st.due_date.slice(0, 10) : ''} onChange={e => updateTaskStatus(st.id, 'due_date', e.target.value || null)}
                               className="px-1 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer" />
