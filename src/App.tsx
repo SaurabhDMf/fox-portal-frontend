@@ -45,10 +45,13 @@ import ClientSupport from "./pages/portal/ClientSupport";
 import ClientPortalLayout from "./components/layouts/ClientPortalLayout";
 import CPDashboard from "./pages/client-portal/CPDashboard";
 import CPInvoices from "./pages/client-portal/CPInvoices";
+import CPInvoiceDetail from "./pages/client-portal/CPInvoiceDetail";
 import CPProjects from "./pages/client-portal/CPProjects";
+import CPProjectDetail from "./pages/client-portal/CPProjectDetail";
 import CPDocuments from "./pages/client-portal/CPDocuments";
 import CPVault from "./pages/client-portal/CPVault";
 import CPSupport from "./pages/client-portal/CPSupport";
+import CPTicketDetail from "./pages/client-portal/CPTicketDetail";
 import CPProfile from "./pages/client-portal/CPProfile";
 
 import NotFound from "./pages/NotFound";
@@ -137,10 +140,13 @@ const App = () => (
         <Route path="/client-portal" element={<ProtectedRoute allowedRoles={['client']}><ClientPortalLayout /></ProtectedRoute>}>
           <Route index element={<CPDashboard />} />
           <Route path="invoices" element={<CPInvoices />} />
+          <Route path="invoices/:id" element={<CPInvoiceDetail />} />
           <Route path="projects" element={<CPProjects />} />
+          <Route path="projects/:id" element={<CPProjectDetail />} />
           <Route path="documents" element={<CPDocuments />} />
           <Route path="vault" element={<CPVault />} />
           <Route path="support" element={<CPSupport />} />
+          <Route path="support/:id" element={<CPTicketDetail />} />
           <Route path="profile" element={<CPProfile />} />
         </Route>
 

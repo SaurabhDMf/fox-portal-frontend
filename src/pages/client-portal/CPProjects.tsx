@@ -1,35 +1,35 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar, Users } from 'lucide-react';
 
 export default function CPProjects() {
+  const navigate = useNavigate();
+
   const { data = [] } = useQuery({
     queryKey: ['cp-projects'],
     queryFn: () => api.get('/client/projects').then(r => r.data?.data || r.data?.projects || r.data || []),
   });
   const projects = Array.isArray(data) ? data : [];
-  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
   return (
     <div className="page-container">
       <div className="page-header"><div><h1 className="page-title">Projects</h1><p className="page-subtitle">Track progress on your active projects</p></div></div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {projects.map((p: any) => {
           const done = p.done_tasks ?? 0;
           const total = p.total_tasks ?? 0;
           const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-          const isOpen = expanded === p.id;
-          const members = p.members || [];
-          const sprints = p.sprints || [];
 
           return (
-            <div key={p.id} className="glass-card p-5 space-y-3">
+            <div key={p.id} className="glass-card-hover p-5 space-y-3 cursor-pointer" onClick={() => navigate(`/client-portal/projects/${p.id}`)}>
               <div className="flex items-start justify-between">
                 <h3 className="font-semibold text-sm">{p.name}</h3>
-                <span className={p.status === 'Active' ? 'badge-success' : p.status === 'Completed' ? 'badge-neutral' : 'badge-warning'}>{p.status}</span>
+                <StatusBadge status={p.status} />
               </div>
-              {p.description && <p className="text-xs text-muted-foreground line-clamp-2">{p.description}</p>}
 
               {/* Progress */}
               <div className="space-y-1">
@@ -42,38 +42,24 @@ export default function CPProjects() {
                 </div>
               </div>
 
-              {/* Team */}
-              {members.length > 0 && (
-                <div className="flex items-center gap-1">
-                  <Users className="h-3.5 w-3.5 text-muted-foreground mr-1" />
-                  <div className="flex -space-x-1.5">
-                    {members.slice(0, 5).map((m: any, i: number) => (
-                      <div key={i} className="w-6 h-6 rounded-full bg-primary/20 border-2 border-card flex items-center justify-center text-[9px] font-bold text-primary" title={m.full_name || m.name}>
-                        {(m.full_name || m.name || '?')[0]}
-                      </div>
-                    ))}
-                    {members.length > 5 && <span className="text-xs text-muted-foreground ml-1">+{members.length - 5}</span>}
-                  </div>
-                  <span className="text-xs text-muted-foreground ml-1">{sprints.length || p.sprints_count || 0} sprints</span>
+              {/* Lead + Due date */}
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  {p.lead_avatar ? (
+                    <img src={p.lead_avatar} className="w-5 h-5 rounded-full" alt="" />
+                  ) : p.lead_name ? (
+                    <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold text-primary">{p.lead_name[0]}</div>
+                  ) : null}
+                  {p.lead_name && <span>{p.lead_name}</span>}
                 </div>
-              )}
+                {p.due_date && (
+                  <div className="flex items-center gap-1"><Calendar className="h-3 w-3" />{fmtDate(p.due_date)}</div>
+                )}
+              </div>
 
-              {/* Expand sprints */}
-              {(sprints.length > 0 || p.sprints_count > 0) && (
-                <button onClick={() => setExpanded(isOpen ? null : p.id)} className="flex items-center gap-1 text-xs text-primary hover:underline mt-1">
-                  {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                  {isOpen ? 'Hide sprints' : 'View sprints'}
-                </button>
-              )}
-              {isOpen && sprints.length > 0 && (
-                <div className="space-y-1.5 pt-1 border-t border-border/50">
-                  {sprints.map((s: any) => (
-                    <div key={s.id} className="flex items-center justify-between text-xs p-2 rounded-md bg-secondary/50">
-                      <span className="font-medium">{s.name}</span>
-                      <span className={s.status === 'Active' ? 'text-success' : 'text-muted-foreground'}>{s.status}</span>
-                    </div>
-                  ))}
-                </div>
+              {/* Sprints count */}
+              {(p.active_sprints != null || p.sprints_count != null) && (
+                <div className="text-xs text-muted-foreground">{p.active_sprints ?? p.sprints_count ?? 0} active sprints</div>
               )}
             </div>
           );
@@ -82,4 +68,12 @@ export default function CPProjects() {
       </div>
     </div>
   );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const cls =
+    status === 'Active' ? 'bg-success/15 text-success' :
+    status === 'Completed' ? 'bg-secondary text-muted-foreground' :
+    'bg-warning/15 text-warning';
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{status}</span>;
 }
