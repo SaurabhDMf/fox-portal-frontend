@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { ShieldCheck, ShieldOff, KeyRound, Copy, UserPlus } from 'lucide-react';
+import { ShieldCheck, ShieldOff, KeyRound, Copy, UserPlus, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -18,15 +18,10 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
   const [showRevoke, setShowRevoke] = useState(false);
   const [createdCreds, setCreatedCreds] = useState<{ email: string; password: string } | null>(null);
 
-  const { data: allUsers = [], isLoading } = useQuery({
-    queryKey: ['portal-users', clientId],
-    queryFn: () => api.get('/users', { params: { role: 'client' } }).then(r => {
-      const users = r.data?.users || r.data?.data || r.data || [];
-      return Array.isArray(users) ? users : [];
-    }),
+  const { data: portalUser, isLoading } = useQuery({
+    queryKey: ['portal-user', clientId],
+    queryFn: () => api.get(`/clients/${clientId}/portal-user`).then(r => r.data?.data ?? r.data ?? null),
   });
-
-  const portalUser = allUsers.find((u: any) => u.client_id === clientId);
 
   if (isLoading) return <div className="glass-card p-5 animate-pulse h-24" />;
 
@@ -64,26 +59,43 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
       ) : (
         <div className="space-y-3">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${portalUser.is_active !== false ? 'bg-success/15 text-success' : 'bg-destructive/15 text-destructive'}`}>
-              {portalUser.is_active !== false ? 'Active' : 'Inactive'}
+            <span className="text-sm font-medium">
+              {portalUser.is_active ? '✅ Portal Access Active' : '❌ Portal Access Inactive'}
             </span>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div><span className="text-muted-foreground">Name</span><div className="font-medium">{portalUser.full_name}</div></div>
             <div><span className="text-muted-foreground">Email</span><div className="font-medium">{portalUser.email}</div></div>
+            <div>
+              <span className="text-muted-foreground">Status</span>
+              <div>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${portalUser.is_active ? 'bg-success/15 text-success' : 'bg-destructive/15 text-destructive'}`}>
+                  {portalUser.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Last Login</span>
+              <div className="font-medium flex items-center gap-1">
+                <Clock className="h-3 w-3 text-muted-foreground" />
+                {portalUser.last_login_at
+                  ? new Date(portalUser.last_login_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  : 'Never logged in'}
+              </div>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
             <button onClick={() => setShowReset(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80 transition-colors">
               <KeyRound className="h-3.5 w-3.5" /> Reset Password
             </button>
-            {portalUser.is_active !== false ? (
+            {portalUser.is_active ? (
               <button onClick={() => setShowRevoke(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors">
                 <ShieldOff className="h-3.5 w-3.5" /> Revoke Access
               </button>
             ) : (
-              <ReactivateButton userId={portalUser.id} queryKey={['portal-users', clientId]} />
+              <ReactivateButton userId={portalUser.id} clientId={clientId} />
             )}
           </div>
         </div>
@@ -97,7 +109,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
           onClose={() => setShowCreate(false)}
           onSuccess={(email, password) => {
             setCreatedCreds({ email, password });
-            qc.invalidateQueries({ queryKey: ['portal-users', clientId] });
+            qc.invalidateQueries({ queryKey: ['portal-user', clientId] });
             setShowCreate(false);
           }}
         />
@@ -112,7 +124,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
           userId={portalUser.id}
           onClose={() => setShowRevoke(false)}
           onSuccess={() => {
-            qc.invalidateQueries({ queryKey: ['portal-users', clientId] });
+            qc.invalidateQueries({ queryKey: ['portal-user', clientId] });
             setShowRevoke(false);
           }}
         />
@@ -226,11 +238,11 @@ function RevokeModal({ userId, onClose, onSuccess }: { userId: string; onClose: 
   );
 }
 
-function ReactivateButton({ userId, queryKey }: { userId: string; queryKey: any }) {
+function ReactivateButton({ userId, clientId }: { userId: string; clientId: string }) {
   const qc = useQueryClient();
   const mut = useMutation({
     mutationFn: () => api.put(`/users/${userId}`, { is_active: true }).then(r => r.data),
-    onSuccess: () => { toast.success('Portal access reactivated'); qc.invalidateQueries({ queryKey }); },
+    onSuccess: () => { toast.success('Portal access reactivated'); qc.invalidateQueries({ queryKey: ['portal-user', clientId] }); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to reactivate'),
   });
 

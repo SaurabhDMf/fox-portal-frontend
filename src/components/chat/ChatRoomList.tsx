@@ -1,0 +1,139 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
+import { Plus, MessageSquare, Search, Hash, Users } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+interface ChatRoom {
+  id: string;
+  name: string;
+  type: string;
+  avatar_url?: string;
+  last_message?: string;
+  last_message_at?: string;
+  unread_count?: number;
+  member_count?: number;
+}
+
+interface Props {
+  activeRoom: string | null;
+  onSelectRoom: (id: string) => void;
+  onCreateGroup: () => void;
+  onCreateDM: () => void;
+}
+
+export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, onCreateDM }: Props) {
+  const [search, setSearch] = useState('');
+
+  const { data: rooms = [] } = useQuery({
+    queryKey: ['chat-rooms'],
+    queryFn: () => api.get('/chat/rooms').then(r => {
+      const d = r.data;
+      return Array.isArray(d) ? d : d?.data || d?.rooms || [];
+    }),
+    refetchInterval: 15000,
+  });
+
+  const filtered = (rooms as ChatRoom[]).filter(r =>
+    r.name?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-3 border-b border-border space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-sm">Messages</h2>
+          <div className="flex gap-1">
+            <button onClick={onCreateDM} title="Direct Message"
+              className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+              <MessageSquare className="h-4 w-4" />
+            </button>
+            <button onClick={onCreateGroup} title="New Group"
+              className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search conversations..."
+            className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+        </div>
+      </div>
+      <ScrollArea className="flex-1">
+        {filtered.length === 0 && (
+          <div className="text-center py-12 px-4">
+            <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">{search ? 'No results' : 'No conversations yet'}</p>
+          </div>
+        )}
+        {filtered.map((room) => (
+          <button
+            key={room.id}
+            onClick={() => onSelectRoom(room.id)}
+            className={`w-full flex items-center gap-3 p-3 text-left hover:bg-secondary/50 transition-colors ${activeRoom === room.id ? 'bg-secondary' : ''}`}
+          >
+            <RoomAvatar room={room} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium truncate">{room.name}</span>
+                {room.last_message_at && (
+                  <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
+                    {formatTime(room.last_message_at)}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground truncate">
+                  {room.last_message ? room.last_message.slice(0, 40) + (room.last_message.length > 40 ? '…' : '') : 'No messages'}
+                </span>
+                {(room.unread_count || 0) > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center flex-shrink-0 ml-1">
+                    {room.unread_count}
+                  </span>
+                )}
+              </div>
+            </div>
+          </button>
+        ))}
+      </ScrollArea>
+    </div>
+  );
+}
+
+function RoomAvatar({ room }: { room: ChatRoom }) {
+  if (room.avatar_url) {
+    return <img src={room.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />;
+  }
+  const isGroup = room.type !== 'direct';
+  const bg = `hsl(${hashCode(room.name || '') % 360}, 60%, 45%)`;
+  return (
+    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+      style={{ backgroundColor: bg, color: '#fff' }}>
+      {isGroup ? <Hash className="h-4 w-4" /> : (room.name?.[0] || 'D').toUpperCase()}
+    </div>
+  );
+}
+
+function hashCode(s: string) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function formatTime(d: string) {
+  const date = new Date(d);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  if (diff < 86400000 && date.getDate() === now.getDate()) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  if (diff < 604800000) {
+    return date.toLocaleDateString([], { weekday: 'short' });
+  }
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
