@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ClientFormModal, { type ClientFormData } from '@/components/clients/ClientFormModal';
+import { useAuthStore } from '@/stores/authStore';
+import PortalAccessSection from '@/components/clients/PortalAccessSection';
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -12,6 +14,8 @@ export default function ClientDetail() {
   const qc = useQueryClient();
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const userRole = useAuthStore(s => s.user?.role);
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
 
   const { data: client, isLoading } = useQuery({
     queryKey: ['client', id],
@@ -167,6 +171,15 @@ export default function ClientDetail() {
               <h3 className="text-sm font-semibold mb-2">Internal Notes</h3>
               <p className="text-sm text-muted-foreground">{client.notes}</p>
             </div>
+          )}
+
+          {isAdmin && id && (
+            <PortalAccessSection
+              clientId={id}
+              clientName={client.company_name}
+              contactName={client.contact_name}
+              contactEmail={client.email}
+            />
           )}
         </div>
       </div>
