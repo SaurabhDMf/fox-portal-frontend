@@ -9,6 +9,7 @@ import { ArrowLeft, ChevronDown, ChevronRight, Plus, Pencil, Trash2 } from 'luci
 import toast from 'react-hot-toast';
 import ModuleFormModal from './ModuleFormModal';
 import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
+import { InlineUserPicker } from './UserPicker';
 
 interface HierarchyModule {
   id: string;
@@ -314,14 +315,10 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
             >
               {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
-            <select
+            <InlineUserPicker
               value={(st as any).assignee_id || st.assignees?.[0]?.id || ''}
-              onChange={e => updateTaskStatus(st.id, 'assignee_id', e.target.value || null)}
-              className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer max-w-[100px]"
-            >
-              <option value="">Unassigned</option>
-              {members.map((m: any) => <option key={getMemberId(m)} value={getMemberId(m)}>{m.full_name}</option>)}
-            </select>
+              onChange={(userId) => updateTaskStatus(st.id, 'assignee_id', userId)}
+            />
             <input
               type="date"
               value={st.due_date ? st.due_date.slice(0, 10) : ''}
@@ -510,11 +507,10 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
                           <td className="px-3 py-1.5 text-sm cursor-pointer hover:text-primary" onClick={() => onTaskClick(st)}>↳ {st.title}</td>
                           <td className="px-3 py-1.5"><span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground">Subtask</span></td>
                           <td className="px-3 py-1.5">
-                            <select value={(st as any).assignee_id || st.assignees?.[0]?.id || ''} onChange={e => updateTaskStatus(st.id, 'assignee_id', e.target.value || null)}
-                              className="px-1 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer max-w-[90px]">
-                              <option value="">—</option>
-                              {members.map((m: any) => <option key={getMemberId(m)} value={getMemberId(m)}>{m.full_name}</option>)}
-                            </select>
+                            <InlineUserPicker
+                              value={(st as any).assignee_id || st.assignees?.[0]?.id || ''}
+                              onChange={(userId) => updateTaskStatus(st.id, 'assignee_id', userId)}
+                            />
                           </td>
                           <td className="px-3 py-1.5">
                             <input type="date" value={st.due_date ? st.due_date.slice(0, 10) : ''} onChange={e => updateTaskStatus(st.id, 'due_date', e.target.value || null)}

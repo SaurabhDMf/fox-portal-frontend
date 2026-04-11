@@ -4,6 +4,7 @@ import { TASK_TYPE_CONFIG, BOARD_COLUMNS, WORKFLOW_STAGES, type Epic, type Proje
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import HandoffModal from './HandoffModal';
 import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
+import UserPicker, { InlineUserPicker } from './UserPicker';
 
 import { useState, useRef } from 'react';
 import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2, Paperclip, Image, FileText, Download, UserPlus, ArrowRightLeft } from 'lucide-react';
@@ -507,38 +508,15 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
           {/* Details grid */}
           <div className="grid grid-cols-2 gap-4">
             <div className="relative">
-              <div className="flex items-center gap-1 mb-1">
-                <span className="text-xs text-muted-foreground">Assignees</span>
-                <button onClick={() => setShowAssigneePicker(!showAssigneePicker)} className="p-0.5 rounded hover:bg-secondary text-muted-foreground hover:text-primary transition-colors" title="Assign member">
-                  <UserPlus className="h-3 w-3" />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {task.assignees?.map(a => (
-                  <div key={a.id} className="flex items-center gap-1 bg-secondary rounded-full px-2 py-0.5">
-                    <div className="w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center text-[9px] font-bold text-primary">{a.full_name?.[0]}</div>
-                    <span className="text-xs">{a.full_name}</span>
-                    <button onClick={() => toggleAssignee(a.id)} className="text-muted-foreground hover:text-destructive ml-0.5"><X className="h-2.5 w-2.5" /></button>
-                  </div>
-                )) || <span className="text-xs text-muted-foreground">Unassigned</span>}
-                {(!task.assignees || task.assignees.length === 0) && <span className="text-xs text-muted-foreground">Unassigned</span>}
-              </div>
-              {showAssigneePicker && (
-                <div className="absolute top-full left-0 z-20 mt-1 w-64 bg-card border border-border rounded-lg shadow-lg p-2 space-y-1 max-h-48 overflow-y-auto">
-                  {members.map((m: any) => {
-                    const mid = getMemberId(m);
-                    const isAssigned = task.assignees?.some((a: any) => getMemberId(a) === mid || a.id === mid) || task.assignee_ids?.includes(mid);
-                    return (
-                      <button key={mid} onClick={() => toggleAssignee(mid)} className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm transition-colors ${isAssigned ? 'bg-primary/10 text-primary' : 'hover:bg-secondary'}`}>
-                        <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[9px] font-bold text-primary">{m.full_name?.[0]}</div>
-                        <span className="flex-1 truncate">{m.full_name}</span>
-                        {isAssigned && <span className="text-[10px]">✓</span>}
-                      </button>
-                    );
-                  })}
-                  {members.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">No members found</p>}
-                </div>
-              )}
+              <UserPicker
+                multi
+                selectedIds={task.assignee_ids || task.assignees?.map((a: any) => getMemberId(a) || a.id) || []}
+                onToggle={toggleAssignee}
+                value={null}
+                onChange={() => {}}
+                label="Assignees"
+                placeholder="Select assignees..."
+              />
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Reporter</span>
@@ -661,25 +639,15 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                 </select>
 
                 {/* Assignee */}
-                <select
+                <InlineUserPicker
                   value={st.assignee_ids?.[0] || st.assignees?.[0]?.id || ''}
-                  onChange={(e) => {
-                    const payload: Record<string, any> = e.target.value
-                      ? { assignee_id: e.target.value }
-                      : { assignee_id: null };
-                    api.put(`/tasks/${st.id}`, payload).then(() => {
+                  onChange={(userId) => {
+                    api.put(`/tasks/${st.id}`, { assignee_id: userId }).then(() => {
                       qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] });
                       toast.success('Assignee updated');
                     }).catch(() => toast.error('Failed to update'));
                   }}
-                  className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer max-w-[100px]"
-                >
-                  <option value="">Unassigned</option>
-                  {members.map((m: any) => {
-                    const uid = getMemberId(m);
-                    return <option key={uid} value={uid}>{getPersonName(m)}</option>;
-                  })}
-                </select>
+                />
 
                 {/* Due Date */}
                 <input

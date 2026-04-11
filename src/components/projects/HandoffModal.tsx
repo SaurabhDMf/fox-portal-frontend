@@ -5,6 +5,7 @@ import { WORKFLOW_STAGES } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import UserPicker from './UserPicker';
 
 interface Props {
   taskId: string;
@@ -30,11 +31,7 @@ export default function HandoffModal({ taskId, projectId, currentStage, onClose 
   });
   const stages: string[] = Array.isArray(stagesRaw) ? stagesRaw : WORKFLOW_STAGES;
 
-  const { data: membersRaw } = useQuery({
-    queryKey: ['project-members', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/members`).then(r => extractProjectArray(r.data, ['members', 'users'])),
-  });
-  const members = Array.isArray(membersRaw) ? membersRaw : [];
+  // Removed project-members query — using UserPicker with /users/active instead
 
   const handoffMut = useMutation({
     mutationFn: () => {
@@ -71,13 +68,12 @@ export default function HandoffModal({ taskId, projectId, currentStage, onClose 
           </select>
         </div>
 
-        <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Assign to</label>
-          <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-            <option value="">No specific assignee</option>
-            {members.map((m: any) => <option key={m.user_id || m.id} value={m.user_id || m.id}>{m.full_name}</option>)}
-          </select>
-        </div>
+        <UserPicker
+          value={assigneeId || null}
+          onChange={(id) => setAssigneeId(id || '')}
+          label="Assign to"
+          placeholder="No specific assignee"
+        />
 
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Note (optional)</label>

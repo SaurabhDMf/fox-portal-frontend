@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { extractProjectArray } from '@/lib/projectResponse';
 import { BOARD_COLUMNS, WORKFLOW_STAGES } from '@/lib/projectTypes';
 import { Pencil, Trash2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import UserPicker from './UserPicker';
 
 const PRIORITIES = ['High', 'Medium', 'Low'];
 const STAGES = WORKFLOW_STAGES;
@@ -25,12 +25,7 @@ export function SubtaskEditModal({ subtask, onClose, onSuccess }: SubtaskEditMod
     stage: subtask.stage || '',
   });
 
-  const { data: usersRaw } = useQuery({
-    queryKey: ['active-users'],
-    queryFn: () => api.get('/users/active').then(r => extractProjectArray(r.data, ['users'])),
-    staleTime: 60_000,
-  });
-  const users = Array.isArray(usersRaw) ? usersRaw : [];
+  // Using UserPicker instead of manual query
 
   const saveMut = useMutation({
     mutationFn: () => {
@@ -60,13 +55,12 @@ export function SubtaskEditModal({ subtask, onClose, onSuccess }: SubtaskEditMod
           <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Assigned To</label>
-            <select value={form.assignee_id} onChange={e => setForm(f => ({ ...f, assignee_id: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-              <option value="">Unassigned</option>
-              {users.map((u: any) => <option key={u.id} value={u.id}>{u.full_name || u.name || u.email}</option>)}
-            </select>
-          </div>
+          <UserPicker
+            value={form.assignee_id || null}
+            onChange={(id) => setForm(f => ({ ...f, assignee_id: id || '' }))}
+            label="Assigned To"
+            placeholder="Unassigned"
+          />
           <div>
             <label className="text-xs text-muted-foreground">Due Date</label>
             <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none" />

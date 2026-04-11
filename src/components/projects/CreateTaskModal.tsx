@@ -5,6 +5,7 @@ import type { Epic, Sprint, ProjectTask } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import UserPicker from './UserPicker';
 
 interface Props {
   projectId: string;
@@ -46,11 +47,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
     due_date: '',
   });
 
-  const { data: membersRaw } = useQuery({
-    queryKey: ['project-members', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/members`).then(r => extractProjectArray(r.data, ['members', 'users'])),
-  });
-  const members = Array.isArray(membersRaw) ? membersRaw : [];
+  // Removed project-members query — using UserPicker with /users/active instead
 
   const { data: epicsRaw } = useQuery({
     queryKey: ['project-epics', projectId],
@@ -265,24 +262,15 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
         )}
 
         {/* Assignees */}
-        {members.length > 0 && (
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Assignees</label>
-            <div className="flex flex-wrap gap-1.5">
-              {members.map((m: any) => {
-                const uid = m.user_id || m.id;
-                const sel = form.assignee_ids.includes(uid);
-                return (
-                  <button key={uid} onClick={() => toggleAssignee(uid)}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors ${sel ? 'bg-primary/15 text-primary border border-primary/30' : 'bg-secondary text-muted-foreground border border-border hover:border-primary/30'}`}>
-                    <div className="w-4 h-4 rounded-full bg-primary/15 flex items-center justify-center text-[8px] font-bold text-primary">{m.full_name?.[0]}</div>
-                    {m.full_name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <UserPicker
+          multi
+          selectedIds={form.assignee_ids}
+          onToggle={toggleAssignee}
+          value={null}
+          onChange={() => {}}
+          label="Assignees"
+          placeholder="Select assignees..."
+        />
 
         {/* Story points + Due date */}
         <div className="grid grid-cols-2 gap-3">
