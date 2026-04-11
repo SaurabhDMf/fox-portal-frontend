@@ -112,7 +112,7 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
                   <div className="space-y-2">
                     <UserPicker
                       value={null}
-                      onSelect={(u) => { if (u) addMemberMut.mutate([u.id]); }}
+                      onChange={(_id, u) => { if (u) addMemberMut.mutate([u.id]); }}
                       placeholder="Select user to add..."
                     />
                     <button onClick={() => setShowAddMember(false)} className="text-xs text-muted-foreground hover:underline">Cancel</button>
