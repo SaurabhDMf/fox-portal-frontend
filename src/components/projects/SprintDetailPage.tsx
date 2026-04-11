@@ -505,7 +505,7 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
                         </td>
                       </tr>
                       {isExpanded && task.subtasks?.map(st => (
-                        <tr key={st.id} className="border-b border-border bg-secondary/20">
+                        <tr key={st.id} className="border-b border-border bg-secondary/20 group">
                           <td className="px-3 py-1.5 pl-8"><span className="text-xs font-mono text-muted-foreground">{st.task_number}</span></td>
                           <td className="px-3 py-1.5 text-sm cursor-pointer hover:text-primary" onClick={() => onTaskClick(st)}>↳ {st.title}</td>
                           <td className="px-3 py-1.5"><span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground">Subtask</span></td>
@@ -528,7 +528,10 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
                             </select>
                           </td>
                           <td className="px-3 py-1.5" />
-                          <td className="px-3 py-1.5" />
+                          <td className="px-3 py-1.5">
+                            <SubtaskRowActions subtask={st} onEdit={(s) => setEditingSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
+                          </td>
+                        </tr>
                         </tr>
                       ))}
                     </React.Fragment>
