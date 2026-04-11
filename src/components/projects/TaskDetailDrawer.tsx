@@ -123,9 +123,7 @@ function sanitizeTaskPatch(patch: Record<string, any>) {
   if ('type' in patch && patch.type) payload.type = patch.type;
   if ('status' in patch && patch.status) payload.status = patch.status;
   if ('priority' in patch && patch.priority) payload.priority = patch.priority;
-  if ('assignee_ids' in patch && Array.isArray(patch.assignee_ids)) {
-    payload.assignee_ids = [...new Set(patch.assignee_ids.filter((id: string) => typeof id === 'string' && id.trim()))];
-  }
+  // assignee_ids are now handled via PATCH /tasks/:id/assignee — skip them here
   if ('epic_id' in patch) payload.epic_id = patch.epic_id || null;
   if ('sprint_id' in patch) payload.sprint_id = patch.sprint_id || null;
   if ('parent_task_id' in patch) payload.parent_task_id = patch.parent_task_id || null;
@@ -443,8 +441,13 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const toggleAssignee = (userId: string) => {
     const currentIds = task.assignee_ids || task.assignees?.map((a: any) => getMemberId(a) || a.id) || [];
     const newIds = currentIds.includes(userId) ? currentIds.filter((id: string) => id !== userId) : [...currentIds, userId];
-    submitTaskUpdate({ assignee_ids: newIds });
     setShowAssigneePicker(false);
+    api.patch(`/tasks/${initialTask.id}/assignee`, { assignee_ids: newIds }).then((res) => {
+      const updated = normalizeTaskEntity(res.data, members);
+      qc.setQueryData(['task-detail', initialTask.id], (old: any) => ({ ...(old || task), ...updated }));
+      invalidateTaskQueries();
+      toast.success('Assignee updated');
+    }).catch((e: any) => toast.error(e.response?.data?.message || 'Failed to update assignee'));
   };
 
   const tc = TASK_TYPE_CONFIG[task.type] || TASK_TYPE_CONFIG.Task;
@@ -642,8 +645,13 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                 <InlineUserPicker
                   value={st.assignee_ids?.[0] || st.assignees?.[0]?.id || ''}
                   onChange={(userId) => {
-                    api.put(`/tasks/${st.id}`, { assignee_id: userId }).then(() => {
-                      qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] });
+                    api.patch(`/tasks/${st.id}/assignee`, { assignee_id: userId }).then((res) => {
+                      const updated = res.data;
+                      qc.setQueryData(['task-detail', initialTask.id], (old: any) => {
+                        if (!old) return old;
+                        const subtasks = (old.subtasks || []).map((s: any) => s.id === st.id ? { ...s, ...updated } : s);
+                        return { ...old, subtasks };
+                      });
                       toast.success('Assignee updated');
                     }).catch(() => toast.error('Failed to update'));
                   }}
