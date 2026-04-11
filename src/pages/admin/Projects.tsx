@@ -155,7 +155,7 @@ export default function Projects() {
             <input placeholder="Project Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
               <option value="">Select Client (optional)</option>
-              {clientsArr.map((c: any) => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+              {clientsArr.map((c: any) => <option key={c.id} value={c.id}>{c.company_name || c.name || c.client_name || 'Unnamed'}</option>)}
             </select>
             <textarea placeholder="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
 
