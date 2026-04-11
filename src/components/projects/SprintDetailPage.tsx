@@ -303,7 +303,7 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
           </select>
         </div>
         {isExpanded && hasSubtasks && task.subtasks!.map(st => (
-          <div key={st.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-secondary/30 transition-colors" style={{ paddingLeft: `${12 + (indent + 1) * 24}px` }}>
+          <div key={st.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-secondary/30 transition-colors group" style={{ paddingLeft: `${12 + (indent + 1) * 24}px` }}>
             <span className="w-4 text-muted-foreground text-xs">↳</span>
             <span className="text-xs font-mono text-muted-foreground w-16 flex-shrink-0">{st.task_number}</span>
             <span className="text-sm flex-1 truncate cursor-pointer hover:text-primary" onClick={() => onTaskClick(st)}>{st.title}</span>
@@ -328,6 +328,7 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
               onChange={e => updateTaskStatus(st.id, 'due_date', e.target.value || null)}
               className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer"
             />
+            <SubtaskRowActions subtask={st} onEdit={(s) => setEditingSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
           </div>
         ))}
       </>
