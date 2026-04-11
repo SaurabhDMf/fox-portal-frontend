@@ -9,6 +9,7 @@ import { ArrowLeft, ChevronDown, ChevronRight, Plus, Pencil, Trash2 } from 'luci
 import toast from 'react-hot-toast';
 import ModuleFormModal from './ModuleFormModal';
 import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
+import { InlineUserPicker } from './UserPicker';
 
 interface HierarchyModule {
   id: string;
