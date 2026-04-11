@@ -123,9 +123,7 @@ function sanitizeTaskPatch(patch: Record<string, any>) {
   if ('type' in patch && patch.type) payload.type = patch.type;
   if ('status' in patch && patch.status) payload.status = patch.status;
   if ('priority' in patch && patch.priority) payload.priority = patch.priority;
-  if ('assignee_ids' in patch && Array.isArray(patch.assignee_ids)) {
-    payload.assignee_ids = [...new Set(patch.assignee_ids.filter((id: string) => typeof id === 'string' && id.trim()))];
-  }
+  // assignee_ids are now handled via PATCH /tasks/:id/assignee — skip them here
   if ('epic_id' in patch) payload.epic_id = patch.epic_id || null;
   if ('sprint_id' in patch) payload.sprint_id = patch.sprint_id || null;
   if ('parent_task_id' in patch) payload.parent_task_id = patch.parent_task_id || null;
