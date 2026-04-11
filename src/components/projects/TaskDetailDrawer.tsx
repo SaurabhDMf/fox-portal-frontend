@@ -443,8 +443,13 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const toggleAssignee = (userId: string) => {
     const currentIds = task.assignee_ids || task.assignees?.map((a: any) => getMemberId(a) || a.id) || [];
     const newIds = currentIds.includes(userId) ? currentIds.filter((id: string) => id !== userId) : [...currentIds, userId];
-    submitTaskUpdate({ assignee_ids: newIds });
     setShowAssigneePicker(false);
+    api.patch(`/tasks/${initialTask.id}/assignee`, { assignee_ids: newIds }).then((res) => {
+      const updated = normalizeTaskEntity(res.data, members);
+      qc.setQueryData(['task-detail', initialTask.id], (old: any) => ({ ...(old || task), ...updated }));
+      invalidateTaskQueries();
+      toast.success('Assignee updated');
+    }).catch((e: any) => toast.error(e.response?.data?.message || 'Failed to update assignee'));
   };
 
   const tc = TASK_TYPE_CONFIG[task.type] || TASK_TYPE_CONFIG.Task;
@@ -642,8 +647,13 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                 <InlineUserPicker
                   value={st.assignee_ids?.[0] || st.assignees?.[0]?.id || ''}
                   onChange={(userId) => {
-                    api.put(`/tasks/${st.id}`, { assignee_id: userId }).then(() => {
-                      qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] });
+                    api.patch(`/tasks/${st.id}/assignee`, { assignee_id: userId }).then((res) => {
+                      const updated = res.data;
+                      qc.setQueryData(['task-detail', initialTask.id], (old: any) => {
+                        if (!old) return old;
+                        const subtasks = (old.subtasks || []).map((s: any) => s.id === st.id ? { ...s, ...updated } : s);
+                        return { ...old, subtasks };
+                      });
                       toast.success('Assignee updated');
                     }).catch(() => toast.error('Failed to update'));
                   }}

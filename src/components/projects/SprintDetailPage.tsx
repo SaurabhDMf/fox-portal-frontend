@@ -218,10 +218,13 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
 
   const getMemberId = (m: any) => m?.user_id || m?.id;
 
-  // Inline status update
+  // Inline field update — use dedicated PATCH for assignee
   const updateTaskStatus = (taskId: string, field: string, value: string | null) => {
-    const payload: Record<string, any> = { [field]: value };
-    api.put(`/tasks/${taskId}`, payload).then((res) => {
+    const isAssignee = field === 'assignee_id';
+    const request = isAssignee
+      ? api.patch(`/tasks/${taskId}/assignee`, { assignee_id: value })
+      : api.put(`/tasks/${taskId}`, { [field]: value });
+    request.then((res) => {
       // Update local cache optimistically
       const updated = extractProjectEntity(res.data, ['task']) || res.data;
       qc.setQueryData(['sprint-detail-hierarchy', projectId, sprintId], (old: any) => {
