@@ -532,7 +532,6 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
                             <SubtaskRowActions subtask={st} onEdit={(s) => setEditingSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
                           </td>
                         </tr>
-                        </tr>
                       ))}
                     </React.Fragment>
                   );
