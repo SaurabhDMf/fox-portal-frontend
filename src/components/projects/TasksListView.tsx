@@ -1,12 +1,14 @@
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
-import { Plus, Search } from 'lucide-react';
-
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useMemo, useState, useCallback } from 'react';
+import { Plus, Search, X, Pencil } from 'lucide-react';
 import api from '@/lib/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { extractProjectArray } from '@/lib/projectResponse';
-import type { ProjectTask } from '@/lib/projectTypes';
+import type { ProjectTask, Sprint, Epic, ProjectMember } from '@/lib/projectTypes';
+import toast from 'react-hot-toast';
 
 interface Props {
   projectId: string;
@@ -14,131 +16,336 @@ interface Props {
   onCreateTask?: () => void;
 }
 
-const STATUS_FILTERS = ['All', 'Open', 'In Progress', 'Review', 'Done', 'Cancelled'];
+const STATUS_OPTIONS = ['Open', 'In Progress', 'Review', 'Done', 'Cancelled'];
+const TYPE_OPTIONS = ['Task', 'Bug', 'Story', 'Subtask'];
+const PRIORITY_OPTIONS = ['High', 'Medium', 'Low'];
+
+const TYPE_COLORS: Record<string, string> = {
+  Task: 'bg-blue-500/15 text-blue-700 dark:text-blue-400',
+  Bug: 'bg-red-500/15 text-red-700 dark:text-red-400',
+  Story: 'bg-purple-500/15 text-purple-700 dark:text-purple-400',
+  Subtask: 'bg-muted text-muted-foreground',
+};
+
+const PRIORITY_COLORS: Record<string, string> = {
+  High: 'bg-red-500/15 text-red-700 dark:text-red-400',
+  Critical: 'bg-red-500/15 text-red-700 dark:text-red-400',
+  Medium: 'bg-orange-500/15 text-orange-700 dark:text-orange-400',
+  Low: 'bg-green-500/15 text-green-700 dark:text-green-400',
+};
 
 const fmtDate = (v?: string) => {
   if (!v) return '—';
   const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const isPastDue = (v?: string) => {
+  if (!v) return false;
+  return new Date(v) < new Date();
+};
+
+const initials = (name?: string) => {
+  if (!name) return '?';
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 };
 
 export default function TasksListView({ projectId, onTaskClick, onCreateTask }: Props) {
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const qc = useQueryClient();
 
+  // Filter state
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [sprintFilter, setSprintFilter] = useState('');
+  const [moduleFilter, setModuleFilter] = useState('');
+  const [assigneeFilter, setAssigneeFilter] = useState('');
+
+  // Build query params — priority is client-side only
+  const queryParams = useMemo(() => {
+    const p: Record<string, string> = { project_id: projectId };
+    if (search.trim()) p.search = search.trim();
+    if (statusFilter) p.status = statusFilter;
+    if (typeFilter) p.type = typeFilter;
+    if (sprintFilter) p.sprint_id = sprintFilter;
+    if (moduleFilter) p.module_id = moduleFilter;
+    if (assigneeFilter) p.assignee_id = assigneeFilter;
+    return p;
+  }, [projectId, search, statusFilter, typeFilter, sprintFilter, moduleFilter, assigneeFilter]);
+
+  // Main task query
   const { data: raw, isLoading } = useQuery({
-    queryKey: ['project-all-tasks', projectId],
+    queryKey: ['project-all-tasks', queryParams],
     queryFn: async () => {
-      const r = await api.get('/tasks', { params: { project_id: projectId } });
-      return extractProjectArray<ProjectTask>(r.data, ['tasks']);
+      const r = await api.get('/tasks', { params: queryParams });
+      const d = r.data?.data ?? r.data;
+      return Array.isArray(d) ? d : [];
     },
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
-  const tasks: ProjectTask[] = Array.isArray(raw) ? raw : [];
 
+  const tasks: ProjectTask[] = raw ?? [];
+
+  // Client-side priority filter
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return tasks.filter((t) => {
-      if (statusFilter !== 'All' && t.status !== statusFilter) return false;
-      if (!q) return true;
-      return [t.title, t.task_number, t.priority, t.status, t.type, t.epic_name, t.sprint_name,
-        (t as any).assignee_name, (t as any).story_title,
-        t.assignees?.map(a => a.full_name).join(' ')]
-        .filter(Boolean).some(v => String(v).toLowerCase().includes(q));
-    });
-  }, [tasks, search, statusFilter]);
+    if (!priorityFilter) return tasks;
+    return tasks.filter(t => t.priority === priorityFilter);
+  }, [tasks, priorityFilter]);
 
-  const assigneeDisplay = (t: ProjectTask) => {
-    const name = (t as any).assignee_name || t.assignees?.[0]?.full_name;
-    if (!name) return '—';
-    const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-    return (
-      <div className="flex items-center gap-2">
-        <Avatar className="h-6 w-6">
-          <AvatarFallback className="text-[10px] bg-primary/10 text-primary">{initials}</AvatarFallback>
-        </Avatar>
-        <span className="truncate max-w-[120px]">{name}</span>
-      </div>
-    );
+  // Filter option queries
+  const { data: sprints } = useQuery({
+    queryKey: ['project-sprints-list', projectId],
+    queryFn: async () => {
+      const r = await api.get(`/projects/${projectId}/sprints`);
+      return extractProjectArray<Sprint>(r.data, ['sprints', 'data']);
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: modules } = useQuery({
+    queryKey: ['project-epics-list', projectId],
+    queryFn: async () => {
+      const r = await api.get(`/projects/${projectId}/epics`);
+      return extractProjectArray<Epic>(r.data, ['epics', 'data']);
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: members } = useQuery({
+    queryKey: ['project-members', projectId],
+    queryFn: async () => {
+      const r = await api.get(`/projects/${projectId}/members`);
+      return extractProjectArray<ProjectMember>(r.data, ['members', 'data']);
+    },
+    staleTime: 60_000,
+  });
+
+  const hasActiveFilters = search || statusFilter || typeFilter || priorityFilter || sprintFilter || moduleFilter || assigneeFilter;
+
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('');
+    setTypeFilter('');
+    setPriorityFilter('');
+    setSprintFilter('');
+    setModuleFilter('');
+    setAssigneeFilter('');
   };
+
+  // Inline status update — patch local state, no refetch
+  const handleStatusChange = useCallback(async (taskId: string, newStatus: string) => {
+    // Optimistic update
+    qc.setQueryData(['project-all-tasks', queryParams], (old: ProjectTask[] | undefined) => {
+      if (!old) return old;
+      return old.map(t => t.id === taskId ? { ...t, status: newStatus } : t);
+    });
+    try {
+      await api.put(`/tasks/${taskId}`, { status: newStatus });
+    } catch {
+      toast.error('Failed to update status');
+      qc.invalidateQueries({ queryKey: ['project-all-tasks'] });
+    }
+  }, [qc, queryParams]);
+
+  const selectCls = "px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[100px]";
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          All Tasks <span className="text-xs font-normal">({filtered.length})</span>
-        </h3>
+        <div>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            All Tasks
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Showing {filtered.length} task{filtered.length !== 1 ? 's' : ''}
+          </p>
+        </div>
         {onCreateTask && (
-          <button onClick={onCreateTask} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-3 w-3" /> Create Task
-          </button>
+          <Button size="sm" onClick={onCreateTask} className="gap-1.5">
+            <Plus className="h-3.5 w-3.5" /> New Task
+          </Button>
         )}
       </div>
 
+      {/* Filter bar */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[180px] max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input placeholder="Search tasks..." value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+          <input
+            placeholder="Search tasks..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
         </div>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="px-3 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none">
-          {STATUS_FILTERS.map(s => <option key={s} value={s}>{s === 'All' ? 'All Statuses' : s}</option>)}
+
+        <select value={sprintFilter} onChange={e => setSprintFilter(e.target.value)} className={selectCls}>
+          <option value="">All Sprints</option>
+          {(sprints ?? []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
+
+        <select value={moduleFilter} onChange={e => setModuleFilter(e.target.value)} className={selectCls}>
+          <option value="">All Modules</option>
+          {(modules ?? []).map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+        </select>
+
+        <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} className={selectCls}>
+          <option value="">All Assignees</option>
+          {(members ?? []).map(m => <option key={m.user_id} value={m.user_id}>{m.full_name}</option>)}
+        </select>
+
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={selectCls}>
+          <option value="">All Statuses</option>
+          {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className={selectCls}>
+          <option value="">All Types</option>
+          {TYPE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className={selectCls}>
+          <option value="">All Priorities</option>
+          {PRIORITY_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        {hasActiveFilters && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 text-xs">
+            <X className="h-3 w-3" /> Clear
+          </Button>
+        )}
       </div>
 
+      {/* Table */}
       <div className="glass-card overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Task Name</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Stage</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Assigned To</TableHead>
-              <TableHead>Story</TableHead>
-              <TableHead>Epic</TableHead>
-              <TableHead>Sprint</TableHead>
-              <TableHead>Due Date</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead>Edit</TableHead>
+              <TableHead>Assigned To</TableHead>
+              <TableHead>Due Date</TableHead>
+              <TableHead>Priority</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Module</TableHead>
+              <TableHead>Sprint</TableHead>
+              <TableHead className="w-[60px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={12} className="py-10 text-center text-sm text-muted-foreground">Loading tasks…</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={10} className="py-12 text-center text-sm text-muted-foreground">
+                  Loading tasks…
+                </TableCell>
+              </TableRow>
             ) : filtered.length > 0 ? (
-              filtered.map(t => (
-                <TableRow key={t.id} className="cursor-pointer" onClick={() => onTaskClick?.(t)}>
-                  <TableCell>
-                    <div className="min-w-[180px]">
-                      <p className="font-medium text-foreground">{t.title}</p>
-                      <p className="text-xs text-muted-foreground">{t.task_number || ''}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-xs">{t.type || '—'}</TableCell>
-                  <TableCell className="text-xs">{(t as any).stage || '—'}</TableCell>
-                  <TableCell className="text-xs">{t.status || '—'}</TableCell>
-                  <TableCell className="text-xs">{t.priority || '—'}</TableCell>
-                  <TableCell className="text-xs">{assigneeDisplay(t)}</TableCell>
-                  <TableCell className="text-xs">{(t as any).story_title || (t as any).parent_task_title || '—'}</TableCell>
-                  <TableCell className="text-xs">{t.epic_name || (t as any).epic_title || '—'}</TableCell>
-                  <TableCell className="text-xs">{t.sprint_name || (t as any).sprint_title || '—'}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{fmtDate(t.due_date)}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{fmtDate(t.created_at)}</TableCell>
-                  <TableCell>
-                    <button type="button" onClick={e => { e.stopPropagation(); onTaskClick?.(t); }}
-                      className="px-2.5 py-1 rounded-md bg-secondary text-foreground text-xs font-medium hover:bg-muted transition-colors">
-                      Edit
-                    </button>
-                  </TableCell>
-                </TableRow>
-              ))
+              filtered.map(t => {
+                const assigneeName = (t as any).assignee_name ?? t.assignees?.[0]?.full_name;
+                const assigneeAvatar = (t as any).assignee_avatar ?? t.assignees?.[0]?.avatar_url;
+                return (
+                  <TableRow key={t.id} className="cursor-pointer group" onClick={() => onTaskClick?.(t)}>
+                    {/* Task Name */}
+                    <TableCell>
+                      <div className="min-w-[200px]">
+                        <div className="flex items-center gap-2">
+                          {t.task_number && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                              {t.task_number}
+                            </span>
+                          )}
+                          <span className="font-medium text-foreground">{t.title}</span>
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    {/* Type */}
+                    <TableCell>
+                      <Badge variant="secondary" className={`text-[10px] ${TYPE_COLORS[t.type] || ''}`}>
+                        {t.type || '—'}
+                      </Badge>
+                    </TableCell>
+
+                    {/* Created */}
+                    <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
+                      {fmtDate(t.created_at)}
+                    </TableCell>
+
+                    {/* Assigned To */}
+                    <TableCell>
+                      {assigneeName ? (
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6">
+                            {assigneeAvatar && <AvatarImage src={assigneeAvatar} />}
+                            <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                              {initials(assigneeName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs truncate max-w-[100px]">{assigneeName}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Unassigned</span>
+                      )}
+                    </TableCell>
+
+                    {/* Due Date */}
+                    <TableCell className={`text-xs whitespace-nowrap ${isPastDue(t.due_date) && t.status !== 'Done' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}>
+                      {fmtDate(t.due_date)}
+                    </TableCell>
+
+                    {/* Priority */}
+                    <TableCell>
+                      <Badge variant="secondary" className={`text-[10px] ${PRIORITY_COLORS[t.priority] || ''}`}>
+                        {t.priority || '—'}
+                      </Badge>
+                    </TableCell>
+
+                    {/* Status — inline dropdown */}
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      <select
+                        value={t.status}
+                        onChange={e => handleStatusChange(t.id, e.target.value)}
+                        className="px-2 py-1 rounded-md bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      >
+                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </TableCell>
+
+                    {/* Module */}
+                    <TableCell className="text-xs text-muted-foreground">
+                      {(t as any).epic_title || t.epic_name || '—'}
+                    </TableCell>
+
+                    {/* Sprint */}
+                    <TableCell className="text-xs text-muted-foreground">
+                      {t.sprint_name || (t as any).sprint_title || '—'}
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => onTaskClick?.(t)}
+                        className="p-1.5 rounded-md hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             ) : (
-              <TableRow><TableCell colSpan={12} className="py-10 text-center text-sm text-muted-foreground">
-                {search || statusFilter !== 'All' ? 'No tasks match your filters' : 'No tasks yet'}
-              </TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={10} className="py-12 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    {hasActiveFilters ? 'No tasks match your filters.' : 'No tasks found. Create the first one.'}
+                  </p>
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
