@@ -28,12 +28,15 @@ export function SubtaskEditModal({ subtask, onClose, onSuccess }: SubtaskEditMod
   // Using UserPicker instead of manual query
 
   const saveMut = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const body: Record<string, any> = { title: form.title, status: form.status, priority: form.priority };
-      if (form.assignee_id) body.assignee_id = form.assignee_id; else body.assignee_id = null;
       if (form.due_date) body.due_date = form.due_date; else body.due_date = null;
       if (form.stage) body.stage = form.stage; else body.stage = null;
-      return api.put(`/tasks/${subtask.id}`, body);
+      // Update task fields first (without assignee)
+      const taskRes = await api.put(`/tasks/${subtask.id}`, body);
+      // Then update assignee via dedicated endpoint
+      const assigneeRes = await api.patch(`/tasks/${subtask.id}/assignee`, { assignee_id: form.assignee_id || null });
+      return { ...taskRes.data, ...assigneeRes.data };
     },
     onSuccess: (res) => {
       const updated = res.data?.task || res.data?.data?.task || res.data?.data || res.data;
