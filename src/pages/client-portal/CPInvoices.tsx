@@ -1,58 +1,92 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Download } from 'lucide-react';
+import { Download, Eye } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+const STATUS_FILTERS = ['All', 'Paid', 'Overdue', 'Sent', 'Pending', 'Draft'];
 
 export default function CPInvoices() {
+  const [filter, setFilter] = useState('All');
+  const navigate = useNavigate();
+
   const { data = [] } = useQuery({
     queryKey: ['cp-invoices'],
     queryFn: () => api.get('/client/invoices').then(r => r.data?.data || r.data?.invoices || r.data || []),
   });
+
   const invoices = Array.isArray(data) ? data : [];
+  const filtered = filter === 'All' ? invoices : invoices.filter((inv: any) => inv.status === filter);
+
+  const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  const fmtAmt = (v: number, currency?: string) => {
+    const sym = currency === 'USD' ? '$' : '₹';
+    return `${sym}${Number(v || 0).toLocaleString('en-IN')}`;
+  };
 
   return (
     <div className="page-container">
-      <div className="page-header"><div><h1 className="page-title">Invoices</h1><p className="page-subtitle">View and download your invoices</p></div></div>
+      <div className="page-header">
+        <div><h1 className="page-title">Invoices</h1><p className="page-subtitle">View and download your invoices</p></div>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex flex-wrap gap-1 mb-4">
+        {STATUS_FILTERS.map(s => (
+          <button key={s} onClick={() => setFilter(s)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filter === s ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'}`}>
+            {s}
+          </button>
+        ))}
+      </div>
+
       <div className="glass-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
               <th className="p-4">Invoice #</th>
-              <th className="p-4">Date</th>
+              <th className="p-4">Issue Date</th>
               <th className="p-4">Due Date</th>
               <th className="p-4">Amount</th>
+              <th className="p-4">Paid</th>
               <th className="p-4">Status</th>
               <th className="p-4">Action</th>
             </tr>
           </thead>
           <tbody>
-            {invoices.map((inv: any) => (
+            {filtered.map((inv: any) => (
               <tr key={inv.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
                 <td className="p-4 font-medium">{inv.invoice_number || inv.id?.slice(0, 8)}</td>
-                <td className="p-4 text-muted-foreground">{inv.date ? new Date(inv.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-                <td className="p-4 text-muted-foreground">{inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-                <td className="p-4 font-semibold">${Number(inv.total || inv.amount || 0).toLocaleString()}</td>
+                <td className="p-4 text-muted-foreground">{fmtDate(inv.date || inv.issue_date)}</td>
+                <td className="p-4 text-muted-foreground">{fmtDate(inv.due_date)}</td>
+                <td className="p-4 font-semibold">{fmtAmt(inv.total || inv.amount, inv.currency)}</td>
+                <td className="p-4 text-muted-foreground">{fmtAmt(inv.paid_amount || 0, inv.currency)}</td>
+                <td className="p-4"><StatusBadge status={inv.status} /></td>
                 <td className="p-4">
-                  <span className={
-                    inv.status === 'Paid' ? 'badge-success' :
-                    inv.status === 'Overdue' ? 'badge-danger' :
-                    inv.status === 'Sent' ? 'badge-warning' : 'badge-neutral'
-                  }>{inv.status}</span>
-                </td>
-                <td className="p-4">
-                  {inv.pdf_url && (
-                    <a href={inv.pdf_url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground inline-flex">
-                      <Download className="h-4 w-4" />
-                    </a>
-                  )}
+                  <button onClick={() => navigate(`/client-portal/invoices/${inv.id}`)}
+                    className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs">
+                    <Eye className="h-4 w-4" /> View
+                  </button>
                 </td>
               </tr>
             ))}
-            {invoices.length === 0 && (
-              <tr><td colSpan={6} className="p-12 text-center text-muted-foreground text-sm">No invoices found</td></tr>
+            {filtered.length === 0 && (
+              <tr><td colSpan={7} className="p-12 text-center text-muted-foreground text-sm">No invoices found</td></tr>
             )}
           </tbody>
         </table>
       </div>
     </div>
   );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const cls =
+    status === 'Paid' ? 'bg-success/15 text-success' :
+    status === 'Overdue' ? 'bg-destructive/15 text-destructive' :
+    status === 'Sent' || status === 'Viewed' ? 'bg-info/15 text-info' :
+    status === 'Partially Paid' ? 'bg-warning/15 text-warning' :
+    status === 'Draft' ? 'bg-secondary text-muted-foreground' :
+    'bg-secondary text-muted-foreground';
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{status}</span>;
 }
