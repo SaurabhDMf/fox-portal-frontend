@@ -1,9 +1,9 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { extractProjectArray } from '@/lib/projectResponse';
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import UserPicker from './UserPicker';
 
 const COLORS = ['#6c63fa', '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
 const STATUS_OPTIONS = ['Open', 'In Progress', 'Done'];
@@ -28,11 +28,7 @@ export default function ModuleFormModal({ projectId, sprintId, mode, module, onC
     due_date: '',
   });
 
-  const { data: membersRaw } = useQuery({
-    queryKey: ['project-members', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/members`).then(r => extractProjectArray(r.data, ['members', 'users'])),
-  });
-  const members = Array.isArray(membersRaw) ? membersRaw : [];
+  // Removed project-members query — using UserPicker with /users/active instead
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -94,14 +90,12 @@ export default function ModuleFormModal({ projectId, sprintId, mode, module, onC
               {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Owner</label>
-            <select value={form.owner_id} onChange={e => set('owner_id', e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-              <option value="">No owner</option>
-              {members.map((m: any) => <option key={m.user_id || m.id} value={m.user_id || m.id}>{m.full_name}</option>)}
-            </select>
-          </div>
+          <UserPicker
+            value={form.owner_id || null}
+            onChange={(id) => set('owner_id', id || '')}
+            label="Owner"
+            placeholder="No owner"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
