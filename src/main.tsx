@@ -7,3 +7,13 @@ const savedTheme = JSON.parse(localStorage.getItem('fox-portal-theme') || '{}')?
 document.documentElement.classList.toggle('dark', savedTheme === 'dark');
 
 createRoot(document.getElementById("root")!).render(<App />);
+
+// Init push notifications for returning logged-in users (non-blocking)
+const isInIframe = (() => { try { return window.self !== window.top; } catch { return true; } })();
+const isPreview = window.location.hostname.includes('id-preview--');
+if (!isInIframe && !isPreview) {
+  const auth = JSON.parse(localStorage.getItem('ubp-auth') || '{}');
+  if (auth?.state?.isAuthenticated) {
+    import('./lib/pushNotifications').then(m => m.initPushNotifications());
+  }
+}
