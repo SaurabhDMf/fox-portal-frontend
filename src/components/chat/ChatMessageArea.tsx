@@ -476,7 +476,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
           {isDeleted ? (
               <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                <div className="max-w-[70%] px-3 py-2 rounded-xl bg-secondary/50 italic text-muted-foreground text-sm">
+                <div className="max-w-[85%] md:max-w-[70%] px-3 py-2 rounded-xl bg-secondary/50 italic text-muted-foreground text-sm">
                   This message was deleted
                 </div>
               </div>
