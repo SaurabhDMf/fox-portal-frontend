@@ -126,6 +126,21 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         return [...prev, msg];
       });
       scrollToBottom();
+      // Update room list: mark current room read, increment others
+      qc.setQueryData(['chat-rooms'], (old: any[]) =>
+        old?.map((r: any) => {
+          if (r.id === msg.room_id && msg.room_id === roomId) {
+            return { ...r, last_message: msg.content, last_message_at: msg.created_at, unread_count: 0 };
+          }
+          if (r.id === msg.room_id) {
+            return { ...r, last_message: msg.content, last_message_at: msg.created_at, unread_count: (r.unread_count || 0) + 1 };
+          }
+          return r;
+        })
+      );
+      if (msg.room_id === roomId) {
+        api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+      }
     });
 
     socket.on('message_updated', (msg) => {
