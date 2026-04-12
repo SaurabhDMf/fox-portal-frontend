@@ -11,6 +11,22 @@ import { Socket } from 'socket.io-client';
 import { getSocket } from '@/hooks/useSocket';
 import toast from 'react-hot-toast';
 
+const formatDateLabel = (dateStr: string): string => {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const isSameDay = (a: Date, b: Date) =>
+    a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+  if (isSameDay(date, today)) return 'Today';
+  if (isSameDay(date, yesterday)) return 'Yesterday';
+  const diffDays = Math.floor((today.getTime() - date.getTime()) / 86400000);
+  if (diffDays < 7) return date.toLocaleDateString('en-US', { weekday: 'long' });
+  if (date.getFullYear() === today.getFullYear())
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
 interface Props {
   roomId: string;
   roomName: string;
