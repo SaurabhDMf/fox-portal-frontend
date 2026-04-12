@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import toast from 'react-hot-toast';
 import UserPicker from '@/components/projects/UserPicker';
 import StatusDot from '@/components/chat/StatusDot';
+import StatusBadge from '@/components/chat/StatusBadge';
 
 interface Props {
   roomId: string;
@@ -136,7 +137,15 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
                   <StatusDot status={m.status} className="absolute -bottom-0.5 -right-0.5 w-2 h-2" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{m.full_name || m.email}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium truncate">{m.full_name || m.email}</span>
+                    <StatusBadge
+                      status={m.status ?? 'offline'}
+                      statusText={m.status_text}
+                      showLabel={m.status !== 'online'}
+                      size="xs"
+                    />
+                  </div>
                   {m.job_title && <span className="text-[10px] text-muted-foreground truncate block">{m.job_title}</span>}
                   {Number(m.is_admin) === 1 && <span className="text-[10px] text-primary font-medium">Admin</span>}
                 </div>
