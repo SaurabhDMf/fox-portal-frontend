@@ -415,7 +415,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         {allMessages.map((msg, i) => {
           const isOwn = msg.sender_id === user?.id;
           const isDeleted = Boolean(msg.deleted_at) || Boolean(msg.is_deleted);
-          const showSender = !isOwn && (i === 0 || allMessages[i - 1]?.sender_id !== msg.sender_id);
+          const msgDate = new Date(msg.created_at).toDateString();
+          const prevDate = i > 0 ? new Date(allMessages[i - 1].created_at).toDateString() : null;
+          const showDateSeparator = msgDate !== prevDate;
+          const showSender = !isOwn && (i === 0 || allMessages[i - 1]?.sender_id !== msg.sender_id || showDateSeparator);
           const isLastMessage = i === allMessages.length - 1;
 
           // Read receipt logic
