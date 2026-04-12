@@ -4,8 +4,9 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import {
   Send, Paperclip, Search, Pin, Info, ArrowLeft, MessageSquare,
-  Smile, Reply, Pencil, Trash2, X, Check
+  Smile, Reply, Pencil, Trash2, X, Check, CheckCheck
 } from 'lucide-react';
+import StatusDot from '@/components/chat/StatusDot';
 import { Socket } from 'socket.io-client';
 import { getSocket } from '@/hooks/useSocket';
 import toast from 'react-hot-toast';
@@ -49,7 +50,9 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     enabled: !!roomId,
   });
 
-  const headerTitle = roomDetail?.type === '1-to-1'
+  const isDM = roomDetail?.type === '1-to-1';
+
+  const headerTitle = isDM
     ? (roomDetail.dm_other_user_name ?? 'Direct Message')
     : (roomDetail?.name ?? roomName);
 
@@ -58,9 +61,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     roomDetail?.dm_other_user_email || '',
   ].filter(Boolean).join(' · ');
 
-  const headerSubtitle = roomDetail?.type === '1-to-1'
+  const headerSubtitle = isDM
     ? dmSubParts
     : (memberCount ? `${memberCount} members` : '');
+
+  const dmStatusText = isDM && roomDetail?.dm_other_user_status_text
+    ? `${roomDetail.dm_other_user_status_emoji || ''} ${roomDetail.dm_other_user_status_text}`.trim()
+    : '';
+
+  // Members for read receipts
+  const roomMembers: any[] = roomDetail?.members || [];
 
   // Fetch messages imperatively whenever roomId changes
   useEffect(() => {
@@ -150,6 +160,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       );
       if (msg.room_id === roomId) {
         api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+        // Refresh room detail for read receipts after delay
+        setTimeout(() => {
+          qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
+        }, 3000);
       }
     });
 
@@ -192,8 +206,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       }
     });
 
-    socket.on('added_to_room', () => {
-      qc.invalidateQueries({ queryKey: ['chat-rooms'] });
+    // Real-time status updates
+    socket.on('user_status_changed', (data: any) => {
+      qc.setQueryData(['chat-rooms'], (old: any[]) =>
+        old?.map((r: any) =>
+          r.dm_other_user_id === data.user_id
+            ? { ...r, dm_other_user_status: data.status, dm_other_user_status_text: data.status_text, dm_other_user_status_emoji: data.status_emoji }
+            : r
+        )
+      );
+      qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
     });
 
     return () => {
@@ -205,6 +227,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       socket.off('message_reaction');
       socket.off('user_typing');
       socket.off('added_to_room');
+      socket.off('user_status_changed');
       setRealtimeMessages([]);
       setTypingUsers([]);
     };
@@ -323,7 +346,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm truncate">{headerTitle}</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="font-semibold text-sm truncate">{headerTitle}</h3>
+            {isDM && <StatusDot status={roomDetail?.dm_other_user_status} />}
+          </div>
+          {dmStatusText && <p className="text-[10px] text-muted-foreground">{dmStatusText}</p>}
           {headerSubtitle ? <p className="text-xs text-muted-foreground">{headerSubtitle}</p> : null}
         </div>
         <div className="flex items-center gap-1">
@@ -389,6 +416,14 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           const isOwn = msg.sender_id === user?.id;
           const isDeleted = Boolean(msg.deleted_at) || Boolean(msg.is_deleted);
           const showSender = !isOwn && (i === 0 || allMessages[i - 1]?.sender_id !== msg.sender_id);
+          const isLastMessage = i === allMessages.length - 1;
+
+          // Read receipt logic
+          const otherMember = isDM ? roomMembers.find((m: any) => m.user_id !== user?.id) : null;
+          const isSeen = isDM && otherMember?.last_read_at && new Date(otherMember.last_read_at) >= new Date(msg.created_at);
+          const seenByGroup = !isDM && isLastMessage ? roomMembers.filter((m: any) =>
+            m.user_id !== user?.id && m.last_read_at && new Date(m.last_read_at) >= new Date(msg.created_at)
+          ) : [];
 
           if (isDeleted) {
             return (
@@ -476,6 +511,36 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   )}
+                </div>
+              )}
+
+              {/* Read receipts — DM */}
+              {isLastMessage && isOwn && isDM && (
+                <div className="flex items-center justify-end gap-1 mt-0.5 text-[10px] text-muted-foreground">
+                  {isSeen
+                    ? <><CheckCheck className="w-3 h-3 text-blue-400" /> Seen</>
+                    : <><Check className="w-3 h-3" /> Sent</>
+                  }
+                </div>
+              )}
+
+              {/* Read receipts — Group */}
+              {isLastMessage && !isDM && seenByGroup.length > 0 && (
+                <div className="flex items-center justify-end gap-1 mt-1">
+                  <span className="text-[10px] text-muted-foreground">Seen by</span>
+                  <div className="flex -space-x-1">
+                    {seenByGroup.slice(0, 5).map((m: any) => (
+                      <div key={m.user_id} title={m.full_name}
+                        className="w-4 h-4 rounded-full bg-primary/60 ring-1 ring-background flex items-center justify-center text-[8px] text-primary-foreground font-bold">
+                        {m.full_name?.charAt(0)}
+                      </div>
+                    ))}
+                    {seenByGroup.length > 5 && (
+                      <div className="w-4 h-4 rounded-full bg-muted ring-1 ring-background flex items-center justify-center text-[8px] text-muted-foreground">
+                        +{seenByGroup.length - 5}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
