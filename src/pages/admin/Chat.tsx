@@ -26,6 +26,9 @@ export default function Chat() {
   });
 
   const activeRoomData = (rooms as any[]).find((r: any) => r.id === activeRoom);
+  const activeRoomName = activeRoomData?.type === '1-to-1'
+    ? (activeRoomData.dm_other_user_name ?? 'Direct Message')
+    : (activeRoomData?.name ?? 'Chat');
 
   return (
     <div className="page-container !p-0 h-[calc(100vh-0px)] md:h-screen flex">
@@ -44,7 +47,7 @@ export default function Chat() {
         {activeRoom ? (
           <ChatMessageArea
             roomId={activeRoom}
-            roomName={activeRoomData?.name || 'Chat'}
+            roomName={activeRoomName}
             memberCount={activeRoomData?.member_count}
             onBack={() => setActiveRoom(null)}
             onToggleInfo={() => { setShowInfo(!showInfo); setShowPinned(false); }}
