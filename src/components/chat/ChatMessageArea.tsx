@@ -486,7 +486,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
               onMouseEnter={() => setHoveredMsg(msg.id)}
               onMouseLeave={() => setHoveredMsg(null)}
             >
-              <div className="max-w-[70%]">
+              <div className="max-w-[85%] md:max-w-[70%]">
                 {/* Reply snippet */}
                 {msg.reply_to_id && msg.reply_to_content && (
                   <div className={`text-xs px-2 py-1 mb-0.5 rounded-t-lg border-l-2 border-primary/50 bg-secondary/50 text-muted-foreground truncate ${isOwn ? 'ml-auto' : ''}`}>
@@ -541,7 +541,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
               {/* Hover actions */}
               {hoveredMsg === msg.id && (
-                <div className={`absolute top-0 ${isOwn ? 'right-[calc(70%+4px)]' : 'left-[calc(70%+4px)]'} flex items-center gap-0.5 bg-card border border-border rounded-lg shadow-lg p-0.5 z-10`}>
+                <div className={`absolute -top-8 ${isOwn ? 'right-0' : 'left-0'} flex items-center gap-0.5 bg-card border border-border rounded-lg shadow-lg p-0.5 z-10`}>
                   <button onClick={() => {
                     api.post(`/chat/messages/${msg.id}/reaction`, { emoji: '👍' }).catch(() => {});
                   }} className="p-1.5 rounded hover:bg-secondary text-muted-foreground" title="React">
@@ -569,19 +569,36 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                 </div>
               )}
 
-              {/* Read receipts — DM */}
-              {isLastMessage && isOwn && isDM && (
-                <div className="flex items-center justify-end gap-1 mt-0.5 text-[10px] text-muted-foreground">
+            </div>
+          )}
+            </div>
+          );
+        })}
+
+        {/* Read receipt for last own message — rendered outside message loop */}
+        {(() => {
+          const lastOwnIdx = allMessages.map((m, i) => m.sender_id === user?.id ? i : -1).filter(i => i >= 0).pop();
+          if (lastOwnIdx === undefined) return null;
+          const lastOwnMsg = allMessages[lastOwnIdx];
+          if (!lastOwnMsg || Boolean(lastOwnMsg.deleted_at) || Boolean(lastOwnMsg.is_deleted)) return null;
+          const otherMember = isDM ? roomMembers.find((m: any) => m.user_id !== user?.id) : null;
+          const isSeen = isDM && otherMember?.last_read_at && new Date(otherMember.last_read_at) >= new Date(lastOwnMsg.created_at);
+          const seenByGroup = !isDM ? roomMembers.filter((m: any) =>
+            m.user_id !== user?.id && m.last_read_at && new Date(m.last_read_at) >= new Date(lastOwnMsg.created_at)
+          ) : [];
+
+          return (
+            <>
+              {isDM && (
+                <div className="flex items-center justify-end gap-1 -mt-0.5 mr-1 text-[10px] text-muted-foreground">
                   {isSeen
                     ? <><CheckCheck className="w-3 h-3 text-blue-400" /> Seen</>
                     : <><Check className="w-3 h-3" /> Sent</>
                   }
                 </div>
               )}
-
-              {/* Read receipts — Group */}
-              {isLastMessage && !isDM && seenByGroup.length > 0 && (
-                <div className="flex items-center justify-end gap-1 mt-1">
+              {!isDM && seenByGroup.length > 0 && (
+                <div className="flex items-center justify-end gap-1 -mt-0.5 mr-1">
                   <span className="text-[10px] text-muted-foreground">Seen by</span>
                   <div className="flex -space-x-1">
                     {seenByGroup.slice(0, 5).map((m: any) => (
@@ -598,7 +615,9 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                   </div>
                 </div>
               )}
-            </div>
+            </>
+          );
+        })()}
           )}
             </div>
           );
