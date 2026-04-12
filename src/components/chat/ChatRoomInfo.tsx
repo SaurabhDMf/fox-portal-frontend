@@ -69,7 +69,7 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
   });
 
   const members = room?.members || [];
-  const isAdmin = members.find((m: any) => m.id === user?.id)?.is_admin || room?.created_by === user?.id;
+  const isAdmin = Number(members.find((m: any) => m.id === user?.id)?.is_admin) === 1 || room?.created_by === user?.id;
 
   const tabs = [
     { key: 'members' as const, label: 'Members' },
@@ -133,7 +133,7 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{m.full_name || m.email}</div>
-                  {m.is_admin && <span className="text-[10px] text-primary font-medium">Admin</span>}
+                  {Number(m.is_admin) === 1 && <span className="text-[10px] text-primary font-medium">Admin</span>}
                 </div>
                 {isAdmin && m.id !== user?.id && (
                   <button onClick={() => removeMemberMut.mutate(m.id)}
