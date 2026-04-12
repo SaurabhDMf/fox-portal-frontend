@@ -4,6 +4,7 @@ import api from '@/lib/api';
 import { Plus, MessageSquare, Search, Hash } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import StatusDot from '@/components/chat/StatusDot';
+import StatusBadge from '@/components/chat/StatusBadge';
 
 interface ChatRoom {
   id: string;
@@ -96,6 +97,14 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium truncate">{displayName}</span>
+                  {room.type === '1-to-1' && (
+                    <StatusBadge
+                      status={room.dm_other_user_status ?? 'offline'}
+                      statusText={room.dm_other_user_status_text}
+                      showLabel={room.dm_other_user_status !== 'online'}
+                      size="xs"
+                    />
+                  )}
                   {room.last_message_at && (
                     <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
                       {formatTime(room.last_message_at)}

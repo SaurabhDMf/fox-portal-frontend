@@ -7,6 +7,7 @@ import {
   Smile, Reply, Pencil, Trash2, X, Check, CheckCheck
 } from 'lucide-react';
 import StatusDot from '@/components/chat/StatusDot';
+import StatusBadge from '@/components/chat/StatusBadge';
 import { Socket } from 'socket.io-client';
 import { getSocket } from '@/hooks/useSocket';
 import toast from 'react-hot-toast';
@@ -85,8 +86,17 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     ? `${roomDetail.dm_other_user_status_emoji || ''} ${roomDetail.dm_other_user_status_text}`.trim()
     : '';
 
-  // Members for read receipts
+  // Members for read receipts + status map
   const roomMembers: any[] = roomDetail?.members || [];
+  const [statusMap, setStatusMap] = useState<Record<string, { status: string; status_text: string | null }>>({});
+
+  // Populate statusMap from room members
+  useEffect(() => {
+    if (!roomMembers.length) return;
+    const map: Record<string, any> = {};
+    roomMembers.forEach((m: any) => { map[m.user_id || m.id] = { status: m.status || 'offline', status_text: m.status_text || null }; });
+    setStatusMap(map);
+  }, [roomMembers]);
 
   // Fetch messages imperatively whenever roomId changes
   useEffect(() => {
@@ -224,6 +234,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
     // Real-time status updates
     socket.on('user_status_changed', (data: any) => {
+      setStatusMap(prev => ({ ...prev, [data.user_id]: { status: data.status, status_text: data.status_text } }));
       qc.setQueryData(['chat-rooms'], (old: any[]) =>
         old?.map((r: any) =>
           r.dm_other_user_id === data.user_id
@@ -366,8 +377,15 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             <h3 className="font-semibold text-sm truncate">{headerTitle}</h3>
             {isDM && <StatusDot status={roomDetail?.dm_other_user_status} />}
           </div>
-          {dmStatusText && <p className="text-[10px] text-muted-foreground">{dmStatusText}</p>}
-          {headerSubtitle ? <p className="text-xs text-muted-foreground">{headerSubtitle}</p> : null}
+          {isDM && (
+            <StatusBadge
+              status={roomDetail?.dm_other_user_status ?? 'offline'}
+              statusText={roomDetail?.dm_other_user_status_text}
+              showLabel={true}
+              size="xs"
+            />
+          )}
+          {!isDM && headerSubtitle ? <p className="text-xs text-muted-foreground">{headerSubtitle}</p> : null}
         </div>
         <div className="flex items-center gap-1">
           <button onClick={() => setShowSearch(!showSearch)}
@@ -477,9 +495,15 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                 )}
                 <div className={`rounded-xl px-3 py-2 ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
                   {showSender && !isOwn && (
-                    <div className="text-xs font-medium mb-0.5 text-muted-foreground">
-                      {msg.sender_name}
-                      <span className="ml-2 font-normal opacity-70">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-medium text-muted-foreground">{msg.sender_name}</span>
+                      <StatusBadge
+                        status={statusMap[msg.sender_id]?.status ?? 'offline'}
+                        statusText={statusMap[msg.sender_id]?.status_text}
+                        showLabel={statusMap[msg.sender_id]?.status !== 'online'}
+                        size="xs"
+                      />
+                      <span className="text-[10px] text-muted-foreground opacity-70">
                         {msg.created_at ? new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}
                       </span>
                     </div>
