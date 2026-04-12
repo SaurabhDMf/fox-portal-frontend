@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useRef, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import {
   Send, Paperclip, Search, Pin, Info, ArrowLeft, MessageSquare,
-  Smile, Reply, Pencil, Trash2, X, Check, Loader2
+  Smile, Reply, Pencil, Trash2, X, Check
 } from 'lucide-react';
 import { Socket } from 'socket.io-client';
 import { getSocket } from '@/hooks/useSocket';
@@ -24,19 +24,17 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const accessToken = useAuthStore(s => s.accessToken);
   const qc = useQueryClient();
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<any[]>([]);
+  const [fetchedMessages, setFetchedMessages] = useState<any[]>([]);
+  const [realtimeMessages, setRealtimeMessages] = useState<any[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [loadingOlder, setLoadingOlder] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [replyTo, setReplyTo] = useState<any>(null);
   const [editingMsg, setEditingMsg] = useState<any>(null);
   const [editText, setEditText] = useState('');
   const [hoveredMsg, setHoveredMsg] = useState<string | null>(null);
-  const [roomDetail, setRoomDetail] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,12 +43,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
 
   // Fetch room detail for DM header info
-  useEffect(() => {
-    if (!roomId) return;
-    api.get(`/chat/rooms/${roomId}`).then(r => {
-      setRoomDetail(r.data?.data || r.data);
-    }).catch(() => {});
-  }, [roomId]);
+  const { data: roomDetail } = useQuery({
+    queryKey: ['chat-room-detail', roomId],
+    queryFn: () => api.get(`/chat/rooms/${roomId}`).then(r => r.data?.data || r.data),
+    enabled: !!roomId,
+  });
 
   const headerTitle = roomDetail?.type === '1-to-1'
     ? (roomDetail.dm_other_user_name ?? 'Direct Message')
@@ -60,97 +57,61 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     ? (roomDetail.dm_other_user_title ?? '')
     : (memberCount ? `${memberCount} members` : '');
 
-  // Fetch messages when roomId changes
-  const fetchMessages = useCallback(async () => {
+  // Fetch messages imperatively whenever roomId changes
+  useEffect(() => {
     if (!roomId) return;
+    setFetchedMessages([]);
+    setRealtimeMessages([]);
+    setHasMore(false);
     setLoadingMessages(true);
-    try {
-      const res = await api.get(`/chat/rooms/${roomId}/messages?limit=50`);
-      const data = res.data;
-      const msgs = Array.isArray(data) ? data : data?.data || data?.messages || [];
-      setMessages(msgs);
-      setHasMore(data?.has_more ?? msgs.length >= 50);
+    api.get(`/chat/rooms/${roomId}/messages?limit=50`)
+      .then(r => {
+        const d = r.data;
+        const msgs = Array.isArray(d) ? d : d?.data || d?.messages || [];
+        setFetchedMessages(msgs);
+        setHasMore(d?.has_more ?? false);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 80);
+      })
+      .catch(err => console.error('Failed to load messages:', err))
+      .finally(() => setLoadingMessages(false));
+    // Mark room as read
+    api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+    qc.setQueryData(['chat-rooms'], (old: any[]) =>
+      old?.map((r: any) => r.id === roomId ? { ...r, unread_count: 0 } : r)
+    );
+  }, [roomId]);
 
-      // Scroll to bottom after initial load
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-      }, 50);
-
-      // Mark as read & clear unread badge in room list cache
-      api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
-      qc.setQueryData(['chat-rooms'], (old: any[] | undefined) =>
-        old?.map((r: any) => r.id === roomId ? { ...r, unread_count: 0 } : r)
-      );
-    } finally {
-      setLoadingMessages(false);
+  // Load older messages on scroll to top
+  const handleScroll = () => {
+    const el = messagesContainerRef.current;
+    if (!el || !hasMore || loadingMessages) return;
+    if (el.scrollTop < 50) {
+      const oldest = fetchedMessages[0];
+      if (!oldest?.created_at) return;
+      setLoadingMessages(true);
+      const prevHeight = el.scrollHeight;
+      api.get(`/chat/rooms/${roomId}/messages?limit=50&before=${oldest.created_at}`)
+        .then(r => {
+          const d = r.data;
+          const older = Array.isArray(d) ? d : d?.data || d?.messages || [];
+          setFetchedMessages(prev => [...older, ...prev]);
+          setHasMore(d?.has_more ?? false);
+          requestAnimationFrame(() => { el.scrollTop = el.scrollHeight - prevHeight; });
+        })
+        .finally(() => setLoadingMessages(false));
     }
-  }, [roomId, qc]);
+  };
 
-  useEffect(() => {
-    if (!roomId) return;
-    setMessages([]);
-    setHasMore(true);
-    setRoomDetail(null);
-    fetchMessages();
-  }, [roomId, fetchMessages]);
-
-  // Fetch older messages (infinite scroll upward)
-  const fetchOlderMessages = useCallback(async () => {
-    if (!roomId || !messages.length || !hasMore || loadingOlder) return;
-    const oldestCreatedAt = messages[0]?.created_at;
-    if (!oldestCreatedAt) return;
-
-    setLoadingOlder(true);
-    const container = messagesContainerRef.current;
-    const prevScrollHeight = container?.scrollHeight || 0;
-
-    try {
-      const res = await api.get(`/chat/rooms/${roomId}/messages?limit=50&before=${encodeURIComponent(oldestCreatedAt)}`);
-      const data = res.data;
-      const olderMsgs = Array.isArray(data) ? data : data?.data || data?.messages || [];
-      setHasMore(data?.has_more ?? olderMsgs.length >= 50);
-      if (olderMsgs.length > 0) {
-        setMessages(prev => [...olderMsgs, ...prev]);
-        // Preserve scroll position
-        requestAnimationFrame(() => {
-          if (container) {
-            container.scrollTop = container.scrollHeight - prevScrollHeight;
-          }
-        });
-      }
-    } finally {
-      setLoadingOlder(false);
-    }
-  }, [roomId, messages, hasMore, loadingOlder]);
-
-  // Scroll handler for infinite scroll upward
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-
-    const handleScroll = () => {
-      if (container.scrollTop < 80 && hasMore && !loadingOlder) {
-        fetchOlderMessages();
-      }
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [fetchOlderMessages, hasMore, loadingOlder]);
-
-  // Search messages
-  useEffect(() => {
-    if (!searchQuery || searchQuery.length < 2) {
-      setSearchResults(null);
-      return;
-    }
-    api.get(`/chat/rooms/${roomId}/search?q=${encodeURIComponent(searchQuery)}`).then(r => {
+  const { data: searchResults } = useQuery({
+    queryKey: ['chat-search', roomId, searchQuery],
+    queryFn: () => api.get(`/chat/rooms/${roomId}/search?q=${encodeURIComponent(searchQuery)}`).then(r => {
       const d = r.data;
-      setSearchResults(Array.isArray(d) ? d : d?.data || d?.messages || []);
-    }).catch(() => setSearchResults([]));
-  }, [roomId, searchQuery]);
+      return Array.isArray(d) ? d : d?.data || d?.messages || [];
+    }),
+    enabled: !!searchQuery && searchQuery.length >= 2,
+  });
 
-  // Socket.IO connection
+  // Socket.IO connection via singleton
   useEffect(() => {
     if (!roomId || !accessToken) return;
 
@@ -160,53 +121,50 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     socket.emit('join_room', roomId);
 
     socket.on('new_message', (msg) => {
-      // Add message to current room
-      if (msg.room_id === roomId) {
-        setMessages(prev => {
-          if (prev.find(m => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        });
-        scrollToBottom();
-        // Mark as read since user is viewing this room
-        api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
-      }
-
-      // Update rooms list cache
-      qc.setQueryData(['chat-rooms'], (old: any[] | undefined) =>
+      setRealtimeMessages(prev => {
+        if (prev.find(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+      scrollToBottom();
+      // Update room list: mark current room read, increment others
+      qc.setQueryData(['chat-rooms'], (old: any[]) =>
         old?.map((r: any) => {
+          if (r.id === msg.room_id && msg.room_id === roomId) {
+            return { ...r, last_message: msg.content, last_message_at: msg.created_at, unread_count: 0 };
+          }
           if (r.id === msg.room_id) {
-            const isCurrentRoom = msg.room_id === roomId;
-            return {
-              ...r,
-              last_message: msg.content,
-              last_message_at: msg.created_at,
-              unread_count: isCurrentRoom ? 0 : ((r.unread_count || 0) + 1),
-            };
+            return { ...r, last_message: msg.content, last_message_at: msg.created_at, unread_count: (r.unread_count || 0) + 1 };
           }
           return r;
         })
       );
+      if (msg.room_id === roomId) {
+        api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+      }
     });
 
     socket.on('message_updated', (msg) => {
-      setMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
+      setFetchedMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
     });
 
     socket.on('message_deleted', (data) => {
       const deletedId = data?.id || data?.message_id;
       if (!deletedId) return;
-      setMessages(prev => prev.map(m =>
-        m.id === deletedId ? { ...m, deleted_at: data.deleted_at || new Date().toISOString(), is_deleted: true, content: '' } : m
-      ));
+      const patch = { deleted_at: data.deleted_at || new Date().toISOString(), is_deleted: true, content: '' };
+      setRealtimeMessages(prev => prev.map(m => m.id === deletedId ? { ...m, ...patch } : m));
+      setFetchedMessages(prev => prev.map(m => m.id === deletedId ? { ...m, ...patch } : m));
     });
 
     socket.on('message_pinned', (msg) => {
-      setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_pinned: msg.is_pinned } : m));
+      setFetchedMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_pinned: msg.is_pinned } : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_pinned: msg.is_pinned } : m));
       qc.invalidateQueries({ queryKey: ['chat-pinned', roomId] });
     });
 
     socket.on('message_reaction', (data) => {
-      setMessages(prev => prev.map(m => m.id === data.message_id ? { ...m, reactions: data.reactions } : m));
+      setFetchedMessages(prev => prev.map(m => m.id === data.message_id ? { ...m, reactions: data.reactions } : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === data.message_id ? { ...m, reactions: data.reactions } : m));
     });
 
     socket.on('user_typing', (data) => {
@@ -237,6 +195,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       socket.off('message_reaction');
       socket.off('user_typing');
       socket.off('added_to_room');
+      setRealtimeMessages([]);
       setTypingUsers([]);
     };
   }, [roomId, accessToken]);
@@ -252,6 +211,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
+  // Scroll to bottom on initial load only
+  useEffect(() => {
+    scrollToBottom(true);
+  }, [fetchedMessages]);
 
   const sendMut = useMutation({
     mutationFn: (content: string) => api.post(`/chat/rooms/${roomId}/messages`, {
@@ -271,7 +235,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       api.put(`/chat/messages/${id}`, { content }),
     onSuccess: (res) => {
       const updated = res.data?.data || res.data;
-      setMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
+      setFetchedMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
       setEditingMsg(null);
       setEditText('');
     },
@@ -280,7 +245,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.delete(`/chat/messages/${id}`),
     onSuccess: (_, id) => {
-      setMessages(prev => prev.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString(), is_deleted: true } : m));
+      setFetchedMessages(prev => prev.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString(), is_deleted: true } : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString(), is_deleted: true } : m));
     },
   });
 
@@ -288,7 +254,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
       pinned ? api.delete(`/chat/messages/${id}/pin`) : api.post(`/chat/messages/${id}/pin`),
     onSuccess: () => {
-      fetchMessages();
+      // Re-fetch messages to get updated pin state
+      api.get(`/chat/rooms/${roomId}/messages?limit=50`).then(r => {
+        const d = r.data;
+        setFetchedMessages(Array.isArray(d) ? d : d?.data || d?.messages || []);
+      });
       qc.invalidateQueries({ queryKey: ['chat-pinned', roomId] });
     },
   });
@@ -301,7 +271,12 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         headers: { 'Content-Type': 'multipart/form-data' },
       });
     },
-    onSuccess: () => fetchMessages(),
+    onSuccess: () => {
+      api.get(`/chat/rooms/${roomId}/messages?limit=50`).then(r => {
+        const d = r.data;
+        setFetchedMessages(Array.isArray(d) ? d : d?.data || d?.messages || []);
+      });
+    },
     onError: () => toast.error('Upload failed'),
   });
 
@@ -326,6 +301,9 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       }, 2000);
     }
   };
+
+  const allMessages = [...fetchedMessages, ...realtimeMessages]
+    .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -369,12 +347,12 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       )}
 
       {/* Search results */}
-      {showSearch && searchResults && (
+      {showSearch && searchQuery.length >= 2 && searchResults && (
         <div className="flex-none border-b border-border max-h-48 overflow-y-auto bg-card">
-          {searchResults.length === 0 ? (
+          {(searchResults as any[]).length === 0 ? (
             <p className="text-xs text-muted-foreground p-3">No results found</p>
           ) : (
-            searchResults.map((r: any) => (
+            (searchResults as any[]).map((r: any) => (
               <div key={r.id} className="px-4 py-2 hover:bg-secondary/50 cursor-pointer text-sm border-b border-border/50">
                 <span className="text-xs text-muted-foreground">{r.sender_name}</span>
                 <p className="truncate">{r.content}</p>
@@ -387,26 +365,20 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       {/* Message list — only this scrolls */}
       <div
         ref={messagesContainerRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 py-3 space-y-1"
       >
-        {/* Loading older messages indicator */}
-        {loadingOlder && (
-          <div className="flex justify-center py-2">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {loadingMessages && <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading...</div>}
-        {!loadingMessages && messages.length === 0 && (
+        {loadingMessages && fetchedMessages.length === 0 && <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading...</div>}
+        {!loadingMessages && allMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <MessageSquare className="h-10 w-10 mb-2 opacity-20" />
             <p className="text-sm">No messages yet. Start the conversation!</p>
           </div>
         )}
-        {messages.map((msg, i) => {
+        {allMessages.map((msg, i) => {
           const isOwn = msg.sender_id === user?.id;
           const isDeleted = Boolean(msg.deleted_at) || Boolean(msg.is_deleted);
-          const showSender = !isOwn && (i === 0 || messages[i - 1]?.sender_id !== msg.sender_id);
+          const showSender = !isOwn && (i === 0 || allMessages[i - 1]?.sender_id !== msg.sender_id);
 
           if (isDeleted) {
             return (
