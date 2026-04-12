@@ -54,7 +54,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     : (roomDetail?.name ?? roomName);
 
   const headerSubtitle = roomDetail?.type === '1-to-1'
-    ? (roomDetail.dm_other_user_title ?? '')
+    ? (roomDetail.dm_other_user_title || roomDetail.dm_other_user_role || roomDetail.dm_other_user_department || '')
     : (memberCount ? `${memberCount} members` : '');
 
   // Fetch messages imperatively whenever roomId changes
