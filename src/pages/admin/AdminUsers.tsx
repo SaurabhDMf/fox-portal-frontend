@@ -556,6 +556,9 @@ export default function AdminUsers() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">User Details</h2>
               <div className="flex items-center gap-2">
+                {isAdmin && showView.id !== currentUserId && showView.role !== 'super_admin' && (
+                  <button onClick={() => { setResetPwValue('Welcome123!'); setResetPwError(''); setResetPwTarget(showView); }} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"><KeyRound className="h-3.5 w-3.5" /> Reset Password</button>
+                )}
                 <button onClick={() => { setShowView(null); openEdit(showView); }} className="flex items-center gap-1.5 text-xs text-primary hover:underline"><Pencil className="h-3.5 w-3.5" /> Edit</button>
                 <button onClick={() => setShowView(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
               </div>
