@@ -57,14 +57,50 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     ? (roomDetail.dm_other_user_title ?? '')
     : (memberCount ? `${memberCount} members` : '');
 
-  const { data: messages = [], isLoading } = useQuery({
-    queryKey: ['chat-messages', roomId],
-    queryFn: () => api.get(`/chat/rooms/${roomId}/messages?limit=50`).then(r => {
-      const d = r.data;
-      return Array.isArray(d) ? d : d?.data || d?.messages || [];
-    }),
-    enabled: !!roomId,
-  });
+  // Fetch messages imperatively whenever roomId changes
+  useEffect(() => {
+    if (!roomId) return;
+    setFetchedMessages([]);
+    setRealtimeMessages([]);
+    setHasMore(false);
+    setLoadingMessages(true);
+    api.get(`/chat/rooms/${roomId}/messages?limit=50`)
+      .then(r => {
+        const d = r.data;
+        const msgs = Array.isArray(d) ? d : d?.data || d?.messages || [];
+        setFetchedMessages(msgs);
+        setHasMore(d?.has_more ?? false);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 80);
+      })
+      .catch(err => console.error('Failed to load messages:', err))
+      .finally(() => setLoadingMessages(false));
+    // Mark room as read
+    api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+    qc.setQueryData(['chat-rooms'], (old: any[]) =>
+      old?.map((r: any) => r.id === roomId ? { ...r, unread_count: 0 } : r)
+    );
+  }, [roomId]);
+
+  // Load older messages on scroll to top
+  const handleScroll = () => {
+    const el = messagesContainerRef.current;
+    if (!el || !hasMore || loadingMessages) return;
+    if (el.scrollTop < 50) {
+      const oldest = fetchedMessages[0];
+      if (!oldest?.created_at) return;
+      setLoadingMessages(true);
+      const prevHeight = el.scrollHeight;
+      api.get(`/chat/rooms/${roomId}/messages?limit=50&before=${oldest.created_at}`)
+        .then(r => {
+          const d = r.data;
+          const older = Array.isArray(d) ? d : d?.data || d?.messages || [];
+          setFetchedMessages(prev => [...older, ...prev]);
+          setHasMore(d?.has_more ?? false);
+          requestAnimationFrame(() => { el.scrollTop = el.scrollHeight - prevHeight; });
+        })
+        .finally(() => setLoadingMessages(false));
+    }
+  };
 
   const { data: searchResults } = useQuery({
     queryKey: ['chat-search', roomId, searchQuery],
