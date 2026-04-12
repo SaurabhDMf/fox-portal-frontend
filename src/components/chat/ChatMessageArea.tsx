@@ -53,8 +53,13 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     ? (roomDetail.dm_other_user_name ?? 'Direct Message')
     : (roomDetail?.name ?? roomName);
 
+  const dmSubParts = [
+    roomDetail?.dm_other_user_title || roomDetail?.dm_other_user_role || roomDetail?.dm_other_user_department || '',
+    roomDetail?.dm_other_user_email || '',
+  ].filter(Boolean).join(' · ');
+
   const headerSubtitle = roomDetail?.type === '1-to-1'
-    ? (roomDetail.dm_other_user_title || roomDetail.dm_other_user_role || roomDetail.dm_other_user_department || '')
+    ? dmSubParts
     : (memberCount ? `${memberCount} members` : '');
 
   // Fetch messages imperatively whenever roomId changes
