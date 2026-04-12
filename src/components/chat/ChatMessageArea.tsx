@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -6,7 +6,8 @@ import {
   Send, Paperclip, Search, Pin, Info, ArrowLeft, MessageSquare,
   Smile, Reply, Pencil, Trash2, X, Check
 } from 'lucide-react';
-import { io, Socket } from 'socket.io-client';
+import { Socket } from 'socket.io-client';
+import { getSocket } from '@/hooks/useSocket';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -17,8 +18,6 @@ interface Props {
   onToggleInfo: () => void;
   onTogglePinned: () => void;
 }
-
-let socket: Socket | null = null;
 
 export default function ChatMessageArea({ roomId, roomName, memberCount, onBack, onToggleInfo, onTogglePinned }: Props) {
   const user = useAuthStore(s => s.user);
@@ -36,6 +35,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
 
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ['chat-messages', roomId],
@@ -55,50 +56,103 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     enabled: !!searchQuery && searchQuery.length >= 2,
   });
 
-  // Socket.IO connection
+  // Socket.IO connection via singleton
   useEffect(() => {
     if (!roomId || !accessToken) return;
-    const API_BASE = import.meta.env.VITE_API_URL || 'https://ubp-backend-production.up.railway.app';
-    const socketUrl = API_BASE.replace('/api/v1', '');
-    socket = io(socketUrl, { auth: { token: accessToken } });
+
+    const socket = getSocket(accessToken);
+    socketRef.current = socket;
+
+    // Join the room
     socket.emit('join_room', roomId);
 
-    socket.on('new_message', (msg) => setRealtimeMessages(prev => [...prev, msg]));
+    // Listen for new messages
+    socket.on('new_message', (msg) => {
+      setRealtimeMessages(prev => {
+        // Avoid duplicate if optimistic update already added it
+        if (prev.find(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+      scrollToBottom();
+    });
+
+    // Message edited
     socket.on('message_updated', (msg) => {
       setRealtimeMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
       qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
         old?.map(m => m.id === msg.id ? msg : m)
       );
     });
-    socket.on('message_deleted', (msg) => {
-      setRealtimeMessages(prev => prev.map(m => m.id === msg.id ? { ...m, deleted_at: msg.deleted_at || new Date().toISOString() } : m));
+
+    // Message deleted (soft)
+    socket.on('message_deleted', (data) => {
+      const deletedId = data?.id || data?.message_id;
+      if (!deletedId) return;
+      setRealtimeMessages(prev => prev.map(m =>
+        m.id === deletedId ? { ...m, deleted_at: data.deleted_at || new Date().toISOString(), is_deleted: true, content: '' } : m
+      ));
       qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
-        old?.map(m => m.id === msg.id ? { ...m, deleted_at: msg.deleted_at || new Date().toISOString() } : m)
+        old?.map(m => m.id === deletedId ? { ...m, deleted_at: data.deleted_at || new Date().toISOString(), is_deleted: true, content: '' } : m)
       );
     });
+
+    // Message pinned/unpinned
     socket.on('message_pinned', (msg) => {
       qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
         old?.map(m => m.id === msg.id ? { ...m, is_pinned: msg.is_pinned } : m)
       );
+      qc.invalidateQueries({ queryKey: ['chat-pinned', roomId] });
     });
+
+    // Reactions
     socket.on('message_reaction', (data) => {
       qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
         old?.map(m => m.id === data.message_id ? { ...m, reactions: data.reactions } : m)
       );
     });
+
+    // Typing indicator
     socket.on('user_typing', (data) => {
-      if (data.user_id !== user?.id) {
-        setTypingUsers(prev => prev.includes(data.user_name) ? prev : [...prev, data.user_name]);
-        setTimeout(() => setTypingUsers(prev => prev.filter(n => n !== data.user_name)), 3000);
+      const typingName = data.user_name || data.userId;
+      if (data.user_id === user?.id || data.userId === user?.id) return;
+
+      if (data.isTyping === false) {
+        setTypingUsers(prev => prev.filter(n => n !== typingName));
+      } else {
+        setTypingUsers(prev => {
+          if (prev.includes(typingName)) return prev;
+          return [...prev, typingName];
+        });
+        // Auto-clear after 3s
+        setTimeout(() => setTypingUsers(prev => prev.filter(n => n !== typingName)), 3000);
       }
     });
-    socket.on('added_to_room', () => qc.invalidateQueries({ queryKey: ['chat-rooms'] }));
 
-    return () => { socket?.disconnect(); socket = null; setRealtimeMessages([]); setTypingUsers([]); };
+    // Added to a new room
+    socket.on('added_to_room', () => {
+      qc.invalidateQueries({ queryKey: ['chat-rooms'] });
+    });
+
+    return () => {
+      socket.emit('leave_room', roomId);
+      socket.off('new_message');
+      socket.off('message_updated');
+      socket.off('message_deleted');
+      socket.off('message_pinned');
+      socket.off('message_reaction');
+      socket.off('user_typing');
+      socket.off('added_to_room');
+      setRealtimeMessages([]);
+      setTypingUsers([]);
+    };
   }, [roomId, accessToken]);
 
-  useEffect(() => {
+  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
   }, [messages, realtimeMessages]);
 
   const sendMut = useMutation({
@@ -110,7 +164,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     onSuccess: () => {
       setMessage('');
       setReplyTo(null);
-      qc.invalidateQueries({ queryKey: ['chat-messages', roomId] });
+      // Don't refetch — real-time listener will append the message
     },
   });
 
@@ -131,7 +185,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     mutationFn: (id: string) => api.delete(`/chat/messages/${id}`),
     onSuccess: (_, id) => {
       qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
-        old?.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString() } : m)
+        old?.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString(), is_deleted: true } : m)
       );
     },
   });
@@ -170,8 +224,13 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       e.preventDefault();
       handleSend();
     }
-    if (socket && !editingMsg) {
-      socket.emit('typing', { room_id: roomId, user_name: user?.full_name || user?.email });
+    // Emit typing indicator
+    if (!editingMsg && socketRef.current) {
+      socketRef.current.emit('typing', { roomId, isTyping: true });
+      clearTimeout(typingTimeout.current);
+      typingTimeout.current = setTimeout(() => {
+        socketRef.current?.emit('typing', { roomId, isTyping: false });
+      }, 2000);
     }
   };
 
@@ -246,7 +305,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         )}
         {allMessages.map((msg, i) => {
           const isOwn = msg.sender_id === user?.id;
-          const isDeleted = !!msg.deleted_at;
+          const isDeleted = !!msg.deleted_at || !!msg.is_deleted;
           const showSender = !isOwn && (i === 0 || allMessages[i - 1]?.sender_id !== msg.sender_id);
 
           if (isDeleted) {
@@ -340,15 +399,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             </div>
           );
         })}
+        {/* Typing indicator */}
+        {typingUsers.length > 0 && (
+          <div className="text-xs text-muted-foreground italic px-1 py-1">
+            {typingUsers.length === 1
+              ? `${typingUsers[0]} is typing...`
+              : `${typingUsers.length} people are typing...`}
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Typing indicator */}
-      {typingUsers.length > 0 && (
-        <div className="px-4 py-1 text-xs text-muted-foreground italic">
-          {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
-        </div>
-      )}
 
       {/* Reply bar */}
       {replyTo && (

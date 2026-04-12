@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { disconnectSocket } from '@/hooks/useSocket';
 
 export interface Permission {
   can_view: boolean;
@@ -63,7 +64,8 @@ export const useAuthStore = create<AuthState>()(
           enabledModules: enabled_modules || state.enabledModules,
         })),
 
-      logout: () =>
+      logout: () => {
+        disconnectSocket();
         set({
           accessToken: null,
           refreshToken: null,
@@ -71,7 +73,8 @@ export const useAuthStore = create<AuthState>()(
           permissions: {},
           enabledModules: [],
           isAuthenticated: false,
-        }),
+        });
+      },
 
       canView: (module: string) => {
         const perms = get().permissions;
