@@ -732,6 +732,58 @@ export default function AdminUsers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reset Password Modal */}
+      {resetPwTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Reset Password for {resetPwTarget.full_name}</h2>
+              <button onClick={() => { setResetPwTarget(null); setResetPwError(''); }} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <div>
+              <label className={labelCls}>New Password</label>
+              <input type="text" value={resetPwValue} onChange={e => setResetPwValue(e.target.value)} className={inputCls} />
+            </div>
+            {resetPwError && <p className="text-sm text-destructive">{resetPwError}</p>}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { setResetPwTarget(null); setResetPwError(''); }} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button
+                onClick={() => resetPwMut.mutate({ id: resetPwTarget.id, new_password: resetPwValue })}
+                disabled={resetPwMut.isPending || !resetPwValue}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
+              >
+                {resetPwMut.isPending ? 'Resetting...' : 'Reset Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Success */}
+      {resetPwSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold">Password Reset Successfully</h2>
+            <div className="glass-card p-3 space-y-1 text-sm">
+              <div><span className="text-muted-foreground">Login:</span> {resetPwSuccess.email}</div>
+              <div><span className="text-muted-foreground">Password:</span> {resetPwSuccess.password}</div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`Login: ${resetPwSuccess.email}\nPassword: ${resetPwSuccess.password}`);
+                  toast.success('Credentials copied to clipboard');
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-sm font-medium hover:opacity-90 transition-all"
+              >
+                <Copy className="h-3.5 w-3.5" /> Copy Credentials
+              </button>
+              <button onClick={() => setResetPwSuccess(null)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-all">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
