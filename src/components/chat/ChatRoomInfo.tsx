@@ -128,12 +128,16 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
             )}
             {members.map((m: any) => (
               <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-secondary/50 group">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                  style={{ backgroundColor: `hsl(${Math.abs(hashStr(m.full_name || '')) % 360}, 60%, 45%)`, color: '#fff' }}>
-                  {m.avatar_url ? <img src={m.avatar_url} alt="" className="w-full h-full rounded-full object-cover" /> : (m.full_name?.[0] || '?').toUpperCase()}
+                <div className="relative flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                    style={{ backgroundColor: `hsl(${Math.abs(hashStr(m.full_name || '')) % 360}, 60%, 45%)`, color: '#fff' }}>
+                    {m.avatar_url ? <img src={m.avatar_url} alt="" className="w-full h-full rounded-full object-cover" /> : (m.full_name?.[0] || '?').toUpperCase()}
+                  </div>
+                  <StatusDot status={m.status} className="absolute -bottom-0.5 -right-0.5 w-2 h-2" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{m.full_name || m.email}</div>
+                  {m.job_title && <span className="text-[10px] text-muted-foreground truncate block">{m.job_title}</span>}
                   {Number(m.is_admin) === 1 && <span className="text-[10px] text-primary font-medium">Admin</span>}
                 </div>
                 {isAdmin && m.id !== user?.id && (
