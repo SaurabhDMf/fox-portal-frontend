@@ -60,20 +60,25 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   // Fetch messages imperatively whenever roomId changes
   useEffect(() => {
     if (!roomId) return;
+    console.log('[Chat] Fetching messages for room:', roomId);
     setFetchedMessages([]);
     setRealtimeMessages([]);
     setHasMore(false);
     setLoadingMessages(true);
+
     api.get(`/chat/rooms/${roomId}/messages?limit=50`)
-      .then(r => {
-        const d = r.data;
-        const msgs = Array.isArray(d) ? d : d?.data || d?.messages || [];
+      .then(res => {
+        console.log('[Chat] Messages API response:', res.data);
+        const payload = res.data;
+        const msgs = Array.isArray(payload) ? payload : (payload?.data ?? payload?.messages ?? []);
+        console.log('[Chat] Parsed messages count:', msgs.length);
         setFetchedMessages(msgs);
-        setHasMore(d?.has_more ?? false);
+        setHasMore(payload?.has_more ?? false);
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 80);
       })
-      .catch(err => console.error('Failed to load messages:', err))
+      .catch(err => console.error('[Chat] Failed to load messages:', err))
       .finally(() => setLoadingMessages(false));
+
     // Mark room as read
     api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
     qc.setQueryData(['chat-rooms'], (old: any[]) =>
