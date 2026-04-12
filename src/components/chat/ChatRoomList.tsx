@@ -37,6 +37,7 @@ function getDisplayName(room: ChatRoom) {
 
 export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, onCreateDM }: Props) {
   const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'dm' | 'group'>('all');
 
   const { data: rooms = [] } = useQuery({
     queryKey: ['chat-rooms'],
@@ -47,9 +48,26 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
     refetchInterval: 15000,
   });
 
-  const filtered = (rooms as ChatRoom[]).filter(r => {
-    const displayName = getDisplayName(r);
-    return displayName.toLowerCase().includes(search.toLowerCase());
+  const typedRooms = rooms as ChatRoom[];
+  const dmUnread = typedRooms.filter(r => r.type === '1-to-1' && Number(r.unread_count) > 0).length;
+  const grpUnread = typedRooms.filter(r => r.type === 'Group' && Number(r.unread_count) > 0).length;
+
+  const tabs = [
+    { key: 'all' as const, label: 'All', unread: dmUnread + grpUnread },
+    { key: 'dm' as const, label: 'Direct', unread: dmUnread },
+    { key: 'group' as const, label: 'Groups', unread: grpUnread },
+  ];
+
+  const filtered = typedRooms.filter(r => {
+    if (activeTab === 'dm' && r.type !== '1-to-1') return false;
+    if (activeTab === 'group' && r.type !== 'Group') return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const name = getDisplayName(r).toLowerCase();
+      const lastMsg = r.last_message?.toLowerCase() || '';
+      return name.includes(q) || lastMsg.includes(q);
+    }
+    return true;
   });
 
   return (
@@ -78,11 +96,34 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
           />
         </div>
       </div>
+
+      {/* Filter tabs */}
+      <div className="flex border-b border-border mx-3">
+        {tabs.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
+              activeTab === tab.key
+                ? 'text-foreground border-b-2 border-primary'
+                : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent'
+            }`}
+          >
+            {tab.label}
+            {tab.unread > 0 && (
+              <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+            )}
+          </button>
+        ))}
+      </div>
+
       <ScrollArea className="flex-1">
         {filtered.length === 0 && (
           <div className="text-center py-12 px-4">
             <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
-            <p className="text-xs text-muted-foreground">{search ? 'No results' : 'No conversations yet'}</p>
+            <p className="text-xs text-muted-foreground">
+              {search ? 'No results' : activeTab === 'dm' ? 'No direct messages yet' : activeTab === 'group' ? 'No group rooms yet' : 'No conversations yet'}
+            </p>
           </div>
         )}
         {filtered.map((room) => {
