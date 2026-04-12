@@ -6,6 +6,7 @@ import { X, UserPlus, Trash2, LogOut, Download, Image as ImageIcon, FileText } f
 import { ScrollArea } from '@/components/ui/scroll-area';
 import toast from 'react-hot-toast';
 import UserPicker from '@/components/projects/UserPicker';
+import StatusDot from '@/components/chat/StatusDot';
 
 interface Props {
   roomId: string;
