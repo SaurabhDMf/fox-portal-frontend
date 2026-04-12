@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2, Shield, Check, X as XIcon, MoreVertical, Power, AlertTriangle } from 'lucide-react';
+import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2, Shield, Check, X as XIcon, MoreVertical, Power, AlertTriangle, KeyRound, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -66,6 +66,10 @@ export default function AdminUsers() {
   const [viewTab, setViewTab] = useState<'details' | 'permissions'>('details');
   const [viewPerms, setViewPerms] = useState<Record<string, any> | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
+  const [resetPwTarget, setResetPwTarget] = useState<any>(null);
+  const [resetPwValue, setResetPwValue] = useState('Welcome123!');
+  const [resetPwError, setResetPwError] = useState('');
+  const [resetPwSuccess, setResetPwSuccess] = useState<{ email: string; password: string } | null>(null);
   const qc = useQueryClient();
 
   const { data: apiRoles } = useQuery({
@@ -148,6 +152,22 @@ export default function AdminUsers() {
       toast.success('Sales target set successfully');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error setting target'),
+  });
+
+  const resetPwMut = useMutation({
+    mutationFn: (d: { id: string; new_password: string }) =>
+      api.post(`/users/${d.id}/reset-password`, { new_password: d.new_password }),
+    onSuccess: (_res, vars) => {
+      const email = resetPwTarget?.email || '';
+      const pw = vars.new_password;
+      setResetPwTarget(null);
+      setResetPwError('');
+      setResetPwSuccess({ email, password: pw });
+      toast.success(`Password reset. New password: ${pw}`);
+    },
+    onError: (e: any) => {
+      setResetPwError(e.response?.data?.message || e.response?.data?.error || 'Failed to reset password');
+    },
   });
 
   const rawUsers = Array.isArray(data) ? data : [];
@@ -536,6 +556,9 @@ export default function AdminUsers() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">User Details</h2>
               <div className="flex items-center gap-2">
+                {isAdmin && showView.id !== currentUserId && showView.role !== 'super_admin' && (
+                  <button onClick={() => { setResetPwValue('Welcome123!'); setResetPwError(''); setResetPwTarget(showView); }} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"><KeyRound className="h-3.5 w-3.5" /> Reset Password</button>
+                )}
                 <button onClick={() => { setShowView(null); openEdit(showView); }} className="flex items-center gap-1.5 text-xs text-primary hover:underline"><Pencil className="h-3.5 w-3.5" /> Edit</button>
                 <button onClick={() => setShowView(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
               </div>
@@ -709,6 +732,58 @@ export default function AdminUsers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reset Password Modal */}
+      {resetPwTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Reset Password for {resetPwTarget.full_name}</h2>
+              <button onClick={() => { setResetPwTarget(null); setResetPwError(''); }} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <div>
+              <label className={labelCls}>New Password</label>
+              <input type="text" value={resetPwValue} onChange={e => setResetPwValue(e.target.value)} className={inputCls} />
+            </div>
+            {resetPwError && <p className="text-sm text-destructive">{resetPwError}</p>}
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => { setResetPwTarget(null); setResetPwError(''); }} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button
+                onClick={() => resetPwMut.mutate({ id: resetPwTarget.id, new_password: resetPwValue })}
+                disabled={resetPwMut.isPending || !resetPwValue}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
+              >
+                {resetPwMut.isPending ? 'Resetting...' : 'Reset Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Success */}
+      {resetPwSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold">Password Reset Successfully</h2>
+            <div className="glass-card p-3 space-y-1 text-sm">
+              <div><span className="text-muted-foreground">Login:</span> {resetPwSuccess.email}</div>
+              <div><span className="text-muted-foreground">Password:</span> {resetPwSuccess.password}</div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`Login: ${resetPwSuccess.email}\nPassword: ${resetPwSuccess.password}`);
+                  toast.success('Credentials copied to clipboard');
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-sm font-medium hover:opacity-90 transition-all"
+              >
+                <Copy className="h-3.5 w-3.5" /> Copy Credentials
+              </button>
+              <button onClick={() => setResetPwSuccess(null)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-all">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
