@@ -11,6 +11,22 @@ import { Socket } from 'socket.io-client';
 import { getSocket } from '@/hooks/useSocket';
 import toast from 'react-hot-toast';
 
+const formatDateLabel = (dateStr: string): string => {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const isSameDay = (a: Date, b: Date) =>
+    a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+  if (isSameDay(date, today)) return 'Today';
+  if (isSameDay(date, yesterday)) return 'Yesterday';
+  const diffDays = Math.floor((today.getTime() - date.getTime()) / 86400000);
+  if (diffDays < 7) return date.toLocaleDateString('en-US', { weekday: 'long' });
+  if (date.getFullYear() === today.getFullYear())
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
 interface Props {
   roomId: string;
   roomName: string;
@@ -415,7 +431,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         {allMessages.map((msg, i) => {
           const isOwn = msg.sender_id === user?.id;
           const isDeleted = Boolean(msg.deleted_at) || Boolean(msg.is_deleted);
-          const showSender = !isOwn && (i === 0 || allMessages[i - 1]?.sender_id !== msg.sender_id);
+          const msgDate = new Date(msg.created_at).toDateString();
+          const prevDate = i > 0 ? new Date(allMessages[i - 1].created_at).toDateString() : null;
+          const showDateSeparator = msgDate !== prevDate;
+          const showSender = !isOwn && (i === 0 || allMessages[i - 1]?.sender_id !== msg.sender_id || showDateSeparator);
           const isLastMessage = i === allMessages.length - 1;
 
           // Read receipt logic
@@ -425,19 +444,26 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             m.user_id !== user?.id && m.last_read_at && new Date(m.last_read_at) >= new Date(msg.created_at)
           ) : [];
 
-          if (isDeleted) {
-            return (
-              <div key={msg.id || i} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+          return (
+            <div key={msg.id || i}>
+              {showDateSeparator && (
+                <div className="flex items-center gap-3 my-4 px-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground font-medium px-2 whitespace-nowrap">
+                    {formatDateLabel(msg.created_at)}
+                  </span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+              )}
+
+          {isDeleted ? (
+              <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                 <div className="max-w-[70%] px-3 py-2 rounded-xl bg-secondary/50 italic text-muted-foreground text-sm">
                   This message was deleted
                 </div>
               </div>
-            );
-          }
-
-          return (
+          ) : (
             <div
-              key={msg.id || i}
               className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative`}
               onMouseEnter={() => setHoveredMsg(msg.id)}
               onMouseLeave={() => setHoveredMsg(null)}
@@ -451,7 +477,12 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                 )}
                 <div className={`rounded-xl px-3 py-2 ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
                   {showSender && !isOwn && (
-                    <div className="text-xs font-medium mb-0.5 text-muted-foreground">{msg.sender_name}</div>
+                    <div className="text-xs font-medium mb-0.5 text-muted-foreground">
+                      {msg.sender_name}
+                      <span className="ml-2 font-normal opacity-70">
+                        {msg.created_at ? new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}
+                      </span>
+                    </div>
                   )}
                   {/* File attachment */}
                   {msg.type === 'file' && msg.file_url && (
@@ -478,14 +509,14 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                     </div>
                   )}
                   <div className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                    {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                    {isOwn && msg.created_at ? new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}
                     {Boolean(msg.is_pinned) && <Pin className="h-2.5 w-2.5 inline ml-1" />}
                   </div>
                 </div>
               </div>
 
               {/* Hover actions */}
-              {hoveredMsg === msg.id && !isDeleted && (
+              {hoveredMsg === msg.id && (
                 <div className={`absolute top-0 ${isOwn ? 'right-[calc(70%+4px)]' : 'left-[calc(70%+4px)]'} flex items-center gap-0.5 bg-card border border-border rounded-lg shadow-lg p-0.5 z-10`}>
                   <button onClick={() => {
                     api.post(`/chat/messages/${msg.id}/reaction`, { emoji: '👍' }).catch(() => {});
@@ -543,6 +574,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                   </div>
                 </div>
               )}
+            </div>
+          )}
             </div>
           );
         })}
