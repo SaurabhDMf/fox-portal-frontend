@@ -47,7 +47,7 @@ export default function Chat() {
         {activeRoom ? (
           <ChatMessageArea
             roomId={activeRoom}
-            roomName={activeRoomData?.name || 'Chat'}
+            roomName={activeRoomName}
             memberCount={activeRoomData?.member_count}
             onBack={() => setActiveRoom(null)}
             onToggleInfo={() => { setShowInfo(!showInfo); setShowPinned(false); }}
