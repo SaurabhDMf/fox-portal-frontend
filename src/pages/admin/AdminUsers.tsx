@@ -154,6 +154,22 @@ export default function AdminUsers() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error setting target'),
   });
 
+  const resetPwMut = useMutation({
+    mutationFn: (d: { id: string; new_password: string }) =>
+      api.post(`/users/${d.id}/reset-password`, { new_password: d.new_password }),
+    onSuccess: (_res, vars) => {
+      const email = resetPwTarget?.email || '';
+      const pw = vars.new_password;
+      setResetPwTarget(null);
+      setResetPwError('');
+      setResetPwSuccess({ email, password: pw });
+      toast.success(`Password reset. New password: ${pw}`);
+    },
+    onError: (e: any) => {
+      setResetPwError(e.response?.data?.message || e.response?.data?.error || 'Failed to reset password');
+    },
+  });
+
   const rawUsers = Array.isArray(data) ? data : [];
   const allUsers = rawUsers;
   const users = allUsers.filter((u: any) => {
