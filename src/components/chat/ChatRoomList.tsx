@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Plus, MessageSquare, Search, Hash, Users } from 'lucide-react';
+import { Plus, MessageSquare, Search, Hash } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ChatRoom {
   id: string;
-  name: string;
+  name: string | null;
   type: string;
   avatar_url?: string;
+  dm_other_user_name?: string;
+  dm_other_user_avatar?: string;
   last_message?: string;
   last_message_at?: string;
   unread_count?: number;
@@ -20,6 +22,12 @@ interface Props {
   onSelectRoom: (id: string) => void;
   onCreateGroup: () => void;
   onCreateDM: () => void;
+}
+
+function getDisplayName(room: ChatRoom) {
+  return room.type === '1-to-1'
+    ? (room.dm_other_user_name ?? 'Direct Message')
+    : (room.name ?? 'Unnamed Room');
 }
 
 export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, onCreateDM }: Props) {
@@ -34,9 +42,10 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
     refetchInterval: 15000,
   });
 
-  const filtered = (rooms as ChatRoom[]).filter(r =>
-    r.name?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = (rooms as ChatRoom[]).filter(r => {
+    const displayName = getDisplayName(r);
+    return displayName.toLowerCase().includes(search.toLowerCase());
+  });
 
   return (
     <div className="flex flex-col h-full">
@@ -71,50 +80,58 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
             <p className="text-xs text-muted-foreground">{search ? 'No results' : 'No conversations yet'}</p>
           </div>
         )}
-        {filtered.map((room) => (
-          <button
-            key={room.id}
-            onClick={() => onSelectRoom(room.id)}
-            className={`w-full flex items-center gap-3 p-3 text-left hover:bg-secondary/50 transition-colors ${activeRoom === room.id ? 'bg-secondary' : ''}`}
-          >
-            <RoomAvatar room={room} />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium truncate">{room.name}</span>
-                {room.last_message_at && (
-                  <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
-                    {formatTime(room.last_message_at)}
+        {filtered.map((room) => {
+          const displayName = getDisplayName(room);
+          return (
+            <button
+              key={room.id}
+              onClick={() => onSelectRoom(room.id)}
+              className={`w-full flex items-center gap-3 p-3 text-left hover:bg-secondary/50 transition-colors ${activeRoom === room.id ? 'bg-secondary' : ''}`}
+            >
+              <RoomAvatar room={room} displayName={displayName} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium truncate">{displayName}</span>
+                  {room.last_message_at && (
+                    <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
+                      {formatTime(room.last_message_at)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground truncate">
+                    {room.last_message ? room.last_message.slice(0, 40) + (room.last_message.length > 40 ? '…' : '') : 'No messages'}
                   </span>
-                )}
+                  {Number(room.unread_count) > 0 && (
+                    <span className="w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center flex-shrink-0 ml-1">
+                      {room.unread_count}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground truncate">
-                  {room.last_message ? room.last_message.slice(0, 40) + (room.last_message.length > 40 ? '…' : '') : 'No messages'}
-                </span>
-                {(room.unread_count || 0) > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center flex-shrink-0 ml-1">
-                    {room.unread_count}
-                  </span>
-                )}
-              </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </ScrollArea>
     </div>
   );
 }
 
-function RoomAvatar({ room }: { room: ChatRoom }) {
-  if (room.avatar_url) {
+function RoomAvatar({ room, displayName }: { room: ChatRoom; displayName: string }) {
+  const isDM = room.type === '1-to-1';
+
+  if (isDM && room.dm_other_user_avatar) {
+    return <img src={room.dm_other_user_avatar} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />;
+  }
+  if (!isDM && room.avatar_url) {
     return <img src={room.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />;
   }
-  const isGroup = room.type !== 'direct';
-  const bg = `hsl(${hashCode(room.name || '') % 360}, 60%, 45%)`;
+
+  const bg = `hsl(${hashCode(displayName) % 360}, 60%, 45%)`;
   return (
     <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
       style={{ backgroundColor: bg, color: '#fff' }}>
-      {isGroup ? <Hash className="h-4 w-4" /> : (room.name?.[0] || 'D').toUpperCase()}
+      {isDM ? (displayName[0] || 'D').toUpperCase() : <Hash className="h-4 w-4" />}
     </div>
   );
 }

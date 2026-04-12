@@ -33,10 +33,26 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const [editText, setEditText] = useState('');
   const [hoveredMsg, setHoveredMsg] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
+
+  // Fetch room detail for DM header info
+  const { data: roomDetail } = useQuery({
+    queryKey: ['chat-room-detail', roomId],
+    queryFn: () => api.get(`/chat/rooms/${roomId}`).then(r => r.data?.data || r.data),
+    enabled: !!roomId,
+  });
+
+  const headerTitle = roomDetail?.type === '1-to-1'
+    ? (roomDetail.dm_other_user_name ?? 'Direct Message')
+    : (roomDetail?.name ?? roomName);
+
+  const headerSubtitle = roomDetail?.type === '1-to-1'
+    ? (roomDetail.dm_other_user_title ?? '')
+    : (memberCount ? `${memberCount} members` : '');
 
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ['chat-messages', roomId],
@@ -63,20 +79,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     const socket = getSocket(accessToken);
     socketRef.current = socket;
 
-    // Join the room
     socket.emit('join_room', roomId);
 
-    // Listen for new messages
     socket.on('new_message', (msg) => {
       setRealtimeMessages(prev => {
-        // Avoid duplicate if optimistic update already added it
         if (prev.find(m => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
       scrollToBottom();
     });
 
-    // Message edited
     socket.on('message_updated', (msg) => {
       setRealtimeMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
       qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
@@ -84,7 +96,6 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       );
     });
 
-    // Message deleted (soft)
     socket.on('message_deleted', (data) => {
       const deletedId = data?.id || data?.message_id;
       if (!deletedId) return;
@@ -96,7 +107,6 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       );
     });
 
-    // Message pinned/unpinned
     socket.on('message_pinned', (msg) => {
       qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
         old?.map(m => m.id === msg.id ? { ...m, is_pinned: msg.is_pinned } : m)
@@ -104,14 +114,12 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       qc.invalidateQueries({ queryKey: ['chat-pinned', roomId] });
     });
 
-    // Reactions
     socket.on('message_reaction', (data) => {
       qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
         old?.map(m => m.id === data.message_id ? { ...m, reactions: data.reactions } : m)
       );
     });
 
-    // Typing indicator
     socket.on('user_typing', (data) => {
       const typingName = data.user_name || data.userId;
       if (data.user_id === user?.id || data.userId === user?.id) return;
@@ -123,12 +131,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           if (prev.includes(typingName)) return prev;
           return [...prev, typingName];
         });
-        // Auto-clear after 3s
         setTimeout(() => setTypingUsers(prev => prev.filter(n => n !== typingName)), 3000);
       }
     });
 
-    // Added to a new room
     socket.on('added_to_room', () => {
       qc.invalidateQueries({ queryKey: ['chat-rooms'] });
     });
@@ -147,13 +153,22 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     };
   }, [roomId, accessToken]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (force = false) => {
+    const el = messagesContainerRef.current;
+    if (!el) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    if (force || nearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
+  // Scroll to bottom on initial load only
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, realtimeMessages]);
+    scrollToBottom(true);
+  }, [messages]);
 
   const sendMut = useMutation({
     mutationFn: (content: string) => api.post(`/chat/rooms/${roomId}/messages`, {
@@ -164,7 +179,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     onSuccess: () => {
       setMessage('');
       setReplyTo(null);
-      // Don't refetch — real-time listener will append the message
+      scrollToBottom(true);
     },
   });
 
@@ -224,7 +239,6 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       e.preventDefault();
       handleSend();
     }
-    // Emit typing indicator
     if (!editingMsg && socketRef.current) {
       socketRef.current.emit('typing', { roomId, isTyping: true });
       clearTimeout(typingTimeout.current);
@@ -238,15 +252,15 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i);
 
   return (
-    <div className="flex-1 flex flex-col h-full">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-3 flex-shrink-0">
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header — fixed, never scrolls */}
+      <div className="flex-none px-4 py-3 border-b border-border flex items-center gap-3">
         <button onClick={onBack} className="md:hidden p-1 rounded-md hover:bg-secondary text-muted-foreground">
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm truncate">{roomName}</h3>
-          {memberCount ? <p className="text-xs text-muted-foreground">{memberCount} members</p> : null}
+          <h3 className="font-semibold text-sm truncate">{headerTitle}</h3>
+          {headerSubtitle ? <p className="text-xs text-muted-foreground">{headerSubtitle}</p> : null}
         </div>
         <div className="flex items-center gap-1">
           <button onClick={() => setShowSearch(!showSearch)}
@@ -264,7 +278,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
       {/* Search bar */}
       {showSearch && (
-        <div className="px-4 py-2 border-b border-border bg-secondary/30 flex items-center gap-2">
+        <div className="flex-none px-4 py-2 border-b border-border bg-secondary/30 flex items-center gap-2">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={searchQuery}
@@ -280,7 +294,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
       {/* Search results */}
       {showSearch && searchQuery.length >= 2 && searchResults && (
-        <div className="border-b border-border max-h-48 overflow-y-auto bg-card">
+        <div className="flex-none border-b border-border max-h-48 overflow-y-auto bg-card">
           {(searchResults as any[]).length === 0 ? (
             <p className="text-xs text-muted-foreground p-3">No results found</p>
           ) : (
@@ -294,8 +308,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         </div>
       )}
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1">
+      {/* Message list — only this scrolls */}
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-1"
+      >
         {isLoading && <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading...</div>}
         {!isLoading && allMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -305,7 +322,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         )}
         {allMessages.map((msg, i) => {
           const isOwn = msg.sender_id === user?.id;
-          const isDeleted = !!msg.deleted_at || !!msg.is_deleted;
+          const isDeleted = Boolean(msg.deleted_at) || Boolean(msg.is_deleted);
           const showSender = !isOwn && (i === 0 || allMessages[i - 1]?.sender_id !== msg.sender_id);
 
           if (isDeleted) {
@@ -348,7 +365,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                   )}
                   <p className="text-sm break-words whitespace-pre-wrap">
                     {msg.content}
-                    {msg.is_edited && <span className="text-[10px] opacity-60 ml-1">(edited)</span>}
+                    {Boolean(msg.is_edited) && <span className="text-[10px] opacity-60 ml-1">(edited)</span>}
                   </p>
                   {/* Reactions */}
                   {msg.reactions && Object.keys(msg.reactions).length > 0 && (
@@ -362,7 +379,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                   )}
                   <div className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
                     {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                    {msg.is_pinned && <Pin className="h-2.5 w-2.5 inline ml-1" />}
+                    {Boolean(msg.is_pinned) && <Pin className="h-2.5 w-2.5 inline ml-1" />}
                   </div>
                 </div>
               </div>
@@ -378,8 +395,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                   <button onClick={() => setReplyTo(msg)} className="p-1.5 rounded hover:bg-secondary text-muted-foreground" title="Reply">
                     <Reply className="h-3.5 w-3.5" />
                   </button>
-                  <button onClick={() => pinMut.mutate({ id: msg.id, pinned: !!msg.is_pinned })}
-                    className="p-1.5 rounded hover:bg-secondary text-muted-foreground" title={msg.is_pinned ? 'Unpin' : 'Pin'}>
+                  <button onClick={() => pinMut.mutate({ id: msg.id, pinned: Boolean(msg.is_pinned) })}
+                    className="p-1.5 rounded hover:bg-secondary text-muted-foreground" title={Boolean(msg.is_pinned) ? 'Unpin' : 'Pin'}>
                     <Pin className="h-3.5 w-3.5" />
                   </button>
                   {isOwn && (
@@ -399,20 +416,21 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             </div>
           );
         })}
-        {/* Typing indicator */}
-        {typingUsers.length > 0 && (
-          <div className="text-xs text-muted-foreground italic px-1 py-1">
-            {typingUsers.length === 1
-              ? `${typingUsers[0]} is typing...`
-              : `${typingUsers.length} people are typing...`}
-          </div>
-        )}
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Typing indicator — fixed above input */}
+      {typingUsers.length > 0 && (
+        <div className="flex-none px-4 pb-1 text-xs text-muted-foreground italic">
+          {typingUsers.length === 1
+            ? `${typingUsers[0]} is typing...`
+            : `${typingUsers.length} people are typing...`}
+        </div>
+      )}
+
       {/* Reply bar */}
       {replyTo && (
-        <div className="px-4 py-2 border-t border-border bg-secondary/30 flex items-center gap-2">
+        <div className="flex-none px-4 py-2 border-t border-border bg-secondary/30 flex items-center gap-2">
           <Reply className="h-3.5 w-3.5 text-primary" />
           <span className="text-xs truncate flex-1">
             Replying to <strong>{replyTo.sender_name}</strong>: {replyTo.content?.slice(0, 50)}
@@ -423,7 +441,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
       {/* Edit bar */}
       {editingMsg && (
-        <div className="px-4 py-2 border-t border-border bg-primary/5 flex items-center gap-2">
+        <div className="flex-none px-4 py-2 border-t border-border bg-primary/5 flex items-center gap-2">
           <Pencil className="h-3.5 w-3.5 text-primary" />
           <span className="text-xs flex-1">Editing message</span>
           <button onClick={() => { setEditingMsg(null); setEditText(''); }}
@@ -431,8 +449,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         </div>
       )}
 
-      {/* Input */}
-      <div className="px-4 py-3 border-t border-border flex-shrink-0">
+      {/* Input bar — fixed at bottom */}
+      <div className="flex-none px-4 py-3 border-t border-border">
         <div className="flex gap-2 items-end">
           <input type="file" ref={fileInputRef} className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) uploadMut.mutate(f); e.target.value = ''; }}
