@@ -31,7 +31,7 @@ export default function Chat() {
     : (activeRoomData?.name ?? 'Chat');
 
   return (
-    <div className="page-container !p-0 h-[calc(100vh-0px)] md:h-screen flex">
+    <div className="!p-0 h-[calc(100vh-3.5rem)] flex overflow-hidden">
       {/* Left: Room List */}
       <div className={`w-full md:w-72 border-r border-border bg-card flex-shrink-0 ${activeRoom ? 'hidden md:block' : 'block'}`}>
         <ChatRoomList
