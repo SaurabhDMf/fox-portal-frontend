@@ -66,6 +66,10 @@ export default function AdminUsers() {
   const [viewTab, setViewTab] = useState<'details' | 'permissions'>('details');
   const [viewPerms, setViewPerms] = useState<Record<string, any> | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
+  const [resetPwTarget, setResetPwTarget] = useState<any>(null);
+  const [resetPwValue, setResetPwValue] = useState('Welcome123!');
+  const [resetPwError, setResetPwError] = useState('');
+  const [resetPwSuccess, setResetPwSuccess] = useState<{ email: string; password: string } | null>(null);
   const qc = useQueryClient();
 
   const { data: apiRoles } = useQuery({
