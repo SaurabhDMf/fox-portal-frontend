@@ -617,11 +617,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
               )}
             </>
           );
-        })()}
-          )}
-            </div>
-          );
-        })}
+        <div ref={messagesEndRef} />
         <div ref={messagesEndRef} />
       </div>
 
