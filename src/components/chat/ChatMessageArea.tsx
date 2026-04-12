@@ -206,8 +206,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       }
     });
 
-    socket.on('added_to_room', () => {
-      qc.invalidateQueries({ queryKey: ['chat-rooms'] });
+    // Real-time status updates
+    socket.on('user_status_changed', (data: any) => {
+      qc.setQueryData(['chat-rooms'], (old: any[]) =>
+        old?.map((r: any) =>
+          r.dm_other_user_id === data.user_id
+            ? { ...r, dm_other_user_status: data.status, dm_other_user_status_text: data.status_text, dm_other_user_status_emoji: data.status_emoji }
+            : r
+        )
+      );
+      qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
     });
 
     return () => {
@@ -219,6 +227,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       socket.off('message_reaction');
       socket.off('user_typing');
       socket.off('added_to_room');
+      socket.off('user_status_changed');
       setRealtimeMessages([]);
       setTypingUsers([]);
     };
