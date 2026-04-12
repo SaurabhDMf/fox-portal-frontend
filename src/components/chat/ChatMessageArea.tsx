@@ -207,7 +207,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   // Scroll to bottom on initial load only
   useEffect(() => {
     scrollToBottom(true);
-  }, [messages]);
+  }, [fetchedMessages]);
 
   const sendMut = useMutation({
     mutationFn: (content: string) => api.post(`/chat/rooms/${roomId}/messages`, {
@@ -287,7 +287,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     }
   };
 
-  const allMessages = [...(Array.isArray(messages) ? messages : []), ...realtimeMessages]
+  const allMessages = [...fetchedMessages, ...realtimeMessages]
     .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i);
 
   return (
@@ -350,10 +350,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       {/* Message list — only this scrolls */}
       <div
         ref={messagesContainerRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 py-3 space-y-1"
       >
-        {isLoading && <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading...</div>}
-        {!isLoading && allMessages.length === 0 && (
+        {loadingMessages && fetchedMessages.length === 0 && <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading...</div>}
+        {!loadingMessages && allMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <MessageSquare className="h-10 w-10 mb-2 opacity-20" />
             <p className="text-sm">No messages yet. Start the conversation!</p>
