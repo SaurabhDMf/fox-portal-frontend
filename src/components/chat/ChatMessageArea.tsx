@@ -346,7 +346,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm truncate">{headerTitle}</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="font-semibold text-sm truncate">{headerTitle}</h3>
+            {isDM && <StatusDot status={roomDetail?.dm_other_user_status} />}
+          </div>
+          {dmStatusText && <p className="text-[10px] text-muted-foreground">{dmStatusText}</p>}
           {headerSubtitle ? <p className="text-xs text-muted-foreground">{headerSubtitle}</p> : null}
         </div>
         <div className="flex items-center gap-1">
