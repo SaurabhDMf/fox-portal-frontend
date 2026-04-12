@@ -1,9 +1,12 @@
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { Bell, Search, Menu } from 'lucide-react';
-import { useState } from 'react';
 import { useSidebarCollapsed } from './PortalLayout';
 import ThemeToggle from '@/components/ThemeToggle';
+import StatusDot from '@/components/chat/StatusDot';
+import StatusPicker from '@/components/chat/StatusPicker';
+import api from '@/lib/api';
 
 const routeLabels: Record<string, string> = {
   '/sa': 'Dashboard',
@@ -76,8 +79,27 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
   const location = useLocation();
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [myStatus, setMyStatus] = useState('online');
+  const [myStatusText, setMyStatusText] = useState('');
+  const [myStatusEmoji, setMyStatusEmoji] = useState('');
   const crumbs = getBreadcrumbs(location.pathname);
   const pageTitle = routeLabels[location.pathname] || crumbs[crumbs.length - 1]?.label || '';
+
+  // Fetch own status on mount
+  useEffect(() => {
+    api.get('/users/me').then(r => {
+      const d = r.data?.data || r.data;
+      if (d?.status) setMyStatus(d.status);
+      if (d?.status_text) setMyStatusText(d.status_text);
+      if (d?.status_emoji) setMyStatusEmoji(d.status_emoji);
+    }).catch(() => {});
+  }, []);
+
+  const handleStatusChange = (status: string, text: string, emoji: string) => {
+    setMyStatus(status);
+    setMyStatusText(text);
+    setMyStatusEmoji(emoji);
+  };
 
   return (
     <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
@@ -131,14 +153,26 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
             <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-destructive" />
           </button>
 
-          {/* User avatar */}
+          {/* User avatar with status */}
           <div className="hidden sm:flex items-center gap-2 ml-1 pl-3 border-l border-border">
-            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-              {user?.full_name?.[0] || 'U'}
-            </div>
+            <StatusPicker
+              currentStatus={myStatus}
+              currentStatusText={myStatusText}
+              currentStatusEmoji={myStatusEmoji}
+              onStatusChange={handleStatusChange}
+            >
+              <button className="relative flex-shrink-0">
+                <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                  {user?.full_name?.[0] || 'U'}
+                </div>
+                <StatusDot status={myStatus} className="absolute -bottom-0.5 -right-0.5 w-2 h-2" />
+              </button>
+            </StatusPicker>
             <div className="hidden lg:block min-w-0">
               <div className="text-xs font-medium truncate leading-tight">{user?.full_name}</div>
-              <div className="text-[10px] text-muted-foreground truncate leading-tight capitalize">{user?.role?.replace('_', ' ')}</div>
+              <div className="text-[10px] text-muted-foreground truncate leading-tight">
+                {myStatusText ? `${myStatusEmoji} ${myStatusText}` : <span className="capitalize">{user?.role?.replace('_', ' ')}</span>}
+              </div>
             </div>
           </div>
         </div>

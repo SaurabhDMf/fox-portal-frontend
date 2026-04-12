@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Plus, MessageSquare, Search, Hash } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import StatusDot from '@/components/chat/StatusDot';
 
 interface ChatRoom {
   id: string;
@@ -11,6 +12,9 @@ interface ChatRoom {
   avatar_url?: string;
   dm_other_user_name?: string;
   dm_other_user_avatar?: string;
+  dm_other_user_status?: string;
+  dm_other_user_status_text?: string;
+  dm_other_user_status_emoji?: string;
   last_message?: string;
   last_message_at?: string;
   unread_count?: number;
@@ -120,18 +124,31 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
 function RoomAvatar({ room, displayName }: { room: ChatRoom; displayName: string }) {
   const isDM = room.type === '1-to-1';
 
-  if (isDM && room.dm_other_user_avatar) {
-    return <img src={room.dm_other_user_avatar} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />;
-  }
-  if (!isDM && room.avatar_url) {
-    return <img src={room.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />;
-  }
+  const avatarEl = (() => {
+    if (isDM && room.dm_other_user_avatar) {
+      return <img src={room.dm_other_user_avatar} alt="" className="w-10 h-10 rounded-full object-cover" />;
+    }
+    if (!isDM && room.avatar_url) {
+      return <img src={room.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />;
+    }
+    const bg = `hsl(${hashCode(displayName) % 360}, 60%, 45%)`;
+    return (
+      <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold"
+        style={{ backgroundColor: bg, color: '#fff' }}>
+        {isDM ? (displayName[0] || 'D').toUpperCase() : <Hash className="h-4 w-4" />}
+      </div>
+    );
+  })();
 
-  const bg = `hsl(${hashCode(displayName) % 360}, 60%, 45%)`;
   return (
-    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-      style={{ backgroundColor: bg, color: '#fff' }}>
-      {isDM ? (displayName[0] || 'D').toUpperCase() : <Hash className="h-4 w-4" />}
+    <div className="relative flex-shrink-0">
+      {avatarEl}
+      {isDM && (
+        <StatusDot
+          status={room.dm_other_user_status}
+          className="absolute bottom-0 right-0 w-2 h-2"
+        />
+      )}
     </div>
   );
 }
