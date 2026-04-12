@@ -447,11 +447,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                 </div>
               </div>
           ) : (
-          }
-
-          return (
             <div
-              key={msg.id || i}
               className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative`}
               onMouseEnter={() => setHoveredMsg(msg.id)}
               onMouseLeave={() => setHoveredMsg(null)}
@@ -465,7 +461,12 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                 )}
                 <div className={`rounded-xl px-3 py-2 ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
                   {showSender && !isOwn && (
-                    <div className="text-xs font-medium mb-0.5 text-muted-foreground">{msg.sender_name}</div>
+                    <div className="text-xs font-medium mb-0.5 text-muted-foreground">
+                      {msg.sender_name}
+                      <span className="ml-2 font-normal opacity-70">
+                        {msg.created_at ? new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}
+                      </span>
+                    </div>
                   )}
                   {/* File attachment */}
                   {msg.type === 'file' && msg.file_url && (
@@ -492,14 +493,14 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                     </div>
                   )}
                   <div className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                    {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                    {isOwn && msg.created_at ? new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}
                     {Boolean(msg.is_pinned) && <Pin className="h-2.5 w-2.5 inline ml-1" />}
                   </div>
                 </div>
               </div>
 
               {/* Hover actions */}
-              {hoveredMsg === msg.id && !isDeleted && (
+              {hoveredMsg === msg.id && (
                 <div className={`absolute top-0 ${isOwn ? 'right-[calc(70%+4px)]' : 'left-[calc(70%+4px)]'} flex items-center gap-0.5 bg-card border border-border rounded-lg shadow-lg p-0.5 z-10`}>
                   <button onClick={() => {
                     api.post(`/chat/messages/${msg.id}/reaction`, { emoji: '👍' }).catch(() => {});
@@ -557,6 +558,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                   </div>
                 </div>
               )}
+            </div>
+          )}
             </div>
           );
         })}
