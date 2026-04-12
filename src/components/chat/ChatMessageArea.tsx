@@ -145,33 +145,26 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
     socket.on('message_updated', (msg) => {
       setRealtimeMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
-      qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
-        old?.map(m => m.id === msg.id ? msg : m)
-      );
+      setFetchedMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
     });
 
     socket.on('message_deleted', (data) => {
       const deletedId = data?.id || data?.message_id;
       if (!deletedId) return;
-      setRealtimeMessages(prev => prev.map(m =>
-        m.id === deletedId ? { ...m, deleted_at: data.deleted_at || new Date().toISOString(), is_deleted: true, content: '' } : m
-      ));
-      qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
-        old?.map(m => m.id === deletedId ? { ...m, deleted_at: data.deleted_at || new Date().toISOString(), is_deleted: true, content: '' } : m)
-      );
+      const patch = { deleted_at: data.deleted_at || new Date().toISOString(), is_deleted: true, content: '' };
+      setRealtimeMessages(prev => prev.map(m => m.id === deletedId ? { ...m, ...patch } : m));
+      setFetchedMessages(prev => prev.map(m => m.id === deletedId ? { ...m, ...patch } : m));
     });
 
     socket.on('message_pinned', (msg) => {
-      qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
-        old?.map(m => m.id === msg.id ? { ...m, is_pinned: msg.is_pinned } : m)
-      );
+      setFetchedMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_pinned: msg.is_pinned } : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_pinned: msg.is_pinned } : m));
       qc.invalidateQueries({ queryKey: ['chat-pinned', roomId] });
     });
 
     socket.on('message_reaction', (data) => {
-      qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
-        old?.map(m => m.id === data.message_id ? { ...m, reactions: data.reactions } : m)
-      );
+      setFetchedMessages(prev => prev.map(m => m.id === data.message_id ? { ...m, reactions: data.reactions } : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === data.message_id ? { ...m, reactions: data.reactions } : m));
     });
 
     socket.on('user_typing', (data) => {
@@ -242,9 +235,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       api.put(`/chat/messages/${id}`, { content }),
     onSuccess: (res) => {
       const updated = res.data?.data || res.data;
-      qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
-        old?.map(m => m.id === updated.id ? updated : m)
-      );
+      setFetchedMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
       setEditingMsg(null);
       setEditText('');
     },
@@ -253,9 +245,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.delete(`/chat/messages/${id}`),
     onSuccess: (_, id) => {
-      qc.setQueryData(['chat-messages', roomId], (old: any[]) =>
-        old?.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString(), is_deleted: true } : m)
-      );
+      setFetchedMessages(prev => prev.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString(), is_deleted: true } : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString(), is_deleted: true } : m));
     },
   });
 
@@ -263,7 +254,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
       pinned ? api.delete(`/chat/messages/${id}/pin`) : api.post(`/chat/messages/${id}/pin`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['chat-messages', roomId] });
+      // Re-fetch messages to get updated pin state
+      api.get(`/chat/rooms/${roomId}/messages?limit=50`).then(r => {
+        const d = r.data;
+        setFetchedMessages(Array.isArray(d) ? d : d?.data || d?.messages || []);
+      });
       qc.invalidateQueries({ queryKey: ['chat-pinned', roomId] });
     },
   });
@@ -276,7 +271,12 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         headers: { 'Content-Type': 'multipart/form-data' },
       });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-messages', roomId] }),
+    onSuccess: () => {
+      api.get(`/chat/rooms/${roomId}/messages?limit=50`).then(r => {
+        const d = r.data;
+        setFetchedMessages(Array.isArray(d) ? d : d?.data || d?.messages || []);
+      });
+    },
     onError: () => toast.error('Upload failed'),
   });
 
