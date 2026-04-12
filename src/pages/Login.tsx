@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Loader2, Mail, Lock, ChevronRight } from 'lucide-react';
+import { initPushNotifications } from '@/lib/pushNotifications';
 import ThemeLogo from '@/components/ThemeLogo';
 
 export default function Login() {
@@ -22,6 +23,8 @@ export default function Login() {
       const data = res.data;
       setAuth(data);
       toast.success(`Welcome back, ${data.user?.full_name || 'User'}!`);
+      // Init push notifications silently in background
+      initPushNotifications();
       setTimeout(() => {
         const path = useAuthStore.getState().getRedirectPath();
         navigate(path);
