@@ -160,6 +160,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       );
       if (msg.room_id === roomId) {
         api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+        // Refresh room detail for read receipts after delay
+        setTimeout(() => {
+          qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
+        }, 3000);
       }
     });
 
