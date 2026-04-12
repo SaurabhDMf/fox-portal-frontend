@@ -513,6 +513,36 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                   )}
                 </div>
               )}
+
+              {/* Read receipts — DM */}
+              {isLastMessage && isOwn && isDM && (
+                <div className="flex items-center justify-end gap-1 mt-0.5 text-[10px] text-muted-foreground">
+                  {isSeen
+                    ? <><CheckCheck className="w-3 h-3 text-blue-400" /> Seen</>
+                    : <><Check className="w-3 h-3" /> Sent</>
+                  }
+                </div>
+              )}
+
+              {/* Read receipts — Group */}
+              {isLastMessage && !isDM && seenByGroup.length > 0 && (
+                <div className="flex items-center justify-end gap-1 mt-1">
+                  <span className="text-[10px] text-muted-foreground">Seen by</span>
+                  <div className="flex -space-x-1">
+                    {seenByGroup.slice(0, 5).map((m: any) => (
+                      <div key={m.user_id} title={m.full_name}
+                        className="w-4 h-4 rounded-full bg-primary/60 ring-1 ring-background flex items-center justify-center text-[8px] text-primary-foreground font-bold">
+                        {m.full_name?.charAt(0)}
+                      </div>
+                    ))}
+                    {seenByGroup.length > 5 && (
+                      <div className="w-4 h-4 rounded-full bg-muted ring-1 ring-background flex items-center justify-center text-[8px] text-muted-foreground">
+                        +{seenByGroup.length - 5}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
