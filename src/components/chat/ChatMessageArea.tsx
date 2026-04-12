@@ -4,8 +4,9 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import {
   Send, Paperclip, Search, Pin, Info, ArrowLeft, MessageSquare,
-  Smile, Reply, Pencil, Trash2, X, Check
+  Smile, Reply, Pencil, Trash2, X, Check, CheckCheck
 } from 'lucide-react';
+import StatusDot from '@/components/chat/StatusDot';
 import { Socket } from 'socket.io-client';
 import { getSocket } from '@/hooks/useSocket';
 import toast from 'react-hot-toast';
@@ -49,7 +50,9 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     enabled: !!roomId,
   });
 
-  const headerTitle = roomDetail?.type === '1-to-1'
+  const isDM = roomDetail?.type === '1-to-1';
+
+  const headerTitle = isDM
     ? (roomDetail.dm_other_user_name ?? 'Direct Message')
     : (roomDetail?.name ?? roomName);
 
@@ -58,9 +61,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     roomDetail?.dm_other_user_email || '',
   ].filter(Boolean).join(' · ');
 
-  const headerSubtitle = roomDetail?.type === '1-to-1'
+  const headerSubtitle = isDM
     ? dmSubParts
     : (memberCount ? `${memberCount} members` : '');
+
+  const dmStatusText = isDM && roomDetail?.dm_other_user_status_text
+    ? `${roomDetail.dm_other_user_status_emoji || ''} ${roomDetail.dm_other_user_status_text}`.trim()
+    : '';
+
+  // Members for read receipts
+  const roomMembers: any[] = roomDetail?.members || [];
 
   // Fetch messages imperatively whenever roomId changes
   useEffect(() => {
