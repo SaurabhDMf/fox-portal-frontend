@@ -24,7 +24,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const accessToken = useAuthStore(s => s.accessToken);
   const qc = useQueryClient();
   const [message, setMessage] = useState('');
+  const [fetchedMessages, setFetchedMessages] = useState<any[]>([]);
   const [realtimeMessages, setRealtimeMessages] = useState<any[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
