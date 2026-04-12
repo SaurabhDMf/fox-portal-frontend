@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { disconnectSocket } from '@/hooks/useSocket';
 
 export interface Permission {
   can_view: boolean;
