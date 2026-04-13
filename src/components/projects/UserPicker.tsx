@@ -120,7 +120,7 @@ export default function UserPicker({ value, onChange, placeholder = 'Select user
                   className="w-full pl-7 pr-2 py-1.5 rounded bg-secondary border border-border text-xs focus:outline-none" />
               </div>
             </div>
-            <div className="max-h-48 overflow-y-auto p-1">
+            <div className="max-h-40 overflow-y-auto p-1">
               {filtered.map(u => {
                 const isSelected = selectedIds.includes(u.id);
                 return (
@@ -136,6 +136,11 @@ export default function UserPicker({ value, onChange, placeholder = 'Select user
                 );
               })}
               {filtered.length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No users found</p>}
+            </div>
+            <div className="p-2 border-t border-border">
+              <button onClick={() => { setOpen(false); setSearch(''); }} className="w-full px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-colors">
+                Done
+              </button>
             </div>
           </div>
         )}
