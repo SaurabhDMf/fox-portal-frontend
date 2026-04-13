@@ -176,6 +176,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
         const targetSprintId = newTask.sprint_id || form.sprint_id || defaultSprintId;
         if (targetSprintId) updateSprintCaches(newTask, targetSprintId);
       }
+      qc.invalidateQueries({ queryKey: ['project-all-tasks'] });
       qc.invalidateQueries({ queryKey: ['project-board', projectId] });
       qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
       qc.invalidateQueries({ queryKey: ['project-epics', projectId] });

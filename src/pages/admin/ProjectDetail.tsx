@@ -16,11 +16,11 @@ import CreateTaskModal from '@/components/projects/CreateTaskModal';
 import toast from 'react-hot-toast';
 
 const TABS = [
-  { id: 'board', label: 'Board', icon: LayoutGrid },
   { id: 'tasks', label: 'Tasks', icon: List },
-  { id: 'sprints', label: 'Sprints', icon: Timer },
+  { id: 'board', label: 'Board', icon: LayoutGrid },
   { id: 'backlog', label: 'Backlog', icon: Archive },
   { id: 'epics', label: 'Modules', icon: Zap },
+  { id: 'sprints', label: 'Sprints', icon: Timer },
   { id: 'members', label: 'Members', icon: Users },
 ] as const;
 
@@ -34,7 +34,7 @@ export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<TabId>('board');
+  const [activeTab, setActiveTab] = useState<TabId>('tasks');
   const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
   const [createTaskDefaults, setCreateTaskDefaults] = useState<{ status?: string; sprint_id?: string; epic_id?: string } | null>(null);
   const [showEdit, setShowEdit] = useState(false);
