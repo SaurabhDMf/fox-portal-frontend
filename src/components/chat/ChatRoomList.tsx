@@ -95,6 +95,42 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
 
   return (
     <div className="flex flex-col h-full">
+      {/* Mobile user profile & status section */}
+      <div className="md:hidden border-b border-border p-3">
+        <div className="flex items-center gap-3">
+          <StatusPicker
+            currentStatus={myStatus}
+            currentStatusText={myStatusText}
+            currentStatusEmoji={myStatusEmoji}
+            onStatusChange={handleStatusChange}
+          >
+            <button className="relative flex-shrink-0">
+              <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
+                {user?.avatar_url
+                  ? <img src={user.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                  : (user?.full_name?.[0] || 'U').toUpperCase()}
+              </div>
+              <StatusDot status={myStatus} className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5" />
+            </button>
+          </StatusPicker>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium truncate">{user?.full_name}</div>
+            <div className="text-[10px] text-muted-foreground truncate">
+              {myStatusText
+                ? `${myStatusEmoji} ${myStatusText}`
+                : <span className="capitalize">{user?.role?.replace('_', ' ')}</span>}
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <button className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative">
+              <Bell className="h-4 w-4" />
+              <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-destructive" />
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="p-3 border-b border-border space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-sm">Messages</h2>
