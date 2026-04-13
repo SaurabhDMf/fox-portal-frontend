@@ -163,7 +163,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            All Tasks
+            {isRestricted ? 'My Tasks' : 'All Tasks'}
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             Showing {filtered.length} task{filtered.length !== 1 ? 's' : ''}
@@ -198,10 +198,12 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           {(modules ?? []).map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
         </select>
 
-        <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} className={selectCls}>
-          <option value="">All Assignees</option>
-          {(members ?? []).map(m => <option key={m.user_id} value={m.user_id}>{m.full_name}</option>)}
-        </select>
+        {!isRestricted && (
+          <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} className={selectCls}>
+            <option value="">All Assignees</option>
+            {(members ?? []).map(m => <option key={m.user_id} value={m.user_id}>{m.full_name}</option>)}
+          </select>
+        )}
 
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={selectCls}>
           <option value="">All Statuses</option>
