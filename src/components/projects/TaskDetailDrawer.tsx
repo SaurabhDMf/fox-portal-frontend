@@ -442,9 +442,10 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     const currentIds = task.assignee_ids || task.assignees?.map((a: any) => getMemberId(a) || a.id) || [];
     const newIds = currentIds.includes(userId) ? currentIds.filter((id: string) => id !== userId) : [...currentIds, userId];
     setShowAssigneePicker(false);
-    api.patch(`/tasks/${initialTask.id}/assignee`, { assignee_ids: newIds }).then((res) => {
+    // Use PUT /tasks/:id with assignee_id for broad role compatibility
+    api.put(`/tasks/${initialTask.id}`, { assignee_id: newIds[newIds.length - 1] || null, assignee_ids: newIds }).then((res) => {
       const updated = normalizeTaskEntity(res.data, members);
-      qc.setQueryData(['task-detail', initialTask.id], (old: any) => ({ ...(old || task), ...updated }));
+      qc.setQueryData(['task-detail', initialTask.id], (old: any) => ({ ...(old || task), ...updated, assignee_ids: newIds }));
       invalidateTaskQueries();
       toast.success('Assignee updated');
     }).catch((e: any) => toast.error(e.response?.data?.message || 'Failed to update assignee'));
