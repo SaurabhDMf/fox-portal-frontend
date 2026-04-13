@@ -656,7 +656,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         <div className="flex gap-2 items-end">
           <input type="file" ref={fileInputRef} className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) uploadMut.mutate(f); e.target.value = ''; }}
-            accept="image/*,.pdf,.csv,.doc,.docx,.xls,.xlsx,.zip" />
+            accept="*/*" />
           <button onClick={() => fileInputRef.current?.click()}
             className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors flex-shrink-0">
             <Paperclip className="h-4 w-4" />
