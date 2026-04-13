@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Plus, MessageSquare, Search, Hash } from 'lucide-react';
+import { Plus, MessageSquare, Search, Hash, User, Bell } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusBadge from '@/components/chat/StatusBadge';
+import StatusPicker from '@/components/chat/StatusPicker';
+import ThemeToggle from '@/components/ThemeToggle';
+import { useAuthStore } from '@/stores/authStore';
 
 interface ChatRoom {
   id: string;
