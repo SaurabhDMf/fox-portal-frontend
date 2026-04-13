@@ -41,6 +41,26 @@ function getDisplayName(room: ChatRoom) {
 export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, onCreateDM }: Props) {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'dm' | 'group'>('all');
+  const user = useAuthStore(s => s.user);
+  const [myStatus, setMyStatus] = useState('online');
+  const [myStatusText, setMyStatusText] = useState('');
+  const [myStatusEmoji, setMyStatusEmoji] = useState('');
+
+  // Fetch own status on mount (mobile profile section)
+  useEffect(() => {
+    api.get('/users/me').then(r => {
+      const d = r.data?.data || r.data;
+      if (d?.status) setMyStatus(d.status);
+      if (d?.status_text) setMyStatusText(d.status_text);
+      if (d?.status_emoji) setMyStatusEmoji(d.status_emoji);
+    }).catch(() => {});
+  }, []);
+
+  const handleStatusChange = (status: string, text: string, emoji: string) => {
+    setMyStatus(status);
+    setMyStatusText(text);
+    setMyStatusEmoji(emoji);
+  };
 
   const { data: rooms = [] } = useQuery({
     queryKey: ['chat-rooms'],
