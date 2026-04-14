@@ -55,6 +55,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const [editingMsg, setEditingMsg] = useState<any>(null);
   const [editText, setEditText] = useState('');
   const [hoveredMsg, setHoveredMsg] = useState<string | null>(null);
+  const [profileUser, setProfileUser] = useState<any>(null);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const userRole = user?.role || '';
+  const isAdminRole = userRole === 'admin' || userRole === 'super_admin';
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
