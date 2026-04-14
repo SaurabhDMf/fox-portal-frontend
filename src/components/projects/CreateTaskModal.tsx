@@ -6,6 +6,8 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import UserPicker from './UserPicker';
+import InlineAddSelect from './InlineAddSelect';
+import { useProjectStatuses, useProjectStages } from '@/hooks/useProjectOptions';
 
 interface Props {
   projectId: string;
@@ -18,8 +20,6 @@ interface Props {
 type ItemType = 'Task' | 'Story' | 'Bug' | 'Feature';
 const ITEM_TYPES: ItemType[] = ['Task', 'Story', 'Bug', 'Feature'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
-const STATUS_OPTIONS = ['Open', 'In Progress', 'Review', 'Done', 'Cancelled'];
-const STAGES = ['Design', 'Development', 'Integration', 'Testing', 'Done'];
 
 function upsertTask<T extends { id: string }>(list: T[] = [], task: T): T[] {
   const index = list.findIndex((item) => item.id === task.id);
@@ -43,9 +43,11 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
     epic_id: defaultEpicId || '',
     sprint_id: defaultSprintId || '',
     parent_task_id: '',
-    story_points: '',
     due_date: '',
   });
+
+  const { statuses, addStatus } = useProjectStatuses(projectId);
+  const { stages, addStage } = useProjectStages(projectId);
 
   // Removed project-members query — using UserPicker with /users/active instead
 
@@ -160,7 +162,6 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
       if (form.epic_id) payload.epic_id = form.epic_id; else payload.epic_id = null;
       if (form.sprint_id) payload.sprint_id = form.sprint_id; else payload.sprint_id = null;
       if (form.parent_task_id) payload.parent_task_id = form.parent_task_id; else payload.parent_task_id = null;
-      if (form.story_points) payload.story_points = Number(form.story_points);
       if (form.due_date) payload.due_date = form.due_date;
       return api.post('/tasks', payload);
     },
@@ -224,13 +225,12 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
           <select value={form.priority} onChange={e => set('priority', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
-          <select value={form.status} onChange={e => set('status', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select value={form.stage} onChange={e => set('stage', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-            <option value="">No Stage</option>
-            {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <div>
+            <InlineAddSelect value={form.status} options={statuses} onChange={v => set('status', v)} onAdd={addStatus} placeholder="Status" />
+          </div>
+          <div>
+            <InlineAddSelect value={form.stage} options={stages} onChange={v => set('stage', v)} onAdd={addStage} placeholder="No Stage" />
+          </div>
         </div>
 
         {/* Sprint (optional) — choose sprint first */}
@@ -273,12 +273,11 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
           placeholder="Select assignees..."
         />
 
-        {/* Story points + Due date */}
-        <div className="grid grid-cols-2 gap-3">
-          <input type="number" placeholder="Story Points" value={form.story_points} onChange={e => set('story_points', e.target.value)}
-            className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none" />
+        {/* Due date */}
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">Due Date (optional)</label>
           <input type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)}
-            className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none" />
+            className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none" />
         </div>
 
         <div className="flex gap-2 justify-end">

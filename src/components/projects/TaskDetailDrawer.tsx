@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { useProjectStatuses, useProjectStages } from '@/hooks/useProjectOptions';
+import InlineAddSelect from './InlineAddSelect';
 import { TASK_TYPE_CONFIG, BOARD_COLUMNS, WORKFLOW_STAGES, type Epic, type ProjectTask, type Sprint } from '@/lib/projectTypes';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import HandoffModal from './HandoffModal';
@@ -134,10 +136,6 @@ function sanitizeTaskPatch(patch: Record<string, any>) {
   if ('parent_task_id' in patch) payload.parent_task_id = patch.parent_task_id || null;
   if ('due_date' in patch) payload.due_date = patch.due_date || null;
   if ('stage' in patch) payload.stage = patch.stage || null;
-  if ('story_points' in patch) {
-    if (patch.story_points === '' || patch.story_points == null) payload.story_points = null;
-    else { const p = Number(patch.story_points); if (Number.isFinite(p)) payload.story_points = p; }
-  }
   return payload;
 }
 
@@ -167,6 +165,8 @@ function EditableDescription({ value, onSave }: { value: string; onSave: (v: str
 
 export default function TaskDetailDrawer({ task: initialTask, onClose, projectId }: Props) {
   const qc = useQueryClient();
+  const { statuses, addStatus } = useProjectStatuses(projectId);
+  const { stages, addStage } = useProjectStages(projectId);
   const [activeTab, setActiveTab] = useState<'activity' | 'timelog' | 'handoffs'>('activity');
   const [commentText, setCommentText] = useState('');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -267,7 +267,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     }
     if ('parent_task_id' in patch) nextTask.parent_task_id = patch.parent_task_id || undefined;
     if ('due_date' in patch) nextTask.due_date = patch.due_date || undefined;
-    if ('story_points' in patch) nextTask.story_points = patch.story_points == null || patch.story_points === '' ? undefined : Number(patch.story_points);
+    
     if ('description' in patch) nextTask.description = patch.description;
     if ('stage' in patch) nextTask.stage = patch.stage || undefined;
     return normalizeTaskEntity(nextTask, members);
@@ -496,9 +496,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             <select value={task.type} onChange={e => submitTaskUpdate({ type: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
               {TYPES.map(t => <option key={t} value={t}>{TASK_TYPE_CONFIG[t]?.icon} {t}</option>)}
             </select>
-            <select value={task.status} onChange={e => submitTaskUpdate({ status: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
-              {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <InlineAddSelect value={task.status} options={statuses} onChange={v => submitTaskUpdate({ status: v })} onAdd={addStatus} placeholder="Status" />
             <select value={task.priority} onChange={e => submitTaskUpdate({ priority: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
               {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
@@ -547,10 +545,6 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
               </select>
             </div>
             <div>
-              <span className="text-xs text-muted-foreground">Story Points</span>
-              <p className="text-sm font-semibold">{task.story_points ?? '—'}</p>
-            </div>
-            <div>
               <span className="text-xs text-muted-foreground">Due Date</span>
               <input
                 type="date"
@@ -561,10 +555,9 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Stage</span>
-              <select value={task.stage || ''} onChange={e => submitTaskUpdate({ stage: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">No Stage</option>
-                {WORKFLOW_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <div className="mt-1">
+                <InlineAddSelect value={task.stage || ''} options={stages} onChange={v => submitTaskUpdate({ stage: v || null })} onAdd={addStage} placeholder="No Stage" />
+              </div>
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Time Tracked</span>
