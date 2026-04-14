@@ -4,6 +4,7 @@ import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS, BOARD_COLUMNS } from '@/lib/projectTypes';
 import type { ProjectTask } from '@/lib/projectTypes';
+import { useProjectStatuses } from '@/hooks/useProjectOptions';
 import { useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, Plus, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -81,6 +82,7 @@ function dedupeTasks(tasks: any[] = []): HierarchyTask[] {
 
 export default function SprintDetailPage({ projectId, sprintId, sprintName, onBack, onTaskClick, onCreateTask }: Props) {
   const qc = useQueryClient();
+  const { statuses: STATUS_OPTIONS } = useProjectStatuses(projectId);
   const [activeTab, setActiveTab] = useState<'hierarchy' | 'table'>('hierarchy');
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
@@ -303,7 +305,7 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
             className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer"
             onClick={e => e.stopPropagation()}
           >
-            {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
+            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         {isExpanded && hasSubtasks && task.subtasks!.map(st => (
@@ -316,7 +318,7 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
               onChange={e => updateTaskStatus(st.id, 'status', e.target.value)}
               className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer"
             >
-              {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
+              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <InlineUserPicker
               value={(st as any).assignee_id || st.assignees?.[0]?.id || ''}
