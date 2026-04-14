@@ -731,12 +731,6 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                       </div>
                     </div>
                   ))}
-                  {activity.map((a: any) => (
-                    <div key={a.id} className="flex gap-3 items-center">
-                      <Activity className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                      <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">{a.user_name}</span> {a.action} · {new Date(a.created_at).toLocaleString()}</p>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
