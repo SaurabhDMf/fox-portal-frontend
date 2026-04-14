@@ -10,6 +10,7 @@ import { extractProjectArray } from '@/lib/projectResponse';
 import type { ProjectTask, Sprint, Epic, ProjectMember } from '@/lib/projectTypes';
 import { useAuthStore } from '@/stores/authStore';
 import { useProjectStatuses, type StatusOption } from '@/hooks/useProjectOptions';
+import CodeRepoBadge from './CodeRepoBadge';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -261,6 +262,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               <TableHead>Status</TableHead>
               <TableHead>Module</TableHead>
               <TableHead>Sprint</TableHead>
+              <TableHead>Code Repo</TableHead>
               <TableHead className="w-[60px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
