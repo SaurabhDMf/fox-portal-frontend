@@ -265,7 +265,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                 const assigneeName = (t as any).assignee_name ?? t.assignees?.[0]?.full_name;
                 const assigneeAvatar = (t as any).assignee_avatar ?? t.assignees?.[0]?.avatar_url;
                 return (
-                  <TableRow key={t.id} className="cursor-pointer group" onClick={() => onTaskClick?.(t)}>
+                  <TableRow key={t.id} className={`cursor-pointer group ${STATUS_ROW_COLORS[t.status] || ''}`} onClick={() => onTaskClick?.(t)}>
                     {/* Task Name */}
                     <TableCell>
                       <div className="min-w-[200px]">
