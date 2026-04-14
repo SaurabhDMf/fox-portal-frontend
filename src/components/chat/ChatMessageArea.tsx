@@ -34,11 +34,12 @@ interface Props {
   roomName: string;
   memberCount?: number;
   onBack: () => void;
+  onDeleteRoom?: () => void;
   onToggleInfo: () => void;
   onTogglePinned: () => void;
 }
 
-export default function ChatMessageArea({ roomId, roomName, memberCount, onBack, onToggleInfo, onTogglePinned }: Props) {
+export default function ChatMessageArea({ roomId, roomName, memberCount, onBack, onDeleteRoom, onToggleInfo, onTogglePinned }: Props) {
   const user = useAuthStore(s => s.user);
   const accessToken = useAuthStore(s => s.accessToken);
   const qc = useQueryClient();
