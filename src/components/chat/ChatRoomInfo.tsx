@@ -212,6 +212,32 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
           </div>
         )}
       </ScrollArea>
+
+      {/* Remove/Leave Confirmation */}
+      {confirmRemove && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => setConfirmRemove(null)}>
+          <div className="bg-card border border-border rounded-xl w-full max-w-sm p-6 space-y-4 shadow-lg" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold">
+              {confirmRemove.id === user?.id ? 'Leave Room' : 'Remove Member'}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {confirmRemove.id === user?.id
+                ? 'Are you sure you want to leave this room? You will no longer receive messages.'
+                : `Are you sure you want to remove ${confirmRemove.name} from this room?`}
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmRemove(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button
+                onClick={() => removeMemberMut.mutate(confirmRemove.id)}
+                disabled={removeMemberMut.isPending}
+                className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
+              >
+                {removeMemberMut.isPending ? 'Removing...' : confirmRemove.id === user?.id ? 'Leave' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
