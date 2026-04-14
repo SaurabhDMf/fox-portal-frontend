@@ -66,14 +66,7 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
     },
   });
 
-  const leaveMut = useMutation({
-    mutationFn: () => api.delete(`/chat/rooms/${roomId}/members/${user?.id}`),
-    onSuccess: () => {
-      toast.success('Left room');
-      qc.invalidateQueries({ queryKey: ['chat-rooms'] });
-      onClose();
-    },
-  });
+
 
   const members = room?.members || [];
   const isAdmin = Number(members.find((m: any) => m.id === user?.id)?.is_admin) === 1 || room?.created_by === user?.id;
