@@ -517,7 +517,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                 <div className={`rounded-xl px-3 py-2 ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
                   {showSender && !isOwn && (
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-medium text-muted-foreground">{msg.sender_name}</span>
+                      <span className="text-xs font-medium text-muted-foreground cursor-pointer hover:underline"
+                        onClick={() => setProfileUser({ id: msg.sender_id, full_name: msg.sender_name, avatar_url: msg.sender_avatar })}>{msg.sender_name}</span>
                       <StatusBadge
                         status={statusMap[msg.sender_id]?.status ?? 'offline'}
                         statusText={statusMap[msg.sender_id]?.status_text}
