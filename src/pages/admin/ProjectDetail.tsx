@@ -141,6 +141,9 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-2">
             <span className={project.status === 'Active' ? 'badge-success' : project.status === 'Completed' ? 'badge-info' : project.status === 'On Hold' ? 'badge-warning' : 'badge-neutral'}>{project.status}</span>
             <span className={project.priority === 'Critical' ? 'badge-danger' : project.priority === 'High' ? 'badge-warning' : 'badge-neutral'}>{project.priority}</span>
+            <button onClick={() => setShowProjectSettings(true)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Project Settings">
+              <Settings2 className="h-4 w-4" />
+            </button>
             {isAdmin && (
               <>
                 <button onClick={openEdit} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit Project">
