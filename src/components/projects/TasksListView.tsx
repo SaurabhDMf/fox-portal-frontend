@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { extractProjectArray } from '@/lib/projectResponse';
 import type { ProjectTask, Sprint, Epic, ProjectMember } from '@/lib/projectTypes';
 import { useAuthStore } from '@/stores/authStore';
+import { useProjectStatuses } from '@/hooks/useProjectOptions';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -17,7 +18,7 @@ interface Props {
   onCreateTask?: () => void;
 }
 
-const STATUS_OPTIONS = ['Open', 'In Progress', 'Review', 'Done', 'Cancelled'];
+const DEFAULT_STATUS_OPTIONS = ['Open', 'In Progress', 'Review', 'Done', 'Cancelled'];
 const TYPE_OPTIONS = ['Task', 'Bug', 'Story', 'Subtask'];
 const PRIORITY_OPTIONS = ['High', 'Medium', 'Low'];
 
@@ -67,6 +68,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
   const qc = useQueryClient();
   const userRole = useAuthStore(s => s.user?.role);
   const isRestricted = RESTRICTED_ROLES.includes(userRole || '');
+  const { statuses: STATUS_OPTIONS } = useProjectStatuses(projectId);
 
   // Filter state
   const [search, setSearch] = useState('');
