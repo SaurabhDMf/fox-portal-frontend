@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { BOARD_COLUMNS, type ProjectTask } from '@/lib/projectTypes';
-import { useProjectStatuses } from '@/hooks/useProjectOptions';
+import { useProjectStatuses, type StatusOption } from '@/hooks/useProjectOptions';
 import { extractProjectArray, extractProjectBoard } from '@/lib/projectResponse';
 
 import TaskCard from './TaskCard';
@@ -18,7 +18,7 @@ interface Props {
 export default function KanbanBoard({ projectId, onTaskClick, onCreateTask }: Props) {
   const qc = useQueryClient();
   const [draggedTask, setDraggedTask] = useState<ProjectTask | null>(null);
-  const { statuses } = useProjectStatuses(projectId);
+  const { statuses, statusObjects } = useProjectStatuses(projectId);
   const columns = statuses.length > 0 ? statuses : BOARD_COLUMNS;
 
   const { data: sprintsData } = useQuery({
@@ -99,6 +99,7 @@ export default function KanbanBoard({ projectId, onTaskClick, onCreateTask }: Pr
             >
               <div className="flex items-center justify-between mb-3 px-1">
                 <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusObjects.find(s => s.name === col)?.color || '#6B7280' }} />
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{col}</h3>
                   <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded-full text-muted-foreground font-medium">{tasks.length}</span>
                 </div>
