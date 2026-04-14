@@ -32,18 +32,10 @@ function getDefaultStageColor(name: string): string {
 
 function normalizeOptions(list: any[], defaults: { name: string; color: string }[]): { name: string; color: string; category?: 'todo' | 'in_progress' | 'done' }[] {
   if (!Array.isArray(list) || list.length === 0) return defaults;
-  const custom = list.map((s: any) => {
+  return list.map((s: any) => {
     if (typeof s === 'string') return { name: s, color: getDefaultStatusColor(s) || '#6B7280' };
     return { name: s.name || s.label || s.status || s.stage || '', color: s.color || '#6B7280', category: s.category };
   }).filter(s => s.name);
-  // Merge: keep all defaults, then append any custom statuses not already in defaults
-  const merged = [...defaults];
-  for (const c of custom) {
-    if (!merged.find(m => m.name.toLowerCase() === c.name.toLowerCase())) {
-      merged.push(c);
-    }
-  }
-  return merged;
 }
 
 export function useProjectStatuses(projectId: string) {
