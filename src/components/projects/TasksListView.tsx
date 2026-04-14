@@ -35,6 +35,15 @@ const PRIORITY_COLORS: Record<string, string> = {
   Low: 'bg-green-500/15 text-green-700 dark:text-green-400',
 };
 
+// Status-based row background colors for quick visual identification
+const STATUS_ROW_COLORS: Record<string, string> = {
+  'Open': '', // Default
+  'In Progress': 'bg-blue-50/50 dark:bg-blue-950/20',
+  'Review': 'bg-amber-50/50 dark:bg-amber-950/20',
+  'Done': 'bg-green-50/50 dark:bg-green-950/20',
+  'Cancelled': 'bg-red-50/50 dark:bg-red-950/20',
+};
+
 const fmtDate = (v?: string) => {
   if (!v) return '—';
   const d = new Date(v);
