@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { useMemo, useState, useCallback } from 'react';
-import { Plus, Search, X, Pencil } from 'lucide-react';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { Plus, Search, X, Pencil, ChevronDown, Check } from 'lucide-react';
 import api from '@/lib/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
