@@ -1,13 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import api from '@/lib/api';
-import { ArrowLeft, Calendar, Users, X, ChevronDown, Paperclip } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, X, ChevronDown, Paperclip, Plus, Send } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import toast from 'react-hot-toast';
 
 const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const initials = (n?: string) => n ? n.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?';
@@ -33,6 +34,65 @@ const PRIORITY_CLS: Record<string, string> = {
 function StatusBadge({ status }: { status?: string }) {
   if (!status) return <span className="text-xs text-muted-foreground">—</span>;
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[status] || 'bg-muted text-muted-foreground'}`}>{status}</span>;
+}
+
+/* ─── Readable Description ─── */
+function ReadableDescription({ text }: { text?: string }) {
+  if (!text) return null;
+
+  // Parse URLs, bold (**text**), and line breaks for a more interactive display
+  const renderLine = (line: string, i: number) => {
+    // Split by URLs and bold markers
+    const parts = line.split(/(https?:\/\/[^\s]+|\*\*[^*]+\*\*)/g);
+    return (
+      <span key={i}>
+        {parts.map((part, j) => {
+          if (part.match(/^https?:\/\//)) {
+            return <a key={j} href={part} target="_blank" rel="noreferrer" className="text-primary hover:underline break-all">{part}</a>;
+          }
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return <strong key={j} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
+          }
+          return <span key={j}>{part}</span>;
+        })}
+      </span>
+    );
+  };
+
+  const lines = text.split('\n');
+  // Detect if it has bullet points or numbered lists
+  const hasList = lines.some(l => /^\s*[-•]\s/.test(l) || /^\s*\d+[.)]\s/.test(l));
+
+  return (
+    <div className="text-sm text-foreground/90 leading-relaxed space-y-1.5">
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={i} className="h-2" />;
+
+        // Bullet points
+        if (/^[-•]\s/.test(trimmed)) {
+          return (
+            <div key={i} className="flex gap-2 pl-1">
+              <span className="text-primary mt-0.5">•</span>
+              <span>{renderLine(trimmed.replace(/^[-•]\s/, ''), i)}</span>
+            </div>
+          );
+        }
+        // Numbered list
+        const numMatch = trimmed.match(/^(\d+)[.)]\s(.*)/);
+        if (numMatch) {
+          return (
+            <div key={i} className="flex gap-2 pl-1">
+              <span className="text-muted-foreground font-medium min-w-[1.2rem] text-right">{numMatch[1]}.</span>
+              <span>{renderLine(numMatch[2], i)}</span>
+            </div>
+          );
+        }
+
+        return <p key={i}>{renderLine(line, i)}</p>;
+      })}
+    </div>
+  );
 }
 
 export default function CPProjectDetail() {
@@ -64,7 +124,11 @@ export default function CPProjectDetail() {
         <div className="flex flex-col sm:flex-row justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold">{project.name}</h1>
-            {project.description && <p className="text-sm text-muted-foreground mt-1">{project.description}</p>}
+            {project.description && (
+              <div className="mt-2">
+                <ReadableDescription text={project.description} />
+              </div>
+            )}
           </div>
           <StatusBadge status={project.status} />
         </div>
@@ -115,7 +179,6 @@ function OverviewTab({ project, done, total, pct, members }: { project: any; don
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div className="md:col-span-2 space-y-4">
-        {/* Progress */}
         <div className="glass-card p-5 space-y-3">
           <h3 className="text-sm font-semibold">Progress</h3>
           <div className="flex justify-between text-xs text-muted-foreground">
@@ -125,7 +188,6 @@ function OverviewTab({ project, done, total, pct, members }: { project: any; don
           <Progress value={pct} className="h-2" />
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
           <div className="glass-card p-4 text-center">
             <div className="text-2xl font-bold">{total}</div>
@@ -141,7 +203,6 @@ function OverviewTab({ project, done, total, pct, members }: { project: any; don
           </div>
         </div>
 
-        {/* Lead */}
         {project.lead_name && (
           <div className="glass-card p-4 flex items-center gap-3">
             {project.lead_avatar ? (
@@ -157,7 +218,6 @@ function OverviewTab({ project, done, total, pct, members }: { project: any; don
         )}
       </div>
 
-      {/* Team */}
       <div>
         <h3 className="text-sm font-semibold mb-3 flex items-center gap-1"><Users className="h-4 w-4" /> Team</h3>
         {members.length > 0 ? (
@@ -185,9 +245,12 @@ function OverviewTab({ project, done, total, pct, members }: { project: any; don
 
 /* ─── Tasks Tab ─── */
 function TasksTab({ projectId, onTaskClick }: { projectId: string; onTaskClick: (t: any) => void }) {
+  const qc = useQueryClient();
   const [statusF, setStatusF] = useState('');
   const [priorityF, setPriorityF] = useState('');
   const [sprintF, setSprintF] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [canCreate, setCanCreate] = useState<boolean | null>(null);
 
   const { data: rawTasks = [], isLoading } = useQuery({
     queryKey: ['cp-project-tasks', projectId],
@@ -205,6 +268,26 @@ function TasksTab({ projectId, onTaskClick }: { projectId: string; onTaskClick: 
     }),
   });
 
+  // Check if client can create tasks by attempting a preflight-style check
+  useQuery({
+    queryKey: ['cp-can-create-task', projectId],
+    queryFn: async () => {
+      try {
+        // Try OPTIONS or a lightweight check; fallback: attempt POST with empty to see 403 vs 400
+        await api.post(`/client/projects/${projectId}/tasks`, { title: '' });
+        setCanCreate(true);
+        return true;
+      } catch (e: any) {
+        if (e.response?.status === 403) { setCanCreate(false); return false; }
+        // 400/422 means endpoint exists and is allowed, just validation failed
+        setCanCreate(true);
+        return true;
+      }
+    },
+    retry: false,
+    staleTime: Infinity,
+  });
+
   const tasks = rawTasks.filter((t: any) => {
     if (statusF && t.status !== statusF) return false;
     if (priorityF && t.priority !== priorityF) return false;
@@ -220,7 +303,7 @@ function TasksTab({ projectId, onTaskClick }: { projectId: string; onTaskClick: 
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
+      {/* Filters + New Task button */}
       <div className="flex items-center gap-2 flex-wrap">
         <select value={statusF} onChange={e => setStatusF(e.target.value)} className={selectCls}>
           <option value="">All Statuses</option>
@@ -240,6 +323,11 @@ function TasksTab({ projectId, onTaskClick }: { projectId: string; onTaskClick: 
           </button>
         )}
         <span className="text-xs text-muted-foreground ml-auto">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</span>
+        {canCreate && (
+          <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+            <Plus className="h-3.5 w-3.5" /> New Task
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -289,6 +377,94 @@ function TasksTab({ projectId, onTaskClick }: { projectId: string; onTaskClick: 
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Create Task Modal */}
+      {showCreate && (
+        <ClientCreateTaskModal
+          projectId={projectId}
+          sprints={sprints}
+          onClose={() => setShowCreate(false)}
+          onCreated={() => { qc.invalidateQueries({ queryKey: ['cp-project-tasks', projectId] }); setShowCreate(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ─── Client Create Task Modal ─── */
+function ClientCreateTaskModal({ projectId, sprints, onClose, onCreated }: { projectId: string; sprints: any[]; onClose: () => void; onCreated: () => void }) {
+  const [form, setForm] = useState({ title: '', description: '', priority: 'Medium', sprint_id: '', due_date: '' });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!form.title.trim()) { toast.error('Title is required'); return; }
+    setLoading(true);
+    try {
+      await api.post(`/client/projects/${projectId}/tasks`, {
+        title: form.title.trim(),
+        description: form.description.trim() || undefined,
+        priority: form.priority,
+        sprint_id: form.sprint_id || undefined,
+        due_date: form.due_date || undefined,
+      });
+      toast.success('Task created');
+      onCreated();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Failed to create task');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputCls = "w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+      <div className="glass-card w-full max-w-md p-6 space-y-4 animate-slide-up">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">New Task</h2>
+          <button onClick={onClose} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Title *</label>
+            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className={inputCls} placeholder="Task title" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
+            <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className={`${inputCls} resize-none`} placeholder="Describe the task..." />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Priority</label>
+              <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} className={inputCls}>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Sprint</label>
+              <select value={form.sprint_id} onChange={e => setForm(f => ({ ...f, sprint_id: e.target.value }))} className={inputCls}>
+                <option value="">None</option>
+                {sprints.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Due Date</label>
+            <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} className={inputCls} />
+          </div>
+        </div>
+
+        <div className="flex gap-2 justify-end">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
+          <button onClick={handleSubmit} disabled={loading} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+            {loading ? 'Creating...' : 'Create Task'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -382,6 +558,9 @@ function ModulesTab({ projectId }: { projectId: string }) {
 
 /* ─── Task Detail Drawer ─── */
 function TaskDetailDrawer({ task, projectId, onClose }: { task: any; projectId: string; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [commentText, setCommentText] = useState('');
+
   const { data: detail } = useQuery({
     queryKey: ['cp-task-detail', task.id],
     queryFn: () => api.get(`/client/projects/${projectId}/tasks/${task.id}`).then(r => r.data?.data || r.data || {}),
@@ -392,6 +571,32 @@ function TaskDetailDrawer({ task, projectId, onClose }: { task: any; projectId: 
   const comments = t.comments || [];
   const subtasks = t.subtasks || [];
   const attachments = t.attachments || [];
+
+  const commentMut = useMutation({
+    mutationFn: async (text: string) => {
+      const trimmed = text.trim();
+      try {
+        return await api.post(`/client/projects/${projectId}/tasks/${task.id}/comments`, { text: trimmed });
+      } catch (e: any) {
+        if (e.response?.status === 400 || e.response?.status === 422) {
+          try { return await api.post(`/client/projects/${projectId}/tasks/${task.id}/comments`, { message: trimmed }); }
+          catch (e2: any) {
+            if (e2.response?.status === 400 || e2.response?.status === 422) {
+              return api.post(`/client/projects/${projectId}/tasks/${task.id}/comments`, { content: trimmed });
+            }
+            throw e2;
+          }
+        }
+        throw e;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cp-task-detail', task.id] });
+      setCommentText('');
+      toast.success('Comment added');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to add comment'),
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -421,11 +626,13 @@ function TaskDetailDrawer({ task, projectId, onClose }: { task: any; projectId: 
             <div><span className="text-muted-foreground">Module</span><div className="mt-1 font-medium">{t.epic_title || t.epic_name || '—'}</div></div>
           </div>
 
-          {/* Description */}
+          {/* Description - interactive */}
           {t.description && (
             <div>
-              <h4 className="text-xs font-semibold text-muted-foreground mb-1">Description</h4>
-              <div className="text-sm text-foreground whitespace-pre-wrap">{t.description}</div>
+              <h4 className="text-xs font-semibold text-muted-foreground mb-2">Description</h4>
+              <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                <ReadableDescription text={t.description} />
+              </div>
             </div>
           )}
 
@@ -460,10 +667,10 @@ function TaskDetailDrawer({ task, projectId, onClose }: { task: any; projectId: 
           )}
 
           {/* Comments */}
-          {comments.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-muted-foreground mb-2">Comments ({comments.length})</h4>
-              <div className="space-y-3">
+          <div>
+            <h4 className="text-xs font-semibold text-muted-foreground mb-2">Comments {comments.length > 0 && `(${comments.length})`}</h4>
+            {comments.length > 0 && (
+              <div className="space-y-3 mb-4">
                 {comments.map((c: any) => (
                   <div key={c.id} className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -474,12 +681,30 @@ function TaskDetailDrawer({ task, projectId, onClose }: { task: any; projectId: 
                       <span className="text-xs font-medium">{c.full_name || c.author_name || 'Unknown'}</span>
                       <span className="text-[10px] text-muted-foreground">{fmtDate(c.created_at)}</span>
                     </div>
-                    <p className="text-sm text-foreground pl-7">{c.content || c.body}</p>
+                    <p className="text-sm text-foreground pl-7">{c.text || c.content || c.body || c.message}</p>
                   </div>
                 ))}
               </div>
+            )}
+
+            {/* Comment input */}
+            <div className="flex gap-2">
+              <input
+                value={commentText}
+                onChange={e => setCommentText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && commentText.trim()) commentMut.mutate(commentText); }}
+                placeholder="Add a comment…"
+                className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <button
+                onClick={() => { if (commentText.trim()) commentMut.mutate(commentText); }}
+                disabled={!commentText.trim() || commentMut.isPending}
+                className="px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all"
+              >
+                <Send className="h-4 w-4" />
+              </button>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
