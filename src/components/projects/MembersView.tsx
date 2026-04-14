@@ -99,6 +99,7 @@ export default function MembersView({ projectId }: Props) {
       <div className="space-y-2">
         {displayMembers.map(member => {
           const rc = ROLE_CONFIG[member.role] || ROLE_CONFIG.member;
+          const isClient = CLIENT_ROLES.includes((member as any).user_role || '');
           return (
             <div key={member.id} className="glass-card p-3 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-sm font-bold text-primary">
@@ -108,6 +109,15 @@ export default function MembersView({ projectId }: Props) {
                 <p className="text-sm font-medium">{member.full_name}</p>
                 {member.email && <p className="text-xs text-muted-foreground">{member.email}</p>}
               </div>
+              {canManage && isClient && (
+                <label className="flex items-center gap-1.5 cursor-pointer" title="Allow client to create tasks">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">Can create tasks</span>
+                  <Switch
+                    checked={!!(member as any).can_create_tasks}
+                    onCheckedChange={(checked) => toggleTaskMut.mutate({ userId: member.user_id, canCreate: checked })}
+                  />
+                </label>
+              )}
               <span className={rc.class}>{rc.label}</span>
               {canManage && member.role !== 'lead' && (
                 <button onClick={() => removeMut.mutate(member.id)} className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
