@@ -168,7 +168,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const qc = useQueryClient();
   const { statuses, statusObjects, addStatus } = useProjectStatuses(projectId);
   const { stages, stageObjects, addStage } = useProjectStages(projectId);
-  const [activeTab, setActiveTab] = useState<'activity' | 'timelog' | 'handoffs'>('activity');
+  const [activeTab, setActiveTab] = useState<'timelog' | 'handoffs'>('timelog');
   const [commentText, setCommentText] = useState('');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(initialTask.title);
@@ -514,6 +514,41 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
 
           <EditableDescription value={task.description || ''} onSave={(desc) => submitTaskUpdate({ description: desc })} />
 
+          {/* Comments Section */}
+          <div className="border border-border rounded-lg p-4 space-y-3">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" /> Comments
+            </h4>
+            <div className="flex gap-2">
+              <input placeholder="Add a comment..." value={commentText} onChange={e => setCommentText(e.target.value)} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onKeyDown={e => { const nextComment = commentText.trim(); if (e.key === 'Enter' && nextComment) commentMut.mutate(nextComment); }} />
+              <button onClick={() => { const nextComment = commentText.trim(); if (nextComment) commentMut.mutate(nextComment); }} disabled={!commentText.trim() || commentMut.isPending} className="p-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+            {comments.length > 0 && (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {comments.map((c: any) => (
+                  <div key={c.id} className="flex gap-3">
+                    <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">{c.user_name?.[0]}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold">{c.user_name}</span>
+                        <span className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleString()}</span>
+                        {c.is_own && (
+                          <div className="flex gap-1 ml-auto">
+                            <button className="p-0.5 rounded hover:bg-secondary text-muted-foreground"><Edit2 className="h-3 w-3" /></button>
+                            <button className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm mt-0.5">{c.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Details grid */}
           <div className="grid grid-cols-2 gap-4">
             <div className="relative">
@@ -690,12 +725,9 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             )}
           </div>
 
-          {/* Tabs: Activity / Time Log / Handoffs */}
+          {/* Tabs: Time Log / Handoffs */}
           <div className="border-t border-border pt-4">
             <div className="flex gap-4 mb-4">
-              <button onClick={() => setActiveTab('activity')} className={`flex items-center gap-1 text-sm font-medium pb-1 border-b-2 transition-colors ${activeTab === 'activity' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-                <MessageSquare className="h-3.5 w-3.5" /> Activity
-              </button>
               <button onClick={() => setActiveTab('timelog')} className={`flex items-center gap-1 text-sm font-medium pb-1 border-b-2 transition-colors ${activeTab === 'timelog' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
                 <Clock className="h-3.5 w-3.5" /> Time Log
               </button>
@@ -703,37 +735,6 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                 <ArrowRightLeft className="h-3.5 w-3.5" /> Handoffs
               </button>
             </div>
-
-            {activeTab === 'activity' && (
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <input placeholder="Add a comment..." value={commentText} onChange={e => setCommentText(e.target.value)} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onKeyDown={e => { const nextComment = commentText.trim(); if (e.key === 'Enter' && nextComment) commentMut.mutate(nextComment); }} />
-                  <button onClick={() => { const nextComment = commentText.trim(); if (nextComment) commentMut.mutate(nextComment); }} disabled={!commentText.trim() || commentMut.isPending} className="p-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
-                    <Send className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {comments.map((c: any) => (
-                    <div key={c.id} className="flex gap-3">
-                      <div className="w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">{c.user_name?.[0]}</div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold">{c.user_name}</span>
-                          <span className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleString()}</span>
-                          {c.is_own && (
-                            <div className="flex gap-1 ml-auto">
-                              <button className="p-0.5 rounded hover:bg-secondary text-muted-foreground"><Edit2 className="h-3 w-3" /></button>
-                              <button className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-sm mt-0.5">{c.text}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {activeTab === 'timelog' && (
               <div className="space-y-3">
