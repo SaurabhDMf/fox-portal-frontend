@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { useProjectStatuses, useProjectStages } from '@/hooks/useProjectOptions';
+import InlineAddSelect from './InlineAddSelect';
 import { TASK_TYPE_CONFIG, BOARD_COLUMNS, WORKFLOW_STAGES, type Epic, type ProjectTask, type Sprint } from '@/lib/projectTypes';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import HandoffModal from './HandoffModal';
@@ -134,10 +136,6 @@ function sanitizeTaskPatch(patch: Record<string, any>) {
   if ('parent_task_id' in patch) payload.parent_task_id = patch.parent_task_id || null;
   if ('due_date' in patch) payload.due_date = patch.due_date || null;
   if ('stage' in patch) payload.stage = patch.stage || null;
-  if ('story_points' in patch) {
-    if (patch.story_points === '' || patch.story_points == null) payload.story_points = null;
-    else { const p = Number(patch.story_points); if (Number.isFinite(p)) payload.story_points = p; }
-  }
   return payload;
 }
 
