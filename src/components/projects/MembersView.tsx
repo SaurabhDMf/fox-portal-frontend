@@ -18,8 +18,6 @@ const ROLE_CONFIG: Record<string, { icon: typeof Shield; label: string; class: s
   viewer: { icon: Eye, label: 'Viewer', class: 'badge-neutral' },
 };
 
-const CLIENT_ROLES = ['client'];
-
 export default function MembersView({ projectId }: Props) {
   const role = useRole();
   const canManage = role === 'admin' || role === 'super_admin' || role === 'manager' || role === 'sales_manager';
@@ -37,24 +35,26 @@ export default function MembersView({ projectId }: Props) {
   });
   const members: ProjectMember[] = Array.isArray(membersRaw) ? membersRaw : [];
 
-  const teamMembers = members.filter(m => !CLIENT_ROLES.includes((m as any).user_role || ''));
-  const clientMembers = members.filter(m => CLIENT_ROLES.includes((m as any).user_role || ''));
+  const teamMembers = members.filter(m => m.user_role !== 'client');
+  const clientMembers = members.filter(m => m.user_role === 'client');
 
+  // Fetch users based on the add modal tab
   const { data: usersRaw } = useQuery({
-    queryKey: ['all-users', search],
-    queryFn: () => api.get('/users', { params: search ? { search } : undefined }).then(r => {
-      const d = r.data;
-      return d?.users || d?.data?.users || d?.data?.items || d?.items || d?.data || d || [];
-    }),
+    queryKey: ['add-member-users', addTab, search],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      if (addTab === 'clients') params.role = 'client';
+      if (search) params.search = search;
+      return api.get('/users', { params }).then(r => {
+        const d = r.data;
+        return d?.users || d?.data?.users || d?.data?.items || d?.items || d?.data || d || [];
+      });
+    },
     enabled: showAdd,
   });
   const allUsers = Array.isArray(usersRaw) ? usersRaw : [];
   const memberUserIds = new Set(members.map(m => m.user_id));
-
-  const filteredUsers = allUsers.filter((u: any) => !memberUserIds.has(u.id) && (u.full_name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase())));
-  const addTabUsers = addTab === 'clients'
-    ? filteredUsers.filter((u: any) => CLIENT_ROLES.includes(u.role))
-    : filteredUsers.filter((u: any) => !CLIENT_ROLES.includes(u.role));
+  const filteredUsers = allUsers.filter((u: any) => !memberUserIds.has(u.id));
 
   const addMut = useMutation({
     mutationFn: () => api.post(`/projects/${projectId}/members`, { user_id: selectedUserId, role: selectedRole }),
