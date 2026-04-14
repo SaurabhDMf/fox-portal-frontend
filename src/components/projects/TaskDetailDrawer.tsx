@@ -84,10 +84,15 @@ function normalizeTaskEntity(rawTask: any, members: any[] = []): ProjectTask {
 }
 
 function normalizeCommentEntity(comment: any) {
+  const userName = comment?.user_name || comment?.author_name || comment?.created_by_name
+    || getPersonName(comment?.user || comment?.author || comment?.created_by)
+    || comment?.user?.full_name || comment?.user?.name || comment?.user?.email
+    || comment?.commenter_name || comment?.posted_by
+    || '';
   return {
     ...comment,
     text: comment?.text || comment?.message || comment?.content || comment?.comment || '',
-    user_name: comment?.user_name || comment?.author_name || comment?.created_by_name || getPersonName(comment?.user || comment?.author || comment?.created_by) || 'Unknown',
+    user_name: userName || 'Unknown',
   };
 }
 
@@ -139,11 +144,12 @@ function sanitizeTaskPatch(patch: Record<string, any>) {
 function EditableDescription({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
+  const startEditing = () => { setDraft(value); setEditing(true); };
   if (editing) {
     return (
       <div>
         <h4 className="text-xs font-semibold text-muted-foreground mb-1">Description</h4>
-        <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={4} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" autoFocus />
+        <textarea value={draft} onChange={e => setDraft(e.target.value)} rows={4} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" autoFocus />
         <div className="flex gap-2 mt-1">
           <button onClick={() => { onSave(draft); setEditing(false); }} className="px-3 py-1 rounded bg-primary text-primary-foreground text-xs font-medium">Save</button>
           <button onClick={() => { setDraft(value); setEditing(false); }} className="px-3 py-1 rounded bg-secondary text-xs">Cancel</button>
@@ -152,9 +158,9 @@ function EditableDescription({ value, onSave }: { value: string; onSave: (v: str
     );
   }
   return (
-    <div onClick={() => setEditing(true)} className="cursor-pointer group">
+    <div onClick={startEditing} className="cursor-pointer group">
       <h4 className="text-xs font-semibold text-muted-foreground mb-1">Description <Edit2 className="inline h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" /></h4>
-      <p className="text-sm text-muted-foreground">{value || 'No description. Click to add one.'}</p>
+      <p className="text-sm text-foreground">{value || <span className="text-muted-foreground">No description. Click to add one.</span>}</p>
     </div>
   );
 }

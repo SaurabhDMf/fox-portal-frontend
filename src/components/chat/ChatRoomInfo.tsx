@@ -53,22 +53,20 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
     onError: () => toast.error('Failed to add member'),
   });
 
+  const [confirmRemove, setConfirmRemove] = useState<{ id: string; name: string } | null>(null);
+
   const removeMemberMut = useMutation({
     mutationFn: (uid: string) => api.delete(`/chat/rooms/${roomId}/members/${uid}`),
-    onSuccess: () => {
-      toast.success('Member removed');
+    onSuccess: (_res, uid) => {
+      toast.success(uid === user?.id ? 'Left room' : 'Member removed');
       qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
+      qc.invalidateQueries({ queryKey: ['chat-rooms'] });
+      setConfirmRemove(null);
+      if (uid === user?.id) onClose();
     },
   });
 
-  const leaveMut = useMutation({
-    mutationFn: () => api.delete(`/chat/rooms/${roomId}/members/${user?.id}`),
-    onSuccess: () => {
-      toast.success('Left room');
-      qc.invalidateQueries({ queryKey: ['chat-rooms'] });
-      onClose();
-    },
-  });
+
 
   const members = room?.members || [];
   const isAdmin = Number(members.find((m: any) => m.id === user?.id)?.is_admin) === 1 || room?.created_by === user?.id;
@@ -150,14 +148,14 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
                   {Number(m.is_admin) === 1 && <span className="text-[10px] text-primary font-medium">Admin</span>}
                 </div>
                 {isAdmin && m.id !== user?.id && (
-                  <button onClick={() => removeMemberMut.mutate(m.id)}
+                  <button onClick={() => setConfirmRemove({ id: m.id, name: m.full_name || m.email || 'this member' })}
                     className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive transition-all">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 )}
               </div>
             ))}
-            <button onClick={() => leaveMut.mutate()}
+            <button onClick={() => setConfirmRemove({ id: user?.id || '', name: 'yourself' })}
               className="w-full flex items-center gap-2 px-3 py-2 mt-3 rounded-lg text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors">
               <LogOut className="h-3.5 w-3.5" /> Leave Room
             </button>
@@ -207,6 +205,32 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
           </div>
         )}
       </ScrollArea>
+
+      {/* Remove/Leave Confirmation */}
+      {confirmRemove && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => setConfirmRemove(null)}>
+          <div className="bg-card border border-border rounded-xl w-full max-w-sm p-6 space-y-4 shadow-lg" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold">
+              {confirmRemove.id === user?.id ? 'Leave Room' : 'Remove Member'}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {confirmRemove.id === user?.id
+                ? 'Are you sure you want to leave this room? You will no longer receive messages.'
+                : `Are you sure you want to remove ${confirmRemove.name} from this room?`}
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmRemove(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button
+                onClick={() => removeMemberMut.mutate(confirmRemove.id)}
+                disabled={removeMemberMut.isPending}
+                className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
+              >
+                {removeMemberMut.isPending ? 'Removing...' : confirmRemove.id === user?.id ? 'Leave' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
