@@ -10,7 +10,6 @@ import { extractProjectArray } from '@/lib/projectResponse';
 import type { ProjectTask, Sprint, Epic, ProjectMember } from '@/lib/projectTypes';
 import { useAuthStore } from '@/stores/authStore';
 import { useProjectStatuses, type StatusOption } from '@/hooks/useProjectOptions';
-import CodeRepoBadge from './CodeRepoBadge';
 import toast from 'react-hot-toast';
 
 interface Props {

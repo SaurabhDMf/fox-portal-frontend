@@ -7,7 +7,6 @@ import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse
 import HandoffModal from './HandoffModal';
 import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
 import UserPicker, { InlineUserPicker } from './UserPicker';
-import CodeRepoBadge from './CodeRepoBadge';
 
 import { useState, useRef } from 'react';
 import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2, Paperclip, Image, FileText, Download, UserPlus, ArrowRightLeft } from 'lucide-react';
