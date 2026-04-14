@@ -30,7 +30,7 @@ function getDefaultStageColor(name: string): string {
   return map[name] || '#6B7280';
 }
 
-function normalizeOptions(list: any[], defaults: { name: string; color: string }[]): { name: string; color: string; category?: string }[] {
+function normalizeOptions(list: any[], defaults: { name: string; color: string }[]): { name: string; color: string; category?: 'todo' | 'in_progress' | 'done' }[] {
   if (!Array.isArray(list) || list.length === 0) return defaults;
   return list.map((s: any) => {
     if (typeof s === 'string') return { name: s, color: getDefaultStatusColor(s) || '#6B7280' };
