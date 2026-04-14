@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { useMemo, useState, useCallback } from 'react';
-import { Plus, Search, X, Pencil } from 'lucide-react';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { Plus, Search, X, Pencil, ChevronDown, Check } from 'lucide-react';
 import api from '@/lib/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -72,23 +72,39 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   // Filter state
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
   const [typeFilter, setTypeFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [sprintFilter, setSprintFilter] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState('');
 
-  // Build query params — priority is client-side only
+  // Close status dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+        setStatusDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const toggleStatusFilter = (s: string) => {
+    setStatusFilter(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  };
+
+  // Build query params — priority is client-side only, status is now client-side too for multi-select
   const queryParams = useMemo(() => {
     const p: Record<string, string> = { project_id: projectId };
-    if (statusFilter) p.status = statusFilter;
     if (typeFilter) p.type = typeFilter;
     if (sprintFilter) p.sprint_id = sprintFilter;
     if (moduleFilter) p.module_id = moduleFilter;
     if (assigneeFilter) p.assignee_id = assigneeFilter;
     return p;
-  }, [projectId, statusFilter, typeFilter, sprintFilter, moduleFilter, assigneeFilter]);
+  }, [projectId, typeFilter, sprintFilter, moduleFilter, assigneeFilter]);
 
   // Main task query
   const { data: raw, isLoading } = useQuery({
@@ -104,9 +120,10 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   const tasks: ProjectTask[] = raw ?? [];
 
-  // Client-side priority filter
+  // Client-side filters (priority + status multi-select)
   const filtered = useMemo(() => {
     let result = tasks;
+    if (statusFilter.length > 0) result = result.filter(t => statusFilter.includes(t.status));
     if (priorityFilter) result = result.filter(t => t.priority === priorityFilter);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -118,7 +135,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
       );
     }
     return result;
-  }, [tasks, priorityFilter, search]);
+  }, [tasks, statusFilter, priorityFilter, search]);
 
   // Filter option queries
   const { data: sprints } = useQuery({
@@ -148,11 +165,11 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     staleTime: 60_000,
   });
 
-  const hasActiveFilters = search || statusFilter || typeFilter || priorityFilter || sprintFilter || moduleFilter || assigneeFilter;
+  const hasActiveFilters = search || statusFilter.length > 0 || typeFilter || priorityFilter || sprintFilter || moduleFilter || assigneeFilter;
 
   const clearFilters = () => {
     setSearch('');
-    setStatusFilter('');
+    setStatusFilter([]);
     setTypeFilter('');
     setPriorityFilter('');
     setSprintFilter('');
@@ -238,10 +255,46 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           </select>
         )}
 
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={selectCls}>
-          <option value="">All Statuses</option>
-          {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <div ref={statusDropdownRef} className="relative">
+          <button
+            onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+            className={`${selectCls} flex items-center gap-1.5 cursor-pointer`}
+          >
+            {statusFilter.length === 0 ? 'All Statuses' : `${statusFilter.length} Status${statusFilter.length > 1 ? 'es' : ''}`}
+            <ChevronDown className="h-3 w-3 opacity-60" />
+          </button>
+          {statusDropdownOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 w-48 rounded-lg border border-border bg-popover shadow-lg py-1">
+              {STATUS_OPTIONS.map(s => {
+                const selected = statusFilter.includes(s);
+                const statusObj = statusObjects?.find((so: StatusOption) => so.name === s);
+                return (
+                  <button
+                    key={s}
+                    onClick={() => toggleStatusFilter(s)}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent transition-colors text-left"
+                  >
+                    <span className={`h-3.5 w-3.5 rounded border flex items-center justify-center ${selected ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                      {selected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                    </span>
+                    {statusObj?.color && (
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: statusObj.color }} />
+                    )}
+                    {s}
+                  </button>
+                );
+              })}
+              {statusFilter.length > 0 && (
+                <>
+                  <div className="border-t border-border my-1" />
+                  <button onClick={() => setStatusFilter([])} className="w-full px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent text-left">
+                    Clear selection
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className={selectCls}>
           <option value="">All Types</option>
