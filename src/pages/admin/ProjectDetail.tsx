@@ -47,6 +47,7 @@ export default function ProjectDetail() {
   const [editForm, setEditForm] = useState({ name: '', description: '', status: 'Active', priority: 'Medium', start_date: '', due_date: '', color: '#3B82F6', client_id: '' as string | null });
   const [clientSearch, setClientSearch] = useState('');
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const [showProjectSettings, setShowProjectSettings] = useState(false);
 
   const { data: projectRaw, isLoading } = useQuery({
     queryKey: ['project', id],
