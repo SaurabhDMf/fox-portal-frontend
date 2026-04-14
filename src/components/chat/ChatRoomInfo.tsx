@@ -155,14 +155,14 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
                   {Number(m.is_admin) === 1 && <span className="text-[10px] text-primary font-medium">Admin</span>}
                 </div>
                 {isAdmin && m.id !== user?.id && (
-                  <button onClick={() => removeMemberMut.mutate(m.id)}
+                  <button onClick={() => setConfirmRemove({ id: m.id, name: m.full_name || m.email || 'this member' })}
                     className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive transition-all">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 )}
               </div>
             ))}
-            <button onClick={() => leaveMut.mutate()}
+            <button onClick={() => setConfirmRemove({ id: user?.id || '', name: 'yourself' })}
               className="w-full flex items-center gap-2 px-3 py-2 mt-3 rounded-lg text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors">
               <LogOut className="h-3.5 w-3.5" /> Leave Room
             </button>
