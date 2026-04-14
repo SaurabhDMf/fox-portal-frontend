@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
 import { ArrowLeft, LayoutGrid, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown } from 'lucide-react';
 import { extractProjectEntity } from '@/lib/projectResponse';
@@ -34,6 +35,8 @@ export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const userRole = useAuthStore((s) => s.user?.role);
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
   const [activeTab, setActiveTab] = useState<TabId>('tasks');
   const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
   const [createTaskDefaults, setCreateTaskDefaults] = useState<{ status?: string; sprint_id?: string; epic_id?: string } | null>(null);
@@ -136,17 +139,21 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-2">
             <span className={project.status === 'Active' ? 'badge-success' : project.status === 'Completed' ? 'badge-info' : project.status === 'On Hold' ? 'badge-warning' : 'badge-neutral'}>{project.status}</span>
             <span className={project.priority === 'Critical' ? 'badge-danger' : project.priority === 'High' ? 'badge-warning' : 'badge-neutral'}>{project.priority}</span>
-            <button onClick={openEdit} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit Project">
-              <Pencil className="h-4 w-4" />
-            </button>
-            {project.status !== 'Cancelled' && (
-              <button onClick={() => setShowCancelConfirm(true)} className="px-3 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-warning/10 hover:text-warning hover:border-warning/30 transition-colors" title="Cancel Project">
-                Cancel
-              </button>
+            {isAdmin && (
+              <>
+                <button onClick={openEdit} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit Project">
+                  <Pencil className="h-4 w-4" />
+                </button>
+                {project.status !== 'Cancelled' && (
+                  <button onClick={() => setShowCancelConfirm(true)} className="px-3 py-1.5 rounded-md text-xs font-medium border border-border text-muted-foreground hover:bg-warning/10 hover:text-warning hover:border-warning/30 transition-colors" title="Cancel Project">
+                    Cancel
+                  </button>
+                )}
+                <button onClick={() => setShowDeleteConfirm(true)} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete Project">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </>
             )}
-            <button onClick={() => setShowDeleteConfirm(true)} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete Project">
-              <Trash2 className="h-4 w-4" />
-            </button>
           </div>
         </div>
         {project.description && <p className="text-sm text-muted-foreground mb-3">{project.description}</p>}
@@ -154,7 +161,10 @@ export default function ProjectDetail() {
           <div className="space-y-1">
             <div className="flex justify-between text-xs"><span className="text-muted-foreground">Progress</span><span>{project.progress}%</span></div>
             <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-              <div className="h-full rounded-full transition-all" style={{ width: `${project.progress}%`, background: project.color || 'hsl(var(--primary))' }} />
+              <div className="h-full rounded-full transition-all" style={{
+                width: `${project.progress}%`,
+                background: project.progress >= 100 ? '#10B981' : project.progress >= 75 ? '#3B82F6' : project.progress >= 50 ? '#F59E0B' : project.progress >= 25 ? '#F97316' : '#EF4444',
+              }} />
             </div>
           </div>
         )}

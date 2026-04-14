@@ -35,6 +35,7 @@ const employmentTypes = [
   { value: 'freelancer', label: 'Freelancer' },
 ];
 const tabs = ['All', 'Active', 'Inactive', 'On Leave'];
+const CLIENT_ROLES = ['client'];
 
 const emptyForm = {
   full_name: '', email: '', phone: '', role: 'sales_rep', employment_type: 'full_time',
@@ -48,6 +49,7 @@ export default function AdminUsers() {
   const role = useRole();
   const currentUserId = useAuthStore((s) => s.user?.id);
   const isAdmin = role === 'admin' || role === 'super_admin';
+  const [mainTab, setMainTab] = useState<'team' | 'clients'>('team');
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<any>(null);
   const [permanentDeleteConfirmName, setPermanentDeleteConfirmName] = useState('');
@@ -171,7 +173,9 @@ export default function AdminUsers() {
   });
 
   const rawUsers = Array.isArray(data) ? data : [];
-  const allUsers = rawUsers;
+  const teamUsers = rawUsers.filter((u: any) => !CLIENT_ROLES.includes(u.role));
+  const clientUsers = rawUsers.filter((u: any) => CLIENT_ROLES.includes(u.role));
+  const allUsers = mainTab === 'team' ? teamUsers : clientUsers;
   const users = allUsers.filter((u: any) => {
     if (tab === 'All') return true;
     if (tab === 'Active') return u.status === 'active';
@@ -325,12 +329,22 @@ export default function AdminUsers() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <div><h1 className="page-title">Team & Users</h1><p className="page-subtitle">Manage your employees</p></div>
+        <div><h1 className="page-title">Team & Users</h1><p className="page-subtitle">Manage your team members and clients</p></div>
         {perm.canCreate && (
           <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
             <Plus className="h-4 w-4" /> Add User
           </button>
         )}
+      </div>
+
+      {/* Main Tabs: Team vs Clients */}
+      <div className="flex gap-1 mb-4">
+        <button onClick={() => { setMainTab('team'); setTab('All'); }} className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${mainTab === 'team' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+          <Users className="inline h-4 w-4 mr-1.5" /> Team ({teamUsers.length})
+        </button>
+        <button onClick={() => { setMainTab('clients'); setTab('All'); }} className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${mainTab === 'clients' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+          <UserCheck className="inline h-4 w-4 mr-1.5" /> Clients ({clientUsers.length})
+        </button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
