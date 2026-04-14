@@ -35,7 +35,6 @@ const adminNav: NavItem[] = [
 
 const empNav: NavItem[] = [
   { label: 'Dashboard', path: '/emp', icon: LayoutDashboard },
-  { label: 'Tasks', path: '/emp/tasks', icon: ListChecks, module: 'projects' },
   { label: 'Projects', path: '/emp/projects', icon: FolderKanban, module: 'projects' },
   { label: 'CRM', path: '/emp/crm', icon: Users, module: 'crm' },
   { label: 'Invoicing', path: '/emp/invoicing', icon: FileText, module: 'invoicing' },
