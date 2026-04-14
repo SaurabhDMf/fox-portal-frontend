@@ -7,6 +7,7 @@ import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse
 import HandoffModal from './HandoffModal';
 import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
 import UserPicker, { InlineUserPicker } from './UserPicker';
+import CodeRepoBadge from './CodeRepoBadge';
 
 import { useState, useRef } from 'react';
 import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2, Paperclip, Image, FileText, Download, UserPlus, ArrowRightLeft } from 'lucide-react';
@@ -598,6 +599,12 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             <div>
               <span className="text-xs text-muted-foreground">Time Tracked</span>
               <p className="text-sm">{task.logged_hours || 0}h / {task.estimate_hours || 0}h est.</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Code Repo</span>
+              <div className="mt-1">
+                <CodeRepoBadge value={(task as any).code_repo_status} onChange={val => submitTaskUpdate({ code_repo_status: val })} />
+              </div>
             </div>
           </div>
 
