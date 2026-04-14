@@ -35,8 +35,14 @@ export default function MembersView({ projectId }: Props) {
   });
   const members: ProjectMember[] = Array.isArray(membersRaw) ? membersRaw : [];
 
-  const teamMembers = members.filter(m => m.user_role !== 'client');
-  const clientMembers = members.filter(m => m.user_role === 'client');
+  // Check multiple possible field names for system-level user role
+  const isClientMember = (m: any): boolean => {
+    const sysRole = m.user_role || m.system_role || m.userRole || m.account_role || '';
+    return sysRole === 'client';
+  };
+
+  const teamMembers = members.filter(m => !isClientMember(m));
+  const clientMembers = members.filter(m => isClientMember(m));
 
   // Fetch users based on the add modal tab
   const { data: usersRaw } = useQuery({
@@ -99,7 +105,7 @@ export default function MembersView({ projectId }: Props) {
       <div className="space-y-2">
         {displayMembers.map(member => {
           const rc = ROLE_CONFIG[member.role] || ROLE_CONFIG.member;
-          const isClient = member.user_role === 'client';
+          const isClient = isClientMember(member);
           return (
             <div key={member.id} className="glass-card p-3 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-sm font-bold text-primary">
