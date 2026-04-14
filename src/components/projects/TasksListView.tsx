@@ -82,14 +82,13 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
   // Build query params — priority is client-side only
   const queryParams = useMemo(() => {
     const p: Record<string, string> = { project_id: projectId };
-    if (search.trim()) p.search = search.trim();
     if (statusFilter) p.status = statusFilter;
     if (typeFilter) p.type = typeFilter;
     if (sprintFilter) p.sprint_id = sprintFilter;
     if (moduleFilter) p.module_id = moduleFilter;
     if (assigneeFilter) p.assignee_id = assigneeFilter;
     return p;
-  }, [projectId, search, statusFilter, typeFilter, sprintFilter, moduleFilter, assigneeFilter]);
+  }, [projectId, statusFilter, typeFilter, sprintFilter, moduleFilter, assigneeFilter]);
 
   // Main task query
   const { data: raw, isLoading } = useQuery({
@@ -107,9 +106,19 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   // Client-side priority filter
   const filtered = useMemo(() => {
-    if (!priorityFilter) return tasks;
-    return tasks.filter(t => t.priority === priorityFilter);
-  }, [tasks, priorityFilter]);
+    let result = tasks;
+    if (priorityFilter) result = result.filter(t => t.priority === priorityFilter);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(t =>
+        t.title?.toLowerCase().includes(q) ||
+        t.task_number?.toLowerCase().includes(q) ||
+        (t as any).assignee_name?.toLowerCase().includes(q) ||
+        t.assignees?.[0]?.full_name?.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [tasks, priorityFilter, search]);
 
   // Filter option queries
   const { data: sprints } = useQuery({
