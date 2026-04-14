@@ -4,12 +4,13 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import {
   Send, Paperclip, Search, Pin, Info, ArrowLeft, MessageSquare,
-  Smile, Reply, Pencil, Trash2, X, Check, CheckCheck
+  Smile, Reply, Pencil, Trash2, X, Check, CheckCheck, MoreVertical
 } from 'lucide-react';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusBadge from '@/components/chat/StatusBadge';
 import { Socket } from 'socket.io-client';
 import { getSocket } from '@/hooks/useSocket';
+import UserProfileCard from '@/components/chat/UserProfileCard';
 import toast from 'react-hot-toast';
 
 const formatDateLabel = (dateStr: string): string => {
