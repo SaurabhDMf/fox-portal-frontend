@@ -340,6 +340,8 @@ export default function ProjectDetail() {
           </div>
         </div>
       )}
+
+      {showProjectSettings && <ProjectSettingsModal projectId={id!} onClose={() => setShowProjectSettings(false)} />}
     </div>
   );
 }
