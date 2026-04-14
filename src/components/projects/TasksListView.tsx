@@ -282,7 +282,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={10} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
                   Loading tasks…
                 </TableCell>
               </TableRow>
@@ -373,7 +373,6 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                     <TableCell onClick={e => e.stopPropagation()}>
                       <CodeRepoBadge value={(t as any).code_repo_status} onChange={val => handleCodeRepoChange(t.id, val)} />
                     </TableCell>
-                    </TableCell>
 
                     {/* Actions */}
                     <TableCell onClick={e => e.stopPropagation()}>
@@ -389,7 +388,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={10} className="py-12 text-center">
+                <TableCell colSpan={11} className="py-12 text-center">
                   <p className="text-sm text-muted-foreground">
                     {hasActiveFilters ? 'No tasks match your filters.' : 'No tasks found. Create the first one.'}
                   </p>
