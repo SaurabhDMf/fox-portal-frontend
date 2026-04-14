@@ -66,6 +66,13 @@ export default function MembersView({ projectId }: Props) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-members', projectId] }); toast.success('Member removed'); },
   });
 
+  const toggleTaskMut = useMutation({
+    mutationFn: ({ userId, canCreate }: { userId: string; canCreate: boolean }) =>
+      api.put(`/projects/${projectId}/members/${userId}`, { can_create_tasks: canCreate }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-members', projectId] }); toast.success('Permission updated'); },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update permission'),
+  });
+
   const displayMembers = memberTab === 'clients' ? clientMembers : teamMembers;
 
   return (
