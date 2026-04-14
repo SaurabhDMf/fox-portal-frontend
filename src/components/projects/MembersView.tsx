@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Plus, X, Shield, User, Eye, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useRole } from '@/hooks/usePermission';
+import { Switch } from '@/components/ui/switch';
 
 interface Props {
   projectId: string;
