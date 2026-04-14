@@ -676,9 +676,9 @@ function TaskDetailDrawer({ task, projectId, onClose }: { task: any; projectId: 
                     <div className="flex items-center gap-2">
                       <Avatar className="h-5 w-5">
                         {c.author_avatar && <AvatarImage src={c.author_avatar} />}
-                        <AvatarFallback className="text-[8px] bg-primary/10 text-primary">{initials(c.full_name || c.author_name)}</AvatarFallback>
+                        <AvatarFallback className="text-[8px] bg-primary/10 text-primary">{initials(c.author_name || c.full_name)}</AvatarFallback>
                       </Avatar>
-                      <span className="text-xs font-medium">{c.full_name || c.author_name || 'Unknown'}</span>
+                      <span className="text-xs font-medium">{c.author_name || c.full_name || 'Unknown'}</span>
                       <span className="text-[10px] text-muted-foreground">{fmtDate(c.created_at)}</span>
                     </div>
                     <p className="text-sm text-foreground pl-7">{c.text || c.content || c.body || c.message}</p>

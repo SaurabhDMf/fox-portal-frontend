@@ -86,7 +86,7 @@ function normalizeTaskEntity(rawTask: any, members: any[] = []): ProjectTask {
 }
 
 function normalizeCommentEntity(comment: any) {
-  const userName = comment?.full_name || comment?.author_name || comment?.user_name
+  const userName = comment?.author_name || comment?.full_name || comment?.user_name
     || comment?.created_by_name
     || getPersonName(comment?.user || comment?.author || comment?.created_by)
     || comment?.user?.full_name || comment?.user?.name || comment?.user?.email
@@ -103,7 +103,7 @@ function normalizeActivityEntity(activity: any) {
   return {
     ...activity,
     action: activity?.action || activity?.message || activity?.description || activity?.event || 'updated the task',
-    user_name: activity?.user_name || activity?.actor_name || activity?.created_by_name || getPersonName(activity?.user || activity?.actor || activity?.created_by) || 'Someone',
+    user_name: activity?.user_name || activity?.full_name || activity?.actor_name || activity?.created_by_name || getPersonName(activity?.user || activity?.actor || activity?.created_by) || 'Unknown',
   };
 }
 
