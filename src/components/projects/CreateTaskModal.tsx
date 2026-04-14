@@ -7,7 +7,7 @@ import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import UserPicker from './UserPicker';
 import InlineAddSelect from './InlineAddSelect';
-import { useProjectStatuses, useProjectStages } from '@/hooks/useProjectOptions';
+import { useProjectStatuses, useProjectStages, type StatusOption } from '@/hooks/useProjectOptions';
 
 interface Props {
   projectId: string;
@@ -46,8 +46,8 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
     due_date: '',
   });
 
-  const { statuses, addStatus } = useProjectStatuses(projectId);
-  const { stages, addStage } = useProjectStages(projectId);
+  const { statuses, statusObjects, addStatus } = useProjectStatuses(projectId);
+  const { stages, stageObjects, addStage } = useProjectStages(projectId);
 
   // Removed project-members query — using UserPicker with /users/active instead
 
@@ -226,10 +226,10 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
             {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
           <div>
-            <InlineAddSelect value={form.status} options={statuses} onChange={v => set('status', v)} onAdd={addStatus} placeholder="Status" />
+            <InlineAddSelect value={form.status} options={statuses} colorOptions={statusObjects} onChange={v => set('status', v)} onAdd={addStatus} placeholder="Status" />
           </div>
           <div>
-            <InlineAddSelect value={form.stage} options={stages} onChange={v => set('stage', v)} onAdd={addStage} placeholder="No Stage" />
+            <InlineAddSelect value={form.stage} options={stages} colorOptions={stageObjects} onChange={v => set('stage', v)} onAdd={addStage} placeholder="No Stage" />
           </div>
         </div>
 

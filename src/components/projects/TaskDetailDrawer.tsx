@@ -556,7 +556,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             <div>
               <span className="text-xs text-muted-foreground">Stage</span>
               <div className="mt-1">
-                <InlineAddSelect value={task.stage || ''} options={stages} onChange={v => submitTaskUpdate({ stage: v || null })} onAdd={addStage} placeholder="No Stage" />
+                <InlineAddSelect value={task.stage || ''} options={stages} colorOptions={stageObjects} onChange={v => submitTaskUpdate({ stage: v || null })} onAdd={addStage} placeholder="No Stage" />
               </div>
             </div>
             <div>
