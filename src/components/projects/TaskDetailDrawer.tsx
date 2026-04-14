@@ -552,7 +552,12 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Due Date</span>
-              <p className="text-sm">{task.due_date ? new Date(task.due_date).toLocaleDateString() : '—'}</p>
+              <input
+                type="date"
+                value={task.due_date ? task.due_date.substring(0, 10) : ''}
+                onChange={e => submitTaskUpdate({ due_date: e.target.value || null })}
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Stage</span>
