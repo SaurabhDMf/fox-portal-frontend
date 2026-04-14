@@ -72,23 +72,39 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   // Filter state
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
   const [typeFilter, setTypeFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [sprintFilter, setSprintFilter] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState('');
 
-  // Build query params — priority is client-side only
+  // Close status dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
+        setStatusDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const toggleStatusFilter = (s: string) => {
+    setStatusFilter(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  };
+
+  // Build query params — priority is client-side only, status is now client-side too for multi-select
   const queryParams = useMemo(() => {
     const p: Record<string, string> = { project_id: projectId };
-    if (statusFilter) p.status = statusFilter;
     if (typeFilter) p.type = typeFilter;
     if (sprintFilter) p.sprint_id = sprintFilter;
     if (moduleFilter) p.module_id = moduleFilter;
     if (assigneeFilter) p.assignee_id = assigneeFilter;
     return p;
-  }, [projectId, statusFilter, typeFilter, sprintFilter, moduleFilter, assigneeFilter]);
+  }, [projectId, typeFilter, sprintFilter, moduleFilter, assigneeFilter]);
 
   // Main task query
   const { data: raw, isLoading } = useQuery({
