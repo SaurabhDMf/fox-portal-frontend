@@ -7,7 +7,6 @@ import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse
 import HandoffModal from './HandoffModal';
 import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
 import UserPicker, { InlineUserPicker } from './UserPicker';
-import CodeRepoBadge from './CodeRepoBadge';
 
 import { useState, useRef } from 'react';
 import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2, Paperclip, Image, FileText, Download, UserPlus, ArrowRightLeft } from 'lucide-react';
@@ -602,9 +601,16 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             </div>
             <div>
               <span className="text-xs text-muted-foreground">Code Repo</span>
-              <div className="mt-1">
-                <CodeRepoBadge value={(task as any).code_repo_status} onChange={val => submitTaskUpdate({ code_repo_status: val })} />
-              </div>
+              <select
+                value={(task as any).code_repo_status || ''}
+                onChange={e => submitTaskUpdate({ code_repo_status: e.target.value || null })}
+                className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="">No Status</option>
+                <option value="not_pushed">Not Pushed</option>
+                <option value="pushed">Pushed</option>
+                <option value="conflict">Conflict</option>
+              </select>
             </div>
           </div>
 

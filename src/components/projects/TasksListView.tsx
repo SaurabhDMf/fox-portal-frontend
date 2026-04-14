@@ -10,7 +10,6 @@ import { extractProjectArray } from '@/lib/projectResponse';
 import type { ProjectTask, Sprint, Epic, ProjectMember } from '@/lib/projectTypes';
 import { useAuthStore } from '@/stores/authStore';
 import { useProjectStatuses, type StatusOption } from '@/hooks/useProjectOptions';
-import CodeRepoBadge from './CodeRepoBadge';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -273,9 +272,9 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               <TableHead>Due Date</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Code Repo</TableHead>
               <TableHead>Module</TableHead>
               <TableHead>Sprint</TableHead>
-              <TableHead>Code Repo</TableHead>
               <TableHead className="w-[60px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -359,6 +358,20 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                       </select>
                     </TableCell>
 
+                    {/* Code Repo — inline dropdown */}
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      <select
+                        value={(t as any).code_repo_status || ''}
+                        onChange={e => handleCodeRepoChange(t.id, e.target.value || null)}
+                        className="px-2 py-1 rounded-md bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      >
+                        <option value="">—</option>
+                        <option value="not_pushed">Not Pushed</option>
+                        <option value="pushed">Pushed</option>
+                        <option value="conflict">Conflict</option>
+                      </select>
+                    </TableCell>
+
                     {/* Module */}
                     <TableCell className="text-xs text-muted-foreground">
                       {(t as any).epic_title || t.epic_name || '—'}
@@ -367,11 +380,6 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                     {/* Sprint */}
                     <TableCell className="text-xs text-muted-foreground">
                       {t.sprint_name || (t as any).sprint_title || '—'}
-                    </TableCell>
-
-                    {/* Code Repo */}
-                    <TableCell onClick={e => e.stopPropagation()}>
-                      <CodeRepoBadge value={(t as any).code_repo_status} onChange={val => handleCodeRepoChange(t.id, val)} />
                     </TableCell>
 
                     {/* Actions */}
