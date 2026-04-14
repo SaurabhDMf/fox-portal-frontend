@@ -10,6 +10,7 @@ import { extractProjectArray } from '@/lib/projectResponse';
 import type { ProjectTask, Sprint, Epic, ProjectMember } from '@/lib/projectTypes';
 import { useAuthStore } from '@/stores/authStore';
 import { useProjectStatuses, type StatusOption } from '@/hooks/useProjectOptions';
+import CodeRepoBadge from './CodeRepoBadge';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -160,9 +161,8 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     setAssigneeFilter('');
   };
 
-  // Inline status update — patch local state, no refetch
+  // Inline status update
   const handleStatusChange = useCallback(async (taskId: string, newStatus: string) => {
-    // Optimistic update
     qc.setQueryData(['project-all-tasks', queryParams], (old: ProjectTask[] | undefined) => {
       if (!old) return old;
       return old.map(t => t.id === taskId ? { ...t, status: newStatus } : t);
@@ -171,6 +171,20 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
       await api.put(`/tasks/${taskId}`, { status: newStatus });
     } catch {
       toast.error('Failed to update status');
+      qc.invalidateQueries({ queryKey: ['project-all-tasks'] });
+    }
+  }, [qc, queryParams]);
+
+  // Inline code repo status update
+  const handleCodeRepoChange = useCallback(async (taskId: string, val: string | null) => {
+    qc.setQueryData(['project-all-tasks', queryParams], (old: ProjectTask[] | undefined) => {
+      if (!old) return old;
+      return old.map(t => t.id === taskId ? { ...t, code_repo_status: val } : t);
+    });
+    try {
+      await api.patch(`/tasks/${taskId}`, { code_repo_status: val });
+    } catch {
+      toast.error('Failed to update code repo status');
       qc.invalidateQueries({ queryKey: ['project-all-tasks'] });
     }
   }, [qc, queryParams]);
@@ -261,13 +275,14 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               <TableHead>Status</TableHead>
               <TableHead>Module</TableHead>
               <TableHead>Sprint</TableHead>
+              <TableHead>Code Repo</TableHead>
               <TableHead className="w-[60px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={10} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
                   Loading tasks…
                 </TableCell>
               </TableRow>
@@ -354,6 +369,11 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                       {t.sprint_name || (t as any).sprint_title || '—'}
                     </TableCell>
 
+                    {/* Code Repo */}
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      <CodeRepoBadge value={(t as any).code_repo_status} onChange={val => handleCodeRepoChange(t.id, val)} />
+                    </TableCell>
+
                     {/* Actions */}
                     <TableCell onClick={e => e.stopPropagation()}>
                       <button
@@ -368,7 +388,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={10} className="py-12 text-center">
+                <TableCell colSpan={11} className="py-12 text-center">
                   <p className="text-sm text-muted-foreground">
                     {hasActiveFilters ? 'No tasks match your filters.' : 'No tasks found. Create the first one.'}
                   </p>
