@@ -99,7 +99,7 @@ export default function MembersView({ projectId }: Props) {
       <div className="space-y-2">
         {displayMembers.map(member => {
           const rc = ROLE_CONFIG[member.role] || ROLE_CONFIG.member;
-          const isClient = CLIENT_ROLES.includes((member as any).user_role || '');
+          const isClient = member.user_role === 'client';
           return (
             <div key={member.id} className="glass-card p-3 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-sm font-bold text-primary">
@@ -113,7 +113,7 @@ export default function MembersView({ projectId }: Props) {
                 <label className="flex items-center gap-1.5 cursor-pointer" title="Allow client to create tasks">
                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">Can create tasks</span>
                   <Switch
-                    checked={!!(member as any).can_create_tasks}
+                    checked={!!member.can_create_tasks}
                     onCheckedChange={(checked) => toggleTaskMut.mutate({ userId: member.user_id, canCreate: checked })}
                   />
                 </label>
@@ -153,13 +153,13 @@ export default function MembersView({ projectId }: Props) {
 
             <input placeholder={`Search ${addTab}...`} value={search} onChange={e => setSearch(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             <div className="max-h-48 overflow-y-auto space-y-1">
-              {addTabUsers.map((u: any) => (
+              {filteredUsers.map((u: any) => (
                 <div key={u.id} onClick={() => setSelectedUserId(u.id)} className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedUserId === u.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-secondary'}`}>
                   <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">{u.full_name?.[0]}</div>
                   <div><p className="text-sm font-medium">{u.full_name}</p><p className="text-xs text-muted-foreground">{u.email}</p></div>
                 </div>
               ))}
-              {addTabUsers.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No {addTab} found</p>}
+              {filteredUsers.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No {addTab} found</p>}
             </div>
             <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
               <option value="member">Member</option>
