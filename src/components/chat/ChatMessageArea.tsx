@@ -251,6 +251,14 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
     });
 
+    socket.on('room_deleted', (data: any) => {
+      if (data?.room_id === roomId || data?.id === roomId) {
+        qc.invalidateQueries({ queryKey: ['chat-rooms'] });
+        onBack();
+        toast('This conversation was deleted');
+      }
+    });
+
     return () => {
       socket.emit('leave_room', roomId);
       socket.off('new_message');
@@ -261,6 +269,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       socket.off('user_typing');
       socket.off('added_to_room');
       socket.off('user_status_changed');
+      socket.off('room_deleted');
       setRealtimeMessages([]);
       setTypingUsers([]);
     };
