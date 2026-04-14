@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { BOARD_COLUMNS, type ProjectTask } from '@/lib/projectTypes';
+import { useProjectStatuses } from '@/hooks/useProjectOptions';
 import { extractProjectArray, extractProjectBoard } from '@/lib/projectResponse';
 
 import TaskCard from './TaskCard';
@@ -17,6 +18,8 @@ interface Props {
 export default function KanbanBoard({ projectId, onTaskClick, onCreateTask }: Props) {
   const qc = useQueryClient();
   const [draggedTask, setDraggedTask] = useState<ProjectTask | null>(null);
+  const { statuses } = useProjectStatuses(projectId);
+  const columns = statuses.length > 0 ? statuses : BOARD_COLUMNS;
 
   const { data: sprintsData } = useQuery({
     queryKey: ['project-sprints', projectId],
@@ -32,7 +35,7 @@ export default function KanbanBoard({ projectId, onTaskClick, onCreateTask }: Pr
 
   const rawBoard = extractProjectBoard(boardData);
   const board: Record<string, ProjectTask[]> = {};
-  BOARD_COLUMNS.forEach(col => { board[col] = rawBoard[col] || []; });
+  columns.forEach(col => { board[col] = rawBoard[col] || []; });
 
   const updateTaskMut = useMutation({
     mutationFn: ({ taskId, status }: { taskId: string; status: string }) => api.put(`/tasks/${taskId}`, { status }),
@@ -85,7 +88,7 @@ export default function KanbanBoard({ projectId, onTaskClick, onCreateTask }: Pr
 
       {/* Board */}
       <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
-        {BOARD_COLUMNS.map(col => {
+        {columns.map(col => {
           const tasks = board[col] || [];
           return (
             <div
