@@ -12,10 +12,10 @@ interface Props {
   projectId: string;
 }
 
-const ROLE_CONFIG: Record<string, { icon: typeof Shield; label: string; class: string }> = {
-  lead: { icon: Shield, label: 'Lead', class: 'badge-primary' },
-  member: { icon: User, label: 'Member', class: 'badge-info' },
-  viewer: { icon: Eye, label: 'Viewer', class: 'badge-neutral' },
+const PROJECT_ROLE_CONFIG: Record<string, { label: string; class: string }> = {
+  lead: { label: 'Lead', class: 'badge-primary' },
+  member: { label: 'Member', class: 'badge-info' },
+  viewer: { label: 'Viewer', class: 'badge-neutral' },
 };
 
 export default function MembersView({ projectId }: Props) {
@@ -31,33 +31,30 @@ export default function MembersView({ projectId }: Props) {
 
   const { data: membersRaw } = useQuery({
     queryKey: ['project-members', projectId],
-    queryFn: async () => {
-      const r = await api.get(`/projects/${projectId}/members`);
-      const list = extractProjectArray<ProjectMember>(r.data, ['members', 'users']);
-      // Debug: log the first member to see available fields
-      if (list.length > 0) console.log('[MembersView] sample member fields:', JSON.stringify(list[0]));
-      return list;
-    },
+    queryFn: () => api.get(`/projects/${projectId}/members`).then(r => extractProjectArray<ProjectMember>(r.data, ['members', 'users'])),
   });
   const members: ProjectMember[] = Array.isArray(membersRaw) ? membersRaw : [];
 
-  // Check multiple possible field names for system-level user role
-  const isClientMember = (m: any): boolean => {
-    const sysRole = m.user_role || m.system_role || m.userRole || m.account_role || '';
-    return sysRole === 'client';
-  };
+  const teamMembers = members.filter(m => (m as any).user_role !== 'client');
+  const clientMembers = members.filter(m => (m as any).user_role === 'client');
 
-  const teamMembers = members.filter(m => !isClientMember(m));
-  const clientMembers = members.filter(m => isClientMember(m));
-
-  // Fetch users based on the add modal tab
+  // Fetch available users/clients for the Add modal
   const { data: usersRaw } = useQuery({
-    queryKey: ['add-member-users', addTab, search],
+    queryKey: ['add-member-available', projectId, addTab, search],
     queryFn: () => {
+      if (addTab === 'clients') {
+        // Use the dedicated available-members endpoint for clients
+        const params: Record<string, string> = { role: 'client' };
+        if (search) params.search = search;
+        return api.get(`/projects/${projectId}/available-members`, { params }).then(r => {
+          const d = r.data;
+          return d?.users || d?.data?.users || d?.data?.items || d?.items || d?.data || d || [];
+        });
+      }
+      // For team users, fetch non-client users
       const params: Record<string, string> = {};
-      if (addTab === 'clients') params.role = 'client';
       if (search) params.search = search;
-      return api.get('/users', { params }).then(r => {
+      return api.get('/users/active', { params }).then(r => {
         const d = r.data;
         return d?.users || d?.data?.users || d?.data?.items || d?.items || d?.data || d || [];
       });
@@ -74,7 +71,7 @@ export default function MembersView({ projectId }: Props) {
   });
 
   const removeMut = useMutation({
-    mutationFn: (memberId: string) => api.delete(`/projects/${projectId}/members/${memberId}`),
+    mutationFn: (userId: string) => api.delete(`/projects/${projectId}/members/${userId}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-members', projectId] }); toast.success('Member removed'); },
   });
 
@@ -92,8 +89,8 @@ export default function MembersView({ projectId }: Props) {
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Team & Client Members ({members.length})</h3>
         {canManage && (
-          <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-3 w-3" /> Add Member
+          <button onClick={() => { setAddTab(memberTab); setShowAdd(true); }} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all">
+            <Plus className="h-3 w-3" /> {memberTab === 'clients' ? 'Add Client' : 'Add Member'}
           </button>
         )}
       </div>
@@ -110,8 +107,9 @@ export default function MembersView({ projectId }: Props) {
 
       <div className="space-y-2">
         {displayMembers.map(member => {
-          const rc = ROLE_CONFIG[member.role] || ROLE_CONFIG.member;
-          const isClient = isClientMember(member);
+          const projectRole = (member as any).project_role || member.role || 'member';
+          const rc = PROJECT_ROLE_CONFIG[projectRole] || PROJECT_ROLE_CONFIG.member;
+          const isClient = (member as any).user_role === 'client';
           return (
             <div key={member.id} className="glass-card p-3 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-sm font-bold text-primary">
@@ -131,8 +129,8 @@ export default function MembersView({ projectId }: Props) {
                 </label>
               )}
               <span className={rc.class}>{rc.label}</span>
-              {canManage && member.role !== 'lead' && (
-                <button onClick={() => removeMut.mutate(member.id)} className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+              {canManage && projectRole !== 'lead' && (
+                <button onClick={() => removeMut.mutate(member.user_id)} className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                   <X className="h-4 w-4" />
                 </button>
               )}
@@ -144,12 +142,12 @@ export default function MembersView({ projectId }: Props) {
         )}
       </div>
 
-      {/* Add Member modal */}
+      {/* Add Member/Client modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-md p-6 space-y-4 animate-slide-up">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Add Member</h2>
+              <h2 className="text-lg font-semibold">{addTab === 'clients' ? 'Add Client' : 'Add Member'}</h2>
               <button onClick={() => setShowAdd(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
             </div>
 
@@ -173,15 +171,17 @@ export default function MembersView({ projectId }: Props) {
               ))}
               {filteredUsers.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No {addTab} found</p>}
             </div>
-            <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-              <option value="member">Member</option>
-              <option value="viewer">Viewer</option>
-              {addTab === 'users' && <option value="lead">Lead</option>}
-            </select>
+            {addTab === 'users' && (
+              <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <option value="member">Member</option>
+                <option value="viewer">Viewer</option>
+                <option value="lead">Lead</option>
+              </select>
+            )}
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowAdd(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
               <button onClick={() => addMut.mutate()} disabled={!selectedUserId || addMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-                {addMut.isPending ? 'Adding...' : 'Add Member'}
+                {addMut.isPending ? 'Adding...' : addTab === 'clients' ? 'Add Client' : 'Add Member'}
               </button>
             </div>
           </div>

@@ -66,8 +66,9 @@ export interface ProjectMember {
   full_name: string;
   email?: string;
   avatar_url?: string;
-  role: 'lead' | 'member' | 'viewer';
+  role: string;
   user_role?: string;
+  project_role?: string;
   can_create_tasks?: boolean;
 }
 
