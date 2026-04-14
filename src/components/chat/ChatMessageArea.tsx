@@ -711,6 +711,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           </button>
         </div>
       </div>
+
+      {/* User profile card */}
+      {profileUser && (
+        <div className="fixed inset-0 z-50" onClick={() => setProfileUser(null)}>
+          <div className="absolute inset-0" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" onClick={e => e.stopPropagation()}>
+            <UserProfileCard user={profileUser} onClose={() => setProfileUser(null)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
