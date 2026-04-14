@@ -48,9 +48,6 @@ export default function TaskCard({ task, onClick, draggable, onDragStart }: Task
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: priorityColor }} title={task.priority} />
-          {task.story_points != null && (
-            <span className="text-[10px] font-semibold bg-secondary text-muted-foreground px-1.5 py-0.5 rounded">{task.story_points} SP</span>
-          )}
         </div>
         {/* Assignee avatars */}
         {task.assignees && task.assignees.length > 0 && (
