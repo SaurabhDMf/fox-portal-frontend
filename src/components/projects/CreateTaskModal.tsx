@@ -217,8 +217,8 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
           className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" autoFocus />
 
         {/* Description */}
-        <textarea placeholder="Description (optional)" value={form.description} onChange={e => set('description', e.target.value)} rows={2}
-          className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+        <textarea placeholder="Description (optional)" value={form.description} onChange={e => set('description', e.target.value)} rows={5}
+          className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y min-h-[100px]" />
 
         {/* Priority + Status + Stage */}
         <div className="grid grid-cols-3 gap-3">
