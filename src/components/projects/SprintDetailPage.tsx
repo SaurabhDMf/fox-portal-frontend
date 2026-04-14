@@ -496,7 +496,7 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
                             onChange={e => updateTaskStatus(task.id, 'status', e.target.value)}
                             className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer"
                           >
-                            {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
+                            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                         </td>
                         <td className="px-3 py-2 text-xs text-muted-foreground">{moduleName || '—'}</td>
@@ -525,7 +525,7 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
                           <td className="px-3 py-1.5">
                             <select value={st.status || 'Open'} onChange={e => updateTaskStatus(st.id, 'status', e.target.value)}
                               className="px-1 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer">
-                              {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
+                              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                           </td>
                           <td className="px-3 py-1.5" />
