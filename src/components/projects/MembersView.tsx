@@ -31,7 +31,13 @@ export default function MembersView({ projectId }: Props) {
 
   const { data: membersRaw } = useQuery({
     queryKey: ['project-members', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/members`).then(r => extractProjectArray<ProjectMember>(r.data, ['members', 'users'])),
+    queryFn: async () => {
+      const r = await api.get(`/projects/${projectId}/members`);
+      const list = extractProjectArray<ProjectMember>(r.data, ['members', 'users']);
+      // Debug: log the first member to see available fields
+      if (list.length > 0) console.log('[MembersView] sample member fields:', JSON.stringify(list[0]));
+      return list;
+    },
   });
   const members: ProjectMember[] = Array.isArray(membersRaw) ? membersRaw : [];
 
