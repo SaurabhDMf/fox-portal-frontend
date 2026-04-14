@@ -42,9 +42,9 @@ function StatusesSection({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#6B7280');
-  const [newCategory, setNewCategory] = useState('todo');
+  
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', color: '', category: '' });
+  const [editForm, setEditForm] = useState({ name: '', color: '' });
 
   const { data: statusesRaw } = useQuery({
     queryKey: ['project-custom-statuses', projectId],
@@ -57,7 +57,7 @@ function StatusesSection({ projectId }: { projectId: string }) {
   const statuses = Array.isArray(statusesRaw) ? statusesRaw : [];
 
   const addMut = useMutation({
-    mutationFn: () => api.post(`/projects/${projectId}/statuses`, { name: newName, color: newColor, category: newCategory }),
+    mutationFn: () => api.post(`/projects/${projectId}/statuses`, { name: newName, color: newColor }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-custom-statuses', projectId] }); setNewName(''); toast.success('Status added'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed'),
   });
@@ -87,7 +87,7 @@ function StatusesSection({ projectId }: { projectId: string }) {
                 <div className="flex gap-1">{PRESET_COLORS.map(c => (
                   <button key={c} onClick={() => setEditForm(f => ({ ...f, color: c }))} className={`w-5 h-5 rounded-full border-2 ${editForm.color === c ? 'border-foreground' : 'border-transparent'}`} style={{ background: c }} />
                 ))}</div>
-                <button onClick={() => updateMut.mutate({ id, name: editForm.name, color: editForm.color, category: editForm.category })} className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs">Save</button>
+                <button onClick={() => updateMut.mutate({ id, name: editForm.name, color: editForm.color })} className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs">Save</button>
                 <button onClick={() => setEditingId(null)} className="px-2 py-1 rounded bg-secondary text-xs">✕</button>
               </div>
             );
@@ -96,8 +96,7 @@ function StatusesSection({ projectId }: { projectId: string }) {
             <div key={id} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary/50 group">
               <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />
               <span className="text-sm flex-1">{typeof name === 'string' ? name : name}</span>
-              {s.category && <span className="text-[10px] text-muted-foreground capitalize">{s.category}</span>}
-              <button onClick={() => { setEditingId(id); setEditForm({ name: typeof name === 'string' ? name : '', color, category: s.category || 'todo' }); }}
+              <button onClick={() => { setEditingId(id); setEditForm({ name: typeof name === 'string' ? name : '', color }); }}
                 className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-secondary text-muted-foreground"><Pencil className="h-3 w-3" /></button>
               <button onClick={() => deleteMut.mutate(id)}
                 className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive"><Trash2 className="h-3 w-3" /></button>
@@ -110,11 +109,6 @@ function StatusesSection({ projectId }: { projectId: string }) {
         <div className="flex gap-1">{PRESET_COLORS.slice(0, 5).map(c => (
           <button key={c} onClick={() => setNewColor(c)} className={`w-5 h-5 rounded-full border-2 ${newColor === c ? 'border-foreground' : 'border-transparent'}`} style={{ background: c }} />
         ))}</div>
-        <select value={newCategory} onChange={e => setNewCategory(e.target.value)} className="px-2 py-1 rounded bg-secondary border border-border text-xs">
-          <option value="todo">Todo</option>
-          <option value="in_progress">In Progress</option>
-          <option value="done">Done</option>
-        </select>
         <button onClick={() => addMut.mutate()} disabled={!newName.trim()} className="p-1.5 rounded bg-primary text-primary-foreground disabled:opacity-50">
           <Plus className="h-4 w-4" />
         </button>
