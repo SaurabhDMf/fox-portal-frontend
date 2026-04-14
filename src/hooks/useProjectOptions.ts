@@ -41,7 +41,7 @@ function normalizeOptions(list: any[], defaults: { name: string; color: string }
     const name = typeof s === 'string' ? s : (s.name || s.label || s.status || s.stage || '');
     if (!name || defaultNames.has(name.toLowerCase())) continue;
     const color = typeof s === 'string' ? '#6B7280' : (s.color || '#6B7280');
-    merged.push({ name, color, category: s?.category });
+    merged.push({ name, color, category: s?.category } as any);
   }
   return merged;
 }
