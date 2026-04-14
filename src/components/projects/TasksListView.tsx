@@ -135,7 +135,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
       );
     }
     return result;
-  }, [tasks, priorityFilter, search]);
+  }, [tasks, statusFilter, priorityFilter, search]);
 
   // Filter option queries
   const { data: sprints } = useQuery({
