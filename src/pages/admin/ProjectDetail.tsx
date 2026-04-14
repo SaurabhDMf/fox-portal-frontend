@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
-import { ArrowLeft, LayoutGrid, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown } from 'lucide-react';
+import { ArrowLeft, LayoutGrid, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2 } from 'lucide-react';
 import { extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectTask } from '@/lib/projectTypes';
 import KanbanBoard from '@/components/projects/KanbanBoard';
@@ -14,6 +14,7 @@ import BacklogView from '@/components/projects/BacklogView';
 import MembersView from '@/components/projects/MembersView';
 import TaskDetailDrawer from '@/components/projects/TaskDetailDrawer';
 import CreateTaskModal from '@/components/projects/CreateTaskModal';
+import ProjectSettingsModal from '@/components/projects/ProjectSettingsModal';
 import toast from 'react-hot-toast';
 
 const TABS = [
@@ -46,6 +47,7 @@ export default function ProjectDetail() {
   const [editForm, setEditForm] = useState({ name: '', description: '', status: 'Active', priority: 'Medium', start_date: '', due_date: '', color: '#3B82F6', client_id: '' as string | null });
   const [clientSearch, setClientSearch] = useState('');
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const [showProjectSettings, setShowProjectSettings] = useState(false);
 
   const { data: projectRaw, isLoading } = useQuery({
     queryKey: ['project', id],
@@ -139,6 +141,9 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-2">
             <span className={project.status === 'Active' ? 'badge-success' : project.status === 'Completed' ? 'badge-info' : project.status === 'On Hold' ? 'badge-warning' : 'badge-neutral'}>{project.status}</span>
             <span className={project.priority === 'Critical' ? 'badge-danger' : project.priority === 'High' ? 'badge-warning' : 'badge-neutral'}>{project.priority}</span>
+            <button onClick={() => setShowProjectSettings(true)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Project Settings">
+              <Settings2 className="h-4 w-4" />
+            </button>
             {isAdmin && (
               <>
                 <button onClick={openEdit} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit Project">
@@ -335,6 +340,8 @@ export default function ProjectDetail() {
           </div>
         </div>
       )}
+
+      {showProjectSettings && <ProjectSettingsModal projectId={id!} onClose={() => setShowProjectSettings(false)} />}
     </div>
   );
 }

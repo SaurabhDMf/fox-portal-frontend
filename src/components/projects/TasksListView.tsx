@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { extractProjectArray } from '@/lib/projectResponse';
 import type { ProjectTask, Sprint, Epic, ProjectMember } from '@/lib/projectTypes';
 import { useAuthStore } from '@/stores/authStore';
-import { useProjectStatuses } from '@/hooks/useProjectOptions';
+import { useProjectStatuses, type StatusOption } from '@/hooks/useProjectOptions';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -68,7 +68,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
   const qc = useQueryClient();
   const userRole = useAuthStore(s => s.user?.role);
   const isRestricted = RESTRICTED_ROLES.includes(userRole || '');
-  const { statuses: STATUS_OPTIONS } = useProjectStatuses(projectId);
+  const { statuses: STATUS_OPTIONS, statusObjects } = useProjectStatuses(projectId);
 
   // Filter state
   const [search, setSearch] = useState('');
@@ -267,7 +267,8 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                 const assigneeName = (t as any).assignee_name ?? t.assignees?.[0]?.full_name;
                 const assigneeAvatar = (t as any).assignee_avatar ?? t.assignees?.[0]?.avatar_url;
                 return (
-                  <TableRow key={t.id} className={`cursor-pointer group ${STATUS_ROW_COLORS[t.status] || ''}`} onClick={() => onTaskClick?.(t)}>
+                  <TableRow key={t.id} className={`cursor-pointer group ${STATUS_ROW_COLORS[t.status] || ''}`} onClick={() => onTaskClick?.(t)}
+                    style={!STATUS_ROW_COLORS[t.status] && statusObjects.find(s => s.name === t.status)?.color ? { borderLeft: `3px solid ${statusObjects.find(s => s.name === t.status)!.color}` } : undefined}>
                     {/* Task Name */}
                     <TableCell>
                       <div className="min-w-[200px]">

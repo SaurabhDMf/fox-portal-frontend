@@ -4,12 +4,13 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import {
   Send, Paperclip, Search, Pin, Info, ArrowLeft, MessageSquare,
-  Smile, Reply, Pencil, Trash2, X, Check, CheckCheck
+  Smile, Reply, Pencil, Trash2, X, Check, CheckCheck, MoreVertical
 } from 'lucide-react';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusBadge from '@/components/chat/StatusBadge';
 import { Socket } from 'socket.io-client';
 import { getSocket } from '@/hooks/useSocket';
+import UserProfileCard from '@/components/chat/UserProfileCard';
 import toast from 'react-hot-toast';
 
 const formatDateLabel = (dateStr: string): string => {
@@ -33,11 +34,12 @@ interface Props {
   roomName: string;
   memberCount?: number;
   onBack: () => void;
+  onDeleteRoom?: () => void;
   onToggleInfo: () => void;
   onTogglePinned: () => void;
 }
 
-export default function ChatMessageArea({ roomId, roomName, memberCount, onBack, onToggleInfo, onTogglePinned }: Props) {
+export default function ChatMessageArea({ roomId, roomName, memberCount, onBack, onDeleteRoom, onToggleInfo, onTogglePinned }: Props) {
   const user = useAuthStore(s => s.user);
   const accessToken = useAuthStore(s => s.accessToken);
   const qc = useQueryClient();
@@ -53,6 +55,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const [editingMsg, setEditingMsg] = useState<any>(null);
   const [editText, setEditText] = useState('');
   const [hoveredMsg, setHoveredMsg] = useState<string | null>(null);
+  const [profileUser, setProfileUser] = useState<any>(null);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const userRole = user?.role || '';
+  const isAdminRole = userRole === 'admin' || userRole === 'super_admin';
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -245,6 +251,14 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
     });
 
+    socket.on('room_deleted', (data: any) => {
+      if (data?.room_id === roomId || data?.id === roomId) {
+        qc.invalidateQueries({ queryKey: ['chat-rooms'] });
+        onBack();
+        toast('This conversation was deleted');
+      }
+    });
+
     return () => {
       socket.emit('leave_room', roomId);
       socket.off('new_message');
@@ -255,6 +269,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       socket.off('user_typing');
       socket.off('added_to_room');
       socket.off('user_status_changed');
+      socket.off('room_deleted');
       setRealtimeMessages([]);
       setTypingUsers([]);
     };
@@ -398,6 +413,21 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           <button onClick={onToggleInfo} className="p-2 rounded-md hover:bg-secondary text-muted-foreground transition-colors">
             <Info className="h-4 w-4" />
           </button>
+          {isAdminRole && (
+            <div className="relative">
+              <button onClick={() => setShowHeaderMenu(!showHeaderMenu)} className="p-2 rounded-md hover:bg-secondary text-muted-foreground transition-colors">
+                <MoreVertical className="h-4 w-4" />
+              </button>
+              {showHeaderMenu && (
+                <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-xl z-20 min-w-[160px]">
+                  <button onClick={() => { setShowHeaderMenu(false); if (confirm('Delete this conversation? This cannot be undone.')) onDeleteRoom?.(); }}
+                    className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg flex items-center gap-2">
+                    <Trash2 className="h-3.5 w-3.5" /> Delete Conversation
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -496,7 +526,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                 <div className={`rounded-xl px-3 py-2 ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
                   {showSender && !isOwn && (
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-medium text-muted-foreground">{msg.sender_name}</span>
+                      <span className="text-xs font-medium text-muted-foreground cursor-pointer hover:underline"
+                        onClick={() => setProfileUser({ id: msg.sender_id, full_name: msg.sender_name, avatar_url: msg.sender_avatar })}>{msg.sender_name}</span>
                       <StatusBadge
                         status={statusMap[msg.sender_id]?.status ?? 'offline'}
                         statusText={statusMap[msg.sender_id]?.status_text}
@@ -680,6 +711,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           </button>
         </div>
       </div>
+
+      {/* User profile card */}
+      {profileUser && (
+        <div className="fixed inset-0 z-50" onClick={() => setProfileUser(null)}>
+          <div className="absolute inset-0" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" onClick={e => e.stopPropagation()}>
+            <UserProfileCard user={profileUser} onClose={() => setProfileUser(null)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

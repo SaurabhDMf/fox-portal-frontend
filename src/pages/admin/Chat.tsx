@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { MessageSquare } from 'lucide-react';
 import ChatRoomList from '@/components/chat/ChatRoomList';
@@ -8,8 +8,10 @@ import ChatRoomInfo from '@/components/chat/ChatRoomInfo';
 import ChatPinnedPanel from '@/components/chat/ChatPinnedPanel';
 import CreateGroupModal from '@/components/chat/CreateGroupModal';
 import CreateDMModal from '@/components/chat/CreateDMModal';
+import toast from 'react-hot-toast';
 
 export default function Chat() {
+  const qc = useQueryClient();
   const [activeRoom, setActiveRoom] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
   const [showPinned, setShowPinned] = useState(false);
@@ -50,6 +52,13 @@ export default function Chat() {
             roomName={activeRoomName}
             memberCount={activeRoomData?.member_count}
             onBack={() => setActiveRoom(null)}
+            onDeleteRoom={() => {
+              api.delete(`/chat/rooms/${activeRoom}`).then(() => {
+                qc.invalidateQueries({ queryKey: ['chat-rooms'] });
+                setActiveRoom(null);
+                toast.success('Conversation deleted');
+              }).catch(() => toast.error('Failed to delete conversation'));
+            }}
             onToggleInfo={() => { setShowInfo(!showInfo); setShowPinned(false); }}
             onTogglePinned={() => { setShowPinned(!showPinned); setShowInfo(false); }}
           />
