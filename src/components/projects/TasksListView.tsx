@@ -120,9 +120,10 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   const tasks: ProjectTask[] = raw ?? [];
 
-  // Client-side priority filter
+  // Client-side filters (priority + status multi-select)
   const filtered = useMemo(() => {
     let result = tasks;
+    if (statusFilter.length > 0) result = result.filter(t => statusFilter.includes(t.status));
     if (priorityFilter) result = result.filter(t => t.priority === priorityFilter);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -164,11 +165,11 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     staleTime: 60_000,
   });
 
-  const hasActiveFilters = search || statusFilter || typeFilter || priorityFilter || sprintFilter || moduleFilter || assigneeFilter;
+  const hasActiveFilters = search || statusFilter.length > 0 || typeFilter || priorityFilter || sprintFilter || moduleFilter || assigneeFilter;
 
   const clearFilters = () => {
     setSearch('');
-    setStatusFilter('');
+    setStatusFilter([]);
     setTypeFilter('');
     setPriorityFilter('');
     setSprintFilter('');
@@ -254,10 +255,46 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           </select>
         )}
 
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={selectCls}>
-          <option value="">All Statuses</option>
-          {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <div ref={statusDropdownRef} className="relative">
+          <button
+            onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+            className={`${selectCls} flex items-center gap-1.5 cursor-pointer`}
+          >
+            {statusFilter.length === 0 ? 'All Statuses' : `${statusFilter.length} Status${statusFilter.length > 1 ? 'es' : ''}`}
+            <ChevronDown className="h-3 w-3 opacity-60" />
+          </button>
+          {statusDropdownOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 w-48 rounded-lg border border-border bg-popover shadow-lg py-1">
+              {STATUS_OPTIONS.map(s => {
+                const selected = statusFilter.includes(s);
+                const statusObj = statusObjects?.find((so: StatusOption) => so.name === s);
+                return (
+                  <button
+                    key={s}
+                    onClick={() => toggleStatusFilter(s)}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-accent transition-colors text-left"
+                  >
+                    <span className={`h-3.5 w-3.5 rounded border flex items-center justify-center ${selected ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                      {selected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                    </span>
+                    {statusObj?.color && (
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: statusObj.color }} />
+                    )}
+                    {s}
+                  </button>
+                );
+              })}
+              {statusFilter.length > 0 && (
+                <>
+                  <div className="border-t border-border my-1" />
+                  <button onClick={() => setStatusFilter([])} className="w-full px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent text-left">
+                    Clear selection
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className={selectCls}>
           <option value="">All Types</option>
