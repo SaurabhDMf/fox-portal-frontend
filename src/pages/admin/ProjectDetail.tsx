@@ -14,6 +14,7 @@ import BacklogView from '@/components/projects/BacklogView';
 import MembersView from '@/components/projects/MembersView';
 import TaskDetailDrawer from '@/components/projects/TaskDetailDrawer';
 import CreateTaskModal from '@/components/projects/CreateTaskModal';
+import ProjectSettingsModal from '@/components/projects/ProjectSettingsModal';
 import toast from 'react-hot-toast';
 
 const TABS = [
