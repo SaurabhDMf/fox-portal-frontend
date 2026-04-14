@@ -161,9 +161,8 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     setAssigneeFilter('');
   };
 
-  // Inline status update — patch local state, no refetch
+  // Inline status update
   const handleStatusChange = useCallback(async (taskId: string, newStatus: string) => {
-    // Optimistic update
     qc.setQueryData(['project-all-tasks', queryParams], (old: ProjectTask[] | undefined) => {
       if (!old) return old;
       return old.map(t => t.id === taskId ? { ...t, status: newStatus } : t);
@@ -172,6 +171,20 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
       await api.put(`/tasks/${taskId}`, { status: newStatus });
     } catch {
       toast.error('Failed to update status');
+      qc.invalidateQueries({ queryKey: ['project-all-tasks'] });
+    }
+  }, [qc, queryParams]);
+
+  // Inline code repo status update
+  const handleCodeRepoChange = useCallback(async (taskId: string, val: string | null) => {
+    qc.setQueryData(['project-all-tasks', queryParams], (old: ProjectTask[] | undefined) => {
+      if (!old) return old;
+      return old.map(t => t.id === taskId ? { ...t, code_repo_status: val } : t);
+    });
+    try {
+      await api.patch(`/tasks/${taskId}`, { code_repo_status: val });
+    } catch {
+      toast.error('Failed to update code repo status');
       qc.invalidateQueries({ queryKey: ['project-all-tasks'] });
     }
   }, [qc, queryParams]);
@@ -354,6 +367,12 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                     {/* Sprint */}
                     <TableCell className="text-xs text-muted-foreground">
                       {t.sprint_name || (t as any).sprint_title || '—'}
+                    </TableCell>
+
+                    {/* Code Repo */}
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      <CodeRepoBadge value={(t as any).code_repo_status} onChange={val => handleCodeRepoChange(t.id, val)} />
+                    </TableCell>
                     </TableCell>
 
                     {/* Actions */}
