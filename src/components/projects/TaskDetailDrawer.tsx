@@ -168,7 +168,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const qc = useQueryClient();
   const { statuses, statusObjects, addStatus } = useProjectStatuses(projectId);
   const { stages, stageObjects, addStage } = useProjectStages(projectId);
-  const [activeTab, setActiveTab] = useState<'activity' | 'timelog' | 'handoffs'>('activity');
+  const [activeTab, setActiveTab] = useState<'timelog' | 'handoffs'>('timelog');
   const [commentText, setCommentText] = useState('');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(initialTask.title);
