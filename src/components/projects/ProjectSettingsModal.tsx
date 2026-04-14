@@ -38,11 +38,18 @@ export default function ProjectSettingsModal({ projectId, onClose }: Props) {
   );
 }
 
+const DEFAULT_STATUSES = [
+  { name: 'Open', color: '#6B7280', isDefault: true },
+  { name: 'In Progress', color: '#3B82F6', isDefault: true },
+  { name: 'Review', color: '#F59E0B', isDefault: true },
+  { name: 'Done', color: '#10B981', isDefault: true },
+  { name: 'Cancelled', color: '#EF4444', isDefault: true },
+];
+
 function StatusesSection({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
   const [newName, setNewName] = useState('');
-  const [newColor, setNewColor] = useState('#6B7280');
-  
+  const [newColor, setNewColor] = useState('#3B82F6');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', color: '' });
 
@@ -54,7 +61,16 @@ function StatusesSection({ projectId }: { projectId: string }) {
       return Array.isArray(list) ? list : [];
     }),
   });
-  const statuses = Array.isArray(statusesRaw) ? statusesRaw : [];
+  const customStatuses = Array.isArray(statusesRaw) ? statusesRaw : [];
+
+  // Merge: defaults first, then any custom ones not already in defaults
+  const defaultNames = new Set(DEFAULT_STATUSES.map(d => d.name.toLowerCase()));
+  const allStatuses = [
+    ...DEFAULT_STATUSES,
+    ...customStatuses
+      .filter((s: any) => !defaultNames.has((s.name || s.label || '').toLowerCase()))
+      .map((s: any) => ({ name: s.name || s.label, color: s.color || '#6B7280', isDefault: false, id: s.id })),
+  ];
 
   const addMut = useMutation({
     mutationFn: () => api.post(`/projects/${projectId}/statuses`, { name: newName, color: newColor }),
@@ -65,51 +81,65 @@ function StatusesSection({ projectId }: { projectId: string }) {
   const updateMut = useMutation({
     mutationFn: ({ id, ...data }: any) => api.put(`/projects/${projectId}/statuses/${id}`, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-custom-statuses', projectId] }); setEditingId(null); toast.success('Updated'); },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed'),
   });
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.delete(`/projects/${projectId}/statuses/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-custom-statuses', projectId] }); toast.success('Deleted'); },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed'),
   });
 
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">Manage custom task statuses for this project.</p>
       <div className="space-y-1">
-        {statuses.map((s: any) => {
+        {allStatuses.map((s: any) => {
           const id = s.id || s.name;
-          const name = s.name || s.label || s;
-          const color = s.color || '#6B7280';
-          if (editingId === id) {
+          const isEditing = editingId === id;
+
+          if (isEditing) {
             return (
               <div key={id} className="flex items-center gap-2 p-2 rounded-lg bg-secondary">
-                <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className="flex-1 px-2 py-1 rounded bg-background border border-border text-sm" />
+                <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                  className="flex-1 px-2 py-1 rounded bg-background border border-border text-sm" />
                 <div className="flex gap-1">{PRESET_COLORS.map(c => (
-                  <button key={c} onClick={() => setEditForm(f => ({ ...f, color: c }))} className={`w-5 h-5 rounded-full border-2 ${editForm.color === c ? 'border-foreground' : 'border-transparent'}`} style={{ background: c }} />
+                  <button key={c} onClick={() => setEditForm(f => ({ ...f, color: c }))}
+                    className={`w-5 h-5 rounded-full border-2 ${editForm.color === c ? 'border-foreground' : 'border-transparent'}`} style={{ background: c }} />
                 ))}</div>
-                <button onClick={() => updateMut.mutate({ id, name: editForm.name, color: editForm.color })} className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs">Save</button>
+                <button onClick={() => updateMut.mutate({ id, name: editForm.name, color: editForm.color })}
+                  className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs">Save</button>
                 <button onClick={() => setEditingId(null)} className="px-2 py-1 rounded bg-secondary text-xs">✕</button>
               </div>
             );
           }
+
           return (
             <div key={id} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary/50 group">
-              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />
-              <span className="text-sm flex-1">{typeof name === 'string' ? name : name}</span>
-              <button onClick={() => { setEditingId(id); setEditForm({ name: typeof name === 'string' ? name : '', color }); }}
-                className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-secondary text-muted-foreground"><Pencil className="h-3 w-3" /></button>
-              <button onClick={() => deleteMut.mutate(id)}
-                className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive"><Trash2 className="h-3 w-3" /></button>
+              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: s.color }} />
+              <span className="text-sm flex-1">{s.name}</span>
+              {!s.isDefault && (
+                <>
+                  <button onClick={() => { setEditingId(id); setEditForm({ name: s.name, color: s.color }); }}
+                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-secondary text-muted-foreground"><Pencil className="h-3 w-3" /></button>
+                  <button onClick={() => deleteMut.mutate(id)}
+                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive"><Trash2 className="h-3 w-3" /></button>
+                </>
+              )}
             </div>
           );
         })}
       </div>
       <div className="flex items-center gap-2 pt-2 border-t border-border">
-        <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="New status name" className="flex-1 px-3 py-1.5 rounded-lg bg-secondary border border-border text-sm" />
+        <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="New status name"
+          className="flex-1 px-3 py-1.5 rounded-lg bg-secondary border border-border text-sm"
+          onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) addMut.mutate(); }} />
         <div className="flex gap-1">{PRESET_COLORS.slice(0, 5).map(c => (
-          <button key={c} onClick={() => setNewColor(c)} className={`w-5 h-5 rounded-full border-2 ${newColor === c ? 'border-foreground' : 'border-transparent'}`} style={{ background: c }} />
+          <button key={c} onClick={() => setNewColor(c)}
+            className={`w-5 h-5 rounded-full border-2 ${newColor === c ? 'border-foreground' : 'border-transparent'}`} style={{ background: c }} />
         ))}</div>
-        <button onClick={() => addMut.mutate()} disabled={!newName.trim()} className="p-1.5 rounded bg-primary text-primary-foreground disabled:opacity-50">
+        <button onClick={() => addMut.mutate()} disabled={!newName.trim()}
+          className="p-1.5 rounded bg-primary text-primary-foreground disabled:opacity-50">
           <Plus className="h-4 w-4" />
         </button>
       </div>
