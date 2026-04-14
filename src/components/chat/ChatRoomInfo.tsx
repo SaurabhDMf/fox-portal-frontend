@@ -53,11 +53,16 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
     onError: () => toast.error('Failed to add member'),
   });
 
+  const [confirmRemove, setConfirmRemove] = useState<{ id: string; name: string } | null>(null);
+
   const removeMemberMut = useMutation({
     mutationFn: (uid: string) => api.delete(`/chat/rooms/${roomId}/members/${uid}`),
-    onSuccess: () => {
-      toast.success('Member removed');
+    onSuccess: (_res, uid) => {
+      toast.success(uid === user?.id ? 'Left room' : 'Member removed');
       qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
+      qc.invalidateQueries({ queryKey: ['chat-rooms'] });
+      setConfirmRemove(null);
+      if (uid === user?.id) onClose();
     },
   });
 
