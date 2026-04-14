@@ -86,7 +86,8 @@ function normalizeTaskEntity(rawTask: any, members: any[] = []): ProjectTask {
 }
 
 function normalizeCommentEntity(comment: any) {
-  const userName = comment?.user_name || comment?.author_name || comment?.created_by_name
+  const userName = comment?.full_name || comment?.author_name || comment?.user_name
+    || comment?.created_by_name
     || getPersonName(comment?.user || comment?.author || comment?.created_by)
     || comment?.user?.full_name || comment?.user?.name || comment?.user?.email
     || comment?.commenter_name || comment?.posted_by
