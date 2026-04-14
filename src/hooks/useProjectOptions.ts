@@ -31,11 +31,19 @@ function getDefaultStageColor(name: string): string {
 }
 
 function normalizeOptions(list: any[], defaults: { name: string; color: string }[]): { name: string; color: string; category?: 'todo' | 'in_progress' | 'done' }[] {
-  if (!Array.isArray(list) || list.length === 0) return defaults;
-  return list.map((s: any) => {
-    if (typeof s === 'string') return { name: s, color: getDefaultStatusColor(s) || '#6B7280' };
-    return { name: s.name || s.label || s.status || s.stage || '', color: s.color || '#6B7280', category: s.category };
-  }).filter(s => s.name);
+  // Always start with the predefined defaults
+  const merged = [...defaults];
+  if (!Array.isArray(list) || list.length === 0) return merged;
+
+  // Add any custom statuses that aren't already in defaults
+  const defaultNames = new Set(defaults.map(d => d.name.toLowerCase()));
+  for (const s of list) {
+    const name = typeof s === 'string' ? s : (s.name || s.label || s.status || s.stage || '');
+    if (!name || defaultNames.has(name.toLowerCase())) continue;
+    const color = typeof s === 'string' ? '#6B7280' : (s.color || '#6B7280');
+    merged.push({ name, color, category: s?.category });
+  }
+  return merged;
 }
 
 export function useProjectStatuses(projectId: string) {
