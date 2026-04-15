@@ -498,6 +498,11 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             <select value={task.priority} onChange={e => submitTaskUpdate({ priority: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
               {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
+            <div className="ml-auto flex items-center gap-2">
+              <button onClick={() => setShowHandoff(true)} className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-accent text-accent-foreground hover:opacity-90 transition-colors font-medium">
+                <ArrowRightLeft className="h-3 w-3" /> Hand Off
+              </button>
+            </div>
           </div>
 
           {/* Title */}
@@ -509,18 +514,73 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             <h1 className="text-lg font-semibold cursor-pointer hover:text-primary transition-colors" onClick={() => setIsEditingTitle(true)}>{task.title}</h1>
           )}
 
+          {/* Description */}
           <EditableDescription value={task.description || ''} onSave={(desc) => submitTaskUpdate({ description: desc })} />
 
-          {/* Comments Section */}
+          {/* Subtasks */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-semibold text-muted-foreground">Subtasks</h4>
+              <button onClick={() => setShowSubtask(true)} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="h-3 w-3" /> Add</button>
+            </div>
+            {task.subtasks?.map((st: any) => (
+              <div key={st.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-secondary/50 flex-wrap group">
+                <input type="checkbox" checked={st.status === 'Done'} onChange={() => { const newStatus = st.status === 'Done' ? 'Open' : 'Done'; api.put(`/tasks/${st.id}`, { status: newStatus }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success(`Subtask ${newStatus === 'Done' ? 'completed' : 'reopened'}`); }).catch(() => toast.error('Failed to update subtask')); }} className="rounded border-border cursor-pointer" />
+                <span className="text-xs font-mono text-muted-foreground">{st.task_number}</span>
+                <span className={`text-sm flex-1 min-w-[80px] ${st.status === 'Done' ? 'line-through text-muted-foreground' : ''}`}>{st.title}</span>
+                <select value={st.status || 'Open'} onChange={(e) => { api.put(`/tasks/${st.id}`, { status: e.target.value }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success('Status updated'); }).catch(() => toast.error('Failed to update')); }} className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer">
+                  {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <InlineUserPicker value={st.assignee_ids?.[0] || st.assignees?.[0]?.id || ''} onChange={(userId) => { api.patch(`/tasks/${st.id}/assignee`, { assignee_id: userId }).then((res) => { qc.setQueryData(['task-detail', initialTask.id], (old: any) => { if (!old) return old; return { ...old, subtasks: (old.subtasks || []).map((s: any) => s.id === st.id ? { ...s, ...res.data } : s) }; }); toast.success('Assignee updated'); }).catch(() => toast.error('Failed to update')); }} />
+                <input type="date" value={st.due_date ? st.due_date.slice(0, 10) : ''} onChange={(e) => { api.put(`/tasks/${st.id}`, { due_date: e.target.value || null }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success('Due date updated'); }).catch(() => toast.error('Failed to update')); }} className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer" />
+                <SubtaskRowActions subtask={st} onEdit={(s) => setEditingSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
+              </div>
+            ))}
+            {(!task.subtasks || task.subtasks.length === 0) && !showSubtask && <p className="text-xs text-muted-foreground">No subtasks</p>}
+            {showSubtask && (
+              <div className="flex gap-2 mt-1">
+                <input placeholder="Subtask title" value={subtaskTitle} onChange={e => setSubtaskTitle(e.target.value)} className="flex-1 px-2 py-1 rounded bg-secondary border border-border text-sm focus:outline-none" autoFocus onKeyDown={e => { if (e.key === 'Enter' && subtaskTitle.trim()) subtaskMut.mutate(subtaskTitle); }} />
+                <button onClick={() => subtaskTitle.trim() && subtaskMut.mutate(subtaskTitle)} className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs">Add</button>
+                <button onClick={() => setShowSubtask(false)} className="px-2 py-1 rounded text-xs text-muted-foreground hover:bg-secondary">Cancel</button>
+              </div>
+            )}
+          </div>
+
+          {/* Attachments */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-semibold text-muted-foreground">Attachments</h4>
+              <button onClick={() => fileInputRef.current?.click()} className="text-xs text-primary hover:underline flex items-center gap-1"><Paperclip className="h-3 w-3" /> Attach File</button>
+              <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip" className="hidden" onChange={handleFileSelect} />
+            </div>
+            {uploadMut.isPending && <p className="text-xs text-muted-foreground animate-pulse">Uploading...</p>}
+            <div className="space-y-1.5">
+              {attachments.map((att: any) => (
+                <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 group">
+                  {getFileIcon(att.file_name)}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{att.file_name}</p>
+                    {att.created_at && <p className="text-[10px] text-muted-foreground">{new Date(att.created_at).toLocaleDateString()}</p>}
+                  </div>
+                  {att.file_url && <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"><Download className="h-3.5 w-3.5" /></a>}
+                  <button onClick={() => deleteAttachmentMut.mutate(att.id)} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
+              ))}
+              {attachments.length === 0 && !uploadMut.isPending && (
+                <div className="text-center py-4 border border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors" onClick={() => fileInputRef.current?.click()}>
+                  <Paperclip className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
+                  <p className="text-xs text-muted-foreground">Drop files here or click to attach</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Comments */}
           <div className="border border-border rounded-lg p-4 space-y-3">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <MessageSquare className="h-3.5 w-3.5" /> Comments
-            </h4>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> Comments</h4>
             <div className="flex gap-2">
-              <input placeholder="Add a comment..." value={commentText} onChange={e => setCommentText(e.target.value)} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onKeyDown={e => { const nextComment = commentText.trim(); if (e.key === 'Enter' && nextComment) commentMut.mutate(nextComment); }} />
-              <button onClick={() => { const nextComment = commentText.trim(); if (nextComment) commentMut.mutate(nextComment); }} disabled={!commentText.trim() || commentMut.isPending} className="p-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
-                <Send className="h-4 w-4" />
-              </button>
+              <input placeholder="Add a comment..." value={commentText} onChange={e => setCommentText(e.target.value)} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onKeyDown={e => { const c = commentText.trim(); if (e.key === 'Enter' && c) commentMut.mutate(c); }} />
+              <button onClick={() => { const c = commentText.trim(); if (c) commentMut.mutate(c); }} disabled={!commentText.trim() || commentMut.isPending} className="p-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"><Send className="h-4 w-4" /></button>
             </div>
             {comments.length > 0 && (
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
@@ -546,68 +606,52 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             )}
           </div>
 
-          {/* Details grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="relative">
-              <UserPicker
-                multi
-                selectedIds={task.assignee_ids || task.assignees?.map((a: any) => getMemberId(a) || a.id) || []}
-                onToggle={toggleAssignee}
-                value={null}
-                onChange={() => {}}
-                label="Assignees"
-                placeholder="Select assignees..."
-              />
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Reporter</span>
-              <p className="text-sm">{task.reporter?.full_name || '—'}</p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Module</span>
-              <select value={task.epic_id || ''} onChange={e => submitTaskUpdate({ epic_id: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">No Module</option>
-                {epics.map((epic) => <option key={epic.id} value={epic.id}>{epic.title}</option>)}
-              </select>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Sprint</span>
-              <select value={task.sprint_id || ''} onChange={e => submitTaskUpdate({ sprint_id: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                <option value="">No Sprint</option>
-                {sprints.filter((s) => s.status !== 'Completed').map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Due Date</span>
-              <input
-                type="date"
-                value={task.due_date ? task.due_date.substring(0, 10) : ''}
-                onChange={e => submitTaskUpdate({ due_date: e.target.value || null })}
-                className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Stage</span>
-              <div className="mt-1">
-                <InlineAddSelect value={task.stage || ''} options={stages} colorOptions={stageObjects} onChange={v => submitTaskUpdate({ stage: v || null })} onAdd={addStage} placeholder="No Stage" />
+          {/* Details */}
+          <div className="border-t border-border pt-4">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Details</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="relative">
+                <UserPicker multi selectedIds={task.assignee_ids || task.assignees?.map((a: any) => getMemberId(a) || a.id) || []} onToggle={toggleAssignee} value={null} onChange={() => {}} label="Assignees" placeholder="Select assignees..." />
               </div>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Time Tracked</span>
-              <p className="text-sm">{task.logged_hours || 0}h / {task.estimate_hours || 0}h est.</p>
-            </div>
-            <div>
-              <span className="text-xs text-muted-foreground">Code Repo</span>
-              <select
-                value={(task as any).code_repo_status || ''}
-                onChange={e => submitTaskUpdate({ code_repo_status: e.target.value || null })}
-                className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="">No Status</option>
-                <option value="not_pushed">Not Pushed</option>
-                <option value="pushed">Pushed</option>
-                <option value="conflict">Conflict</option>
-              </select>
+              <div>
+                <span className="text-xs text-muted-foreground">Reporter</span>
+                <p className="text-sm">{task.reporter?.full_name || '—'}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Module</span>
+                <select value={task.epic_id || ''} onChange={e => submitTaskUpdate({ epic_id: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                  <option value="">No Module</option>
+                  {epics.map((epic) => <option key={epic.id} value={epic.id}>{epic.title}</option>)}
+                </select>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Sprint</span>
+                <select value={task.sprint_id || ''} onChange={e => submitTaskUpdate({ sprint_id: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                  <option value="">No Sprint</option>
+                  {sprints.filter((s) => s.status !== 'Completed').map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Due Date</span>
+                <input type="date" value={task.due_date ? task.due_date.substring(0, 10) : ''} onChange={e => submitTaskUpdate({ due_date: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Stage</span>
+                <div className="mt-1"><InlineAddSelect value={task.stage || ''} options={stages} colorOptions={stageObjects} onChange={v => submitTaskUpdate({ stage: v || null })} onAdd={addStage} placeholder="No Stage" /></div>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Code Repo</span>
+                <select value={(task as any).code_repo_status || ''} onChange={e => submitTaskUpdate({ code_repo_status: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                  <option value="">No Status</option>
+                  <option value="not_pushed">Not Pushed</option>
+                  <option value="pushed">Pushed</option>
+                  <option value="conflict">Conflict</option>
+                </select>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Time Tracked</span>
+                <p className="text-sm mt-1">{task.logged_hours || 0}h / {task.estimate_hours || 0}h est.</p>
+              </div>
             </div>
           </div>
 
@@ -623,134 +667,15 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             </div>
           )}
 
-          {/* Attachments */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-xs font-semibold text-muted-foreground">Attachments</h4>
-              <button onClick={() => fileInputRef.current?.click()} className="text-xs text-primary hover:underline flex items-center gap-1">
-                <Paperclip className="h-3 w-3" /> Attach File
-              </button>
-              <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip" className="hidden" onChange={handleFileSelect} />
-            </div>
-            {uploadMut.isPending && <p className="text-xs text-muted-foreground animate-pulse">Uploading...</p>}
-            <div className="space-y-1.5">
-              {attachments.map((att: any) => (
-                <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 group">
-                  {getFileIcon(att.file_name)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">{att.file_name}</p>
-                    {att.created_at && <p className="text-[10px] text-muted-foreground">{new Date(att.created_at).toLocaleDateString()}</p>}
-                  </div>
-                  {att.file_url && <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"><Download className="h-3.5 w-3.5" /></a>}
-                  <button onClick={() => deleteAttachmentMut.mutate(att.id)} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"><Trash2 className="h-3.5 w-3.5" /></button>
-                </div>
-              ))}
-              {attachments.length === 0 && !uploadMut.isPending && (
-                <div className="text-center py-4 border border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors" onClick={() => fileInputRef.current?.click()}>
-                  <Paperclip className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-                  <p className="text-xs text-muted-foreground">Drop files here or click to attach</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Subtasks */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-xs font-semibold text-muted-foreground">Subtasks</h4>
-              <button onClick={() => setShowSubtask(true)} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="h-3 w-3" /> Add</button>
-            </div>
-            {task.subtasks?.map((st: any) => (
-              <div key={st.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-secondary/50 flex-wrap group">
-                {/* Checkbox + Title */}
-                <input
-                  type="checkbox"
-                  checked={st.status === 'Done'}
-                  onChange={() => {
-                    const newStatus = st.status === 'Done' ? 'Open' : 'Done';
-                    api.put(`/tasks/${st.id}`, { status: newStatus }).then(() => {
-                      qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] });
-                      toast.success(`Subtask ${newStatus === 'Done' ? 'completed' : 'reopened'}`);
-                    }).catch(() => toast.error('Failed to update subtask'));
-                  }}
-                  className="rounded border-border cursor-pointer"
-                />
-                <span className="text-xs font-mono text-muted-foreground">{st.task_number}</span>
-                <span className={`text-sm flex-1 min-w-[80px] ${st.status === 'Done' ? 'line-through text-muted-foreground' : ''}`}>{st.title}</span>
-
-                {/* Status */}
-                <select
-                  value={st.status || 'Open'}
-                  onChange={(e) => {
-                    api.put(`/tasks/${st.id}`, { status: e.target.value }).then(() => {
-                      qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] });
-                      toast.success('Status updated');
-                    }).catch(() => toast.error('Failed to update'));
-                  }}
-                  className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer"
-                >
-                  {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-
-                {/* Assignee */}
-                <InlineUserPicker
-                  value={st.assignee_ids?.[0] || st.assignees?.[0]?.id || ''}
-                  onChange={(userId) => {
-                    api.patch(`/tasks/${st.id}/assignee`, { assignee_id: userId }).then((res) => {
-                      const updated = res.data;
-                      qc.setQueryData(['task-detail', initialTask.id], (old: any) => {
-                        if (!old) return old;
-                        const subtasks = (old.subtasks || []).map((s: any) => s.id === st.id ? { ...s, ...updated } : s);
-                        return { ...old, subtasks };
-                      });
-                      toast.success('Assignee updated');
-                    }).catch(() => toast.error('Failed to update'));
-                  }}
-                />
-
-                {/* Due Date */}
-                <input
-                  type="date"
-                  value={st.due_date ? st.due_date.slice(0, 10) : ''}
-                  onChange={(e) => {
-                    api.put(`/tasks/${st.id}`, { due_date: e.target.value || null }).then(() => {
-                      qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] });
-                      toast.success('Due date updated');
-                    }).catch(() => toast.error('Failed to update'));
-                  }}
-                  className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer"
-                />
-
-                {/* Edit & Delete */}
-                <SubtaskRowActions subtask={st} onEdit={(s) => setEditingSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
-              </div>
-            ))}
-            {(!task.subtasks || task.subtasks.length === 0) && !showSubtask && <p className="text-xs text-muted-foreground">No subtasks</p>}
-            {showSubtask && (
-              <div className="flex gap-2 mt-1">
-                <input placeholder="Subtask title" value={subtaskTitle} onChange={e => setSubtaskTitle(e.target.value)} className="flex-1 px-2 py-1 rounded bg-secondary border border-border text-sm focus:outline-none" autoFocus onKeyDown={e => { if (e.key === 'Enter' && subtaskTitle.trim()) subtaskMut.mutate(subtaskTitle); }} />
-                <button onClick={() => subtaskTitle.trim() && subtaskMut.mutate(subtaskTitle)} className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs">Add</button>
-                <button onClick={() => setShowSubtask(false)} className="px-2 py-1 rounded text-xs text-muted-foreground hover:bg-secondary">Cancel</button>
-              </div>
-            )}
-          </div>
-
-          {/* Tabs: Time Log / Handoffs */}
+          {/* Time Log / Handoffs */}
           <div className="border-t border-border pt-4">
             <div className="flex gap-4 mb-4">
-              <button onClick={() => setActiveTab('timelog')} className={`flex items-center gap-1 text-sm font-medium pb-1 border-b-2 transition-colors ${activeTab === 'timelog' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-                <Clock className="h-3.5 w-3.5" /> Time Log
-              </button>
-              <button onClick={() => setActiveTab('handoffs')} className={`flex items-center gap-1 text-sm font-medium pb-1 border-b-2 transition-colors ${activeTab === 'handoffs' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-                <ArrowRightLeft className="h-3.5 w-3.5" /> Handoffs
-              </button>
+              <button onClick={() => setActiveTab('timelog')} className={`flex items-center gap-1 text-sm font-medium pb-1 border-b-2 transition-colors ${activeTab === 'timelog' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}><Clock className="h-3.5 w-3.5" /> Time Log</button>
+              <button onClick={() => setActiveTab('handoffs')} className={`flex items-center gap-1 text-sm font-medium pb-1 border-b-2 transition-colors ${activeTab === 'handoffs' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}><ArrowRightLeft className="h-3.5 w-3.5" /> Handoffs</button>
             </div>
-
             {activeTab === 'timelog' && (
               <div className="space-y-3">
-                <button onClick={() => setShowLogTime(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-                  <Plus className="h-3 w-3" /> Log Time
-                </button>
+                <button onClick={() => setShowLogTime(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all"><Plus className="h-3 w-3" /> Log Time</button>
                 <div className="space-y-2">
                   {timeLogs.map((tl: any) => (
                     <div key={tl.id} className="flex items-center gap-3 p-2 rounded-lg bg-secondary/50">
@@ -777,7 +702,6 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                 )}
               </div>
             )}
-
             {activeTab === 'handoffs' && (
               <div className="space-y-3">
                 {handoffs.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No handoff history yet</p>}
@@ -794,9 +718,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                         <span className="text-muted-foreground">→</span>
                         <span className="font-semibold text-primary">{h.to_stage}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {h.from_user_name || 'Someone'} → {h.to_user_name || 'Unassigned'}
-                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{h.from_user_name || 'Someone'} → {h.to_user_name || 'Unassigned'}</p>
                       {h.note && <p className="text-xs mt-1 text-foreground/80">{h.note}</p>}
                       <p className="text-[10px] text-muted-foreground mt-1">{h.created_at ? new Date(h.created_at).toLocaleString() : ''}</p>
                     </div>
