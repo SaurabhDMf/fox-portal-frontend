@@ -466,20 +466,17 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     return <FileText className="h-4 w-4 text-muted-foreground" />;
   };
 
-  return (
+    return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-2xl bg-card border-l border-border overflow-y-auto animate-slide-up">
+        {/* Sticky header */}
         <div className="sticky top-0 z-10 bg-card border-b border-border p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">{tc.icon}</span>
             <span className="text-sm font-mono text-muted-foreground">{task.task_number}</span>
-            {task.stage && <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium">{task.stage}</span>}
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowHandoff(true)} className="flex items-center gap-1 px-2 py-1 rounded text-xs bg-accent text-accent-foreground hover:opacity-90 transition-colors font-medium" title="Hand Off">
-              <ArrowRightLeft className="h-3 w-3" /> Hand Off
-            </button>
             <button onClick={() => watchMut.mutate()} className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${task.is_watching ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}>
               {task.is_watching ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
               {task.watchers_count || 0}
