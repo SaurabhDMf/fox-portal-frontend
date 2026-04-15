@@ -489,8 +489,8 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
         </div>
 
         <div className="p-4 md:p-6 space-y-6">
-          {/* Dropdowns row */}
-          <div className="flex flex-wrap gap-2">
+          {/* Header controls: Type, Status, Priority, Handoff, Timelog */}
+          <div className="flex flex-wrap items-center gap-2">
             <select value={task.type} onChange={e => submitTaskUpdate({ type: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
               {TYPES.map(t => <option key={t} value={t}>{TASK_TYPE_CONFIG[t]?.icon} {t}</option>)}
             </select>
