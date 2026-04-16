@@ -37,7 +37,7 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const userRole = useAuthStore((s) => s.user?.role);
-  const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin' || userRole === 'supervisor';
   const [activeTab, setActiveTab] = useState<TabId>('tasks');
   const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
   const [createTaskDefaults, setCreateTaskDefaults] = useState<{ status?: string; sprint_id?: string; epic_id?: string } | null>(null);

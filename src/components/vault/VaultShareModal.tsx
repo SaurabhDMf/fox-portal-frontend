@@ -212,10 +212,12 @@ export default function VaultShareModal({ open, onClose, shareTarget }: Props) {
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
         ) : existingShares.length > 0 ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Currently Shared With</p>
-            <div className="space-y-1 max-h-36 overflow-y-auto">
-              {existingShares.map((share) => {
+            {(() => {
+              const userShares = existingShares.filter(s => s.type === 'user');
+              const clientShares = existingShares.filter(s => s.type === 'client');
+              const renderShare = (share: ExistingShare) => {
                 const key = `${share.type}:${share.id}`;
                 return (
                   <div key={key} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/50">
@@ -224,9 +226,7 @@ export default function VaultShareModal({ open, onClose, shareTarget }: Props) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{share.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {[share.email, share.type === 'client' ? 'Client' : 'User'].filter(Boolean).join(' • ')}
-                      </div>
+                      <div className="text-xs text-muted-foreground truncate">{share.email || ''}</div>
                     </div>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${share.canEdit ? 'bg-[hsl(var(--success))]/15 text-[hsl(var(--success))]' : 'bg-secondary text-muted-foreground'}`}>
                       {share.canEdit ? 'Can Edit' : 'View Only'}
@@ -241,8 +241,24 @@ export default function VaultShareModal({ open, onClose, shareTarget }: Props) {
                     </button>
                   </div>
                 );
-              })}
-            </div>
+              };
+              return (
+                <>
+                  {userShares.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1.5"><Users className="h-3 w-3" /> Users</p>
+                      <div className="space-y-1 max-h-28 overflow-y-auto">{userShares.map(renderShare)}</div>
+                    </div>
+                  )}
+                  {clientShares.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider flex items-center gap-1.5"><Building2 className="h-3 w-3" /> Clients</p>
+                      <div className="space-y-1 max-h-28 overflow-y-auto">{clientShares.map(renderShare)}</div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         ) : null}
 
