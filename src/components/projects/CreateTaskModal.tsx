@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
-import type { Epic, Sprint, ProjectTask } from '@/lib/projectTypes';
+import type { Epic, Module, Sprint, ProjectTask } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -52,11 +52,14 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
 
   // Removed project-members query — using UserPicker with /users/active instead
 
-  const { data: epicsRaw } = useQuery({
-    queryKey: ['project-epics', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/epics`).then(r => extractProjectArray<Epic>(r.data, ['epics'])),
+  // Modules layer (legacy field name `epic_id` on tasks)
+  const { data: modulesRaw } = useQuery({
+    queryKey: ['project-modules', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/modules`).then(r => extractProjectArray<Module>(r.data, ['modules', 'epics'])),
   });
-  const epics = Array.isArray(epicsRaw) ? epicsRaw : [];
+  const modules = (Array.isArray(modulesRaw) ? modulesRaw : [])
+    .slice()
+    .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
 
   const { data: sprintsRaw } = useQuery({
     queryKey: ['project-sprints', projectId],
@@ -64,17 +67,19 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
   });
   const sprints = (Array.isArray(sprintsRaw) ? sprintsRaw : []).filter((s: Sprint) => s.status !== 'Completed');
 
-  // New Epic layer (project_epics) — fetched filtered by sprint when a sprint is selected.
+  // Epic layer (project_epics) — filtered by selected module and/or sprint when set.
   const { data: projectEpicsRaw } = useQuery({
     queryKey: ['project-epics-picker', projectId, form.sprint_id, form.epic_id],
     queryFn: () => {
       const params: Record<string, string> = {};
       if (form.sprint_id) params.sprint_id = form.sprint_id;
       if (form.epic_id) params.module_id = form.epic_id;
-      return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<any>(r.data, ['epics']));
+      return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<Epic>(r.data, ['epics']));
     },
   });
-  const projectEpics = Array.isArray(projectEpicsRaw) ? projectEpicsRaw : [];
+  const projectEpics = (Array.isArray(projectEpicsRaw) ? projectEpicsRaw : [])
+    .slice()
+    .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
 
   const { data: storiesRaw } = useQuery({
     queryKey: ['project-stories', projectId],
@@ -198,6 +203,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
       qc.invalidateQueries({ queryKey: ['project-all-tasks'] });
       qc.invalidateQueries({ queryKey: ['project-board', projectId] });
       qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-modules', projectId] });
       qc.invalidateQueries({ queryKey: ['project-epics', projectId] });
       qc.invalidateQueries({ queryKey: ['sprint-hierarchy', projectId] });
       qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
@@ -260,12 +266,12 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
           </select>
         </div>
 
-        {/* Module (optional) — filtered by selected sprint */}
+        {/* Module (optional) — full project modules list */}
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Module (optional){form.sprint_id ? '' : ' — select a sprint first for filtered modules'}</label>
+          <label className="text-xs text-muted-foreground mb-1 block">Module (optional)</label>
           <select value={form.epic_id} onChange={e => { set('epic_id', e.target.value); set('project_epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             <option value="">None</option>
-            {epics.filter((ep: Epic) => !form.sprint_id || (ep as any).sprint_id === form.sprint_id || !(ep as any).sprint_id).map((ep: Epic) => <option key={ep.id} value={ep.id}>{ep.title}</option>)}
+            {modules.map((m: Module) => <option key={m.id} value={m.id}>{m.title}{m.sprint_name ? ` — ${m.sprint_name}` : ''}</option>)}
           </select>
         </div>
 
