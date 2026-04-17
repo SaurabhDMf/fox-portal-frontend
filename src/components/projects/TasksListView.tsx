@@ -359,7 +359,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={14} className="py-12 text-center text-sm text-muted-foreground">
                   Loading tasks…
                 </TableCell>
               </TableRow>
