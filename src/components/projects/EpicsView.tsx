@@ -135,6 +135,7 @@ export default function EpicsView({ projectId }: Props) {
             </>
           )}
         </div>
+        </div>
       </div>
 
       {modulesLoading && (
