@@ -5,7 +5,7 @@ import InlineAddSelect from './InlineAddSelect';
 import { TASK_TYPE_CONFIG, BOARD_COLUMNS, WORKFLOW_STAGES, type Epic, type ProjectTask, type Sprint } from '@/lib/projectTypes';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import HandoffModal from './HandoffModal';
-import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
+import { SubtaskRowActions, SubtaskDeleteConfirm } from './SubtaskActions';
 import SubtaskCreateModal from './SubtaskCreateModal';
 import UserPicker, { InlineUserPicker } from './UserPicker';
 
@@ -179,8 +179,8 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [showAssigneePicker, setShowAssigneePicker] = useState(false);
   const [showHandoff, setShowHandoff] = useState(false);
-  const [editingSubtask, setEditingSubtask] = useState<any>(null);
   const [deletingSubtask, setDeletingSubtask] = useState<any>(null);
+  const [openSubtask, setOpenSubtask] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: taskDetail } = useQuery({
@@ -525,16 +525,24 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
               <button onClick={() => setShowSubtask(true)} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="h-3 w-3" /> Add</button>
             </div>
             {task.subtasks?.map((st: any) => (
-              <div key={st.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-secondary/50 flex-wrap group">
-                <input type="checkbox" checked={st.status === 'Done'} onChange={() => { const newStatus = st.status === 'Done' ? 'Open' : 'Done'; api.put(`/tasks/${st.id}`, { status: newStatus }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success(`Subtask ${newStatus === 'Done' ? 'completed' : 'reopened'}`); }).catch(() => toast.error('Failed to update subtask')); }} className="rounded border-border cursor-pointer" />
+              <div
+                key={st.id}
+                onClick={() => setOpenSubtask(st)}
+                className="flex items-center gap-2 py-2 px-2 rounded hover:bg-secondary/50 flex-wrap group cursor-pointer"
+              >
+                <input type="checkbox" checked={st.status === 'Done'} onClick={(e) => e.stopPropagation()} onChange={(e) => { e.stopPropagation(); const newStatus = st.status === 'Done' ? 'Open' : 'Done'; api.put(`/tasks/${st.id}`, { status: newStatus }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success(`Subtask ${newStatus === 'Done' ? 'completed' : 'reopened'}`); }).catch(() => toast.error('Failed to update subtask')); }} className="rounded border-border cursor-pointer" />
                 <span className="text-xs font-mono text-muted-foreground">{st.task_number}</span>
                 <span className={`text-sm flex-1 min-w-[80px] ${st.status === 'Done' ? 'line-through text-muted-foreground' : ''}`}>{st.title}</span>
-                <select value={st.status || 'Open'} onChange={(e) => { api.put(`/tasks/${st.id}`, { status: e.target.value }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success('Status updated'); }).catch(() => toast.error('Failed to update')); }} className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer">
+                <select onClick={(e) => e.stopPropagation()} value={st.status || 'Open'} onChange={(e) => { e.stopPropagation(); api.put(`/tasks/${st.id}`, { status: e.target.value }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success('Status updated'); }).catch(() => toast.error('Failed to update')); }} className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer">
                   {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <InlineUserPicker value={st.assignee_ids?.[0] || st.assignees?.[0]?.id || ''} onChange={(userId) => { api.patch(`/tasks/${st.id}/assignee`, { assignee_id: userId }).then((res) => { qc.setQueryData(['task-detail', initialTask.id], (old: any) => { if (!old) return old; return { ...old, subtasks: (old.subtasks || []).map((s: any) => s.id === st.id ? { ...s, ...res.data } : s) }; }); toast.success('Assignee updated'); }).catch(() => toast.error('Failed to update')); }} />
-                <input type="date" value={st.due_date ? st.due_date.slice(0, 10) : ''} onChange={(e) => { api.put(`/tasks/${st.id}`, { due_date: e.target.value || null }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success('Due date updated'); }).catch(() => toast.error('Failed to update')); }} className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer" />
-                <SubtaskRowActions subtask={st} onEdit={(s) => setEditingSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <InlineUserPicker value={st.assignee_ids?.[0] || st.assignees?.[0]?.id || ''} onChange={(userId) => { api.patch(`/tasks/${st.id}/assignee`, { assignee_id: userId }).then((res) => { qc.setQueryData(['task-detail', initialTask.id], (old: any) => { if (!old) return old; return { ...old, subtasks: (old.subtasks || []).map((s: any) => s.id === st.id ? { ...s, ...res.data } : s) }; }); toast.success('Assignee updated'); }).catch(() => toast.error('Failed to update')); }} />
+                </div>
+                <input onClick={(e) => e.stopPropagation()} type="date" value={st.due_date ? st.due_date.slice(0, 10) : ''} onChange={(e) => { e.stopPropagation(); api.put(`/tasks/${st.id}`, { due_date: e.target.value || null }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success('Due date updated'); }).catch(() => toast.error('Failed to update')); }} className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer" />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <SubtaskRowActions subtask={st} onEdit={(s) => setOpenSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
+                </div>
               </div>
             ))}
             {(!task.subtasks || task.subtasks.length === 0) && <p className="text-xs text-muted-foreground">No subtasks</p>}
@@ -750,18 +758,12 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
         />
       )}
 
-      {/* Subtask Edit Modal */}
-      {editingSubtask && (
-        <SubtaskEditModal
-          subtask={editingSubtask}
-          onClose={() => setEditingSubtask(null)}
-          onSuccess={(updated) => {
-            qc.setQueryData<ProjectTask>(['task-detail', initialTask.id], (c) => ({
-              ...(c || task),
-              subtasks: ((c || task).subtasks || []).map((s: any) => s.id === updated.id ? { ...s, ...updated } : s),
-            }));
-            setEditingSubtask(null);
-          }}
+      {/* Subtask Detail Drawer (nested) */}
+      {openSubtask && (
+        <TaskDetailDrawer
+          task={openSubtask}
+          projectId={projectId}
+          onClose={() => { setOpenSubtask(null); invalidateTaskQueries(); }}
         />
       )}
 
