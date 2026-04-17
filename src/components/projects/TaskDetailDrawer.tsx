@@ -168,6 +168,25 @@ function EditableDescription({ value, onSave }: { value: string; onSave: (v: str
   );
 }
 
+function ProjectEpicSelect({ projectId, sprintId, moduleId, value, onChange }: { projectId: string; sprintId?: string; moduleId?: string; value: string; onChange: (id: string) => void }) {
+  const { data: epicsRaw } = useQuery({
+    queryKey: ['project-epics-picker', projectId, sprintId, moduleId],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      if (sprintId) params.sprint_id = sprintId;
+      if (moduleId) params.module_id = moduleId;
+      return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<any>(r.data, ['epics']));
+    },
+  });
+  const epics = Array.isArray(epicsRaw) ? epicsRaw : [];
+  return (
+    <select value={value} onChange={e => onChange(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+      <option value="">No Epic</option>
+      {epics.map((ep: any) => <option key={ep.id} value={ep.id}>{ep.title}</option>)}
+    </select>
+  );
+}
+
 export default function TaskDetailDrawer({ task: initialTask, onClose, projectId }: Props) {
   const qc = useQueryClient();
   const { statuses, statusObjects, addStatus } = useProjectStatuses(projectId);
