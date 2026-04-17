@@ -83,6 +83,8 @@ function normalizeTaskEntity(rawTask: any, members: any[] = []): ProjectTask {
     assignee_ids: assigneeIds,
     assignees,
     reporter,
+    subtasks: Array.isArray(task.subtasks) ? task.subtasks.map((item: any) => normalizeTaskEntity(item, members)) : task.subtasks,
+    tasks: Array.isArray(task.tasks) ? task.tasks.map((item: any) => normalizeTaskEntity(item, members)) : task.tasks,
   };
 }
 
