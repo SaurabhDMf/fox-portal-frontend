@@ -80,6 +80,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
   const [sprintFilter, setSprintFilter] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState('');
+  const [reporterFilter, setReporterFilter] = useState('');
 
   // Close status dropdown on outside click
   useEffect(() => {
@@ -103,8 +104,9 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     if (sprintFilter) p.sprint_id = sprintFilter;
     if (moduleFilter) p.module_id = moduleFilter;
     if (assigneeFilter) p.assignee_id = assigneeFilter;
+    if (reporterFilter) p.reporter_id = reporterFilter;
     return p;
-  }, [projectId, typeFilter, sprintFilter, moduleFilter, assigneeFilter]);
+  }, [projectId, typeFilter, sprintFilter, moduleFilter, assigneeFilter, reporterFilter]);
 
   // Main task query
   const { data: raw, isLoading } = useQuery({
@@ -165,7 +167,18 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     staleTime: 60_000,
   });
 
-  const hasActiveFilters = search || statusFilter.length > 0 || typeFilter || priorityFilter || sprintFilter || moduleFilter || assigneeFilter;
+  // Team users for "Assigned By" filter (excludes clients)
+  const { data: teamUsers } = useQuery({
+    queryKey: ['team-users-active'],
+    queryFn: async () => {
+      const r = await api.get('/users/active');
+      const d = r.data;
+      return d?.users || d?.data?.users || d?.data?.items || d?.items || d?.data || d || [];
+    },
+    staleTime: 60_000,
+  });
+
+  const hasActiveFilters = search || statusFilter.length > 0 || typeFilter || priorityFilter || sprintFilter || moduleFilter || assigneeFilter || reporterFilter;
 
   const clearFilters = () => {
     setSearch('');
@@ -175,6 +188,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     setSprintFilter('');
     setModuleFilter('');
     setAssigneeFilter('');
+    setReporterFilter('');
   };
 
   // Inline status update
@@ -255,6 +269,15 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           </select>
         )}
 
+        {!isRestricted && (
+          <select value={reporterFilter} onChange={e => setReporterFilter(e.target.value)} className={selectCls}>
+            <option value="">Assigned By</option>
+            {(Array.isArray(teamUsers) ? teamUsers : []).map((u: any) => (
+              <option key={u.id} value={u.id}>{u.full_name}</option>
+            ))}
+          </select>
+        )}
+
         <div ref={statusDropdownRef} className="relative">
           <button
             onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
@@ -320,8 +343,10 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
             <TableRow>
               <TableHead>Task Name</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Client</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Assigned To</TableHead>
+              <TableHead>Assigned By</TableHead>
               <TableHead>Due Date</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
@@ -334,7 +359,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={14} className="py-12 text-center text-sm text-muted-foreground">
                   Loading tasks…
                 </TableCell>
               </TableRow>
@@ -366,6 +391,11 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                       </Badge>
                     </TableCell>
 
+                    {/* Client */}
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap max-w-[140px] truncate">
+                      {(t as any).client_name || '—'}
+                    </TableCell>
+
                     {/* Created */}
                     <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
                       {fmtDate(t.created_at)}
@@ -386,6 +416,11 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                       ) : (
                         <span className="text-xs text-muted-foreground">Unassigned</span>
                       )}
+                    </TableCell>
+
+                    {/* Assigned By (Reporter) */}
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {(t as any).reporter_name || t.reporter?.full_name || '—'}
                     </TableCell>
 
                     {/* Due Date */}
@@ -449,7 +484,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={11} className="py-12 text-center">
+                <TableCell colSpan={14} className="py-12 text-center">
                   <p className="text-sm text-muted-foreground">
                     {hasActiveFilters ? 'No tasks match your filters.' : 'No tasks found. Create the first one.'}
                   </p>

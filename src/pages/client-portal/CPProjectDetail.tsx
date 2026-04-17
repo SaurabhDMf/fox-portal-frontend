@@ -174,7 +174,8 @@ export default function CPProjectDetail() {
 /* ─── Overview Tab ─── */
 function OverviewTab({ project, done, total, pct, members }: { project: any; done: number; total: number; pct: number; members: any[] }) {
   const sprints = project.sprints || [];
-  const activeSprints = sprints.filter((s: any) => s.status === 'Active').length;
+  const activeSprints = project.active_sprints_count ?? sprints.filter((s: any) => s.status === 'Active').length;
+  const inProgress = project.in_progress_tasks ?? 0;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -188,10 +189,14 @@ function OverviewTab({ project, done, total, pct, members }: { project: any; don
           <Progress value={pct} className="h-2" />
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="glass-card p-4 text-center">
             <div className="text-2xl font-bold">{total}</div>
             <div className="text-xs text-muted-foreground mt-1">Total Tasks</div>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <div className="text-2xl font-bold">{inProgress}</div>
+            <div className="text-xs text-muted-foreground mt-1">In Progress</div>
           </div>
           <div className="glass-card p-4 text-center">
             <div className="text-2xl font-bold">{activeSprints}</div>
