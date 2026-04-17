@@ -759,18 +759,12 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
         />
       )}
 
-      {/* Subtask Edit Modal */}
-      {editingSubtask && (
-        <SubtaskEditModal
-          subtask={editingSubtask}
-          onClose={() => setEditingSubtask(null)}
-          onSuccess={(updated) => {
-            qc.setQueryData<ProjectTask>(['task-detail', initialTask.id], (c) => ({
-              ...(c || task),
-              subtasks: ((c || task).subtasks || []).map((s: any) => s.id === updated.id ? { ...s, ...updated } : s),
-            }));
-            setEditingSubtask(null);
-          }}
+      {/* Subtask Detail Drawer (nested) */}
+      {openSubtask && (
+        <TaskDetailDrawer
+          task={openSubtask}
+          projectId={projectId}
+          onClose={() => { setOpenSubtask(null); invalidateTaskQueries(); }}
         />
       )}
 
