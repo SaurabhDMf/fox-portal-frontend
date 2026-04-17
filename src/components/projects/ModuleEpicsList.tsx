@@ -121,6 +121,17 @@ export default function ModuleEpicsList({ projectId, moduleId, sprintId, moduleC
         />
       )}
 
+      {moveEpic && (
+        <MoveEpicModal
+          projectId={projectId}
+          epicId={moveEpic.id}
+          epicTitle={moveEpic.title}
+          currentModuleId={moduleId}
+          onClose={() => setMoveEpic(null)}
+          onSuccess={() => { setMoveEpic(null); refresh(); }}
+        />
+      )}
+
       {deleteId && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => setDeleteId(null)}>
           <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up" onClick={e => e.stopPropagation()}>
