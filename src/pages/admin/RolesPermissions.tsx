@@ -56,7 +56,7 @@ export default function RolesPermissions() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: (name: string) => api.delete(`/roles/${name}`),
+    mutationFn: (name: string) => api.delete(`/roles/${name}`, { skipConfirm: true } as any),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['roles'] }); toast.success('Role deleted'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting role'),
   });

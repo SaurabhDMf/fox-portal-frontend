@@ -59,7 +59,7 @@ export default function SprintsView({ projectId, onTaskClick, onCreateTask }: Pr
   });
 
   const deleteMut = useMutation({
-    mutationFn: (sid: string) => api.delete(`/projects/${projectId}/sprints/${sid}`),
+    mutationFn: (sid: string) => api.delete(`/projects/${projectId}/sprints/${sid}`, { skipConfirm: true } as any),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); setDeleteSprintId(null); toast.success('Sprint deleted'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting sprint'),
   });

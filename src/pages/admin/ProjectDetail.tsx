@@ -93,7 +93,7 @@ export default function ProjectDetail() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: () => api.delete(`/projects/${id}`),
+    mutationFn: () => api.delete(`/projects/${id}`, { skipConfirm: true } as any),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['projects'] });
       toast.success('Project deleted');

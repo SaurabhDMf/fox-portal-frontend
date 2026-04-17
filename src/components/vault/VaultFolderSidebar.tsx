@@ -79,7 +79,7 @@ export default function VaultFolderSidebar({ folders, selectedFolder, onSelect, 
     if (!deleteFolder) return;
     setDeleting(true);
     try {
-      await api.delete(`/vault/folders/${deleteFolder.id}`);
+      await api.delete(`/vault/folders/${deleteFolder.id}`, { skipConfirm: true } as any);
     } catch { /* local fallback */ }
     onFolderDeleted(deleteFolder.id);
     setDeleteFolder(null);
