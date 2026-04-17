@@ -76,7 +76,7 @@ function PermissionsLoader({ children }: { children: React.ReactNode }) {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <Toaster
-      position="top-right"
+      position="top-center"
       toastOptions={{
         className: '!bg-card !text-foreground !border !border-border !text-sm',
       }}
