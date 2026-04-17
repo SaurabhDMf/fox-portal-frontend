@@ -64,6 +64,18 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
   });
   const sprints = (Array.isArray(sprintsRaw) ? sprintsRaw : []).filter((s: Sprint) => s.status !== 'Completed');
 
+  // New Epic layer (project_epics) — fetched filtered by sprint when a sprint is selected.
+  const { data: projectEpicsRaw } = useQuery({
+    queryKey: ['project-epics-picker', projectId, form.sprint_id, form.epic_id],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      if (form.sprint_id) params.sprint_id = form.sprint_id;
+      if (form.epic_id) params.module_id = form.epic_id;
+      return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<any>(r.data, ['epics']));
+    },
+  });
+  const projectEpics = Array.isArray(projectEpicsRaw) ? projectEpicsRaw : [];
+
   const { data: storiesRaw } = useQuery({
     queryKey: ['project-stories', projectId],
     queryFn: async () => {
@@ -161,6 +173,11 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
       if (form.assignee_ids.length === 1) payload.assignee_id = form.assignee_ids[0];
       if (form.assignee_ids.length > 1) payload.assignee_ids = form.assignee_ids;
       if (form.epic_id) payload.epic_id = form.epic_id; else payload.epic_id = null;
+      if (form.project_epic_id) {
+        payload.project_epic_id = form.project_epic_id;
+      } else {
+        payload.project_epic_id = null;
+      }
       if (form.sprint_id) payload.sprint_id = form.sprint_id; else payload.sprint_id = null;
       if (form.parent_task_id) payload.parent_task_id = form.parent_task_id; else payload.parent_task_id = null;
       if (form.due_date) payload.due_date = form.due_date;
