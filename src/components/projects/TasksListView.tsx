@@ -80,6 +80,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
   const [sprintFilter, setSprintFilter] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState('');
+  const [reporterFilter, setReporterFilter] = useState('');
 
   // Close status dropdown on outside click
   useEffect(() => {
@@ -103,8 +104,9 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     if (sprintFilter) p.sprint_id = sprintFilter;
     if (moduleFilter) p.module_id = moduleFilter;
     if (assigneeFilter) p.assignee_id = assigneeFilter;
+    if (reporterFilter) p.reporter_id = reporterFilter;
     return p;
-  }, [projectId, typeFilter, sprintFilter, moduleFilter, assigneeFilter]);
+  }, [projectId, typeFilter, sprintFilter, moduleFilter, assigneeFilter, reporterFilter]);
 
   // Main task query
   const { data: raw, isLoading } = useQuery({
@@ -165,7 +167,18 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     staleTime: 60_000,
   });
 
-  const hasActiveFilters = search || statusFilter.length > 0 || typeFilter || priorityFilter || sprintFilter || moduleFilter || assigneeFilter;
+  // Team users for "Assigned By" filter (excludes clients)
+  const { data: teamUsers } = useQuery({
+    queryKey: ['team-users-active'],
+    queryFn: async () => {
+      const r = await api.get('/users/active');
+      const d = r.data;
+      return d?.users || d?.data?.users || d?.data?.items || d?.items || d?.data || d || [];
+    },
+    staleTime: 60_000,
+  });
+
+  const hasActiveFilters = search || statusFilter.length > 0 || typeFilter || priorityFilter || sprintFilter || moduleFilter || assigneeFilter || reporterFilter;
 
   const clearFilters = () => {
     setSearch('');
@@ -175,6 +188,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     setSprintFilter('');
     setModuleFilter('');
     setAssigneeFilter('');
+    setReporterFilter('');
   };
 
   // Inline status update
@@ -252,6 +266,15 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} className={selectCls}>
             <option value="">All Assignees</option>
             {(members ?? []).map(m => <option key={m.user_id} value={m.user_id}>{m.full_name}</option>)}
+          </select>
+        )}
+
+        {!isRestricted && (
+          <select value={reporterFilter} onChange={e => setReporterFilter(e.target.value)} className={selectCls}>
+            <option value="">Assigned By</option>
+            {(Array.isArray(teamUsers) ? teamUsers : []).map((u: any) => (
+              <option key={u.id} value={u.id}>{u.full_name}</option>
+            ))}
           </select>
         )}
 
