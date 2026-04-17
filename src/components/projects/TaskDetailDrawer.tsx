@@ -522,7 +522,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             <select value={task.type} onChange={e => submitTaskUpdate({ type: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
               {TYPES.map(t => <option key={t} value={t}>{TASK_TYPE_CONFIG[t]?.icon} {t}</option>)}
             </select>
-            <InlineAddSelect value={task.status} options={statuses} colorOptions={statusObjects} onChange={v => submitTaskUpdate({ status: v })} onAdd={addStatus} placeholder="Status" />
+            <InlineAddSelect value={seesMasterStatus ? task.status : ((task as any).my_status || task.status)} options={statuses} colorOptions={statusObjects} onChange={v => submitTaskUpdate({ status: v })} onAdd={addStatus} placeholder={seesMasterStatus ? 'Status' : 'My Status'} />
             <select value={task.priority} onChange={e => submitTaskUpdate({ priority: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
               {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
