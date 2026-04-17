@@ -52,11 +52,14 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
 
   // Removed project-members query — using UserPicker with /users/active instead
 
-  const { data: epicsRaw } = useQuery({
-    queryKey: ['project-epics', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/epics`).then(r => extractProjectArray<Epic>(r.data, ['epics'])),
+  // Modules layer (legacy field name `epic_id` on tasks)
+  const { data: modulesRaw } = useQuery({
+    queryKey: ['project-modules', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/modules`).then(r => extractProjectArray<Module>(r.data, ['modules', 'epics'])),
   });
-  const epics = Array.isArray(epicsRaw) ? epicsRaw : [];
+  const modules = (Array.isArray(modulesRaw) ? modulesRaw : [])
+    .slice()
+    .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
 
   const { data: sprintsRaw } = useQuery({
     queryKey: ['project-sprints', projectId],
@@ -64,17 +67,19 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
   });
   const sprints = (Array.isArray(sprintsRaw) ? sprintsRaw : []).filter((s: Sprint) => s.status !== 'Completed');
 
-  // New Epic layer (project_epics) — fetched filtered by sprint when a sprint is selected.
+  // Epic layer (project_epics) — filtered by selected module and/or sprint when set.
   const { data: projectEpicsRaw } = useQuery({
     queryKey: ['project-epics-picker', projectId, form.sprint_id, form.epic_id],
     queryFn: () => {
       const params: Record<string, string> = {};
       if (form.sprint_id) params.sprint_id = form.sprint_id;
       if (form.epic_id) params.module_id = form.epic_id;
-      return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<any>(r.data, ['epics']));
+      return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<Epic>(r.data, ['epics']));
     },
   });
-  const projectEpics = Array.isArray(projectEpicsRaw) ? projectEpicsRaw : [];
+  const projectEpics = (Array.isArray(projectEpicsRaw) ? projectEpicsRaw : [])
+    .slice()
+    .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
 
   const { data: storiesRaw } = useQuery({
     queryKey: ['project-stories', projectId],
