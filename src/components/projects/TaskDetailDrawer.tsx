@@ -6,6 +6,7 @@ import { TASK_TYPE_CONFIG, BOARD_COLUMNS, WORKFLOW_STAGES, type Epic, type Proje
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import HandoffModal from './HandoffModal';
 import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
+import SubtaskCreateModal from './SubtaskCreateModal';
 import UserPicker, { InlineUserPicker } from './UserPicker';
 
 import { useState, useRef } from 'react';
@@ -469,7 +470,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-2xl bg-card border-l border-border overflow-y-auto animate-slide-up">
+      <div className="relative w-full max-w-5xl bg-card border-l border-border overflow-y-auto animate-slide-up">
         {/* Sticky header */}
         <div className="sticky top-0 z-10 bg-card border-b border-border p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -536,14 +537,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                 <SubtaskRowActions subtask={st} onEdit={(s) => setEditingSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
               </div>
             ))}
-            {(!task.subtasks || task.subtasks.length === 0) && !showSubtask && <p className="text-xs text-muted-foreground">No subtasks</p>}
-            {showSubtask && (
-              <div className="flex gap-2 mt-1">
-                <input placeholder="Subtask title" value={subtaskTitle} onChange={e => setSubtaskTitle(e.target.value)} className="flex-1 px-2 py-1 rounded bg-secondary border border-border text-sm focus:outline-none" autoFocus onKeyDown={e => { if (e.key === 'Enter' && subtaskTitle.trim()) subtaskMut.mutate(subtaskTitle); }} />
-                <button onClick={() => subtaskTitle.trim() && subtaskMut.mutate(subtaskTitle)} className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs">Add</button>
-                <button onClick={() => setShowSubtask(false)} className="px-2 py-1 rounded text-xs text-muted-foreground hover:bg-secondary">Cancel</button>
-              </div>
-            )}
+            {(!task.subtasks || task.subtasks.length === 0) && <p className="text-xs text-muted-foreground">No subtasks</p>}
           </div>
 
           {/* Attachments */}
