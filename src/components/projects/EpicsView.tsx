@@ -162,8 +162,12 @@ export default function EpicsView({ projectId }: Props) {
         </div>
       )}
 
+      {!modulesLoading && modules.length > 0 && filteredModules.length === 0 && (
+        <div className="glass-card p-6 text-center text-xs text-muted-foreground">No modules match "{search}".</div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {modules.map(mod => {
+        {filteredModules.map(mod => {
           const isOpen = expanded.has(mod.id);
           const total = mod.task_count ?? mod.total_tasks ?? 0;
           const done = mod.done_count ?? mod.done_tasks ?? 0;
