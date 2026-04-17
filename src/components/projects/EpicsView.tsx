@@ -73,13 +73,16 @@ export default function EpicsView({ projectId }: Props) {
   const [search, setSearch] = useState('');
 
   const q = search.trim().toLowerCase();
-  const filteredModules = q
+  const baseModules = q
     ? modules.filter(m =>
         (m.title || '').toLowerCase().includes(q) ||
         (m.sprint_name || '').toLowerCase().includes(q) ||
         (m.owner_name || '').toLowerCase().includes(q)
       )
     : modules;
+  const filteredModules = [...baseModules].sort((a, b) =>
+    (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' })
+  );
 
   return (
     <div className="space-y-4">
@@ -291,7 +294,9 @@ function ModuleEpicsPanel({ projectId, moduleId, sprintId, moduleColor, onChange
       api.get(`/projects/${projectId}/epics`, { params: { module_id: moduleId } })
         .then(r => extractProjectArray<Epic>(r.data, ['epics'])),
   });
-  const epics: Epic[] = Array.isArray(epicsRaw) ? epicsRaw : [];
+  const epics: Epic[] = (Array.isArray(epicsRaw) ? epicsRaw : [])
+    .slice()
+    .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
 
   const deleteMut = useMutation({
     mutationFn: (eid: string) => api.delete(`/projects/${projectId}/epics/${eid}`, { skipConfirm: true } as any),
