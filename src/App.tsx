@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "@/stores/authStore";
 import { usePermissionsRefresh } from "@/hooks/usePermissionsRefresh";
+import { ConfirmDialogHost } from "@/lib/confirmDialog";
 
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -80,6 +81,7 @@ const App = () => (
         className: '!bg-card !text-foreground !border !border-border !text-sm',
       }}
     />
+    <ConfirmDialogHost />
     <BrowserRouter>
       <PermissionsLoader>
       <Routes>
