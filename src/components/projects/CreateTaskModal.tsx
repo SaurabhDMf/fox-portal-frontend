@@ -203,6 +203,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
       qc.invalidateQueries({ queryKey: ['project-all-tasks'] });
       qc.invalidateQueries({ queryKey: ['project-board', projectId] });
       qc.invalidateQueries({ queryKey: ['project-backlog', projectId] });
+      qc.invalidateQueries({ queryKey: ['project-modules', projectId] });
       qc.invalidateQueries({ queryKey: ['project-epics', projectId] });
       qc.invalidateQueries({ queryKey: ['sprint-hierarchy', projectId] });
       qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
