@@ -391,6 +391,11 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                       </Badge>
                     </TableCell>
 
+                    {/* Client */}
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap max-w-[140px] truncate">
+                      {(t as any).client_name || '—'}
+                    </TableCell>
+
                     {/* Created */}
                     <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
                       {fmtDate(t.created_at)}
@@ -411,6 +416,11 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                       ) : (
                         <span className="text-xs text-muted-foreground">Unassigned</span>
                       )}
+                    </TableCell>
+
+                    {/* Assigned By (Reporter) */}
+                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      {(t as any).reporter_name || t.reporter?.full_name || '—'}
                     </TableCell>
 
                     {/* Due Date */}
