@@ -265,12 +265,12 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
           </select>
         </div>
 
-        {/* Module (optional) — filtered by selected sprint */}
+        {/* Module (optional) — full project modules list */}
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Module (optional){form.sprint_id ? '' : ' — select a sprint first for filtered modules'}</label>
+          <label className="text-xs text-muted-foreground mb-1 block">Module (optional)</label>
           <select value={form.epic_id} onChange={e => { set('epic_id', e.target.value); set('project_epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             <option value="">None</option>
-            {epics.filter((ep: Epic) => !form.sprint_id || (ep as any).sprint_id === form.sprint_id || !(ep as any).sprint_id).map((ep: Epic) => <option key={ep.id} value={ep.id}>{ep.title}</option>)}
+            {modules.map((m: Module) => <option key={m.id} value={m.id}>{m.title}{m.sprint_name ? ` — ${m.sprint_name}` : ''}</option>)}
           </select>
         </div>
 
