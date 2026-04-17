@@ -17,8 +17,22 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
   const qc = useQueryClient();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  // Pre-populate Epic from parent task; allow override
+  const [projectEpicId, setProjectEpicId] = useState<string>((parentTask as any).project_epic_id || '');
   const [createdId, setCreatedId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch epics filtered by parent's sprint (if any) for the picker
+  const { data: epicsRaw } = useQuery({
+    queryKey: ['project-epics-picker', projectId, parentTask.sprint_id, parentTask.epic_id],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      if (parentTask.sprint_id) params.sprint_id = parentTask.sprint_id;
+      if (parentTask.epic_id) params.module_id = parentTask.epic_id;
+      return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<any>(r.data, ['epics']));
+    },
+  });
+  const epics = Array.isArray(epicsRaw) ? epicsRaw : [];
 
   // Load attachments for the freshly created subtask
   const { data: attachments = [] } = useQuery({
@@ -40,6 +54,7 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
         status: 'Open',
         project_id: projectId,
         parent_task_id: parentTask.id,
+        project_epic_id: projectEpicId || null,
       };
       const res = await api.post('/tasks', payload);
       return res.data;
@@ -98,6 +113,8 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  const selectedEpic = epics.find((e: any) => e.id === projectEpicId);
+
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div className="glass-card w-full max-w-lg p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
@@ -128,6 +145,24 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
             className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y disabled:opacity-60"
             placeholder="Optional details about this subtask..."
           />
+        </div>
+
+        <div>
+          <label className="text-xs text-muted-foreground flex items-center gap-2">
+            Epic
+            {selectedEpic?.color && <span className="w-2 h-2 rounded-full" style={{ background: selectedEpic.color }} />}
+          </label>
+          <select
+            value={projectEpicId}
+            onChange={e => setProjectEpicId(e.target.value)}
+            disabled={!!createdId}
+            className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60"
+          >
+            <option value="">No Epic (inherit from parent)</option>
+            {epics.map((ep: any) => (
+              <option key={ep.id} value={ep.id}>{ep.title}</option>
+            ))}
+          </select>
         </div>
 
         {createdId && (
