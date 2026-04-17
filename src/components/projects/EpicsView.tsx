@@ -3,7 +3,7 @@ import api from '@/lib/api';
 import { extractProjectArray } from '@/lib/projectResponse';
 import type { Module, Epic, Sprint, ProjectTask } from '@/lib/projectTypes';
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Plus, Pencil, Trash2, ArrowRightLeft, Calendar, User, Layers } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Pencil, Trash2, ArrowRightLeft, Calendar, User, Layers, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModuleFormModal from './ModuleFormModal';
 import EpicFormModal from './EpicFormModal';
@@ -70,14 +70,44 @@ export default function EpicsView({ projectId }: Props) {
 
   // Quick "Add Module" — show sprint picker first
   const [showSprintPicker, setShowSprintPicker] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const q = search.trim().toLowerCase();
+  const filteredModules = q
+    ? modules.filter(m =>
+        (m.title || '').toLowerCase().includes(q) ||
+        (m.sprint_name || '').toLowerCase().includes(q) ||
+        (m.owner_name || '').toLowerCase().includes(q)
+      )
+    : modules;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h3 className="text-sm font-semibold">Roadmap</h3>
           <p className="text-xs text-muted-foreground">Modules and the epics under them. Click a module to expand.</p>
         </div>
+        <div className="flex items-center gap-2 flex-1 sm:flex-none justify-end">
+          <div className="relative flex-1 sm:flex-none sm:w-64">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search modules…"
+              className="w-full h-8 pl-8 pr-7 rounded-lg bg-secondary text-xs border border-transparent focus:border-border focus:outline-none placeholder:text-muted-foreground"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-background text-muted-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
         <div className="relative">
           <button
             onClick={() => setShowSprintPicker(s => !s)}
@@ -105,6 +135,7 @@ export default function EpicsView({ projectId }: Props) {
             </>
           )}
         </div>
+        </div>
       </div>
 
       {modulesLoading && (
@@ -131,8 +162,12 @@ export default function EpicsView({ projectId }: Props) {
         </div>
       )}
 
+      {!modulesLoading && modules.length > 0 && filteredModules.length === 0 && (
+        <div className="glass-card p-6 text-center text-xs text-muted-foreground">No modules match "{search}".</div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {modules.map(mod => {
+        {filteredModules.map(mod => {
           const isOpen = expanded.has(mod.id);
           const total = mod.task_count ?? mod.total_tasks ?? 0;
           const done = mod.done_count ?? mod.done_tasks ?? 0;
