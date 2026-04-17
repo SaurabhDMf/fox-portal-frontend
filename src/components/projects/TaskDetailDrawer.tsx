@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useProjectStatuses, useProjectStages, type StatusOption } from '@/hooks/useProjectOptions';
 import InlineAddSelect from './InlineAddSelect';
-import { TASK_TYPE_CONFIG, BOARD_COLUMNS, WORKFLOW_STAGES, type Epic, type ProjectTask, type Sprint } from '@/lib/projectTypes';
+import { TASK_TYPE_CONFIG, BOARD_COLUMNS, WORKFLOW_STAGES, type Epic, type Module, type ProjectTask, type Sprint } from '@/lib/projectTypes';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import HandoffModal from './HandoffModal';
 import { SubtaskRowActions, SubtaskDeleteConfirm } from './SubtaskActions';
@@ -243,11 +243,12 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const members = Array.isArray(membersRaw) ? membersRaw : [];
   const task = normalizeTaskEntity(taskDetail || initialTask, members);
 
-  const { data: epicsRaw } = useQuery({
-    queryKey: ['project-epics', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/epics`).then(r => extractProjectArray<Epic>(r.data, ['epics'])),
+  // Modules list (the "Module" picker — backend route is /modules, table was historically called epics)
+  const { data: modulesRaw } = useQuery({
+    queryKey: ['project-modules', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/modules`).then(r => extractProjectArray<Module>(r.data, ['modules', 'epics'])),
   });
-  const epics = Array.isArray(epicsRaw) ? epicsRaw : [];
+  const modules: Module[] = Array.isArray(modulesRaw) ? modulesRaw : [];
 
   const { data: sprintsRaw } = useQuery({
     queryKey: ['project-sprints', projectId],
