@@ -73,13 +73,16 @@ export default function EpicsView({ projectId }: Props) {
   const [search, setSearch] = useState('');
 
   const q = search.trim().toLowerCase();
-  const filteredModules = q
+  const baseModules = q
     ? modules.filter(m =>
         (m.title || '').toLowerCase().includes(q) ||
         (m.sprint_name || '').toLowerCase().includes(q) ||
         (m.owner_name || '').toLowerCase().includes(q)
       )
     : modules;
+  const filteredModules = [...baseModules].sort((a, b) =>
+    (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' })
+  );
 
   return (
     <div className="space-y-4">
