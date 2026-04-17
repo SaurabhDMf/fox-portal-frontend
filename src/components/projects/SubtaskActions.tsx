@@ -110,7 +110,7 @@ interface SubtaskDeleteConfirmProps {
 
 export function SubtaskDeleteConfirm({ subtaskId, subtaskTitle, onClose, onDeleted }: SubtaskDeleteConfirmProps) {
   const deleteMut = useMutation({
-    mutationFn: () => api.delete(`/tasks/${subtaskId}`),
+    mutationFn: () => api.delete(`/tasks/${subtaskId}`, { skipConfirm: true } as any),
     onSuccess: () => {
       onDeleted(subtaskId);
       toast.success('Subtask deleted');

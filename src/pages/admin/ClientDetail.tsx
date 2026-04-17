@@ -47,7 +47,7 @@ export default function ClientDetail() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: () => api.delete(`/clients/${id}`),
+    mutationFn: () => api.delete(`/clients/${id}`, { skipConfirm: true } as any),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clients'] });
       toast.success('Client deleted');
