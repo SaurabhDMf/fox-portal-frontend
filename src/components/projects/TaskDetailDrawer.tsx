@@ -8,6 +8,7 @@ import HandoffModal from './HandoffModal';
 import { SubtaskRowActions, SubtaskDeleteConfirm } from './SubtaskActions';
 import SubtaskCreateModal from './SubtaskCreateModal';
 import UserPicker, { InlineUserPicker } from './UserPicker';
+import { useAuthStore } from '@/stores/authStore';
 
 import { useState, useRef } from 'react';
 import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2, Paperclip, Image, FileText, Download, UserPlus, ArrowRightLeft } from 'lucide-react';
@@ -21,6 +22,7 @@ interface Props {
 
 const TYPES = ['Story', 'Task', 'Bug', 'Subtask'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
+const MASTER_STATUS_ROLES = new Set(['admin', 'super_admin', 'manager', 'sales_manager', 'project_manager', 'project_coordinator', 'supervisor']);
 
 const getMemberId = (member: any) => member?.user_id || member?.id;
 const toArray = <T,>(value: T | T[] | null | undefined): T[] => Array.isArray(value) ? value : value ? [value] : [];
@@ -29,7 +31,7 @@ const getPersonName = (person: any) => person?.full_name || person?.name || pers
 function buildPerson(person: any, fallbackId?: string, fallbackName?: string) {
   const id = getMemberId(person) || fallbackId;
   const full_name = getPersonName(person) || fallbackName;
-  return id || full_name ? { id: id || full_name || 'unknown', full_name: full_name || 'Unknown', avatar_url: person?.avatar_url } : undefined;
+  return id || full_name ? { id: id || full_name || 'unknown', full_name: full_name || 'Unknown', avatar_url: person?.avatar_url, personal_status: person?.personal_status || person?.status } : undefined;
 }
 
 function normalizeTaskEntity(rawTask: any, members: any[] = []): ProjectTask {
@@ -68,6 +70,7 @@ function normalizeTaskEntity(rawTask: any, members: any[] = []): ProjectTask {
       id: assigneeIds[0] || task.assignee_id || task.assigned_to_id || String(task.assignee_name || task.assigned_to_name),
       full_name: task.assignee_name || task.assigned_to_name,
       avatar_url: undefined,
+      personal_status: undefined,
     });
   }
 
@@ -189,6 +192,8 @@ function ProjectEpicSelect({ projectId, sprintId, moduleId, value, onChange }: {
 
 export default function TaskDetailDrawer({ task: initialTask, onClose, projectId }: Props) {
   const qc = useQueryClient();
+  const userRole = useAuthStore(s => s.user?.role);
+  const seesMasterStatus = MASTER_STATUS_ROLES.has(userRole || '');
   const { statuses, statusObjects, addStatus } = useProjectStatuses(projectId);
   const { stages, stageObjects, addStage } = useProjectStages(projectId);
   const [activeTab, setActiveTab] = useState<'timelog' | 'handoffs'>('timelog');
@@ -518,7 +523,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             <select value={task.type} onChange={e => submitTaskUpdate({ type: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
               {TYPES.map(t => <option key={t} value={t}>{TASK_TYPE_CONFIG[t]?.icon} {t}</option>)}
             </select>
-            <InlineAddSelect value={task.status} options={statuses} colorOptions={statusObjects} onChange={v => submitTaskUpdate({ status: v })} onAdd={addStatus} placeholder="Status" />
+            <InlineAddSelect value={seesMasterStatus ? task.status : ((task as any).my_status || task.status)} options={statuses} colorOptions={statusObjects} onChange={v => submitTaskUpdate({ status: v })} onAdd={addStatus} placeholder={seesMasterStatus ? 'Status' : 'My Status'} />
             <select value={task.priority} onChange={e => submitTaskUpdate({ priority: e.target.value })} className="px-2 py-1 rounded bg-secondary border border-border text-xs focus:outline-none">
               {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
@@ -637,6 +642,30 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             <div className="grid grid-cols-2 gap-4">
               <div className="relative">
                 <UserPicker multi selectedIds={task.assignee_ids || task.assignees?.map((a: any) => getMemberId(a) || a.id) || []} onToggle={toggleAssignee} value={null} onChange={() => {}} label="Assignees" placeholder="Select assignees..." />
+                {/* Per-assignee personal status — visible to admins/managers only */}
+                {seesMasterStatus && (task.assignees?.length ?? 0) > 0 && task.assignees!.some((a: any) => a.personal_status) && (
+                  <div className="mt-2 space-y-1">
+                    {task.assignees!.map((a: any) => {
+                      const pStatus = a.personal_status;
+                      if (!pStatus) return null;
+                      const sObj = statusObjects.find((so: StatusOption) => so.name === pStatus);
+                      const color = sObj?.color || 'hsl(var(--muted-foreground))';
+                      return (
+                        <div key={a.id} className="flex items-center justify-between gap-2 text-[11px]">
+                          <span className="truncate text-muted-foreground">{a.full_name}</span>
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
+                            style={{ background: `${color}22`, color }}
+                            title="Personal status"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+                            {pStatus}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Reporter</span>

@@ -64,12 +64,15 @@ const initials = (name?: string) => {
 
 const RESTRICTED_ROLES = ['resource', 'freelancer', 'sales_rep'];
 const REPORTER_FILTER_ROLES = new Set(['admin', 'super_admin', 'project_coordinator', 'sales_manager']);
+// Roles that see the master/admin task status. Everyone else sees their personal status.
+const MASTER_STATUS_ROLES = new Set(['admin', 'super_admin', 'manager', 'sales_manager', 'project_manager', 'project_coordinator', 'supervisor']);
 
 export default function TasksListView({ projectId, onTaskClick, onCreateTask }: Props) {
   const qc = useQueryClient();
   const userRole = useAuthStore(s => s.user?.role);
   const isRestricted = RESTRICTED_ROLES.includes(userRole || '');
   const canSeeReporterFilter = REPORTER_FILTER_ROLES.has(userRole || '');
+  const seesMasterStatus = MASTER_STATUS_ROLES.has(userRole || '');
   const { statuses: STATUS_OPTIONS, statusObjects } = useProjectStatuses(projectId);
 
   // Filter state
@@ -202,11 +205,12 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     setReporterFilter('');
   };
 
-  // Inline status update
+  // Inline status update — updates both master and personal status optimistically.
+  // Backend will sync task_assignees.status for the current user automatically.
   const handleStatusChange = useCallback(async (taskId: string, newStatus: string) => {
     qc.setQueryData(['project-all-tasks', queryParams], (old: ProjectTask[] | undefined) => {
       if (!old) return old;
-      return old.map(t => t.id === taskId ? { ...t, status: newStatus } : t);
+      return old.map(t => t.id === taskId ? { ...t, status: newStatus, my_status: newStatus } : t);
     });
     try {
       await api.put(`/tasks/${taskId}`, { status: newStatus });
@@ -379,9 +383,11 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               filtered.map(t => {
                 const assigneeName = (t as any).assignee_name ?? t.assignees?.[0]?.full_name;
                 const assigneeAvatar = (t as any).assignee_avatar ?? t.assignees?.[0]?.avatar_url;
+                // Visible status: master `status` for admins/managers, personal `my_status` for everyone else
+                const visibleStatus = seesMasterStatus ? t.status : (t.my_status || t.status);
                 return (
-                  <TableRow key={t.id} className={`cursor-pointer group ${STATUS_ROW_COLORS[t.status] || ''}`} onClick={() => onTaskClick?.(t)}
-                    style={!STATUS_ROW_COLORS[t.status] && statusObjects.find(s => s.name === t.status)?.color ? { borderLeft: `3px solid ${statusObjects.find(s => s.name === t.status)!.color}` } : undefined}>
+                  <TableRow key={t.id} className={`cursor-pointer group ${STATUS_ROW_COLORS[visibleStatus] || ''}`} onClick={() => onTaskClick?.(t)}
+                    style={!STATUS_ROW_COLORS[visibleStatus] && statusObjects.find(s => s.name === visibleStatus)?.color ? { borderLeft: `3px solid ${statusObjects.find(s => s.name === visibleStatus)!.color}` } : undefined}>
                     {/* Task Name */}
                     <TableCell>
                       <div className="min-w-[200px]">
@@ -436,7 +442,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                     </TableCell>
 
                     {/* Due Date */}
-                    <TableCell className={`text-xs whitespace-nowrap ${isPastDue(t.due_date) && t.status !== 'Done' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}>
+                    <TableCell className={`text-xs whitespace-nowrap ${isPastDue(t.due_date) && visibleStatus !== 'Done' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}>
                       {fmtDate(t.due_date)}
                     </TableCell>
 
@@ -447,12 +453,13 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                       </Badge>
                     </TableCell>
 
-                    {/* Status — inline dropdown */}
+                    {/* Status — inline dropdown. Restricted users update their personal status. */}
                     <TableCell onClick={e => e.stopPropagation()}>
                       <select
-                        value={t.status}
+                        value={visibleStatus}
                         onChange={e => handleStatusChange(t.id, e.target.value)}
                         className="px-2 py-1 rounded-md bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        title={seesMasterStatus ? 'Master task status' : 'Your personal status on this task'}
                       >
                         {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>

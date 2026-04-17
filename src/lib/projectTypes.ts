@@ -5,9 +5,11 @@ export interface ProjectTask {
   description?: string;
   type: 'Story' | 'Task' | 'Bug' | 'Subtask';
   status: string;
+  /** The current viewer's personal status on this task (from task_assignees.status). Falls back to `status` if absent. */
+  my_status?: string;
   priority: 'Critical' | 'High' | 'Medium' | 'Low';
   stage?: string;
-  assignees?: { id: string; full_name: string; avatar_url?: string }[];
+  assignees?: { id: string; full_name: string; avatar_url?: string; personal_status?: string }[];
   assignee_ids?: string[];
   reporter?: { id: string; full_name: string };
   // Legacy "Module" field — historically called epic_id on the backend (now backed by /modules)
