@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, Plus, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ModuleFormModal from './ModuleFormModal';
+import ModuleEpicsList from './ModuleEpicsList';
 import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
 import { InlineUserPicker } from './UserPicker';
 
@@ -257,7 +258,7 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
 
   // Delete module
   const deleteModuleMut = useMutation({
-    mutationFn: (moduleId: string) => api.delete(`/projects/${projectId}/epics/${moduleId}`),
+    mutationFn: (moduleId: string) => api.delete(`/projects/${projectId}/modules/${moduleId}`, { skipConfirm: true } as any),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sprint-detail-hierarchy', projectId, sprintId] });
       qc.invalidateQueries({ queryKey: ['sprint-detail-tasks', projectId, sprintId] });
@@ -417,6 +418,8 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
                     {(!mod.tasks || mod.tasks.length === 0) && <p className="text-xs text-muted-foreground text-center py-3">No tasks in this module</p>}
                   </div>
                 )}
+                {/* Epics under this Module */}
+                <ModuleEpicsList projectId={projectId} moduleId={mod.id} sprintId={sprintId} moduleColor={mod.color} />
               </div>
             );
           })}

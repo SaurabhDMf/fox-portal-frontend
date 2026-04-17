@@ -10,11 +10,19 @@ export interface ProjectTask {
   assignees?: { id: string; full_name: string; avatar_url?: string }[];
   assignee_ids?: string[];
   reporter?: { id: string; full_name: string };
+  // Legacy "Module" field — historically called epic_id on the backend (now backed by /modules)
   epic_id?: string;
   epic_name?: string;
   epic_color?: string;
+  // New "Epic" layer (project_epics table) — sits between Module and Task
+  project_epic_id?: string;
+  project_epic_title?: string;
+  project_epic_color?: string;
+  project_module_id?: string;
+  project_module_title?: string;
   sprint_id?: string;
   sprint_name?: string;
+  client_name?: string;
   labels?: { id: string; name: string; color: string }[];
   label_ids?: string[];
   story_points?: number;
@@ -43,15 +51,40 @@ export interface Sprint {
   done_count?: number;
 }
 
+export interface Module {
+  id: string;
+  title: string;
+  description?: string;
+  color: string;
+  status?: string;
+  sprint_id?: string;
+  sprint_name?: string;
+  owner_id?: string;
+  owner_name?: string;
+  owner_avatar?: string;
+  start_date?: string;
+  due_date?: string;
+  task_count?: number;
+  done_count?: number;
+  total_tasks?: number;
+  done_tasks?: number;
+  open_tasks?: number;
+  progress?: number;
+}
+
 export interface Epic {
   id: string;
   title: string;
   color: string;
+  priority?: 'Critical' | 'High' | 'Medium' | 'Low';
   start_date?: string;
   due_date?: string;
   progress?: number;
   task_count?: number;
   done_count?: number;
+  module_id?: string;
+  module_title?: string;
+  module_color?: string;
   sprint_id?: string;
   sprint_name?: string;
   total_tasks?: number;

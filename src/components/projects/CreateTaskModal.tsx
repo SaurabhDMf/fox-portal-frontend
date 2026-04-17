@@ -40,7 +40,8 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
     status: defaultStatus || 'Open',
     stage: '',
     assignee_ids: [] as string[],
-    epic_id: defaultEpicId || '',
+    epic_id: defaultEpicId || '', // Module (legacy field name)
+    project_epic_id: '',           // New Epic layer
     sprint_id: defaultSprintId || '',
     parent_task_id: '',
     due_date: '',
@@ -62,6 +63,18 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
     queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => extractProjectArray<Sprint>(r.data, ['sprints'])),
   });
   const sprints = (Array.isArray(sprintsRaw) ? sprintsRaw : []).filter((s: Sprint) => s.status !== 'Completed');
+
+  // New Epic layer (project_epics) — fetched filtered by sprint when a sprint is selected.
+  const { data: projectEpicsRaw } = useQuery({
+    queryKey: ['project-epics-picker', projectId, form.sprint_id, form.epic_id],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      if (form.sprint_id) params.sprint_id = form.sprint_id;
+      if (form.epic_id) params.module_id = form.epic_id;
+      return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<any>(r.data, ['epics']));
+    },
+  });
+  const projectEpics = Array.isArray(projectEpicsRaw) ? projectEpicsRaw : [];
 
   const { data: storiesRaw } = useQuery({
     queryKey: ['project-stories', projectId],
@@ -160,6 +173,11 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
       if (form.assignee_ids.length === 1) payload.assignee_id = form.assignee_ids[0];
       if (form.assignee_ids.length > 1) payload.assignee_ids = form.assignee_ids;
       if (form.epic_id) payload.epic_id = form.epic_id; else payload.epic_id = null;
+      if (form.project_epic_id) {
+        payload.project_epic_id = form.project_epic_id;
+      } else {
+        payload.project_epic_id = null;
+      }
       if (form.sprint_id) payload.sprint_id = form.sprint_id; else payload.sprint_id = null;
       if (form.parent_task_id) payload.parent_task_id = form.parent_task_id; else payload.parent_task_id = null;
       if (form.due_date) payload.due_date = form.due_date;
@@ -236,7 +254,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
         {/* Sprint (optional) — choose sprint first */}
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Sprint (optional)</label>
-          <select value={form.sprint_id} onChange={e => { set('sprint_id', e.target.value); set('epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+          <select value={form.sprint_id} onChange={e => { set('sprint_id', e.target.value); set('epic_id', ''); set('project_epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             <option value="">None</option>
             {sprints.map((s: Sprint) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
@@ -245,9 +263,20 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
         {/* Module (optional) — filtered by selected sprint */}
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Module (optional){form.sprint_id ? '' : ' — select a sprint first for filtered modules'}</label>
-          <select value={form.epic_id} onChange={e => set('epic_id', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+          <select value={form.epic_id} onChange={e => { set('epic_id', e.target.value); set('project_epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             <option value="">None</option>
             {epics.filter((ep: Epic) => !form.sprint_id || (ep as any).sprint_id === form.sprint_id || !(ep as any).sprint_id).map((ep: Epic) => <option key={ep.id} value={ep.id}>{ep.title}</option>)}
+          </select>
+        </div>
+
+        {/* Epic (optional) — new project_epic layer, filtered by sprint/module */}
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">Epic (optional)</label>
+          <select value={form.project_epic_id} onChange={e => set('project_epic_id', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+            <option value="">None</option>
+            {projectEpics.map((pe: any) => (
+              <option key={pe.id} value={pe.id}>{pe.title}</option>
+            ))}
           </select>
         </div>
 

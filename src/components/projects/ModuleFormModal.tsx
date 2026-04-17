@@ -44,9 +44,9 @@ export default function ModuleFormModal({ projectId, sprintId, mode, module, onC
       if (form.due_date) payload.due_date = form.due_date;
 
       if (mode === 'edit' && module) {
-        return api.put(`/projects/${projectId}/epics/${module.id}`, payload);
+        return api.put(`/projects/${projectId}/modules/${module.id}`, payload);
       }
-      return api.post(`/projects/${projectId}/epics`, payload);
+      return api.post(`/projects/${projectId}/modules`, payload);
     },
     onSuccess: () => {
       toast.success(mode === 'edit' ? 'Module updated' : 'Module created');

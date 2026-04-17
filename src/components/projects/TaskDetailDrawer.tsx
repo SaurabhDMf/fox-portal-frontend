@@ -136,6 +136,7 @@ function sanitizeTaskPatch(patch: Record<string, any>) {
   if ('priority' in patch && patch.priority) payload.priority = patch.priority;
   // assignee_ids are now handled via PATCH /tasks/:id/assignee — skip them here
   if ('epic_id' in patch) payload.epic_id = patch.epic_id || null;
+  if ('project_epic_id' in patch) payload.project_epic_id = patch.project_epic_id || null;
   if ('sprint_id' in patch) payload.sprint_id = patch.sprint_id || null;
   if ('parent_task_id' in patch) payload.parent_task_id = patch.parent_task_id || null;
   if ('due_date' in patch) payload.due_date = patch.due_date || null;
@@ -164,6 +165,25 @@ function EditableDescription({ value, onSave }: { value: string; onSave: (v: str
       <h4 className="text-xs font-semibold text-muted-foreground mb-1">Description <Edit2 className="inline h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" /></h4>
       <p className="text-sm text-foreground">{value || <span className="text-muted-foreground">No description. Click to add one.</span>}</p>
     </div>
+  );
+}
+
+function ProjectEpicSelect({ projectId, sprintId, moduleId, value, onChange }: { projectId: string; sprintId?: string; moduleId?: string; value: string; onChange: (id: string) => void }) {
+  const { data: epicsRaw } = useQuery({
+    queryKey: ['project-epics-picker', projectId, sprintId, moduleId],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      if (sprintId) params.sprint_id = sprintId;
+      if (moduleId) params.module_id = moduleId;
+      return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<any>(r.data, ['epics']));
+    },
+  });
+  const epics = Array.isArray(epicsRaw) ? epicsRaw : [];
+  return (
+    <select value={value} onChange={e => onChange(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+      <option value="">No Epic</option>
+      {epics.map((ep: any) => <option key={ep.id} value={ep.id}>{ep.title}</option>)}
+    </select>
   );
 }
 
@@ -623,10 +643,29 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Module</span>
-                <select value={task.epic_id || ''} onChange={e => submitTaskUpdate({ epic_id: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <select value={task.epic_id || ''} onChange={e => submitTaskUpdate({ epic_id: e.target.value || null, project_epic_id: null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                   <option value="">No Module</option>
                   {epics.map((epic) => <option key={epic.id} value={epic.id}>{epic.title}</option>)}
                 </select>
+                {(task as any).project_module_title && (
+                  <p className="text-[10px] text-muted-foreground mt-1">Module: {(task as any).project_module_title}</p>
+                )}
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  Epic
+                  {(task as any).project_epic_color && <span className="w-2 h-2 rounded-full" style={{ background: (task as any).project_epic_color }} />}
+                </span>
+                <ProjectEpicSelect
+                  projectId={projectId}
+                  sprintId={task.sprint_id}
+                  moduleId={task.epic_id}
+                  value={(task as any).project_epic_id || ''}
+                  onChange={(id) => submitTaskUpdate({ project_epic_id: id || null })}
+                />
+                {(task as any).project_epic_title && (
+                  <p className="text-[10px] text-muted-foreground mt-1">Epic: {(task as any).project_epic_title}</p>
+                )}
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Sprint</span>

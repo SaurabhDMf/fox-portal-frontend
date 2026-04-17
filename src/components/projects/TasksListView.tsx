@@ -363,6 +363,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               <TableHead>Status</TableHead>
               <TableHead>Code Repo</TableHead>
               <TableHead>Module</TableHead>
+              <TableHead>Epic</TableHead>
               <TableHead>Sprint</TableHead>
               <TableHead className="w-[60px]">Actions</TableHead>
             </TableRow>
@@ -370,7 +371,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={14} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={15} className="py-12 text-center text-sm text-muted-foreground">
                   Loading tasks…
                 </TableCell>
               </TableRow>
@@ -476,6 +477,24 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                       {(t as any).epic_title || t.epic_name || '—'}
                     </TableCell>
 
+                    {/* Epic (project_epic) */}
+                    <TableCell className="text-xs">
+                      {(t as any).project_epic_title ? (
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-medium"
+                          style={{
+                            background: `${(t as any).project_epic_color || 'hsl(var(--primary))'}22`,
+                            color: (t as any).project_epic_color || 'hsl(var(--primary))',
+                          }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: (t as any).project_epic_color || 'hsl(var(--primary))' }} />
+                          {(t as any).project_epic_title}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+
                     {/* Sprint */}
                     <TableCell className="text-xs text-muted-foreground">
                       {t.sprint_name || (t as any).sprint_title || '—'}
@@ -495,7 +514,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={14} className="py-12 text-center">
+                <TableCell colSpan={15} className="py-12 text-center">
                   <p className="text-sm text-muted-foreground">
                     {hasActiveFilters ? 'No tasks match your filters.' : 'No tasks found. Create the first one.'}
                   </p>
