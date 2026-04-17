@@ -70,6 +70,7 @@ export interface ProjectMember {
   user_role?: string;
   project_role?: string;
   can_create_tasks?: boolean;
+  visible_to_client?: boolean;
 }
 
 export interface Project {

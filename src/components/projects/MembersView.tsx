@@ -82,6 +82,25 @@ export default function MembersView({ projectId }: Props) {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update permission'),
   });
 
+  const toggleVisibilityMut = useMutation({
+    mutationFn: ({ userId, visible }: { userId: string; visible: boolean }) =>
+      api.put(`/projects/${projectId}/members/${userId}`, { visible_to_client: visible }),
+    onMutate: async ({ userId, visible }) => {
+      await qc.cancelQueries({ queryKey: ['project-members', projectId] });
+      const prev = qc.getQueryData<ProjectMember[]>(['project-members', projectId]);
+      qc.setQueryData<ProjectMember[]>(['project-members', projectId], (old) =>
+        Array.isArray(old) ? old.map(m => m.user_id === userId ? { ...m, visible_to_client: visible } as any : m) : old
+      );
+      return { prev };
+    },
+    onError: (e: any, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['project-members', projectId], ctx.prev);
+      toast.error(e.response?.data?.message || 'Failed to update visibility');
+    },
+    onSuccess: () => toast.success('Visibility updated'),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['project-members', projectId] }),
+  });
+
   const displayMembers = memberTab === 'clients' ? clientMembers : teamMembers;
 
   return (
@@ -125,6 +144,15 @@ export default function MembersView({ projectId }: Props) {
                   <Switch
                     checked={!!member.can_create_tasks}
                     onCheckedChange={(checked) => toggleTaskMut.mutate({ userId: member.user_id, canCreate: checked })}
+                  />
+                </label>
+              )}
+              {canManage && !isClient && (
+                <label className="flex items-center gap-1.5 cursor-pointer" title="Show this member to clients in the client portal">
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">Visible to Client</span>
+                  <Switch
+                    checked={!!(member as any).visible_to_client}
+                    onCheckedChange={(checked) => toggleVisibilityMut.mutate({ userId: member.user_id, visible: checked })}
                   />
                 </label>
               )}
