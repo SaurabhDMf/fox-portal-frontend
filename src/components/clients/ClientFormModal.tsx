@@ -104,7 +104,7 @@ export default function ClientFormModal({ open, onClose, onSubmit, isPending, us
 
         {sectionLabel('Assignment')}
         <select value={form.account_manager_id} onChange={set('account_manager_id')} className={`w-full ${inputCls}`}>
-          <option value="">Select Account Manager</option>
+          <option value="">Select Sales Representative</option>
           {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
         </select>
 

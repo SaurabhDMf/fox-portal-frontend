@@ -39,6 +39,9 @@ export default function Clients() {
     queryFn: () => api.get('/users').then(r => r.data?.users || r.data || []),
   });
 
+  const SALES_ROLES = new Set(['sales_manager', 'sales_rep']);
+  const salesUsers = (Array.isArray(users) ? users : []).filter((u: any) => SALES_ROLES.has((u.role || '').toLowerCase()));
+
   const createMut = useMutation({
     mutationFn: (d: ClientFormData) => api.post('/clients', d),
     onSuccess: (res) => {
@@ -59,7 +62,7 @@ export default function Clients() {
 
   const rawClients = Array.isArray(data) ? data : [];
   const clients = rawClients;
-  const usersArr = Array.isArray(users) ? users : [];
+  const usersArr = salesUsers;
 
   return (
     <div className="page-container">
