@@ -317,12 +317,6 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
           placeholder="Select assignees..."
         />
 
-        {/* Due date */}
-        <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Due Date (optional)</label>
-          <input type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none" />
-        </div>
 
         <div className="flex gap-2 justify-end">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
