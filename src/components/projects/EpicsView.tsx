@@ -92,6 +92,7 @@ export default function EpicsView({ projectId }: Props) {
 }
 
 function ModuleEpicTimeline({ projectId, moduleId, moduleColor, minDate, range }: { projectId: string; moduleId: string; moduleColor?: string; minDate: number; range: number }) {
+  const [moveEpic, setMoveEpic] = useState<Epic | null>(null);
   const { data: epicsRaw, isLoading } = useQuery({
     queryKey: ['module-epics', projectId, moduleId],
     queryFn: () =>
