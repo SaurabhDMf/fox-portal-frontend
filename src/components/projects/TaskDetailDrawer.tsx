@@ -5,7 +5,7 @@ import InlineAddSelect from './InlineAddSelect';
 import { TASK_TYPE_CONFIG, BOARD_COLUMNS, WORKFLOW_STAGES, type Epic, type ProjectTask, type Sprint } from '@/lib/projectTypes';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import HandoffModal from './HandoffModal';
-import { SubtaskRowActions, SubtaskEditModal, SubtaskDeleteConfirm } from './SubtaskActions';
+import { SubtaskRowActions, SubtaskDeleteConfirm } from './SubtaskActions';
 import SubtaskCreateModal from './SubtaskCreateModal';
 import UserPicker, { InlineUserPicker } from './UserPicker';
 
@@ -179,7 +179,6 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [showAssigneePicker, setShowAssigneePicker] = useState(false);
   const [showHandoff, setShowHandoff] = useState(false);
-  const [editingSubtask, setEditingSubtask] = useState<any>(null);
   const [deletingSubtask, setDeletingSubtask] = useState<any>(null);
   const [openSubtask, setOpenSubtask] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
