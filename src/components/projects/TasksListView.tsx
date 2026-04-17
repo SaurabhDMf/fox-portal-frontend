@@ -63,11 +63,13 @@ const initials = (name?: string) => {
 };
 
 const RESTRICTED_ROLES = ['resource', 'freelancer', 'sales_rep'];
+const REPORTER_FILTER_ROLES = new Set(['admin', 'super_admin', 'project_coordinator', 'sales_manager']);
 
 export default function TasksListView({ projectId, onTaskClick, onCreateTask }: Props) {
   const qc = useQueryClient();
   const userRole = useAuthStore(s => s.user?.role);
   const isRestricted = RESTRICTED_ROLES.includes(userRole || '');
+  const canSeeReporterFilter = REPORTER_FILTER_ROLES.has(userRole || '');
   const { statuses: STATUS_OPTIONS, statusObjects } = useProjectStatuses(projectId);
 
   // Filter state
@@ -278,7 +280,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           </select>
         )}
 
-        {!isRestricted && (
+        {canSeeReporterFilter && (
           <select value={reporterFilter} onChange={e => setReporterFilter(e.target.value)} className={selectCls}>
             <option value="">Assigned By</option>
             {reporterOptions.map((u: any) => (
