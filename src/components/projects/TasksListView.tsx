@@ -64,12 +64,15 @@ const initials = (name?: string) => {
 
 const RESTRICTED_ROLES = ['resource', 'freelancer', 'sales_rep'];
 const REPORTER_FILTER_ROLES = new Set(['admin', 'super_admin', 'project_coordinator', 'sales_manager']);
+// Roles that see the master/admin task status. Everyone else sees their personal status.
+const MASTER_STATUS_ROLES = new Set(['admin', 'super_admin', 'manager', 'sales_manager', 'project_manager', 'project_coordinator', 'supervisor']);
 
 export default function TasksListView({ projectId, onTaskClick, onCreateTask }: Props) {
   const qc = useQueryClient();
   const userRole = useAuthStore(s => s.user?.role);
   const isRestricted = RESTRICTED_ROLES.includes(userRole || '');
   const canSeeReporterFilter = REPORTER_FILTER_ROLES.has(userRole || '');
+  const seesMasterStatus = MASTER_STATUS_ROLES.has(userRole || '');
   const { statuses: STATUS_OPTIONS, statusObjects } = useProjectStatuses(projectId);
 
   // Filter state
