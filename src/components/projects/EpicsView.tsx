@@ -117,7 +117,7 @@ function ModuleEpicTimeline({ projectId, moduleId, moduleColor, minDate, range }
         const progress = total > 0 ? Math.round((done / total) * 100) : (ep.progress || 0);
 
         return (
-          <div key={ep.id} className="flex items-center gap-3">
+          <div key={ep.id} className="group flex items-center gap-3">
             <div className="w-44 flex-shrink-0 pl-6">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full" style={{ background: ep.color || moduleColor || 'hsl(var(--primary))' }} />
@@ -134,9 +134,26 @@ function ModuleEpicTimeline({ projectId, moduleId, moduleColor, minDate, range }
                 <span className="text-[9px] font-bold text-white">{progress}%</span>
               </div>
             </div>
+            <button
+              onClick={() => setMoveEpic(ep)}
+              className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-secondary text-muted-foreground hover:text-foreground transition-all flex-shrink-0"
+              title="Move to Module"
+            >
+              <ArrowRightLeft className="h-3 w-3" />
+            </button>
           </div>
         );
       })}
+      {moveEpic && (
+        <MoveEpicModal
+          projectId={projectId}
+          epicId={moveEpic.id}
+          epicTitle={moveEpic.title}
+          currentModuleId={moduleId}
+          onClose={() => setMoveEpic(null)}
+          onSuccess={() => setMoveEpic(null)}
+        />
+      )}
     </div>
   );
 }
