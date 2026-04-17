@@ -294,7 +294,9 @@ function ModuleEpicsPanel({ projectId, moduleId, sprintId, moduleColor, onChange
       api.get(`/projects/${projectId}/epics`, { params: { module_id: moduleId } })
         .then(r => extractProjectArray<Epic>(r.data, ['epics'])),
   });
-  const epics: Epic[] = Array.isArray(epicsRaw) ? epicsRaw : [];
+  const epics: Epic[] = (Array.isArray(epicsRaw) ? epicsRaw : [])
+    .slice()
+    .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
 
   const deleteMut = useMutation({
     mutationFn: (eid: string) => api.delete(`/projects/${projectId}/epics/${eid}`, { skipConfirm: true } as any),
