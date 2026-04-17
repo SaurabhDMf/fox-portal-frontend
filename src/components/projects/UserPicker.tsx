@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray } from '@/lib/projectResponse';
@@ -70,7 +70,9 @@ export default function UserPicker({ value, onChange, placeholder = 'Select user
   const users = useActiveUsers();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [dropUp, setDropUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -78,6 +80,16 @@ export default function UserPicker({ value, onChange, placeholder = 'Select user
     };
     if (open) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    // Dropdown approx height ~280px (search + list + footer)
+    const needed = 280;
+    setDropUp(spaceBelow < needed && spaceAbove > spaceBelow);
   }, [open]);
 
   const filtered = users.filter(u => {
@@ -92,7 +104,7 @@ export default function UserPicker({ value, onChange, placeholder = 'Select user
     return (
       <div ref={ref} className={`relative ${className}`}>
         {label && <label className="text-xs text-muted-foreground mb-1 block">{label}</label>}
-        <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-left">
+        <button ref={triggerRef} type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-left">
           <span className="truncate">{selectedIds.length ? `${selectedIds.length} selected` : placeholder}</span>
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
         </button>
@@ -112,7 +124,7 @@ export default function UserPicker({ value, onChange, placeholder = 'Select user
           </div>
         )}
         {open && (
-          <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-64 overflow-hidden">
+          <div className={`absolute z-30 left-0 right-0 bg-card border border-border rounded-lg shadow-lg max-h-64 overflow-hidden ${dropUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
             <div className="p-2 border-b border-border">
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -151,7 +163,7 @@ export default function UserPicker({ value, onChange, placeholder = 'Select user
   return (
     <div ref={ref} className={`relative ${className}`}>
       {label && <label className="text-xs text-muted-foreground mb-1 block">{label}</label>}
-      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-left">
+      <button ref={triggerRef} type="button" onClick={() => setOpen(!open)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-left">
         {selectedUser ? (
           <>
             <UserAvatar user={selectedUser} size={22} />
@@ -170,7 +182,7 @@ export default function UserPicker({ value, onChange, placeholder = 'Select user
         </div>
       </button>
       {open && (
-        <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-64 overflow-hidden">
+        <div className={`absolute z-30 left-0 right-0 bg-card border border-border rounded-lg shadow-lg max-h-64 overflow-hidden ${dropUp ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
           <div className="p-2 border-b border-border">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
