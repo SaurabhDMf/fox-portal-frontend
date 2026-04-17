@@ -181,6 +181,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const [showHandoff, setShowHandoff] = useState(false);
   const [editingSubtask, setEditingSubtask] = useState<any>(null);
   const [deletingSubtask, setDeletingSubtask] = useState<any>(null);
+  const [openSubtask, setOpenSubtask] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: taskDetail } = useQuery({
