@@ -167,16 +167,25 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     staleTime: 60_000,
   });
 
-  // Team users for "Assigned By" filter (excludes clients)
-  const { data: teamUsers } = useQuery({
-    queryKey: ['team-users-active'],
-    queryFn: async () => {
-      const r = await api.get('/users/active');
-      const d = r.data;
-      return d?.users || d?.data?.users || d?.data?.items || d?.items || d?.data || d || [];
-    },
-    staleTime: 60_000,
-  });
+  // "Assigned By" options: only project members whose role qualifies them to assign tasks.
+  // Allowed: clients (linked to project), project lead (project_role === 'lead'),
+  // and users with role: project_manager, supervisor, project_coordinator, sales_manager.
+  const ASSIGNER_ROLES = new Set([
+    'project_manager',
+    'supervisor',
+    'project_coordinator',
+    'sales_manager',
+  ]);
+  const reporterOptions = useMemo(() => {
+    const list = Array.isArray(members) ? members : [];
+    return list.filter((m: any) => {
+      const userRole = (m.user_role || m.role || '').toLowerCase();
+      const projectRole = (m.project_role || '').toLowerCase();
+      if (userRole === 'client') return true;
+      if (projectRole === 'lead') return true;
+      return ASSIGNER_ROLES.has(userRole);
+    });
+  }, [members]);
 
   const hasActiveFilters = search || statusFilter.length > 0 || typeFilter || priorityFilter || sprintFilter || moduleFilter || assigneeFilter || reporterFilter;
 
