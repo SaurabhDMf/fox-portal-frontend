@@ -40,7 +40,8 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
     status: defaultStatus || 'Open',
     stage: '',
     assignee_ids: [] as string[],
-    epic_id: defaultEpicId || '',
+    epic_id: defaultEpicId || '', // Module (legacy field name)
+    project_epic_id: '',           // New Epic layer
     sprint_id: defaultSprintId || '',
     parent_task_id: '',
     due_date: '',
