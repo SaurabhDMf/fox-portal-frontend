@@ -281,8 +281,8 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
         {!isRestricted && (
           <select value={reporterFilter} onChange={e => setReporterFilter(e.target.value)} className={selectCls}>
             <option value="">Assigned By</option>
-            {(Array.isArray(teamUsers) ? teamUsers : []).map((u: any) => (
-              <option key={u.id} value={u.id}>{u.full_name}</option>
+            {reporterOptions.map((u: any) => (
+              <option key={u.user_id || u.id} value={u.user_id || u.id}>{u.full_name}</option>
             ))}
           </select>
         )}
