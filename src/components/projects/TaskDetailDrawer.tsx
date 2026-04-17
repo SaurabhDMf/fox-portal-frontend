@@ -70,6 +70,7 @@ function normalizeTaskEntity(rawTask: any, members: any[] = []): ProjectTask {
       id: assigneeIds[0] || task.assignee_id || task.assigned_to_id || String(task.assignee_name || task.assigned_to_name),
       full_name: task.assignee_name || task.assigned_to_name,
       avatar_url: undefined,
+      personal_status: undefined,
     });
   }
 
