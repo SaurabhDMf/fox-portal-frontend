@@ -780,6 +780,21 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
           }}
         />
       )}
+
+      {/* Subtask Create Modal */}
+      {showSubtask && (
+        <SubtaskCreateModal
+          parentTask={task}
+          projectId={projectId}
+          onClose={() => { setShowSubtask(false); invalidateTaskQueries(); }}
+          onCreated={(created) => {
+            qc.setQueryData<ProjectTask>(['task-detail', initialTask.id], (c) => ({
+              ...(c || task),
+              subtasks: [...((c || task).subtasks || []), created],
+            }));
+          }}
+        />
+      )}
     </div>
   );
 }
