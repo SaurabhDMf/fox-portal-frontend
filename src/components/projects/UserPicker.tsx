@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray } from '@/lib/projectResponse';
@@ -70,7 +70,9 @@ export default function UserPicker({ value, onChange, placeholder = 'Select user
   const users = useActiveUsers();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [dropUp, setDropUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -78,6 +80,16 @@ export default function UserPicker({ value, onChange, placeholder = 'Select user
     };
     if (open) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    // Dropdown approx height ~280px (search + list + footer)
+    const needed = 280;
+    setDropUp(spaceBelow < needed && spaceAbove > spaceBelow);
   }, [open]);
 
   const filtered = users.filter(u => {
