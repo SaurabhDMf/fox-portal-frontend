@@ -28,6 +28,7 @@ export default function ModuleEpicsList({ projectId, moduleId, sprintId, moduleC
   const [showCreate, setShowCreate] = useState(false);
   const [editEpic, setEditEpic] = useState<Epic | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [moveEpic, setMoveEpic] = useState<Epic | null>(null);
 
   const { data: epicsRaw, isLoading } = useQuery({
     queryKey: ['module-epics', projectId, moduleId],
