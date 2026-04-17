@@ -280,10 +280,10 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
       }).filter(Boolean) as ProjectTask['assignees'];
     }
     if ('epic_id' in patch) {
-      const epic = epics.find((item) => item.id === patch.epic_id);
+      const mod = modules.find((item) => item.id === patch.epic_id);
       nextTask.epic_id = patch.epic_id || undefined;
-      nextTask.epic_name = epic?.title;
-      nextTask.epic_color = epic?.color;
+      nextTask.epic_name = mod?.title;
+      nextTask.epic_color = mod?.color;
     }
     if ('sprint_id' in patch) {
       const sprint = sprints.find((item) => item.id === patch.sprint_id);
@@ -643,13 +643,16 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                 <p className="text-sm">{task.reporter?.full_name || '—'}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground">Module</span>
+                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  Module
+                  {(task as any).epic_color && <span className="w-2 h-2 rounded-full" style={{ background: (task as any).epic_color }} />}
+                </span>
                 <select value={task.epic_id || ''} onChange={e => submitTaskUpdate({ epic_id: e.target.value || null, project_epic_id: null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                   <option value="">No Module</option>
-                  {epics.map((epic) => <option key={epic.id} value={epic.id}>{epic.title}</option>)}
+                  {modules.map((mod) => <option key={mod.id} value={mod.id}>{mod.title}{mod.sprint_name ? ` — ${mod.sprint_name}` : ''}</option>)}
                 </select>
-                {(task as any).project_module_title && (
-                  <p className="text-[10px] text-muted-foreground mt-1">Module: {(task as any).project_module_title}</p>
+                {((task as any).epic_title || (task as any).module_title || task.epic_name) && (
+                  <p className="text-[10px] text-muted-foreground mt-1">Module: {(task as any).epic_title || (task as any).module_title || task.epic_name}</p>
                 )}
               </div>
               <div>
@@ -664,8 +667,10 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                   value={(task as any).project_epic_id || ''}
                   onChange={(id) => submitTaskUpdate({ project_epic_id: id || null })}
                 />
-                {(task as any).project_epic_title && (
+                {(task as any).project_epic_title ? (
                   <p className="text-[10px] text-muted-foreground mt-1">Epic: {(task as any).project_epic_title}</p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground mt-1">No epic assigned</p>
                 )}
               </div>
               <div>
