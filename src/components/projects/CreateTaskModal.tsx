@@ -254,7 +254,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
         {/* Sprint (optional) — choose sprint first */}
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Sprint (optional)</label>
-          <select value={form.sprint_id} onChange={e => { set('sprint_id', e.target.value); set('epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+          <select value={form.sprint_id} onChange={e => { set('sprint_id', e.target.value); set('epic_id', ''); set('project_epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             <option value="">None</option>
             {sprints.map((s: Sprint) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
@@ -263,9 +263,20 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
         {/* Module (optional) — filtered by selected sprint */}
         <div>
           <label className="text-xs text-muted-foreground mb-1 block">Module (optional){form.sprint_id ? '' : ' — select a sprint first for filtered modules'}</label>
-          <select value={form.epic_id} onChange={e => set('epic_id', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+          <select value={form.epic_id} onChange={e => { set('epic_id', e.target.value); set('project_epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
             <option value="">None</option>
             {epics.filter((ep: Epic) => !form.sprint_id || (ep as any).sprint_id === form.sprint_id || !(ep as any).sprint_id).map((ep: Epic) => <option key={ep.id} value={ep.id}>{ep.title}</option>)}
+          </select>
+        </div>
+
+        {/* Epic (optional) — new project_epic layer, filtered by sprint/module */}
+        <div>
+          <label className="text-xs text-muted-foreground mb-1 block">Epic (optional)</label>
+          <select value={form.project_epic_id} onChange={e => set('project_epic_id', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+            <option value="">None</option>
+            {projectEpics.map((pe: any) => (
+              <option key={pe.id} value={pe.id}>{pe.title}</option>
+            ))}
           </select>
         </div>
 
