@@ -31,7 +31,7 @@ const getPersonName = (person: any) => person?.full_name || person?.name || pers
 function buildPerson(person: any, fallbackId?: string, fallbackName?: string) {
   const id = getMemberId(person) || fallbackId;
   const full_name = getPersonName(person) || fallbackName;
-  return id || full_name ? { id: id || full_name || 'unknown', full_name: full_name || 'Unknown', avatar_url: person?.avatar_url } : undefined;
+  return id || full_name ? { id: id || full_name || 'unknown', full_name: full_name || 'Unknown', avatar_url: person?.avatar_url, personal_status: person?.personal_status || person?.status } : undefined;
 }
 
 function normalizeTaskEntity(rawTask: any, members: any[] = []): ProjectTask {
