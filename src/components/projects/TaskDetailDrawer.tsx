@@ -8,6 +8,7 @@ import HandoffModal from './HandoffModal';
 import { SubtaskRowActions, SubtaskDeleteConfirm } from './SubtaskActions';
 import SubtaskCreateModal from './SubtaskCreateModal';
 import UserPicker, { InlineUserPicker } from './UserPicker';
+import { useAuthStore } from '@/stores/authStore';
 
 import { useState, useRef } from 'react';
 import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2, Paperclip, Image, FileText, Download, UserPlus, ArrowRightLeft } from 'lucide-react';
@@ -21,6 +22,7 @@ interface Props {
 
 const TYPES = ['Story', 'Task', 'Bug', 'Subtask'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
+const MASTER_STATUS_ROLES = new Set(['admin', 'super_admin', 'manager', 'sales_manager', 'project_manager', 'project_coordinator', 'supervisor']);
 
 const getMemberId = (member: any) => member?.user_id || member?.id;
 const toArray = <T,>(value: T | T[] | null | undefined): T[] => Array.isArray(value) ? value : value ? [value] : [];
@@ -189,6 +191,8 @@ function ProjectEpicSelect({ projectId, sprintId, moduleId, value, onChange }: {
 
 export default function TaskDetailDrawer({ task: initialTask, onClose, projectId }: Props) {
   const qc = useQueryClient();
+  const userRole = useAuthStore(s => s.user?.role);
+  const seesMasterStatus = MASTER_STATUS_ROLES.has(userRole || '');
   const { statuses, statusObjects, addStatus } = useProjectStatuses(projectId);
   const { stages, stageObjects, addStage } = useProjectStages(projectId);
   const [activeTab, setActiveTab] = useState<'timelog' | 'handoffs'>('timelog');
