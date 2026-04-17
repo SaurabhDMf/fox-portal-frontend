@@ -94,6 +94,9 @@ export default function ModuleEpicsList({ projectId, moduleId, sprintId, moduleC
                 <div className="w-16 h-1 bg-secondary rounded-full overflow-hidden flex-shrink-0">
                   <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: ep.color || moduleColor || 'hsl(var(--primary))' }} />
                 </div>
+                <button onClick={() => setMoveEpic(ep)} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-secondary text-muted-foreground hover:text-foreground transition-all" title="Move to Module">
+                  <ArrowRightLeft className="h-3 w-3" />
+                </button>
                 <button onClick={() => setEditEpic(ep)} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-secondary text-muted-foreground hover:text-foreground transition-all" title="Edit Epic">
                   <Pencil className="h-3 w-3" />
                 </button>
