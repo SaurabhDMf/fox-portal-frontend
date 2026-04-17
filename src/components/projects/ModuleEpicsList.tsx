@@ -3,9 +3,10 @@ import api from '@/lib/api';
 import { extractProjectArray } from '@/lib/projectResponse';
 import type { Epic } from '@/lib/projectTypes';
 import { useState } from 'react';
-import { Plus, ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, ArrowRightLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import EpicFormModal from './EpicFormModal';
+import MoveEpicModal from './MoveEpicModal';
 
 interface Props {
   projectId: string;
