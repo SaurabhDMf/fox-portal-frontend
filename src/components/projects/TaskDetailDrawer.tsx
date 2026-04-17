@@ -136,6 +136,7 @@ function sanitizeTaskPatch(patch: Record<string, any>) {
   if ('priority' in patch && patch.priority) payload.priority = patch.priority;
   // assignee_ids are now handled via PATCH /tasks/:id/assignee — skip them here
   if ('epic_id' in patch) payload.epic_id = patch.epic_id || null;
+  if ('project_epic_id' in patch) payload.project_epic_id = patch.project_epic_id || null;
   if ('sprint_id' in patch) payload.sprint_id = patch.sprint_id || null;
   if ('parent_task_id' in patch) payload.parent_task_id = patch.parent_task_id || null;
   if ('due_date' in patch) payload.due_date = patch.due_date || null;
@@ -623,10 +624,29 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Module</span>
-                <select value={task.epic_id || ''} onChange={e => submitTaskUpdate({ epic_id: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <select value={task.epic_id || ''} onChange={e => submitTaskUpdate({ epic_id: e.target.value || null, project_epic_id: null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                   <option value="">No Module</option>
                   {epics.map((epic) => <option key={epic.id} value={epic.id}>{epic.title}</option>)}
                 </select>
+                {(task as any).project_module_title && (
+                  <p className="text-[10px] text-muted-foreground mt-1">Module: {(task as any).project_module_title}</p>
+                )}
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  Epic
+                  {(task as any).project_epic_color && <span className="w-2 h-2 rounded-full" style={{ background: (task as any).project_epic_color }} />}
+                </span>
+                <ProjectEpicSelect
+                  projectId={projectId}
+                  sprintId={task.sprint_id}
+                  moduleId={task.epic_id}
+                  value={(task as any).project_epic_id || ''}
+                  onChange={(id) => submitTaskUpdate({ project_epic_id: id || null })}
+                />
+                {(task as any).project_epic_title && (
+                  <p className="text-[10px] text-muted-foreground mt-1">Epic: {(task as any).project_epic_title}</p>
+                )}
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Sprint</span>
