@@ -257,35 +257,42 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
           </div>
         </div>
 
-        {/* Sprint (optional) — choose sprint first */}
-        <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Sprint (optional)</label>
-          <select value={form.sprint_id} onChange={e => { set('sprint_id', e.target.value); set('epic_id', ''); set('project_epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-            <option value="">None</option>
-            {sprints.map((s: Sprint) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+        {/* Sprint + Module — 2 cols */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Sprint (optional)</label>
+            <select value={form.sprint_id} onChange={e => { set('sprint_id', e.target.value); set('epic_id', ''); set('project_epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+              <option value="">None</option>
+              {sprints.map((s: Sprint) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Module (optional)</label>
+            <select value={form.epic_id} onChange={e => { set('epic_id', e.target.value); set('project_epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+              <option value="">None</option>
+              {modules
+                .filter((m: Module) => !form.sprint_id || m.sprint_id === form.sprint_id)
+                .map((m: Module) => <option key={m.id} value={m.id}>{m.title}{m.sprint_name ? ` — ${m.sprint_name}` : ''}</option>)}
+            </select>
+          </div>
         </div>
 
-        {/* Module (optional) — filtered by selected sprint */}
-        <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Module (optional){form.sprint_id ? '' : ' — select a sprint to filter'}</label>
-          <select value={form.epic_id} onChange={e => { set('epic_id', e.target.value); set('project_epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-            <option value="">None</option>
-            {modules
-              .filter((m: Module) => !form.sprint_id || m.sprint_id === form.sprint_id)
-              .map((m: Module) => <option key={m.id} value={m.id}>{m.title}{m.sprint_name ? ` — ${m.sprint_name}` : ''}</option>)}
-          </select>
-        </div>
-
-        {/* Epic (optional) — new project_epic layer, filtered by sprint/module */}
-        <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Epic (optional)</label>
-          <select value={form.project_epic_id} onChange={e => set('project_epic_id', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-            <option value="">None</option>
-            {projectEpics.map((pe: any) => (
-              <option key={pe.id} value={pe.id}>{pe.title}</option>
-            ))}
-          </select>
+        {/* Epic + Due Date — 2 cols */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Epic (optional)</label>
+            <select value={form.project_epic_id} onChange={e => set('project_epic_id', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+              <option value="">None</option>
+              {projectEpics.map((pe: any) => (
+                <option key={pe.id} value={pe.id}>{pe.title}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Due Date (optional)</label>
+            <input type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none" />
+          </div>
         </div>
 
         {/* Parent Story (optional) */}
