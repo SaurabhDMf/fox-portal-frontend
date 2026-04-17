@@ -3,9 +3,10 @@ import api from '@/lib/api';
 import { extractProjectArray } from '@/lib/projectResponse';
 import type { Epic } from '@/lib/projectTypes';
 import { useState } from 'react';
-import { Plus, ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, ArrowRightLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import EpicFormModal from './EpicFormModal';
+import MoveEpicModal from './MoveEpicModal';
 
 interface Props {
   projectId: string;
@@ -27,6 +28,7 @@ export default function ModuleEpicsList({ projectId, moduleId, sprintId, moduleC
   const [showCreate, setShowCreate] = useState(false);
   const [editEpic, setEditEpic] = useState<Epic | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [moveEpic, setMoveEpic] = useState<Epic | null>(null);
 
   const { data: epicsRaw, isLoading } = useQuery({
     queryKey: ['module-epics', projectId, moduleId],
@@ -92,6 +94,9 @@ export default function ModuleEpicsList({ projectId, moduleId, sprintId, moduleC
                 <div className="w-16 h-1 bg-secondary rounded-full overflow-hidden flex-shrink-0">
                   <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: ep.color || moduleColor || 'hsl(var(--primary))' }} />
                 </div>
+                <button onClick={() => setMoveEpic(ep)} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-secondary text-muted-foreground hover:text-foreground transition-all" title="Move to Module">
+                  <ArrowRightLeft className="h-3 w-3" />
+                </button>
                 <button onClick={() => setEditEpic(ep)} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-secondary text-muted-foreground hover:text-foreground transition-all" title="Edit Epic">
                   <Pencil className="h-3 w-3" />
                 </button>
@@ -113,6 +118,17 @@ export default function ModuleEpicsList({ projectId, moduleId, sprintId, moduleC
           epic={editEpic || undefined}
           onClose={() => { setShowCreate(false); setEditEpic(null); }}
           onSuccess={() => { refresh(); setOpen(true); }}
+        />
+      )}
+
+      {moveEpic && (
+        <MoveEpicModal
+          projectId={projectId}
+          epicId={moveEpic.id}
+          epicTitle={moveEpic.title}
+          currentModuleId={moduleId}
+          onClose={() => setMoveEpic(null)}
+          onSuccess={() => { setMoveEpic(null); refresh(); }}
         />
       )}
 
