@@ -3,7 +3,8 @@ import api from '@/lib/api';
 import { extractProjectArray } from '@/lib/projectResponse';
 import type { Module, Epic, ProjectTask } from '@/lib/projectTypes';
 import { useState, useMemo } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, ArrowRightLeft } from 'lucide-react';
+import MoveEpicModal from './MoveEpicModal';
 
 interface Props {
   projectId: string;
