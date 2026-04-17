@@ -343,8 +343,10 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
             <TableRow>
               <TableHead>Task Name</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Client</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Assigned To</TableHead>
+              <TableHead>Assigned By</TableHead>
               <TableHead>Due Date</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Status</TableHead>
