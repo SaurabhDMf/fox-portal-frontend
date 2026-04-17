@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
-import type { Epic, Sprint, ProjectTask } from '@/lib/projectTypes';
+import type { Epic, Module, Sprint, ProjectTask } from '@/lib/projectTypes';
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
