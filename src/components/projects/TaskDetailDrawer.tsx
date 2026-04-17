@@ -641,6 +641,30 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             <div className="grid grid-cols-2 gap-4">
               <div className="relative">
                 <UserPicker multi selectedIds={task.assignee_ids || task.assignees?.map((a: any) => getMemberId(a) || a.id) || []} onToggle={toggleAssignee} value={null} onChange={() => {}} label="Assignees" placeholder="Select assignees..." />
+                {/* Per-assignee personal status — visible to admins/managers only */}
+                {seesMasterStatus && (task.assignees?.length ?? 0) > 0 && task.assignees!.some((a: any) => a.personal_status) && (
+                  <div className="mt-2 space-y-1">
+                    {task.assignees!.map((a: any) => {
+                      const pStatus = a.personal_status;
+                      if (!pStatus) return null;
+                      const sObj = statusObjects.find((so: StatusOption) => so.name === pStatus);
+                      const color = sObj?.color || 'hsl(var(--muted-foreground))';
+                      return (
+                        <div key={a.id} className="flex items-center justify-between gap-2 text-[11px]">
+                          <span className="truncate text-muted-foreground">{a.full_name}</span>
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap"
+                            style={{ background: `${color}22`, color }}
+                            title="Personal status"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+                            {pStatus}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
               <div>
                 <span className="text-xs text-muted-foreground">Reporter</span>
