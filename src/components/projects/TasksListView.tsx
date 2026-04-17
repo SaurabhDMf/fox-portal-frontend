@@ -205,11 +205,12 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     setReporterFilter('');
   };
 
-  // Inline status update
+  // Inline status update — updates both master and personal status optimistically.
+  // Backend will sync task_assignees.status for the current user automatically.
   const handleStatusChange = useCallback(async (taskId: string, newStatus: string) => {
     qc.setQueryData(['project-all-tasks', queryParams], (old: ProjectTask[] | undefined) => {
       if (!old) return old;
-      return old.map(t => t.id === taskId ? { ...t, status: newStatus } : t);
+      return old.map(t => t.id === taskId ? { ...t, status: newStatus, my_status: newStatus } : t);
     });
     try {
       await api.put(`/tasks/${taskId}`, { status: newStatus });
