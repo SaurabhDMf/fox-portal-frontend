@@ -390,6 +390,16 @@ function ModuleEpicsPanel({ projectId, moduleId, sprintId, moduleColor, onChange
         />
       )}
 
+      {createTaskEpic && (
+        <CreateTaskModal
+          projectId={projectId}
+          defaultSprintId={sprintId}
+          defaultEpicId={moduleId}
+          defaultProjectEpicId={createTaskEpic.id}
+          onClose={() => { setCreateTaskEpic(null); onChanged(); qc.invalidateQueries({ queryKey: ['module-epics', projectId, moduleId] }); }}
+        />
+      )}
+
       {deleteId && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => setDeleteId(null)}>
           <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up" onClick={e => e.stopPropagation()}>
