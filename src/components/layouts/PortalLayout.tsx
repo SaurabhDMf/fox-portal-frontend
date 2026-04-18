@@ -7,7 +7,7 @@ const SidebarContext = createContext({ collapsed: false, setCollapsed: (_: boole
 export const useSidebarCollapsed = () => useContext(SidebarContext);
 
 export default function PortalLayout() {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (

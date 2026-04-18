@@ -114,11 +114,16 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
       const active = isItemActive(item.path);
       return (
         <NavLink key={item.path} to={item.path} end={rootPaths.includes(item.path)} onClick={onClick}
-          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
+          className={`group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
             active ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-          }`} title={item.label}>
+          } ${!showLabels ? 'justify-center' : ''}`}>
           <item.icon className={`h-4 w-4 flex-shrink-0 ${active ? 'text-primary' : ''}`} />
           {showLabels && <span className="truncate">{item.label}</span>}
+          {!showLabels && (
+            <span className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs whitespace-nowrap shadow-md border border-border opacity-0 group-hover:opacity-100 transition-opacity z-50">
+              {item.label}
+            </span>
+          )}
         </NavLink>
       );
     });
@@ -126,13 +131,13 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
   return (
     <>
       <aside className={`hidden md:flex flex-col fixed left-0 top-0 h-screen bg-[hsl(var(--sidebar-background))] border-r border-border z-40 transition-all duration-300 ${collapsed ? 'w-16' : 'w-60'}`}>
-        <div className="flex items-center justify-between h-14 px-3 border-b border-border flex-shrink-0">
-          {!collapsed ? <ThemeLogo className="h-7 flex-shrink-0" /> : <ThemeLogo className="h-6 flex-shrink-0" />}
+        <div className={`flex items-center h-14 border-b border-border flex-shrink-0 ${collapsed ? 'justify-center px-2' : 'justify-between px-3'}`}>
+          {!collapsed && <ThemeLogo className="h-7 flex-shrink-0" />}
           <button onClick={() => setCollapsed(!collapsed)} className="p-1.5 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
             <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} />
           </button>
         </div>
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">{renderNavItems(!collapsed)}</nav>
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1.5">{renderNavItems(!collapsed)}</nav>
         <div className="border-t border-border p-3 flex-shrink-0">
           {!collapsed && (
             <div className="flex items-center gap-2 mb-2">
@@ -157,7 +162,7 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
               <ThemeLogo className="h-7" />
               <button onClick={onMobileClose} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>
-            <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">{renderNavItems(true, onMobileClose)}</nav>
+            <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1.5">{renderNavItems(true, onMobileClose)}</nav>
             <div className="border-t border-border p-3">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">{user?.full_name?.[0] || 'U'}</div>
