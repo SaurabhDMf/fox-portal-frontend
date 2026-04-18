@@ -30,6 +30,8 @@ function upsertTask<T extends { id: string }>(list: T[] = [], task: T): T[] {
   return next;
 }
 
+type TempAttachment = { id: string; file_name: string; file_size: number; mime_type: string };
+
 export default function CreateTaskModal({ projectId, defaultStatus, defaultSprintId, defaultEpicId, onClose }: Props) {
   const qc = useQueryClient();
   const [itemType, setItemType] = useState<ItemType>('Task');
@@ -46,6 +48,9 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
     parent_task_id: '',
     due_date: '',
   });
+  const [attachments, setAttachments] = useState<TempAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { statuses, statusObjects, addStatus } = useProjectStatuses(projectId);
   const { stages, stageObjects, addStage } = useProjectStages(projectId);
