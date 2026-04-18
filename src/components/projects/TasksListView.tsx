@@ -359,7 +359,6 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
             <TableRow>
               <TableHead>Task Name</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Client</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Assigned To</TableHead>
               <TableHead>Assigned By</TableHead>
@@ -376,7 +375,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={15} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={14} className="py-12 text-center text-sm text-muted-foreground">
                   Loading tasks…
                 </TableCell>
               </TableRow>
@@ -409,11 +408,6 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                       <Badge variant="secondary" className={`text-[10px] ${TYPE_COLORS[t.type] || ''}`}>
                         {t.type || '—'}
                       </Badge>
-                    </TableCell>
-
-                    {/* Client */}
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap max-w-[140px] truncate">
-                      {(t as any).client_name || '—'}
                     </TableCell>
 
                     {/* Created */}
@@ -523,7 +517,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={15} className="py-12 text-center">
+                <TableCell colSpan={14} className="py-12 text-center">
                   <p className="text-sm text-muted-foreground">
                     {hasActiveFilters ? 'No tasks match your filters.' : 'No tasks found. Create the first one.'}
                   </p>
