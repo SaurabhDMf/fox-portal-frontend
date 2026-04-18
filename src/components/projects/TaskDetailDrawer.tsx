@@ -498,7 +498,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-5xl bg-card border-l border-border overflow-y-auto animate-slide-up">
+      <div className="relative w-full max-w-7xl bg-card border-l border-border overflow-y-auto animate-slide-up">
         {/* Sticky header */}
         <div className="sticky top-0 z-10 bg-card border-b border-border p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
