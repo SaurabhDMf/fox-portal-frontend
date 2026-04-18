@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
-import type { ProjectTask } from '@/lib/projectTypes';
+import type { ProjectTask, Module, Sprint } from '@/lib/projectTypes';
 import { X, Paperclip, Image as ImageIcon, FileText, Trash2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -19,19 +19,37 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
   const qc = useQueryClient();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  // Pre-populate Epic from parent task; allow override
+  // Pre-populate Sprint/Module/Epic from parent task; allow override
+  const [sprintId, setSprintId] = useState<string>(parentTask.sprint_id || '');
+  const [moduleId, setModuleId] = useState<string>(parentTask.epic_id || '');
   const [projectEpicId, setProjectEpicId] = useState<string>((parentTask as any).project_epic_id || '');
   const [attachments, setAttachments] = useState<TempAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch epics filtered by parent's sprint (if any) for the picker
+  // Sprints
+  const { data: sprintsRaw } = useQuery({
+    queryKey: ['project-sprints', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/sprints`).then(r => extractProjectArray<Sprint>(r.data, ['sprints'])),
+  });
+  const sprints = (Array.isArray(sprintsRaw) ? sprintsRaw : []).filter((s: Sprint) => s.status !== 'Completed');
+
+  // Modules (legacy field name `epic_id` on tasks)
+  const { data: modulesRaw } = useQuery({
+    queryKey: ['project-modules', projectId],
+    queryFn: () => api.get(`/projects/${projectId}/modules`).then(r => extractProjectArray<Module>(r.data, ['modules', 'epics'])),
+  });
+  const modules = (Array.isArray(modulesRaw) ? modulesRaw : [])
+    .slice()
+    .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
+
+  // Fetch epics filtered by selected sprint/module for the picker
   const { data: epicsRaw } = useQuery({
-    queryKey: ['project-epics-picker', projectId, parentTask.sprint_id, parentTask.epic_id],
+    queryKey: ['project-epics-picker', projectId, sprintId, moduleId],
     queryFn: () => {
       const params: Record<string, string> = {};
-      if (parentTask.sprint_id) params.sprint_id = parentTask.sprint_id;
-      if (parentTask.epic_id) params.module_id = parentTask.epic_id;
+      if (sprintId) params.sprint_id = sprintId;
+      if (moduleId) params.module_id = moduleId;
       return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<any>(r.data, ['epics']));
     },
   });
@@ -47,6 +65,8 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
         status: 'Open',
         project_id: projectId,
         parent_task_id: parentTask.id,
+        sprint_id: sprintId || null,
+        epic_id: moduleId || null,
         project_epic_id: projectEpicId || null,
       };
       if (attachments.length > 0) payload.attachment_ids = attachments.map(a => a.id);
@@ -133,6 +153,38 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
             className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-y"
             placeholder="Optional details about this subtask..."
           />
+        </div>
+
+        {/* Sprint → Module → Epic */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-muted-foreground">Sprint</label>
+            <select
+              value={sprintId}
+              onChange={e => { setSprintId(e.target.value); setModuleId(''); setProjectEpicId(''); }}
+              className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="">No Sprint</option>
+              {sprints.map((s: Sprint) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Module</label>
+            <select
+              value={moduleId}
+              onChange={e => { setModuleId(e.target.value); setProjectEpicId(''); }}
+              className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="">No Module</option>
+              {modules
+                .filter((m: Module) => !sprintId || m.sprint_id === sprintId)
+                .map((m: Module) => (
+                  <option key={m.id} value={m.id}>{m.title}{m.sprint_name ? ` — ${m.sprint_name}` : ''}</option>
+                ))}
+            </select>
+          </div>
         </div>
 
         <div>
