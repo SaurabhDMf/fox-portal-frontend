@@ -502,9 +502,10 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
       <div className="relative w-full max-w-7xl bg-card border-l border-border overflow-y-auto animate-slide-up">
         {/* Sticky header */}
         <div className="sticky top-0 z-10 bg-card border-b border-border p-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-lg">{tc.icon}</span>
             <span className="text-sm font-mono text-muted-foreground">{task.task_number}</span>
+            <HandoffBadge handoffInfo={(task as any).handoff_info} />
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => watchMut.mutate()} className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${task.is_watching ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}>
