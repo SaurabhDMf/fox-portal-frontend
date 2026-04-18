@@ -566,6 +566,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                 <input type="checkbox" checked={st.status === 'Done'} onClick={(e) => e.stopPropagation()} onChange={(e) => { e.stopPropagation(); const newStatus = st.status === 'Done' ? 'Open' : 'Done'; api.put(`/tasks/${st.id}`, { status: newStatus }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success(`Subtask ${newStatus === 'Done' ? 'completed' : 'reopened'}`); }).catch(() => toast.error('Failed to update subtask')); }} className="rounded border-border cursor-pointer" />
                 <span className="text-xs font-mono text-muted-foreground">{st.task_number}</span>
                 <span className={`text-sm flex-1 min-w-[80px] ${st.status === 'Done' ? 'line-through text-muted-foreground' : ''}`}>{st.title}</span>
+                <HandoffBadge handoffInfo={(st as any).handoff_info} />
                 <select onClick={(e) => e.stopPropagation()} value={st.status || 'Open'} onChange={(e) => { e.stopPropagation(); api.put(`/tasks/${st.id}`, { status: e.target.value }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success('Status updated'); }).catch(() => toast.error('Failed to update')); }} className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer">
                   {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
