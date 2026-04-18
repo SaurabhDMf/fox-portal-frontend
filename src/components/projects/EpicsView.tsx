@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import ModuleFormModal from './ModuleFormModal';
 import EpicFormModal from './EpicFormModal';
 import MoveEpicModal from './MoveEpicModal';
+import CreateTaskModal from './CreateTaskModal';
 
 interface Props {
   projectId: string;
