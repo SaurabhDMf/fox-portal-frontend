@@ -149,11 +149,6 @@ export default function UserPicker({ value, onChange, placeholder = 'Select user
               })}
               {filtered.length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No users found</p>}
             </div>
-            <div className="p-2 border-t border-border">
-              <button onClick={() => { setOpen(false); setSearch(''); }} className="w-full px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-colors">
-                Done
-              </button>
-            </div>
           </div>
         )}
       </div>
