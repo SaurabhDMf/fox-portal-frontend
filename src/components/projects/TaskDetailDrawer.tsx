@@ -534,6 +534,9 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             </div>
           </div>
 
+          {/* Two-column layout: left = title/description/subtasks/attachments/comments/timelog, right = details */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6 min-w-0">
           {/* Title */}
           {isEditingTitle ? (
             <div className="flex gap-2">
