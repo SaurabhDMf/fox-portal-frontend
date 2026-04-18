@@ -349,6 +349,9 @@ function ModuleEpicsPanel({ projectId, moduleId, sprintId, moduleColor, onChange
                 <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: epicAccent }} />
               </div>
               <div className="flex items-center opacity-0 group-hover/epic:opacity-100 transition-opacity">
+                <button onClick={() => setCreateTaskEpic(ep)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-primary" title="Add Task to Epic">
+                  <Plus className="h-3 w-3" />
+                </button>
                 <button onClick={() => setMoveEpic(ep)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground" title="Move to Module">
                   <ArrowRightLeft className="h-3 w-3" />
                 </button>
