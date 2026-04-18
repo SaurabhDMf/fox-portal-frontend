@@ -10,6 +10,7 @@ import { extractProjectArray } from '@/lib/projectResponse';
 import type { ProjectTask, Sprint, Epic, ProjectMember } from '@/lib/projectTypes';
 import { useAuthStore } from '@/stores/authStore';
 import { useProjectStatuses, type StatusOption } from '@/hooks/useProjectOptions';
+import HandoffBadge from './HandoffBadge';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -391,13 +392,14 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                     {/* Task Name */}
                     <TableCell>
                       <div className="min-w-[200px]">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           {t.task_number && (
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                               {t.task_number}
                             </span>
                           )}
                           <span className="font-medium text-foreground">{t.title}</span>
+                          <HandoffBadge handoffInfo={(t as any).handoff_info} />
                         </div>
                       </div>
                     </TableCell>

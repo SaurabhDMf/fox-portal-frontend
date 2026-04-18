@@ -8,6 +8,7 @@ import HandoffModal from './HandoffModal';
 import { SubtaskRowActions, SubtaskDeleteConfirm } from './SubtaskActions';
 import SubtaskCreateModal from './SubtaskCreateModal';
 import UserPicker, { InlineUserPicker } from './UserPicker';
+import HandoffBadge from './HandoffBadge';
 import { useAuthStore } from '@/stores/authStore';
 
 import { useState, useRef } from 'react';
@@ -501,9 +502,10 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
       <div className="relative w-full max-w-7xl bg-card border-l border-border overflow-y-auto animate-slide-up">
         {/* Sticky header */}
         <div className="sticky top-0 z-10 bg-card border-b border-border p-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-lg">{tc.icon}</span>
             <span className="text-sm font-mono text-muted-foreground">{task.task_number}</span>
+            <HandoffBadge handoffInfo={(task as any).handoff_info} />
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => watchMut.mutate()} className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${task.is_watching ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-muted-foreground'}`}>
@@ -564,6 +566,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                 <input type="checkbox" checked={st.status === 'Done'} onClick={(e) => e.stopPropagation()} onChange={(e) => { e.stopPropagation(); const newStatus = st.status === 'Done' ? 'Open' : 'Done'; api.put(`/tasks/${st.id}`, { status: newStatus }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success(`Subtask ${newStatus === 'Done' ? 'completed' : 'reopened'}`); }).catch(() => toast.error('Failed to update subtask')); }} className="rounded border-border cursor-pointer" />
                 <span className="text-xs font-mono text-muted-foreground">{st.task_number}</span>
                 <span className={`text-sm flex-1 min-w-[80px] ${st.status === 'Done' ? 'line-through text-muted-foreground' : ''}`}>{st.title}</span>
+                <HandoffBadge handoffInfo={(st as any).handoff_info} />
                 <select onClick={(e) => e.stopPropagation()} value={st.status || 'Open'} onChange={(e) => { e.stopPropagation(); api.put(`/tasks/${st.id}`, { status: e.target.value }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success('Status updated'); }).catch(() => toast.error('Failed to update')); }} className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer">
                   {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
