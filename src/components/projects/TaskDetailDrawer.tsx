@@ -8,6 +8,7 @@ import HandoffModal from './HandoffModal';
 import { SubtaskRowActions, SubtaskDeleteConfirm } from './SubtaskActions';
 import SubtaskCreateModal from './SubtaskCreateModal';
 import UserPicker, { InlineUserPicker } from './UserPicker';
+import HandoffBadge from './HandoffBadge';
 import { useAuthStore } from '@/stores/authStore';
 
 import { useState, useRef } from 'react';
