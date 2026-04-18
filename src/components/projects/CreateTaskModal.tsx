@@ -33,7 +33,7 @@ function upsertTask<T extends { id: string }>(list: T[] = [], task: T): T[] {
 
 type TempAttachment = { id: string; file_name: string; file_size: number; mime_type: string };
 
-export default function CreateTaskModal({ projectId, defaultStatus, defaultSprintId, defaultEpicId, onClose }: Props) {
+export default function CreateTaskModal({ projectId, defaultStatus, defaultSprintId, defaultEpicId, defaultProjectEpicId, onClose }: Props) {
   const qc = useQueryClient();
   const [itemType, setItemType] = useState<ItemType>('Task');
   const [form, setForm] = useState({
@@ -44,7 +44,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
     stage: '',
     assignee_ids: [] as string[],
     epic_id: defaultEpicId || '', // Module (legacy field name)
-    project_epic_id: '',           // New Epic layer
+    project_epic_id: defaultProjectEpicId || '',           // New Epic layer
     sprint_id: defaultSprintId || '',
     parent_task_id: '',
     due_date: '',
