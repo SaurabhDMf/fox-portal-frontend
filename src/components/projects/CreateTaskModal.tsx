@@ -14,6 +14,7 @@ interface Props {
   defaultStatus?: string;
   defaultSprintId?: string;
   defaultEpicId?: string;
+  defaultProjectEpicId?: string;
   onClose: () => void;
 }
 
