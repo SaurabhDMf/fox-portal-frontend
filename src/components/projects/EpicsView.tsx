@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import ModuleFormModal from './ModuleFormModal';
 import EpicFormModal from './EpicFormModal';
 import MoveEpicModal from './MoveEpicModal';
+import CreateTaskModal from './CreateTaskModal';
 
 interface Props {
   projectId: string;
@@ -287,6 +288,7 @@ function ModuleEpicsPanel({ projectId, moduleId, sprintId, moduleColor, onChange
   const [editEpic, setEditEpic] = useState<Epic | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [moveEpic, setMoveEpic] = useState<Epic | null>(null);
+  const [createTaskEpic, setCreateTaskEpic] = useState<Epic | null>(null);
 
   const { data: epicsRaw, isLoading } = useQuery({
     queryKey: ['module-epics', projectId, moduleId],
@@ -347,6 +349,9 @@ function ModuleEpicsPanel({ projectId, moduleId, sprintId, moduleColor, onChange
                 <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: epicAccent }} />
               </div>
               <div className="flex items-center opacity-0 group-hover/epic:opacity-100 transition-opacity">
+                <button onClick={() => setCreateTaskEpic(ep)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-primary" title="Add Task to Epic">
+                  <Plus className="h-3 w-3" />
+                </button>
                 <button onClick={() => setMoveEpic(ep)} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground" title="Move to Module">
                   <ArrowRightLeft className="h-3 w-3" />
                 </button>
@@ -382,6 +387,16 @@ function ModuleEpicsPanel({ projectId, moduleId, sprintId, moduleColor, onChange
           currentModuleId={moduleId}
           onClose={() => setMoveEpic(null)}
           onSuccess={() => { setMoveEpic(null); onChanged(); qc.invalidateQueries({ queryKey: ['module-epics', projectId, moduleId] }); }}
+        />
+      )}
+
+      {createTaskEpic && (
+        <CreateTaskModal
+          projectId={projectId}
+          defaultSprintId={sprintId}
+          defaultEpicId={moduleId}
+          defaultProjectEpicId={createTaskEpic.id}
+          onClose={() => { setCreateTaskEpic(null); onChanged(); qc.invalidateQueries({ queryKey: ['module-epics', projectId, moduleId] }); }}
         />
       )}
 
