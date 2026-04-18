@@ -224,6 +224,37 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
 
   const set = (key: string, val: string) => setForm(f => ({ ...f, [key]: val }));
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const uploaded: TempAttachment[] = [];
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await api.post('/tasks/upload-temp', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        const data = res.data?.attachment || res.data;
+        if (data?.id) uploaded.push({ id: data.id, file_name: data.file_name, file_size: data.file_size, mime_type: data.mime_type });
+      }
+      setAttachments(prev => [...prev, ...uploaded]);
+      if (uploaded.length) toast.success(`${uploaded.length} file${uploaded.length > 1 ? 's' : ''} uploaded`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (id: string) => setAttachments(prev => prev.filter(a => a.id !== id));
+
+  const getFileIcon = (name: string) => {
+    const ext = name?.split('.').pop()?.toLowerCase() || '';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return <ImageIcon className="h-4 w-4 text-primary" />;
+    return <FileText className="h-4 w-4 text-muted-foreground" />;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div className="glass-card w-full max-w-lg p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
