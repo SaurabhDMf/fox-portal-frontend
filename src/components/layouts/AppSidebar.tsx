@@ -9,6 +9,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import ThemeLogo from '@/components/ThemeLogo';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface NavItem {
   label: string;
@@ -112,15 +113,21 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
   const renderNavItems = (showLabels: boolean, onClick?: () => void) =>
     visibleItems.map((item) => {
       const active = isItemActive(item.path);
-      return (
+      const link = (
         <NavLink key={item.path} to={item.path} end={rootPaths.includes(item.path)} onClick={onClick}
-          title={!showLabels ? item.label : undefined}
           className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
             active ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
           } ${!showLabels ? 'justify-center' : ''}`}>
           <item.icon className={`h-4 w-4 flex-shrink-0 ${active ? 'text-primary' : ''}`} />
           {showLabels && <span className="truncate">{item.label}</span>}
         </NavLink>
+      );
+      if (showLabels) return link;
+      return (
+        <Tooltip key={item.path} delayDuration={0}>
+          <TooltipTrigger asChild>{link}</TooltipTrigger>
+          <TooltipContent side="right" sideOffset={8}>{item.label}</TooltipContent>
+        </Tooltip>
       );
     });
 
