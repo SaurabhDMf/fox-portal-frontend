@@ -537,8 +537,8 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
           </div>
 
           {/* Two-column layout: left = title/description/subtasks/attachments/comments/timelog, right = details */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6 min-w-0">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3 space-y-6 min-w-0">
           {/* Title */}
           {isEditingTitle ? (
             <div className="flex gap-2">
@@ -645,7 +645,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             </div>
 
             {/* Right column: Details + Labels */}
-            <div className="lg:col-span-1 space-y-6 min-w-0">
+            <div className="lg:col-span-2 space-y-6 min-w-0">
           {/* Details */}
           <div className="lg:border-t-0 border-t border-border lg:pt-0 pt-4">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Details</h4>
@@ -677,11 +677,20 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                   </div>
                 )}
               </div>
-              <div>
-                <span className="text-xs text-muted-foreground">Reporter</span>
-                <p className="text-sm">{task.reporter?.full_name || '—'}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              {/* Sprint */}
+              <div className="min-w-0">
+                <span className="text-xs text-muted-foreground">Sprint</span>
+                <select value={task.sprint_id || ''} onChange={e => submitTaskUpdate({ sprint_id: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                  <option value="">No Sprint</option>
+                  {sprints.filter((s) => s.status !== 'Completed').map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
               </div>
-              <div>
+
+              {/* Module */}
+              <div className="min-w-0">
                 <span className="text-xs text-muted-foreground flex items-center gap-1.5">
                   Module
                   {(task as any).epic_color && <span className="w-2 h-2 rounded-full" style={{ background: (task as any).epic_color }} />}
@@ -690,11 +699,10 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                   <option value="">No Module</option>
                   {modules.map((mod) => <option key={mod.id} value={mod.id}>{mod.title}{mod.sprint_name ? ` — ${mod.sprint_name}` : ''}</option>)}
                 </select>
-                {((task as any).epic_title || (task as any).module_title || task.epic_name) && (
-                  <p className="text-[10px] text-muted-foreground mt-1">Module: {(task as any).epic_title || (task as any).module_title || task.epic_name}</p>
-                )}
               </div>
-              <div>
+
+              {/* Epic */}
+              <div className="min-w-0">
                 <span className="text-xs text-muted-foreground flex items-center gap-1.5">
                   Epic
                   {(task as any).project_epic_color && <span className="w-2 h-2 rounded-full" style={{ background: (task as any).project_epic_color }} />}
@@ -706,28 +714,28 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                   value={(task as any).project_epic_id || ''}
                   onChange={(id) => submitTaskUpdate({ project_epic_id: id || null })}
                 />
-                {(task as any).project_epic_title ? (
-                  <p className="text-[10px] text-muted-foreground mt-1">Epic: {(task as any).project_epic_title}</p>
-                ) : (
-                  <p className="text-[10px] text-muted-foreground mt-1">No epic assigned</p>
-                )}
               </div>
-              <div>
-                <span className="text-xs text-muted-foreground">Sprint</span>
-                <select value={task.sprint_id || ''} onChange={e => submitTaskUpdate({ sprint_id: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                  <option value="">No Sprint</option>
-                  {sprints.filter((s) => s.status !== 'Completed').map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+
+              {/* Reporter */}
+              <div className="min-w-0">
+                <span className="text-xs text-muted-foreground">Reporter</span>
+                <p className="text-sm mt-2">{task.reporter?.full_name || '—'}</p>
               </div>
-              <div>
+
+              {/* Due Date */}
+              <div className="min-w-0">
                 <span className="text-xs text-muted-foreground">Due Date</span>
                 <input type="date" value={task.due_date ? task.due_date.substring(0, 10) : ''} onChange={e => submitTaskUpdate({ due_date: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
               </div>
-              <div>
+
+              {/* Stage */}
+              <div className="min-w-0">
                 <span className="text-xs text-muted-foreground">Stage</span>
                 <div className="mt-1"><InlineAddSelect value={task.stage || ''} options={stages} colorOptions={stageObjects} onChange={v => submitTaskUpdate({ stage: v || null })} onAdd={addStage} placeholder="No Stage" /></div>
               </div>
-              <div>
+
+              {/* Code Repo */}
+              <div className="min-w-0">
                 <span className="text-xs text-muted-foreground">Code Repo</span>
                 <select value={(task as any).code_repo_status || ''} onChange={e => submitTaskUpdate({ code_repo_status: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
                   <option value="">No Status</option>
@@ -736,9 +744,11 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                   <option value="conflict">Conflict</option>
                 </select>
               </div>
-              <div>
+
+              {/* Time Tracked */}
+              <div className="min-w-0">
                 <span className="text-xs text-muted-foreground">Time Tracked</span>
-                <p className="text-sm mt-1">{task.logged_hours || 0}h / {task.estimate_hours || 0}h est.</p>
+                <p className="text-sm mt-2">{task.logged_hours || 0}h / {task.estimate_hours || 0}h est.</p>
               </div>
             </div>
           </div>
