@@ -140,7 +140,9 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
             <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} />
           </button>
         </div>
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1.5">{renderNavItems(!collapsed)}</nav>
+        <TooltipProvider delayDuration={0} skipDelayDuration={0}>
+          <nav className="flex-1 overflow-y-auto overflow-x-visible py-3 px-2 space-y-1.5">{renderNavItems(!collapsed)}</nav>
+        </TooltipProvider>
         <div className="border-t border-border p-3 flex-shrink-0">
           {!collapsed && (
             <div className="flex items-center gap-2 mb-2">
