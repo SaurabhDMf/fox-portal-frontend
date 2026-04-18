@@ -120,7 +120,7 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
           <item.icon className={`h-4 w-4 flex-shrink-0 ${active ? 'text-primary' : ''}`} />
           {showLabels && <span className="truncate">{item.label}</span>}
           {!showLabels && (
-            <span className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs whitespace-nowrap shadow-md border border-border opacity-0 group-hover:opacity-100 transition-opacity z-50">
+            <span className="pointer-events-none fixed left-16 ml-2 px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs whitespace-nowrap shadow-md border border-border opacity-0 group-hover:opacity-100 transition-opacity z-[60]">
               {item.label}
             </span>
           )}
