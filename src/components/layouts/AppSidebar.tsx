@@ -114,16 +114,12 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
       const active = isItemActive(item.path);
       return (
         <NavLink key={item.path} to={item.path} end={rootPaths.includes(item.path)} onClick={onClick}
-          className={`group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
+          title={!showLabels ? item.label : undefined}
+          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
             active ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
           } ${!showLabels ? 'justify-center' : ''}`}>
           <item.icon className={`h-4 w-4 flex-shrink-0 ${active ? 'text-primary' : ''}`} />
           {showLabels && <span className="truncate">{item.label}</span>}
-          {!showLabels && (
-            <span className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs whitespace-nowrap shadow-md border border-border opacity-0 group-hover:opacity-100 transition-opacity z-50">
-              {item.label}
-            </span>
-          )}
         </NavLink>
       );
     });
