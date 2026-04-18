@@ -185,10 +185,6 @@ function StagesSection({ projectId }: { projectId: string }) {
       <p className="text-xs text-muted-foreground">Manage workflow stages for this project. Stages appear as colored pills on tasks.</p>
       <div className="space-y-1">
         {stages.map((s: any) => {
-          // keep original mapping below
-          return null;
-        }).filter(Boolean)}
-        {stages.map((s: any) => {
           const id = s.id || s.name;
           const name = s.name || s.label || s;
           const color = s.color || '#6B7280';
