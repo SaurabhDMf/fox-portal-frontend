@@ -399,6 +399,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
           )}
         </div>
 
+        <div className="flex gap-2 justify-end">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
           <button onClick={() => createMut.mutate()} disabled={!form.title || createMut.isPending}
             className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
