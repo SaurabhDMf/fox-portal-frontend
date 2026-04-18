@@ -498,7 +498,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
     return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-5xl bg-card border-l border-border overflow-y-auto animate-slide-up">
+      <div className="relative w-full max-w-7xl bg-card border-l border-border overflow-y-auto animate-slide-up">
         {/* Sticky header */}
         <div className="sticky top-0 z-10 bg-card border-b border-border p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -534,6 +534,9 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             </div>
           </div>
 
+          {/* Two-column layout: left = title/description/subtasks/attachments/comments/timelog, right = details */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6 min-w-0">
           {/* Title */}
           {isEditingTitle ? (
             <div className="flex gap-2">
@@ -636,10 +639,14 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             )}
           </div>
 
+            </div>
+
+            {/* Right column: Details + Labels */}
+            <div className="lg:col-span-1 space-y-6 min-w-0">
           {/* Details */}
-          <div className="border-t border-border pt-4">
+          <div className="lg:border-t-0 border-t border-border lg:pt-0 pt-4">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Details</h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="relative">
                 <UserPicker multi selectedIds={task.assignee_ids || task.assignees?.map((a: any) => getMemberId(a) || a.id) || []} onToggle={toggleAssignee} value={null} onChange={() => {}} label="Assignees" placeholder="Select assignees..." />
                 {/* Per-assignee personal status — visible to admins/managers only */}
@@ -744,6 +751,9 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
               </div>
             </div>
           )}
+
+            </div>
+          </div>
 
           {/* Time Log / Handoffs */}
           <div className="border-t border-border pt-4">
