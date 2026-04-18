@@ -191,6 +191,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
       if (form.sprint_id) payload.sprint_id = form.sprint_id; else payload.sprint_id = null;
       if (form.parent_task_id) payload.parent_task_id = form.parent_task_id; else payload.parent_task_id = null;
       if (form.due_date) payload.due_date = form.due_date;
+      if (attachments.length > 0) payload.attachment_ids = attachments.map(a => a.id);
       return api.post('/tasks', payload);
     },
     onSuccess: async (res) => {
