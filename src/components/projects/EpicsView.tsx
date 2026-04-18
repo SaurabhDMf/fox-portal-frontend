@@ -288,6 +288,7 @@ function ModuleEpicsPanel({ projectId, moduleId, sprintId, moduleColor, onChange
   const [editEpic, setEditEpic] = useState<Epic | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [moveEpic, setMoveEpic] = useState<Epic | null>(null);
+  const [createTaskEpic, setCreateTaskEpic] = useState<Epic | null>(null);
 
   const { data: epicsRaw, isLoading } = useQuery({
     queryKey: ['module-epics', projectId, moduleId],
