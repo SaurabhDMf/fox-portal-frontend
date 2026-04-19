@@ -2,11 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import type { Epic, Module, Sprint, ProjectTask } from '@/lib/projectTypes';
-import { useState, useRef } from 'react';
-import { X, Paperclip, Image as ImageIcon, FileText, Trash2, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import UserPicker from './UserPicker';
 import InlineAddSelect from './InlineAddSelect';
+import AttachmentDropzone, { type Attachment } from './AttachmentDropzone';
 import { useProjectStatuses, useProjectStages, type StatusOption } from '@/hooks/useProjectOptions';
 
 interface Props {
