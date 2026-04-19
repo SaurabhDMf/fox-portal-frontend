@@ -2,10 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { ArrowLeft, Phone, Mail, Building2, Plus, X } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, Building2, Plus, X, UserCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/stores/authStore';
+import ConvertLeadModal from '@/components/crm/ConvertLeadModal';
 
 const activityTypes = ['Call', 'Email', 'Meeting', 'Note', 'Follow-up'];
+const CONVERT_ROLES = ['super_admin', 'admin', 'sales_manager'];
 
 function getLeadCountry(lead: any): string {
   return lead?.country || lead?.country_name || lead?.lead_country || lead?.location || lead?.meta?.country || '';
@@ -19,7 +22,9 @@ export default function LeadDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const userRole = useAuthStore(s => s.user?.role);
   const [showActivity, setShowActivity] = useState(false);
+  const [showConvert, setShowConvert] = useState(false);
   const [actForm, setActForm] = useState({ type: 'Call', title: '', description: '', duration_mins: 0, outcome: '' });
 
   const { data: lead, isLoading } = useQuery({
@@ -44,9 +49,27 @@ export default function LeadDetail() {
 
   return (
     <div className="page-container">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Back to CRM
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back to CRM
+        </button>
+        {CONVERT_ROLES.includes(userRole || '') && lead.status !== 'Closed Won' && (
+          <button
+            onClick={() => setShowConvert(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
+          >
+            <UserCheck className="h-4 w-4" /> Convert to Client
+          </button>
+        )}
+        {lead.status === 'Closed Won' && lead.client_id && (
+          <button
+            onClick={() => navigate(`/admin/clients/${lead.client_id}`)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-success/10 text-success text-sm font-medium hover:bg-success/20 transition-all"
+          >
+            <UserCheck className="h-4 w-4" /> View Client
+          </button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Lead Info */}
@@ -151,6 +174,10 @@ export default function LeadDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {showConvert && (
+        <ConvertLeadModal lead={lead} onClose={() => setShowConvert(false)} />
       )}
     </div>
   );
