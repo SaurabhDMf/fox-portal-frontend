@@ -69,6 +69,12 @@ export default function ProjectDetail() {
   );
 
   const project: Project | undefined = projectRaw;
+  const displayClientName = (project as any)?.client_name
+    || (project as any)?.client_company_name
+    || (project as any)?.company_name
+    || (project as any)?.client?.company_name
+    || (project as any)?.client?.name
+    || '—';
 
   const updateMut = useMutation({
     mutationFn: (d: typeof editForm) => api.put(`/projects/${id}`, d),
@@ -135,7 +141,7 @@ export default function ProjectDetail() {
             <div className="w-3 h-10 rounded-full" style={{ background: project.color || 'hsl(var(--primary))' }} />
             <div>
               <h1 className="text-xl font-bold">{project.name}</h1>
-              <p className="text-sm text-muted-foreground">{project.client_name || '—'}</p>
+              <p className="text-sm text-muted-foreground">{displayClientName}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
