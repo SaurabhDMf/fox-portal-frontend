@@ -589,14 +589,24 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             globalPaste
             attachments={attachments as Attachment[]}
             onAdd={(att) => {
+              // Merge into cache immediately. Do NOT invalidate — a refetch can race
+              // backend indexing and wipe the freshly uploaded attachment from the UI.
               qc.setQueryData(['task-attachments', initialTask.id], (old: any) => {
-                const prev = Array.isArray(old) ? old : [];
+                const prev = Array.isArray(old)
+                  ? old
+                  : (Array.isArray(task.attachments) ? task.attachments : []);
                 if (prev.some((a: any) => a?.id === att.id)) return prev;
                 return [...prev, att];
               });
-              qc.invalidateQueries({ queryKey: ['task-attachments', initialTask.id] });
             }}
-            onRemove={(att) => deleteAttachmentMut.mutate(att.id)}
+            onRemove={(att) => {
+              // Optimistically drop from cache, then DELETE.
+              qc.setQueryData(['task-attachments', initialTask.id], (old: any) => {
+                const prev = Array.isArray(old) ? old : [];
+                return prev.filter((a: any) => a?.id !== att.id);
+              });
+              deleteAttachmentMut.mutate(att.id);
+            }}
           />
 
           {/* Comments */}
