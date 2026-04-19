@@ -439,7 +439,16 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
 
   const deleteAttachmentMut = useMutation({
     mutationFn: (aid: string) => api.delete(`/tasks/${initialTask.id}/attachments/${aid}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['task-attachments', initialTask.id] }); toast.success('Attachment removed'); },
+    onSuccess: (_res, aid) => {
+      // Remove only the deleted attachment from cache. Do NOT invalidate —
+      // a refetch can race the backend and wipe the whole list.
+      qc.setQueryData(['task-attachments', initialTask.id], (old: any) => {
+        const prev = Array.isArray(old) ? old : [];
+        return prev.filter((a: any) => a?.id !== aid);
+      });
+      toast.success('Attachment removed');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to remove attachment'),
   });
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
