@@ -2,11 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import type { Epic, Module, Sprint, ProjectTask } from '@/lib/projectTypes';
-import { useState, useRef } from 'react';
-import { X, Paperclip, Image as ImageIcon, FileText, Trash2, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import UserPicker from './UserPicker';
 import InlineAddSelect from './InlineAddSelect';
+import AttachmentDropzone, { type Attachment } from './AttachmentDropzone';
 import { useProjectStatuses, useProjectStages, type StatusOption } from '@/hooks/useProjectOptions';
 
 interface Props {
@@ -31,7 +32,7 @@ function upsertTask<T extends { id: string }>(list: T[] = [], task: T): T[] {
   return next;
 }
 
-type TempAttachment = { id: string; file_name: string; file_size: number; mime_type: string };
+
 
 export default function CreateTaskModal({ projectId, defaultStatus, defaultSprintId, defaultEpicId, defaultProjectEpicId, onClose }: Props) {
   const qc = useQueryClient();
@@ -49,9 +50,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
     parent_task_id: '',
     due_date: '',
   });
-  const [attachments, setAttachments] = useState<TempAttachment[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   const { statuses, statusObjects, addStatus } = useProjectStatuses(projectId);
   const { stages, stageObjects, addStage } = useProjectStages(projectId);
@@ -225,36 +224,8 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
 
   const set = (key: string, val: string) => setForm(f => ({ ...f, [key]: val }));
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    setUploading(true);
-    try {
-      const uploaded: TempAttachment[] = [];
-      for (const file of Array.from(files)) {
-        const fd = new FormData();
-        fd.append('file', file);
-        const res = await api.post('/tasks/upload-temp', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-        const data = res.data?.attachment || res.data;
-        if (data?.id) uploaded.push({ id: data.id, file_name: data.file_name, file_size: data.file_size, mime_type: data.mime_type });
-      }
-      setAttachments(prev => [...prev, ...uploaded]);
-      if (uploaded.length) toast.success(`${uploaded.length} file${uploaded.length > 1 ? 's' : ''} uploaded`);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
   const removeAttachment = (id: string) => setAttachments(prev => prev.filter(a => a.id !== id));
 
-  const getFileIcon = (name: string) => {
-    const ext = name?.split('.').pop()?.toLowerCase() || '';
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return <ImageIcon className="h-4 w-4 text-primary" />;
-    return <FileText className="h-4 w-4 text-muted-foreground" />;
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
@@ -357,48 +328,12 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
 
 
         {/* Attachments */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-muted-foreground">Attachments (optional)</label>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
-            >
-              {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Paperclip className="h-3 w-3" />}
-              {uploading ? 'Uploading...' : 'Attach Files'}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-          </div>
-          {attachments.length > 0 && (
-            <div className="space-y-1.5">
-              {attachments.map(att => (
-                <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 group">
-                  {getFileIcon(att.file_name)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">{att.file_name}</p>
-                    <p className="text-[10px] text-muted-foreground">{(att.file_size / 1024).toFixed(1)} KB</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeAttachment(att.id)}
-                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <AttachmentDropzone
+          attachments={attachments}
+          onAdd={(att) => setAttachments((prev) => [...prev, att])}
+          onRemove={(att) => removeAttachment(att.id)}
+          label="Attachments (optional)"
+        />
 
         <div className="flex gap-2 justify-end">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
