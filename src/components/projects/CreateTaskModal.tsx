@@ -199,13 +199,23 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
       await qc.cancelQueries({ queryKey: ['project-all-tasks', projectId] });
       const newTask = (extractProjectEntity<ProjectTask>(res.data, ['task']) || res.data) as ProjectTask;
       if (newTask?.id) {
+        // POST /tasks doesn't include attachments — seed them from the temp records
+        // we already have locally (they were returned by upload-temp with file_url).
+        const taskWithAttachments: any = {
+          ...newTask,
+          attachments: attachments.length > 0 ? attachments : (newTask as any).attachments || [],
+        };
+
+        // Pre-populate the task-detail cache so the drawer shows attachments instantly.
+        qc.setQueryData(['task-detail', newTask.id], taskWithAttachments);
+
         qc.setQueryData(['project-all-tasks', projectId], (old: any) => {
           const prev = Array.isArray(old) ? old : [];
-          return prev.some((t: any) => t?.id === newTask.id) ? prev : [...prev, newTask];
+          return prev.some((t: any) => t?.id === newTask.id) ? prev : [...prev, taskWithAttachments];
         });
 
         const targetSprintId = newTask.sprint_id || form.sprint_id || defaultSprintId;
-        if (targetSprintId) updateSprintCaches(newTask, targetSprintId);
+        if (targetSprintId) updateSprintCaches(taskWithAttachments, targetSprintId);
       }
       qc.invalidateQueries({ queryKey: ['project-all-tasks'] });
       qc.invalidateQueries({ queryKey: ['project-board', projectId] });
@@ -216,7 +226,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
       qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
       toast.success(`${itemType} created`);
       if (newTask?.id && onCreated) {
-        onCreated(newTask);
+        onCreated({ ...newTask, attachments: attachments.length > 0 ? attachments : (newTask as any).attachments } as ProjectTask);
       }
       onClose();
     },
