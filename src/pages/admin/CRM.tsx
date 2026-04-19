@@ -380,6 +380,11 @@ export default function CRM() {
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{resolveAssignedTo(lead) || '—'}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-1">
+                        {CONVERT_ROLES.includes(user?.role || '') && lead.status !== 'Closed Won' && (
+                          <button onClick={(e) => { e.stopPropagation(); setShowConvert(lead); }} className="p-1.5 rounded-md hover:bg-success/10 text-muted-foreground hover:text-success transition-colors" title="Convert to Client">
+                            <UserCheck className="h-4 w-4" />
+                          </button>
+                        )}
                         {perm.canEdit && (
                           <button onClick={(e) => { e.stopPropagation(); openEdit(lead); }} className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Edit">
                             <Pencil className="h-4 w-4" />
