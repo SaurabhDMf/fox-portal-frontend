@@ -81,22 +81,30 @@ export default function MembersView({ projectId }: Props) {
       return res.data?.data || res.data;
     },
     onSuccess: (updatedProject: any) => {
-      // Update project caches with the authoritative server response
+      // Pull the canonical client fields from the server response
+      const patch = {
+        client_id: updatedProject?.client_id ?? selectedUserId,
+        client_name: updatedProject?.client_name,
+        client_email: updatedProject?.client_email,
+      };
+      // Update every cached shape (extracted entity OR raw {data: ...} wrapper)
       const merge = (old: any) => {
         if (!old) return updatedProject;
-        const base = old.data ? old.data : old;
-        const merged = { ...base, ...updatedProject };
-        return old.data ? { ...old, data: merged } : merged;
+        if (old.data && typeof old.data === 'object') {
+          return { ...old, data: { ...old.data, ...patch } };
+        }
+        return { ...old, ...patch };
       };
-      qc.setQueryData(['project-detail', projectId], merge);
       qc.setQueryData(['project', projectId], merge);
-      qc.invalidateQueries({ queryKey: ['project-detail', projectId] });
-      qc.invalidateQueries({ queryKey: ['project', projectId] });
+      qc.setQueryData(['project-detail', projectId], merge);
+      // Force a refetch so the header/settings show authoritative server data
+      qc.invalidateQueries({ queryKey: ['project', projectId], refetchType: 'active' });
+      qc.invalidateQueries({ queryKey: ['project-detail', projectId], refetchType: 'active' });
       qc.invalidateQueries({ queryKey: ['projects'] });
       qc.invalidateQueries({ queryKey: ['project-members', projectId] });
       setShowAdd(false);
       setSelectedUserId('');
-      toast.success(`Client linked${updatedProject?.client_name ? `: ${updatedProject.client_name}` : ''}`);
+      toast.success(`Client linked${patch.client_name ? `: ${patch.client_name}` : ''}`);
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to link client'),
   });
