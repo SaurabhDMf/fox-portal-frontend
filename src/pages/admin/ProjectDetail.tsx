@@ -76,7 +76,9 @@ export default function ProjectDetail() {
     || (project as any)?.client?.name
     || '—';
 
-  const updateMut = useMutation({
+  const selectedEditClientName = editForm.client_id
+    ? clients.find((c: any) => c.id === editForm.client_id)?.company_name || displayClientName
+    : displayClientName;
     mutationFn: (d: typeof editForm) => api.put(`/projects/${id}`, d),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['project', id] });
@@ -119,7 +121,7 @@ export default function ProjectDetail() {
         start_date: project.start_date || '',
         due_date: project.due_date || '',
         color: project.color || '#3B82F6',
-        client_id: project.client_id || null,
+        client_id: project.client_id || (project as any)?.client?.id || (project as any)?.client?.client_id || null,
       });
       setShowEdit(true);
     }
@@ -257,7 +259,7 @@ export default function ProjectDetail() {
               >
                 <span className={editForm.client_id ? 'text-foreground' : 'text-muted-foreground'}>
                   {editForm.client_id
-                    ? clients.find((c: any) => c.id === editForm.client_id)?.company_name || 'Selected'
+                    ? selectedEditClientName || 'Selected'
                     : 'No client'}
                 </span>
                 <span className="flex items-center gap-1">
