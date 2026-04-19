@@ -69,6 +69,16 @@ export default function ProjectDetail() {
   );
 
   const project: Project | undefined = projectRaw;
+  const displayClientName = (project as any)?.client_name
+    || (project as any)?.client_company_name
+    || (project as any)?.company_name
+    || (project as any)?.client?.company_name
+    || (project as any)?.client?.name
+    || '—';
+
+  const selectedEditClientName = editForm.client_id
+    ? clients.find((c: any) => c.id === editForm.client_id)?.company_name || displayClientName
+    : displayClientName;
 
   const updateMut = useMutation({
     mutationFn: (d: typeof editForm) => api.put(`/projects/${id}`, d),
@@ -113,7 +123,7 @@ export default function ProjectDetail() {
         start_date: project.start_date || '',
         due_date: project.due_date || '',
         color: project.color || '#3B82F6',
-        client_id: project.client_id || null,
+        client_id: project.client_id || (project as any)?.client?.id || (project as any)?.client?.client_id || null,
       });
       setShowEdit(true);
     }
@@ -135,7 +145,7 @@ export default function ProjectDetail() {
             <div className="w-3 h-10 rounded-full" style={{ background: project.color || 'hsl(var(--primary))' }} />
             <div>
               <h1 className="text-xl font-bold">{project.name}</h1>
-              <p className="text-sm text-muted-foreground">{project.client_name || '—'}</p>
+              <p className="text-sm text-muted-foreground">{displayClientName}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -251,7 +261,7 @@ export default function ProjectDetail() {
               >
                 <span className={editForm.client_id ? 'text-foreground' : 'text-muted-foreground'}>
                   {editForm.client_id
-                    ? clients.find((c: any) => c.id === editForm.client_id)?.company_name || 'Selected'
+                    ? selectedEditClientName || 'Selected'
                     : 'No client'}
                 </span>
                 <span className="flex items-center gap-1">
