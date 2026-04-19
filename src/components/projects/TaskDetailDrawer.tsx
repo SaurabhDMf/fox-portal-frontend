@@ -440,7 +440,6 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
         const prev = Array.isArray(old.attachments) ? old.attachments : [];
         return { ...old, attachments: prev.filter((a: any) => a?.id !== aid) };
       });
-      });
       toast.success('Attachment removed');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to remove attachment'),
