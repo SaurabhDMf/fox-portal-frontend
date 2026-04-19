@@ -2,10 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { ArrowLeft, Phone, Mail, Building2, Plus, X } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, Building2, Plus, X, UserCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/stores/authStore';
+import ConvertLeadModal from '@/components/crm/ConvertLeadModal';
 
 const activityTypes = ['Call', 'Email', 'Meeting', 'Note', 'Follow-up'];
+const CONVERT_ROLES = ['super_admin', 'admin', 'sales_manager'];
 
 function getLeadCountry(lead: any): string {
   return lead?.country || lead?.country_name || lead?.lead_country || lead?.location || lead?.meta?.country || '';
