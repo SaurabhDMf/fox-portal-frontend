@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { extractProjectArray } from '@/lib/projectResponse';
-import type { ProjectMember } from '@/lib/projectTypes';
+import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
+import type { Project, ProjectMember } from '@/lib/projectTypes';
 import { useState } from 'react';
-import { Plus, X, Shield, User, Eye, Building2 } from 'lucide-react';
+import { Plus, X, User, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useRole } from '@/hooks/usePermission';
 import { Switch } from '@/components/ui/switch';
@@ -16,6 +16,7 @@ const PROJECT_ROLE_CONFIG: Record<string, { label: string; class: string }> = {
   lead: { label: 'Lead', class: 'badge-primary' },
   member: { label: 'Member', class: 'badge-info' },
   viewer: { label: 'Viewer', class: 'badge-neutral' },
+  client: { label: 'Client', class: 'badge-neutral' },
 };
 
 export default function MembersView({ projectId }: Props) {
@@ -35,10 +36,31 @@ export default function MembersView({ projectId }: Props) {
   });
   const members: ProjectMember[] = Array.isArray(membersRaw) ? membersRaw : [];
 
+  const { data: project } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => api.get(`/projects/${projectId}`).then(r => extractProjectEntity<Project & { client_email?: string }>(r.data, ['project'])),
+    enabled: memberTab === 'clients',
+  });
+
   const teamMembers = members.filter(m => (m as any).user_role !== 'client');
   const clientMembers = members.filter(m => (m as any).user_role === 'client');
+  const linkedClientCompany = project?.client_id
+    ? [{
+        id: `linked-client-${project.client_id}`,
+        user_id: project.client_id,
+        full_name: project.client_name || 'Unnamed client',
+        email: (project as any).client_email || '',
+        role: 'client',
+        project_role: 'client',
+        user_role: 'client_company',
+        isLinkedCompany: true,
+      } as ProjectMember & { isLinkedCompany: true }]
+    : [];
+  const clientDisplayMembers = [
+    ...linkedClientCompany,
+    ...clientMembers.filter(m => m.user_id !== project?.client_id),
+  ];
 
-  // Fetch available users for the Users tab in the Add modal
   const { data: usersRaw } = useQuery({
     queryKey: ['add-member-available-users', projectId, search],
     queryFn: () => {
@@ -55,7 +77,6 @@ export default function MembersView({ projectId }: Props) {
   const memberUserIds = new Set(members.map(m => m.user_id));
   const filteredUsers = allUsers.filter((u: any) => !memberUserIds.has(u.id));
 
-  // Fetch available client companies for the Clients tab in the Add modal
   const { data: clientCompaniesRaw } = useQuery({
     queryKey: ['add-available-clients', projectId, search],
     queryFn: () => {
@@ -81,13 +102,11 @@ export default function MembersView({ projectId }: Props) {
       return res.data?.data || res.data;
     },
     onSuccess: (updatedProject: any) => {
-      // Pull the canonical client fields from the server response
       const patch = {
         client_id: updatedProject?.client_id ?? selectedUserId,
         client_name: updatedProject?.client_name,
         client_email: updatedProject?.client_email,
       };
-      // Update every cached shape (extracted entity OR raw {data: ...} wrapper)
       const merge = (old: any) => {
         if (!old) return updatedProject;
         if (old.data && typeof old.data === 'object') {
@@ -97,7 +116,6 @@ export default function MembersView({ projectId }: Props) {
       };
       qc.setQueryData(['project', projectId], merge);
       qc.setQueryData(['project-detail', projectId], merge);
-      // Force a refetch so the header/settings show authoritative server data
       qc.invalidateQueries({ queryKey: ['project', projectId], refetchType: 'active' });
       qc.invalidateQueries({ queryKey: ['project-detail', projectId], refetchType: 'active' });
       qc.invalidateQueries({ queryKey: ['projects'] });
@@ -140,12 +158,13 @@ export default function MembersView({ projectId }: Props) {
     onSettled: () => qc.invalidateQueries({ queryKey: ['project-members', projectId] }),
   });
 
-  const displayMembers = memberTab === 'clients' ? clientMembers : teamMembers;
+  const displayMembers = memberTab === 'clients' ? clientDisplayMembers : teamMembers;
+  const totalVisibleMembers = teamMembers.length + clientDisplayMembers.length;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Team & Client Members ({members.length})</h3>
+        <h3 className="text-sm font-semibold">Team & Client Members ({totalVisibleMembers})</h3>
         {canManage && (
           <button onClick={() => { setAddTab(memberTab); setShowAdd(true); }} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all">
             <Plus className="h-3 w-3" /> {memberTab === 'clients' ? 'Add Client' : 'Add Member'}
@@ -153,13 +172,12 @@ export default function MembersView({ projectId }: Props) {
         )}
       </div>
 
-      {/* Member list tabs */}
       <div className="flex gap-1 bg-secondary/50 p-1 rounded-lg w-fit">
         <button onClick={() => setMemberTab('users')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${memberTab === 'users' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
           <User className="h-3 w-3" /> Users ({teamMembers.length})
         </button>
         <button onClick={() => setMemberTab('clients')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${memberTab === 'clients' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
-          <Building2 className="h-3 w-3" /> Clients ({clientMembers.length})
+          <Building2 className="h-3 w-3" /> Clients ({clientDisplayMembers.length})
         </button>
       </div>
 
@@ -168,16 +186,17 @@ export default function MembersView({ projectId }: Props) {
           const projectRole = (member as any).project_role || member.role || 'member';
           const rc = PROJECT_ROLE_CONFIG[projectRole] || PROJECT_ROLE_CONFIG.member;
           const isClient = (member as any).user_role === 'client';
+          const isLinkedCompany = !!(member as any).isLinkedCompany;
           return (
             <div key={member.id} className="glass-card p-3 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-sm font-bold text-primary">
-                {member.full_name?.[0]}
+                {isLinkedCompany ? <Building2 className="h-4 w-4" /> : member.full_name?.[0]}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">{member.full_name}</p>
                 {member.email && <p className="text-xs text-muted-foreground">{member.email}</p>}
               </div>
-              {canManage && isClient && (
+              {canManage && isClient && !isLinkedCompany && (
                 <label className="flex items-center gap-1.5 cursor-pointer" title="Allow client to create tasks">
                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">Can create tasks</span>
                   <Switch
@@ -186,7 +205,7 @@ export default function MembersView({ projectId }: Props) {
                   />
                 </label>
               )}
-              {canManage && !isClient && (
+              {canManage && !isClient && !isLinkedCompany && (
                 <label className="flex items-center gap-1.5 cursor-pointer" title="Show this member to clients in the client portal">
                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">Visible to Client</span>
                   <Switch
@@ -196,7 +215,7 @@ export default function MembersView({ projectId }: Props) {
                 </label>
               )}
               <span className={rc.class}>{rc.label}</span>
-              {canManage && projectRole !== 'lead' && (
+              {canManage && !isLinkedCompany && projectRole !== 'lead' && (
                 <button onClick={() => removeMut.mutate(member.user_id)} className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                   <X className="h-4 w-4" />
                 </button>
@@ -209,7 +228,6 @@ export default function MembersView({ projectId }: Props) {
         )}
       </div>
 
-      {/* Add Member/Client modal */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="glass-card w-full max-w-md p-6 space-y-4 animate-slide-up">
@@ -218,7 +236,6 @@ export default function MembersView({ projectId }: Props) {
               <button onClick={() => setShowAdd(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
             </div>
 
-            {/* Tabs inside modal */}
             <div className="flex gap-1 bg-secondary/50 p-1 rounded-lg">
               <button onClick={() => { setAddTab('users'); setSelectedUserId(''); }} className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${addTab === 'users' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
                 <User className="h-3 w-3" /> Users
