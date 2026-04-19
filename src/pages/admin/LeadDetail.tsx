@@ -22,7 +22,9 @@ export default function LeadDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const userRole = useAuthStore(s => s.user?.role);
   const [showActivity, setShowActivity] = useState(false);
+  const [showConvert, setShowConvert] = useState(false);
   const [actForm, setActForm] = useState({ type: 'Call', title: '', description: '', duration_mins: 0, outcome: '' });
 
   const { data: lead, isLoading } = useQuery({
