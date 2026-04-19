@@ -572,6 +572,10 @@ export default function CRM() {
           </div>
         </div>
       )}
+
+      {showConvert && (
+        <ConvertLeadModal lead={showConvert} onClose={() => setShowConvert(null)} />
+      )}
     </div>
   );
 }
