@@ -168,7 +168,7 @@ function EditableDescription({ value, onSave }: { value: string; onSave: (v: str
   return (
     <div onClick={startEditing} className="cursor-pointer group">
       <h4 className="text-xs font-semibold text-muted-foreground mb-1">Description <Edit2 className="inline h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" /></h4>
-      <p className="text-sm text-foreground">{value || <span className="text-muted-foreground">No description. Click to add one.</span>}</p>
+      <p className="text-sm text-foreground whitespace-pre-wrap break-words">{value || <span className="text-muted-foreground">No description. Click to add one.</span>}</p>
     </div>
   );
 }
