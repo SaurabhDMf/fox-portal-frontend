@@ -397,6 +397,7 @@ function ModuleEpicsPanel({ projectId, moduleId, sprintId, moduleColor, onChange
           defaultEpicId={moduleId}
           defaultProjectEpicId={createTaskEpic.id}
           onClose={() => { setCreateTaskEpic(null); onChanged(); qc.invalidateQueries({ queryKey: ['module-epics', projectId, moduleId] }); }}
+          onCreated={(task) => onTaskClick?.(task as any)}
         />
       )}
 
