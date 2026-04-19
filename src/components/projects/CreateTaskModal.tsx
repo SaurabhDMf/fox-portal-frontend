@@ -50,9 +50,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
     parent_task_id: '',
     due_date: '',
   });
-  const [attachments, setAttachments] = useState<TempAttachment[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   const { statuses, statusObjects, addStatus } = useProjectStatuses(projectId);
   const { stages, stageObjects, addStage } = useProjectStages(projectId);
