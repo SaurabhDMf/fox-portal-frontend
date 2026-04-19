@@ -209,13 +209,28 @@ export default function MembersView({ projectId }: Props) {
 
             <input placeholder={`Search ${addTab}...`} value={search} onChange={e => setSearch(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
             <div className="max-h-48 overflow-y-auto space-y-1">
-              {filteredUsers.map((u: any) => (
+              {addTab === 'users' && filteredUsers.map((u: any) => (
                 <div key={u.id} onClick={() => setSelectedUserId(u.id)} className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedUserId === u.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-secondary'}`}>
                   <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">{u.full_name?.[0]}</div>
                   <div><p className="text-sm font-medium">{u.full_name}</p><p className="text-xs text-muted-foreground">{u.email}</p></div>
                 </div>
               ))}
-              {filteredUsers.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No {addTab} found</p>}
+              {addTab === 'users' && filteredUsers.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No users found</p>}
+
+              {addTab === 'clients' && clientCompanies.map((c: any) => (
+                <div key={c.id} onClick={() => setSelectedUserId(c.id)} className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${selectedUserId === c.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-secondary'}`}>
+                  <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{c.company_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {[c.email, c.account_manager_name && `AM: ${c.account_manager_name}`].filter(Boolean).join(' · ') || '—'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {addTab === 'clients' && clientCompanies.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No clients found</p>}
             </div>
             {addTab === 'users' && (
               <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
@@ -226,8 +241,14 @@ export default function MembersView({ projectId }: Props) {
             )}
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowAdd(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
-              <button onClick={() => addMut.mutate()} disabled={!selectedUserId || addMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-                {addMut.isPending ? 'Adding...' : addTab === 'clients' ? 'Add Client' : 'Add Member'}
+              <button
+                onClick={() => addTab === 'clients' ? linkClientMut.mutate() : addMut.mutate()}
+                disabled={!selectedUserId || addMut.isPending || linkClientMut.isPending}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
+              >
+                {addTab === 'clients'
+                  ? (linkClientMut.isPending ? 'Linking...' : 'Add Client')
+                  : (addMut.isPending ? 'Adding...' : 'Add Member')}
               </button>
             </div>
           </div>
