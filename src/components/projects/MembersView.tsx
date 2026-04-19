@@ -3,10 +3,11 @@ import api from '@/lib/api';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectMember } from '@/lib/projectTypes';
 import { useState } from 'react';
-import { Plus, X, User, Building2 } from 'lucide-react';
+import { Plus, X, User, Building2, Unlink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useRole } from '@/hooks/usePermission';
 import { Switch } from '@/components/ui/switch';
+import { confirmAction } from '@/lib/confirmDialog';
 
 interface Props {
   projectId: string;
@@ -144,6 +145,46 @@ export default function MembersView({ projectId }: Props) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-members', projectId] }); toast.success('Member removed'); },
   });
 
+  const unlinkClientMut = useMutation({
+    mutationFn: async () => {
+      const res = await api.patch(`/projects/${projectId}/client`, { client_id: null });
+      return res.data?.data || res.data;
+    },
+    onSuccess: (updatedProject: any) => {
+      const patch = {
+        client_id: null,
+        client_name: null,
+        client_email: null,
+      };
+      const merge = (old: any) => {
+        if (!old) return updatedProject;
+        if (old.data && typeof old.data === 'object') {
+          return { ...old, data: { ...old.data, ...patch } };
+        }
+        return { ...old, ...patch };
+      };
+      qc.setQueryData(['project', projectId], merge);
+      qc.setQueryData(['project-detail', projectId], merge);
+      qc.invalidateQueries({ queryKey: ['project', projectId], refetchType: 'active' });
+      qc.invalidateQueries({ queryKey: ['project-detail', projectId], refetchType: 'active' });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['project-members', projectId] });
+      toast.success('Client removed from project');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to remove client'),
+  });
+
+  const handleUnlinkClient = async () => {
+    const ok = await confirmAction({
+      title: 'Remove client?',
+      description: `Remove ${linkedClientName || 'this client'} from this project?`,
+      confirmLabel: 'Remove',
+      cancelLabel: 'Cancel',
+      destructive: true,
+    });
+    if (ok) unlinkClientMut.mutate();
+  };
+
   const toggleTaskMut = useMutation({
     mutationFn: ({ userId, canCreate }: { userId: string; canCreate: boolean }) =>
       api.put(`/projects/${projectId}/members/${userId}`, { can_create_tasks: canCreate }),
@@ -227,6 +268,17 @@ export default function MembersView({ projectId }: Props) {
                 </label>
               )}
               <span className={rc.class}>{rc.label}</span>
+              {canManage && isLinkedCompany && (
+                <button
+                  onClick={handleUnlinkClient}
+                  disabled={unlinkClientMut.isPending}
+                  title="Remove client from project"
+                  className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
+                >
+                  <Unlink className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Remove</span>
+                </button>
+              )}
               {canManage && !isLinkedCompany && projectRole !== 'lead' && (
                 <button onClick={() => removeMut.mutate(member.user_id)} className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
                   <X className="h-4 w-4" />
