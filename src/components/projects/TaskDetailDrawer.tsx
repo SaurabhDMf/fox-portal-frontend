@@ -584,33 +584,20 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
           </div>
 
           {/* Attachments */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-xs font-semibold text-muted-foreground">Attachments</h4>
-              <button onClick={() => fileInputRef.current?.click()} className="text-xs text-primary hover:underline flex items-center gap-1"><Paperclip className="h-3 w-3" /> Attach File</button>
-              <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip" className="hidden" onChange={handleFileSelect} />
-            </div>
-            {uploadMut.isPending && <p className="text-xs text-muted-foreground animate-pulse">Uploading...</p>}
-            <div className="space-y-1.5">
-              {attachments.map((att: any) => (
-                <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 group">
-                  {getFileIcon(att.file_name)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">{att.file_name}</p>
-                    {att.created_at && <p className="text-[10px] text-muted-foreground">{new Date(att.created_at).toLocaleDateString()}</p>}
-                  </div>
-                  {att.file_url && <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"><Download className="h-3.5 w-3.5" /></a>}
-                  <button onClick={() => deleteAttachmentMut.mutate(att.id)} className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"><Trash2 className="h-3.5 w-3.5" /></button>
-                </div>
-              ))}
-              {attachments.length === 0 && !uploadMut.isPending && (
-                <div className="text-center py-4 border border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 transition-colors" onClick={() => fileInputRef.current?.click()}>
-                  <Paperclip className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-                  <p className="text-xs text-muted-foreground">Drop files here or click to attach</p>
-                </div>
-              )}
-            </div>
-          </div>
+          <AttachmentDropzone
+            taskId={initialTask.id}
+            globalPaste
+            attachments={attachments as Attachment[]}
+            onAdd={(att) => {
+              qc.setQueryData(['task-attachments', initialTask.id], (old: any) => {
+                const prev = Array.isArray(old) ? old : [];
+                if (prev.some((a: any) => a?.id === att.id)) return prev;
+                return [...prev, att];
+              });
+              qc.invalidateQueries({ queryKey: ['task-attachments', initialTask.id] });
+            }}
+            onRemove={(att) => deleteAttachmentMut.mutate(att.id)}
+          />
 
           {/* Comments */}
           <div className="border border-border rounded-lg p-4 space-y-3">
