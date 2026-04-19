@@ -38,18 +38,26 @@ export default function MembersView({ projectId }: Props) {
 
   const { data: project } = useQuery({
     queryKey: ['project', projectId],
-    queryFn: () => api.get(`/projects/${projectId}`).then(r => extractProjectEntity<Project & { client_email?: string }>(r.data, ['project'])),
-    enabled: memberTab === 'clients',
+    queryFn: () => api.get(`/projects/${projectId}`).then(r => extractProjectEntity<Project & { client_email?: string; company_name?: string; client_company_name?: string }>(r.data, ['project'])),
   });
 
   const teamMembers = members.filter(m => (m as any).user_role !== 'client');
   const clientMembers = members.filter(m => (m as any).user_role === 'client');
+  const linkedClientName = (project as any)?.client_name
+    || (project as any)?.client_company_name
+    || (project as any)?.company_name
+    || (project as any)?.client?.company_name
+    || (project as any)?.client?.name
+    || '';
+  const linkedClientEmail = (project as any)?.client_email
+    || (project as any)?.client?.email
+    || '';
   const linkedClientCompany = project?.client_id
     ? [{
         id: `linked-client-${project.client_id}`,
         user_id: project.client_id,
-        full_name: project.client_name || 'Unnamed client',
-        email: (project as any).client_email || '',
+        full_name: linkedClientName || 'Unnamed client',
+        email: linkedClientEmail,
         role: 'client',
         project_role: 'client',
         user_role: 'client_company',
