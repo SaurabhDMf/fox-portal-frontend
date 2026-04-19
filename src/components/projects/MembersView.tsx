@@ -76,14 +76,27 @@ export default function MembersView({ projectId }: Props) {
   });
 
   const linkClientMut = useMutation({
-    mutationFn: () => api.patch(`/projects/${projectId}/client`, { client_id: selectedUserId }),
-    onSuccess: () => {
+    mutationFn: async () => {
+      const res = await api.patch(`/projects/${projectId}/client`, { client_id: selectedUserId });
+      return res.data?.data || res.data;
+    },
+    onSuccess: (updatedProject: any) => {
+      // Update project caches with the authoritative server response
+      const merge = (old: any) => {
+        if (!old) return updatedProject;
+        const base = old.data ? old.data : old;
+        const merged = { ...base, ...updatedProject };
+        return old.data ? { ...old, data: merged } : merged;
+      };
+      qc.setQueryData(['project-detail', projectId], merge);
+      qc.setQueryData(['project', projectId], merge);
       qc.invalidateQueries({ queryKey: ['project-detail', projectId] });
       qc.invalidateQueries({ queryKey: ['project', projectId] });
       qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['project-members', projectId] });
       setShowAdd(false);
       setSelectedUserId('');
-      toast.success('Client linked to project');
+      toast.success(`Client linked${updatedProject?.client_name ? `: ${updatedProject.client_name}` : ''}`);
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to link client'),
   });
