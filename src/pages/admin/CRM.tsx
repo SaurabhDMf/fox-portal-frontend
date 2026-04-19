@@ -4,8 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useModulePermission } from '@/hooks/usePermission';
-import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, ChevronUp, Check, Pencil, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, ChevronUp, Check, Pencil, ArrowUpDown, UserCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ConvertLeadModal from '@/components/crm/ConvertLeadModal';
+
+const CONVERT_ROLES = ['super_admin', 'admin', 'sales_manager'];
 
 
 const defaultStatuses = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Closed Won', 'Closed Lost'];
