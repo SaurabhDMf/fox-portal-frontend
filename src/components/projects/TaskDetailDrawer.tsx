@@ -263,16 +263,9 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   });
   const sprints = Array.isArray(sprintsRaw) ? sprintsRaw : [];
 
-  const { data: attachmentsRaw } = useQuery({
-    queryKey: ['task-attachments', initialTask.id],
-    queryFn: async () => {
-      try {
-        const r = await api.get(`/tasks/${initialTask.id}/attachments`);
-        return r.data?.attachments || r.data?.data?.attachments || r.data || [];
-      } catch { return task.attachments || []; }
-    },
-  });
-  const attachments = Array.isArray(attachmentsRaw) ? attachmentsRaw : (task.attachments || []);
+  // Attachments now come embedded in the task detail response (task.attachments).
+  // No separate fetch — initialise & update via the ['task-detail'] cache.
+  const attachments: Attachment[] = Array.isArray((task as any).attachments) ? (task as any).attachments : [];
 
   const buildOptimisticTask = (currentTask: ProjectTask, patch: Record<string, any>): ProjectTask => {
     const nextTask: ProjectTask = { ...currentTask, ...patch };
@@ -440,11 +433,12 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const deleteAttachmentMut = useMutation({
     mutationFn: (aid: string) => api.delete(`/tasks/${initialTask.id}/attachments/${aid}`),
     onSuccess: (_res, aid) => {
-      // Remove only the deleted attachment from cache. Do NOT invalidate —
-      // a refetch can race the backend and wipe the whole list.
-      qc.setQueryData(['task-attachments', initialTask.id], (old: any) => {
-        const prev = Array.isArray(old) ? old : [];
-        return prev.filter((a: any) => a?.id !== aid);
+      // Remove only the deleted attachment from the task-detail cache.
+      // Do NOT invalidate — a refetch can race the backend and wipe the list.
+      qc.setQueryData(['task-detail', initialTask.id], (old: any) => {
+        if (!old || typeof old !== 'object') return old;
+        const prev = Array.isArray(old.attachments) ? old.attachments : [];
+        return { ...old, attachments: prev.filter((a: any) => a?.id !== aid) };
       });
       toast.success('Attachment removed');
     },
@@ -598,21 +592,21 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
             globalPaste
             attachments={attachments as Attachment[]}
             onAdd={(att) => {
-              // Merge into cache immediately. Do NOT invalidate — a refetch can race
-              // backend indexing and wipe the freshly uploaded attachment from the UI.
-              qc.setQueryData(['task-attachments', initialTask.id], (old: any) => {
-                const prev = Array.isArray(old)
-                  ? old
-                  : (Array.isArray(task.attachments) ? task.attachments : []);
-                if (prev.some((a: any) => a?.id === att.id)) return prev;
-                return [...prev, att];
+              // Append to the embedded task.attachments array in the task-detail cache.
+              // Do NOT invalidate — a refetch can race backend indexing and wipe it.
+              qc.setQueryData(['task-detail', initialTask.id], (old: any) => {
+                if (!old || typeof old !== 'object') return old;
+                const prev = Array.isArray(old.attachments) ? old.attachments : [];
+                if (prev.some((a: any) => a?.id === att.id)) return old;
+                return { ...old, attachments: [...prev, att] };
               });
             }}
             onRemove={(att) => {
-              // Optimistically drop from cache, then DELETE.
-              qc.setQueryData(['task-attachments', initialTask.id], (old: any) => {
-                const prev = Array.isArray(old) ? old : [];
-                return prev.filter((a: any) => a?.id !== att.id);
+              // Optimistically drop from the task-detail cache, then DELETE.
+              qc.setQueryData(['task-detail', initialTask.id], (old: any) => {
+                if (!old || typeof old !== 'object') return old;
+                const prev = Array.isArray(old.attachments) ? old.attachments : [];
+                return { ...old, attachments: prev.filter((a: any) => a?.id !== att.id) };
               });
               deleteAttachmentMut.mutate(att.id);
             }}
