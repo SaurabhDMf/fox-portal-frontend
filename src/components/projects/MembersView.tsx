@@ -52,10 +52,14 @@ export default function MembersView({ projectId }: Props) {
   const linkedClientEmail = (project as any)?.client_email
     || (project as any)?.client?.email
     || '';
-  const linkedClientCompany = project?.client_id
+  const linkedClientId = project?.client_id
+    || (project as any)?.client?.id
+    || (project as any)?.client?.client_id
+    || '';
+  const linkedClientCompany = linkedClientId
     ? [{
-        id: `linked-client-${project.client_id}`,
-        user_id: project.client_id,
+        id: `linked-client-${linkedClientId}`,
+        user_id: linkedClientId,
         full_name: linkedClientName || 'Unnamed client',
         email: linkedClientEmail,
         role: 'client',
@@ -66,7 +70,7 @@ export default function MembersView({ projectId }: Props) {
     : [];
   const clientDisplayMembers = [
     ...linkedClientCompany,
-    ...clientMembers.filter(m => m.user_id !== project?.client_id),
+    ...clientMembers.filter(m => m.user_id !== linkedClientId),
   ];
 
   const { data: usersRaw } = useQuery({
