@@ -175,6 +175,10 @@ export default function LeadDetail() {
           </div>
         </div>
       )}
+
+      {showConvert && (
+        <ConvertLeadModal lead={lead} onClose={() => setShowConvert(false)} />
+      )}
     </div>
   );
 }
