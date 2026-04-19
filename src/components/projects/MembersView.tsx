@@ -102,7 +102,7 @@ export default function MembersView({ projectId }: Props) {
     },
     enabled: showAdd && addTab === 'clients',
   });
-  const clientCompanies = Array.isArray(clientCompaniesRaw) ? clientCompaniesRaw : [];
+  const clientCompanies = (Array.isArray(clientCompaniesRaw) ? clientCompaniesRaw : []).filter((client: any) => client.id !== linkedClientId);
 
   const addMut = useMutation({
     mutationFn: () => api.post(`/projects/${projectId}/members`, { user_id: selectedUserId, role: selectedRole }),
@@ -332,7 +332,7 @@ export default function MembersView({ projectId }: Props) {
                   </div>
                 </div>
               ))}
-              {addTab === 'clients' && clientCompanies.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No clients found</p>}
+              {addTab === 'clients' && clientCompanies.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">{linkedClientId ? 'This client is already linked' : 'No clients found'}</p>}
             </div>
             {addTab === 'users' && (
               <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
