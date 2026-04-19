@@ -38,20 +38,10 @@ export default function MembersView({ projectId }: Props) {
   const teamMembers = members.filter(m => (m as any).user_role !== 'client');
   const clientMembers = members.filter(m => (m as any).user_role === 'client');
 
-  // Fetch available users/clients for the Add modal
+  // Fetch available users for the Users tab in the Add modal
   const { data: usersRaw } = useQuery({
-    queryKey: ['add-member-available', projectId, addTab, search],
+    queryKey: ['add-member-available-users', projectId, search],
     queryFn: () => {
-      if (addTab === 'clients') {
-        // Use the dedicated available-members endpoint for clients
-        const params: Record<string, string> = { role: 'client' };
-        if (search) params.search = search;
-        return api.get(`/projects/${projectId}/available-members`, { params }).then(r => {
-          const d = r.data;
-          return d?.users || d?.data?.users || d?.data?.items || d?.items || d?.data || d || [];
-        });
-      }
-      // For team users, fetch non-client users
       const params: Record<string, string> = {};
       if (search) params.search = search;
       return api.get('/users/active', { params }).then(r => {
@@ -59,15 +49,43 @@ export default function MembersView({ projectId }: Props) {
         return d?.users || d?.data?.users || d?.data?.items || d?.items || d?.data || d || [];
       });
     },
-    enabled: showAdd,
+    enabled: showAdd && addTab === 'users',
   });
   const allUsers = Array.isArray(usersRaw) ? usersRaw : [];
   const memberUserIds = new Set(members.map(m => m.user_id));
   const filteredUsers = allUsers.filter((u: any) => !memberUserIds.has(u.id));
 
+  // Fetch available client companies for the Clients tab in the Add modal
+  const { data: clientCompaniesRaw } = useQuery({
+    queryKey: ['add-available-clients', projectId, search],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      if (search) params.search = search;
+      return api.get(`/projects/${projectId}/available-clients`, { params }).then(r => {
+        const d = r.data;
+        return d?.data || d?.clients || d?.items || d || [];
+      });
+    },
+    enabled: showAdd && addTab === 'clients',
+  });
+  const clientCompanies = Array.isArray(clientCompaniesRaw) ? clientCompaniesRaw : [];
+
   const addMut = useMutation({
     mutationFn: () => api.post(`/projects/${projectId}/members`, { user_id: selectedUserId, role: selectedRole }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-members', projectId] }); setShowAdd(false); setSelectedUserId(''); toast.success('Member added'); },
+  });
+
+  const linkClientMut = useMutation({
+    mutationFn: () => api.patch(`/projects/${projectId}/client`, { client_id: selectedUserId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-detail', projectId] });
+      qc.invalidateQueries({ queryKey: ['project', projectId] });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      setShowAdd(false);
+      setSelectedUserId('');
+      toast.success('Client linked to project');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to link client'),
   });
 
   const removeMut = useMutation({
