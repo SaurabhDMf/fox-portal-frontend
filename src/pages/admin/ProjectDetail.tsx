@@ -79,6 +79,8 @@ export default function ProjectDetail() {
   const selectedEditClientName = editForm.client_id
     ? clients.find((c: any) => c.id === editForm.client_id)?.company_name || displayClientName
     : displayClientName;
+
+  const updateMut = useMutation({
     mutationFn: (d: typeof editForm) => api.put(`/projects/${id}`, d),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['project', id] });
