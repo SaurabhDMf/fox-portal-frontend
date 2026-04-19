@@ -328,48 +328,12 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
 
 
         {/* Attachments */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-muted-foreground">Attachments (optional)</label>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="text-xs text-primary hover:underline flex items-center gap-1 disabled:opacity-50"
-            >
-              {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Paperclip className="h-3 w-3" />}
-              {uploading ? 'Uploading...' : 'Attach Files'}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-          </div>
-          {attachments.length > 0 && (
-            <div className="space-y-1.5">
-              {attachments.map(att => (
-                <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 group">
-                  {getFileIcon(att.file_name)}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">{att.file_name}</p>
-                    <p className="text-[10px] text-muted-foreground">{(att.file_size / 1024).toFixed(1)} KB</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeAttachment(att.id)}
-                    className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <AttachmentDropzone
+          attachments={attachments}
+          onAdd={(att) => setAttachments((prev) => [...prev, att])}
+          onRemove={(att) => removeAttachment(att.id)}
+          label="Attachments (optional)"
+        />
 
         <div className="flex gap-2 justify-end">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
