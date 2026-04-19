@@ -49,9 +49,27 @@ export default function LeadDetail() {
 
   return (
     <div className="page-container">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Back to CRM
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Back to CRM
+        </button>
+        {CONVERT_ROLES.includes(userRole || '') && lead.status !== 'Closed Won' && (
+          <button
+            onClick={() => setShowConvert(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
+          >
+            <UserCheck className="h-4 w-4" /> Convert to Client
+          </button>
+        )}
+        {lead.status === 'Closed Won' && lead.client_id && (
+          <button
+            onClick={() => navigate(`/admin/clients/${lead.client_id}`)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-success/10 text-success text-sm font-medium hover:bg-success/20 transition-all"
+          >
+            <UserCheck className="h-4 w-4" /> View Client
+          </button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Lead Info */}
