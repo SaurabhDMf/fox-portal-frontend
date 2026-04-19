@@ -17,6 +17,7 @@ interface Props {
   defaultEpicId?: string;
   defaultProjectEpicId?: string;
   onClose: () => void;
+  onCreated?: (task: ProjectTask) => void;
 }
 
 type ItemType = 'Task' | 'Story' | 'Bug' | 'Feature';
@@ -34,7 +35,7 @@ function upsertTask<T extends { id: string }>(list: T[] = [], task: T): T[] {
 
 
 
-export default function CreateTaskModal({ projectId, defaultStatus, defaultSprintId, defaultEpicId, defaultProjectEpicId, onClose }: Props) {
+export default function CreateTaskModal({ projectId, defaultStatus, defaultSprintId, defaultEpicId, defaultProjectEpicId, onClose, onCreated }: Props) {
   const qc = useQueryClient();
   const [itemType, setItemType] = useState<ItemType>('Task');
   const [form, setForm] = useState({
@@ -213,8 +214,11 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
       qc.invalidateQueries({ queryKey: ['project-epics', projectId] });
       qc.invalidateQueries({ queryKey: ['sprint-hierarchy', projectId] });
       qc.invalidateQueries({ queryKey: ['project-sprints', projectId] });
-      onClose();
       toast.success(`${itemType} created`);
+      if (newTask?.id && onCreated) {
+        onCreated(newTask);
+      }
+      onClose();
     },
     onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || `Failed to create ${itemType}`),
   });

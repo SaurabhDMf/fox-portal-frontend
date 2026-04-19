@@ -221,7 +221,14 @@ export default function ProjectDetail() {
       )}
 
       {createTaskDefaults !== null && (
-        <CreateTaskModal projectId={id!} defaultStatus={createTaskDefaults.status} defaultSprintId={createTaskDefaults.sprint_id} defaultEpicId={createTaskDefaults.epic_id} onClose={() => setCreateTaskDefaults(null)} />
+        <CreateTaskModal
+          projectId={id!}
+          defaultStatus={createTaskDefaults.status}
+          defaultSprintId={createTaskDefaults.sprint_id}
+          defaultEpicId={createTaskDefaults.epic_id}
+          onClose={() => setCreateTaskDefaults(null)}
+          onCreated={(task) => setSelectedTask(task)}
+        />
       )}
 
       {/* Edit Project Modal */}
