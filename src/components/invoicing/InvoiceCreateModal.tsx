@@ -32,7 +32,11 @@ export default function InvoiceCreateModal({ onClose }: Props) {
 
   const { data: clients = [] } = useQuery({
     queryKey: ['clients-list'],
-    queryFn: () => api.get('/clients').then(r => r.data?.clients || r.data || []),
+    queryFn: () => api.get('/clients').then(r => {
+      const d = r.data;
+      const arr = Array.isArray(d) ? d : (d?.data || d?.clients || []);
+      return Array.isArray(arr) ? arr : [];
+    }),
   });
 
   const { data: company } = useQuery({
