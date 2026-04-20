@@ -3,12 +3,14 @@ import { useAuthStore } from '@/stores/authStore';
 import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { User, Shield, Bell, Palette, Pencil, X, Building2, KeyRound } from 'lucide-react';
+import { User, Shield, Bell, Palette, Pencil, X, Building2, KeyRound, Plug } from 'lucide-react';
 import CompanySettings from '@/components/settings/CompanySettings';
+import IntegrationsSettings from '@/components/settings/IntegrationsSettings';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'company', label: 'Company', icon: Building2 },
+  { id: 'integrations', label: 'Integrations', icon: Plug, adminOnly: true },
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -155,6 +157,9 @@ export default function AdminSettings() {
 
       {/* Company Profile */}
       {tab === 'company' && <CompanySettings />}
+
+      {/* Integrations */}
+      {tab === 'integrations' && isAdmin && <IntegrationsSettings />}
 
       {/* Security */}
       {tab === 'security' && (

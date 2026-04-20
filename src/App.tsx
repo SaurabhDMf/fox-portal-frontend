@@ -56,6 +56,7 @@ import CPVault from "./pages/client-portal/CPVault";
 import CPSupport from "./pages/client-portal/CPSupport";
 import CPTicketDetail from "./pages/client-portal/CPTicketDetail";
 import CPProfile from "./pages/client-portal/CPProfile";
+import CPTasks from "./pages/client-portal/CPTasks";
 
 import NotFound from "./pages/NotFound";
 
@@ -150,6 +151,7 @@ const App = () => (
           <Route path="invoices/:id" element={<CPInvoiceDetail />} />
           <Route path="projects" element={<CPProjects />} />
           <Route path="projects/:id" element={<CPProjectDetail />} />
+          <Route path="tasks" element={<CPTasks />} />
           <Route path="documents" element={<CPDocuments />} />
           <Route path="vault" element={<CPVault />} />
           <Route path="support" element={<CPSupport />} />
