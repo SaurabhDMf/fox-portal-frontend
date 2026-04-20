@@ -41,10 +41,17 @@ const CLIENT_ROLES = ['client'];
 
 const emptyForm = {
   full_name: '', email: '', phone: '', role: 'sales_rep', employment_type: 'full_time',
+  employment_status: 'active',
   department: '', job_title: '', password: '', date_of_joining: '', reporting_to: '',
   salary: '', address: '', emergency_contact: '', emergency_phone: '', notes: '',
   bank_name: '', bank_account: '', ifsc_code: '', pan_number: '',
 };
+
+const employmentStatuses = [
+  { value: 'active', label: 'Active' },
+  { value: 'on_leave', label: 'On Leave' },
+  { value: 'terminated', label: 'Terminated' },
+];
 
 export default function AdminUsers() {
   const perm = useModulePermission('users');
