@@ -16,12 +16,20 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
   const [showCreate, setShowCreate] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [showRevoke, setShowRevoke] = useState(false);
-  const [createdCreds, setCreatedCreds] = useState<{ email: string; password: string } | null>(null);
+  const [createdCreds, setCreatedCreds] = useState<{ email: string; password: string; oneTime?: boolean } | null>(null);
 
-  const { data: portalUser, isLoading } = useQuery({
+  const { data: portalUser, isLoading, refetch: refetchPortalUser } = useQuery({
     queryKey: ['portal-user', clientId],
     queryFn: () => api.get(`/clients/${clientId}/portal-user`).then(r => r.data?.data ?? r.data ?? null),
   });
+
+  // Extract a useful error message from a server error response
+  const extractErrorMessage = (e: any, fallback: string) =>
+    e?.response?.data?.detail
+      || e?.response?.data?.error
+      || e?.response?.data?.message
+      || e?.message
+      || fallback;
 
   if (isLoading) return <div className="glass-card p-5 animate-pulse h-24" />;
 
@@ -33,7 +41,12 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
 
       {createdCreds && (
         <div className="mb-4 p-4 rounded-lg bg-success/10 border border-success/20">
-          <div className="text-sm font-medium text-success mb-2">✅ Portal access created!</div>
+          <div className="text-sm font-medium text-success mb-2">✅ Portal access ready</div>
+          {createdCreds.oneTime && (
+            <p className="text-xs text-success/90 mb-2">
+              Share this password with the client — it won't be shown again.
+            </p>
+          )}
           <div className="text-sm space-y-1">
             <div><span className="text-muted-foreground">Login:</span> <span className="font-mono">{createdCreds.email}</span></div>
             <div><span className="text-muted-foreground">Password:</span> <span className="font-mono">{createdCreds.password}</span></div>
@@ -95,7 +108,16 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
                 <ShieldOff className="h-3.5 w-3.5" /> Revoke Access
               </button>
             ) : (
-              <ReactivateButton userId={portalUser.id} clientId={clientId} />
+              <ReactivateButton
+                userId={portalUser.id}
+                clientId={clientId}
+                onActivated={async (creds) => {
+                  await refetchPortalUser();
+                  qc.invalidateQueries({ queryKey: ['portal-user', clientId] });
+                  if (creds) setCreatedCreds(creds);
+                }}
+                extractErrorMessage={extractErrorMessage}
+              />
             )}
           </div>
         </div>
@@ -108,8 +130,9 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
           defaultEmail={contactEmail || ''}
           onClose={() => setShowCreate(false)}
           onSuccess={(email, password) => {
-            setCreatedCreds({ email, password });
+            setCreatedCreds({ email, password, oneTime: true });
             qc.invalidateQueries({ queryKey: ['portal-user', clientId] });
+            refetchPortalUser();
             setShowCreate(false);
           }}
         />
@@ -238,17 +261,49 @@ function RevokeModal({ userId, onClose, onSuccess }: { userId: string; onClose: 
   );
 }
 
-function ReactivateButton({ userId, clientId }: { userId: string; clientId: string }) {
-  const qc = useQueryClient();
+function ReactivateButton({
+  userId,
+  clientId,
+  onActivated,
+  extractErrorMessage,
+}: {
+  userId: string;
+  clientId: string;
+  onActivated: (creds: { email: string; password: string; oneTime: boolean } | null) => void | Promise<void>;
+  extractErrorMessage: (e: any, fallback: string) => string;
+}) {
   const mut = useMutation({
-    mutationFn: () => api.put(`/users/${userId}`, { is_active: true }).then(r => r.data),
-    onSuccess: () => { toast.success('Portal access reactivated'); qc.invalidateQueries({ queryKey: ['portal-user', clientId] }); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to reactivate'),
+    mutationFn: async () => {
+      const res = await api.put(`/users/${userId}`, { is_active: true });
+      return { status: res.status, data: res.data };
+    },
+    onSuccess: async ({ status, data }) => {
+      if (status !== 200 && status !== 201) {
+        toast.error(data?.detail || data?.error || 'Failed to reactivate');
+        return;
+      }
+      const user = data?.data ?? data?.user ?? data ?? {};
+      const tempPassword: string | undefined = data?.temp_password ?? user?.temp_password;
+      const created: boolean = Boolean(data?.created);
+      const email: string = user?.email || '';
+      await onActivated(
+        tempPassword
+          ? { email, password: tempPassword, oneTime: created || true }
+          : null
+      );
+      toast.success('Portal access reactivated');
+    },
+    onError: (e: any) => {
+      toast.error(extractErrorMessage(e, 'Failed to reactivate'));
+    },
   });
 
   return (
-    <button onClick={() => mut.mutate()} disabled={mut.isPending}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-success/10 text-success hover:bg-success/20 transition-colors disabled:opacity-50">
+    <button
+      onClick={() => mut.mutate()}
+      disabled={mut.isPending}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-success/10 text-success hover:bg-success/20 transition-colors disabled:opacity-50"
+    >
       <ShieldCheck className="h-3.5 w-3.5" /> {mut.isPending ? 'Activating...' : 'Reactivate'}
     </button>
   );
