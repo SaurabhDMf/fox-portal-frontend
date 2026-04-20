@@ -34,16 +34,21 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
   });
   const sprints = (Array.isArray(sprintsRaw) ? sprintsRaw : []).filter((s: Sprint) => s.status !== 'Completed');
 
-  // Modules (legacy field name `epic_id` on tasks)
+  // Modules (legacy field name `epic_id` on tasks) — scoped to selected sprint (cascade)
   const { data: modulesRaw } = useQuery({
-    queryKey: ['project-modules', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/modules`).then(r => extractProjectArray<Module>(r.data, ['modules', 'epics'])),
+    queryKey: ['project-modules', projectId, sprintId],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      if (sprintId) params.sprint_id = sprintId;
+      return api.get(`/projects/${projectId}/modules`, { params }).then(r => extractProjectArray<Module>(r.data, ['modules', 'epics']));
+    },
+    enabled: !!sprintId,
   });
   const modules = (Array.isArray(modulesRaw) ? modulesRaw : [])
     .slice()
     .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
 
-  // Fetch epics filtered by selected sprint/module for the picker
+  // Fetch epics scoped to the selected module (and sprint). Only enabled when module is selected.
   const { data: epicsRaw } = useQuery({
     queryKey: ['project-epics-picker', projectId, sprintId, moduleId],
     queryFn: () => {
@@ -52,6 +57,7 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
       if (moduleId) params.module_id = moduleId;
       return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<any>(r.data, ['epics']));
     },
+    enabled: !!moduleId,
   });
   const epics = Array.isArray(epicsRaw) ? epicsRaw : [];
 
@@ -175,14 +181,13 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
             <select
               value={moduleId}
               onChange={e => { setModuleId(e.target.value); setProjectEpicId(''); }}
-              className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              disabled={!sprintId}
+              className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <option value="">No Module</option>
-              {modules
-                .filter((m: Module) => !sprintId || m.sprint_id === sprintId)
-                .map((m: Module) => (
-                  <option key={m.id} value={m.id}>{m.title}{m.sprint_name ? ` — ${m.sprint_name}` : ''}</option>
-                ))}
+              <option value="">{sprintId ? 'No Module' : 'Select sprint first'}</option>
+              {modules.map((m: Module) => (
+                <option key={m.id} value={m.id}>{m.title}{m.sprint_name ? ` — ${m.sprint_name}` : ''}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -195,9 +200,10 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
           <select
             value={projectEpicId}
             onChange={e => setProjectEpicId(e.target.value)}
-            className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            disabled={!moduleId}
+            className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <option value="">No Epic (inherit from parent)</option>
+            <option value="">{moduleId ? 'No Epic (inherit from parent)' : 'Select module first'}</option>
             {epics.map((ep: any) => (
               <option key={ep.id} value={ep.id}>{ep.title}</option>
             ))}

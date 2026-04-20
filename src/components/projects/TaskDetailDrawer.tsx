@@ -696,7 +696,11 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
               {/* Sprint */}
               <div className="min-w-0">
                 <span className="text-xs text-muted-foreground">Sprint</span>
-                <select value={task.sprint_id || ''} onChange={e => submitTaskUpdate({ sprint_id: e.target.value || null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <select
+                  value={task.sprint_id || ''}
+                  onChange={e => submitTaskUpdate({ sprint_id: e.target.value || null, epic_id: null, project_epic_id: null })}
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
                   <option value="">No Sprint</option>
                   {sprints.filter((s) => s.status !== 'Completed').map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
@@ -708,8 +712,13 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                   Module
                   {(task as any).epic_color && <span className="w-2 h-2 rounded-full" style={{ background: (task as any).epic_color }} />}
                 </span>
-                <select value={task.epic_id || ''} onChange={e => submitTaskUpdate({ epic_id: e.target.value || null, project_epic_id: null })} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                  <option value="">No Module</option>
+                <select
+                  value={task.epic_id || ''}
+                  onChange={e => submitTaskUpdate({ epic_id: e.target.value || null, project_epic_id: null })}
+                  disabled={!task.sprint_id}
+                  className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">{task.sprint_id ? 'No Module' : 'Select sprint first'}</option>
                   {modules.map((mod) => <option key={mod.id} value={mod.id}>{mod.title}{mod.sprint_name ? ` — ${mod.sprint_name}` : ''}</option>)}
                 </select>
               </div>
