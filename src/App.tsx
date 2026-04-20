@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, Outlet } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "@/stores/authStore";
 import { usePermissionsRefresh } from "@/hooks/usePermissionsRefresh";
@@ -37,13 +37,6 @@ import EmpDashboard from "./pages/emp/EmpDashboard";
 import EmpTasks from "./pages/emp/EmpTasks";
 import EmpProfile from "./pages/emp/EmpProfile";
 
-// Client Portal (old — kept for backward compat)
-import ClientDashboard from "./pages/portal/ClientDashboard";
-import ClientInvoices from "./pages/portal/ClientInvoices";
-import ClientProjects from "./pages/portal/ClientProjects";
-import ClientDocuments from "./pages/portal/ClientDocuments";
-import ClientSupport from "./pages/portal/ClientSupport";
-
 // New Client Portal
 import ClientPortalLayout from "./components/layouts/ClientPortalLayout";
 import CPDashboard from "./pages/client-portal/CPDashboard";
@@ -73,6 +66,14 @@ function RootRedirect() {
 function PermissionsLoader({ children }: { children: React.ReactNode }) {
   usePermissionsRefresh();
   return <>{children}</>;
+}
+
+function ClientPortalRedirect() {
+  return <Navigate to="/client-portal" replace />;
+}
+
+function ClientPortalChildRedirect() {
+  return <Navigate to={`/client-portal${window.location.pathname.replace(/^\/portal/, '')}${window.location.search}${window.location.hash}`} replace />;
 }
 
 const App = () => (
@@ -135,13 +136,9 @@ const App = () => (
         </Route>
 
         {/* Legacy Client Portal (redirect) */}
-        <Route path="/portal" element={<ProtectedRoute allowedRoles={['client']}><PortalLayout /></ProtectedRoute>}>
-          <Route index element={<ClientDashboard />} />
-          <Route path="invoices" element={<ClientInvoices />} />
-          <Route path="projects" element={<ClientProjects />} />
-          <Route path="documents" element={<ClientDocuments />} />
-          <Route path="messages" element={<Chat />} />
-          <Route path="support" element={<ClientSupport />} />
+        <Route path="/portal" element={<ProtectedRoute allowedRoles={['client']}><Outlet /></ProtectedRoute>}>
+          <Route index element={<ClientPortalRedirect />} />
+          <Route path="*" element={<ClientPortalChildRedirect />} />
         </Route>
 
         {/* New Client Portal */}

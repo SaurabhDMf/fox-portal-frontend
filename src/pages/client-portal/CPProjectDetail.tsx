@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/stores/authStore';
 
 const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const initials = (n?: string) => n ? n.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?';
@@ -251,6 +252,7 @@ function OverviewTab({ project, done, total, pct, members }: { project: any; don
 /* ─── Tasks Tab ─── */
 function TasksTab({ projectId, onTaskClick }: { projectId: string; onTaskClick: (t: any) => void }) {
   const qc = useQueryClient();
+  const currentUserId = useAuthStore((s) => s.user?.id);
   const [statusF, setStatusF] = useState('');
   const [priorityF, setPriorityF] = useState('');
   const [sprintF, setSprintF] = useState('');
@@ -279,10 +281,23 @@ function TasksTab({ projectId, onTaskClick }: { projectId: string; onTaskClick: 
     queryFn: () => api.get(`/client/projects/${projectId}`).then(r => r.data?.data || r.data || {}),
     enabled: !!projectId,
   });
+  const memberPermissions = Array.isArray(projectMeta?.members)
+    ? projectMeta.members
+    : Array.isArray(projectMeta?.team)
+      ? projectMeta.team
+      : [];
+  const currentClientMember = memberPermissions.find((member: any) =>
+    member?.user_id === currentUserId || member?.id === currentUserId || member?.email === projectMeta?.client_email
+  );
+  const fallbackClientMember = memberPermissions.find((member: any) =>
+    member?.user_role === 'client' || member?.project_role === 'client' || member?.role === 'client'
+  );
   const canCreate = Boolean(
     projectMeta?.can_create_tasks ??
     projectMeta?.client_can_create_tasks ??
-    projectMeta?.permissions?.can_create_tasks
+    projectMeta?.permissions?.can_create_tasks ??
+    currentClientMember?.can_create_tasks ??
+    fallbackClientMember?.can_create_tasks
   );
 
   const tasks = rawTasks.filter((t: any) => {
