@@ -194,8 +194,22 @@ export default function MembersView({ projectId }: Props) {
   const toggleTaskMut = useMutation({
     mutationFn: ({ userId, canCreate }: { userId: string; canCreate: boolean }) =>
       api.put(`/projects/${projectId}/members/${userId}`, { can_create_tasks: canCreate }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-members', projectId] }); toast.success('Permission updated'); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update permission'),
+    onMutate: async ({ userId, canCreate }) => {
+      await qc.cancelQueries({ queryKey: ['project-members', projectId] });
+      const prev = qc.getQueryData<ProjectMember[]>(['project-members', projectId]);
+      qc.setQueryData<ProjectMember[]>(['project-members', projectId], (old) =>
+        Array.isArray(old)
+          ? old.map((m) => (m.user_id === userId ? { ...m, can_create_tasks: canCreate } as any : m))
+          : old
+      );
+      return { prev };
+    },
+    onError: (e: any, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['project-members', projectId], ctx.prev);
+      toast.error(e.response?.data?.message || 'Failed to update permission');
+    },
+    onSuccess: () => toast.success('Permission updated'),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['project-members', projectId] }),
   });
 
   const toggleVisibilityMut = useMutation({
