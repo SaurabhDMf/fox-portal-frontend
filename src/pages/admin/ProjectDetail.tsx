@@ -4,10 +4,9 @@ import api from '@/lib/api';
 import { dependencyDelete } from '@/lib/dependencyDelete';
 import { useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
-import { ArrowLeft, LayoutGrid, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2 } from 'lucide-react';
+import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2 } from 'lucide-react';
 import { extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectTask } from '@/lib/projectTypes';
-import KanbanBoard from '@/components/projects/KanbanBoard';
 import TasksListView from '@/components/projects/TasksListView';
 import EpicsView from '@/components/projects/EpicsView';
 import SprintsView from '@/components/projects/SprintsView';
@@ -20,7 +19,6 @@ import toast from 'react-hot-toast';
 
 const TABS = [
   { id: 'tasks', label: 'Tasks', icon: List },
-  { id: 'board', label: 'Board', icon: LayoutGrid },
   { id: 'backlog', label: 'Backlog', icon: Archive },
   { id: 'epics', label: 'Modules', icon: Zap },
   { id: 'sprints', label: 'Sprints', icon: Timer },
@@ -226,9 +224,6 @@ export default function ProjectDetail() {
         ))}
       </div>
 
-      {activeTab === 'board' && (
-        <KanbanBoard projectId={id!} onTaskClick={setSelectedTask} onCreateTask={(status) => setCreateTaskDefaults({ status: status || 'Open' })} />
-      )}
       {activeTab === 'tasks' && <TasksListView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />}
       {activeTab === 'epics' && <EpicsView projectId={id!} onTaskClick={setSelectedTask} />}
       {activeTab === 'sprints' && (
