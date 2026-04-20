@@ -130,8 +130,9 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
           defaultEmail={contactEmail || ''}
           onClose={() => setShowCreate(false)}
           onSuccess={(email, password) => {
-            setCreatedCreds({ email, password });
+            setCreatedCreds({ email, password, oneTime: true });
             qc.invalidateQueries({ queryKey: ['portal-user', clientId] });
+            refetchPortalUser();
             setShowCreate(false);
           }}
         />
