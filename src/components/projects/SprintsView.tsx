@@ -59,9 +59,23 @@ export default function SprintsView({ projectId, onTaskClick, onCreateTask }: Pr
   });
 
   const deleteMut = useMutation({
-    mutationFn: (sid: string) => api.delete(`/projects/${projectId}/sprints/${sid}`, { skipConfirm: true } as any),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); setDeleteSprintId(null); toast.success('Sprint deleted'); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting sprint'),
+    mutationFn: (sid: string) =>
+      dependencyDelete({
+        url: `/projects/${projectId}/sprints/${sid}`,
+        entityType: 'sprint',
+        skipPreConfirm: true,
+        dependencyLabels: {
+          tasks: 'Task',
+          modules: 'Module',
+          epics: 'Epic',
+          subtasks: 'Subtask',
+        },
+      }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['project-sprints', projectId] }); setDeleteSprintId(null); },
+    onError: (e: any) => {
+      if (e?.message === 'cancelled') { setDeleteSprintId(null); return; }
+      toast.error(e?.response?.data?.message || 'Error deleting sprint');
+    },
   });
 
   // If a sprint is selected, show the detail page
