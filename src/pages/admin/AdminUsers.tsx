@@ -235,9 +235,9 @@ export default function AdminUsers() {
 
   const rawUsers = Array.isArray(data) ? data : [];
   const teamUsers = rawUsers.filter((u: any) => !CLIENT_ROLES.includes(u.role));
-  const clientUsers = rawUsers.filter((u: any) => CLIENT_ROLES.includes(u.role));
-  const allUsers = mainTab === 'team' ? teamUsers : clientUsers;
-  const users = allUsers.filter((u: any) => {
+  const clientCompanies = Array.isArray(clientsData) ? clientsData : [];
+  const allUsers = mainTab === 'team' ? teamUsers : clientCompanies;
+  const users = mainTab === 'clients' ? clientCompanies : allUsers.filter((u: any) => {
     if (tab === 'All') return true;
     if (tab === 'Active') return u.status === 'active';
     if (tab === 'Inactive') return u.status === 'inactive' || u.status === 'terminated';
@@ -245,11 +245,12 @@ export default function AdminUsers() {
     return true;
   });
 
+  // Stats from /users/stats — used for Team tab badge counts
   const counts = {
-    All: allUsers.length,
-    Active: allUsers.filter((u: any) => u.status === 'active').length,
-    Inactive: allUsers.filter((u: any) => u.status === 'inactive' || u.status === 'terminated').length,
-    'On Leave': allUsers.filter((u: any) => u.status === 'on_leave').length,
+    All: userStats?.total ?? teamUsers.length,
+    Active: userStats?.active ?? teamUsers.filter((u: any) => u.status === 'active').length,
+    Inactive: userStats?.inactive ?? teamUsers.filter((u: any) => u.status === 'inactive' || u.status === 'terminated').length,
+    'On Leave': userStats?.on_leave ?? teamUsers.filter((u: any) => u.status === 'on_leave').length,
   };
 
   const populateForm = (u: any) => {
