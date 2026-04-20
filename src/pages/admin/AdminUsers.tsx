@@ -359,6 +359,12 @@ export default function AdminUsers() {
           </div>
           <div><label className={labelCls}>Date of Joining</label><input type="date" value={form.date_of_joining} onChange={e => setForm(f => ({ ...f, date_of_joining: e.target.value }))} className={inputCls} /></div>
           <div>
+            <label className={labelCls}>Employment Status</label>
+            <select value={form.employment_status} onChange={e => setForm(f => ({ ...f, employment_status: e.target.value }))} className={inputCls}>
+              {employmentStatuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+          </div>
+          <div>
             <label className={labelCls}>Reporting To</label>
             <select value={form.reporting_to} onChange={e => setForm(f => ({ ...f, reporting_to: e.target.value }))} className={inputCls}>
               <option value="">Select Manager</option>
@@ -918,6 +924,43 @@ export default function AdminUsers() {
                 <Copy className="h-3.5 w-3.5" /> Copy Credentials
               </button>
               <button onClick={() => setResetPwSuccess(null)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-all">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Client Modal — used when adding from Clients tab */}
+      <ClientFormModal
+        open={showAddClient}
+        onClose={() => setShowAddClient(false)}
+        onSubmit={(d) => createClientMut.mutate(d)}
+        isPending={createClientMut.isPending}
+        users={teamUsers.filter((u: any) => ['sales_manager', 'sales_rep'].includes((u.role || '').toLowerCase()))}
+      />
+
+      {/* Activate Portal Success — show temp password once */}
+      {activatePortalSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold">Portal Activated</h2>
+            <p className="text-xs text-muted-foreground">
+              Share these credentials with the client — the password won't be shown again.
+            </p>
+            <div className="glass-card p-3 space-y-1 text-sm">
+              <div><span className="text-muted-foreground">Login:</span> {activatePortalSuccess.email}</div>
+              <div><span className="text-muted-foreground">Password:</span> {activatePortalSuccess.password}</div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`Login: ${activatePortalSuccess.email}\nPassword: ${activatePortalSuccess.password}`);
+                  toast.success('Credentials copied');
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-sm font-medium hover:opacity-90 transition-all"
+              >
+                <Copy className="h-3.5 w-3.5" /> Copy
+              </button>
+              <button onClick={() => setActivatePortalSuccess(null)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-all">Done</button>
             </div>
           </div>
         </div>
