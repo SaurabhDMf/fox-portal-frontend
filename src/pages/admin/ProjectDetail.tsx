@@ -20,7 +20,6 @@ import toast from 'react-hot-toast';
 
 const TABS = [
   { id: 'tasks', label: 'Tasks', icon: List },
-  { id: 'board', label: 'Board', icon: LayoutGrid },
   { id: 'backlog', label: 'Backlog', icon: Archive },
   { id: 'epics', label: 'Modules', icon: Zap },
   { id: 'sprints', label: 'Sprints', icon: Timer },
