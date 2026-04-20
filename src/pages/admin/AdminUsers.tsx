@@ -414,39 +414,44 @@ export default function AdminUsers() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="glass-card p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10"><Users className="h-4 w-4 text-primary" /></div>
-          <div><div className="text-lg font-bold">{counts.All}</div><div className="text-xs text-muted-foreground">Total Users</div></div>
+      {mainTab === 'team' && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="glass-card p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10"><Users className="h-4 w-4 text-primary" /></div>
+            <div><div className="text-lg font-bold">{counts.All}</div><div className="text-xs text-muted-foreground">Total Users</div></div>
+          </div>
+          <div className="glass-card p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[hsl(var(--success))]/10"><UserCheck className="h-4 w-4 text-[hsl(var(--success))]" /></div>
+            <div><div className="text-lg font-bold">{counts.Active}</div><div className="text-xs text-muted-foreground">Active</div></div>
+          </div>
+          <div className="glass-card p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[hsl(var(--warning))]/10"><UserX className="h-4 w-4 text-[hsl(var(--warning))]" /></div>
+            <div><div className="text-lg font-bold">{counts['On Leave']}</div><div className="text-xs text-muted-foreground">On Leave</div></div>
+          </div>
+          <div className="glass-card p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-destructive/10"><UserX className="h-4 w-4 text-destructive" /></div>
+            <div><div className="text-lg font-bold">{counts.Inactive}</div><div className="text-xs text-muted-foreground">Inactive</div></div>
+          </div>
         </div>
-        <div className="glass-card p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-[hsl(var(--success))]/10"><UserCheck className="h-4 w-4 text-[hsl(var(--success))]" /></div>
-          <div><div className="text-lg font-bold">{counts.Active}</div><div className="text-xs text-muted-foreground">Active</div></div>
-        </div>
-        <div className="glass-card p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-[hsl(var(--warning))]/10"><UserX className="h-4 w-4 text-[hsl(var(--warning))]" /></div>
-          <div><div className="text-lg font-bold">{counts['On Leave']}</div><div className="text-xs text-muted-foreground">On Leave</div></div>
-        </div>
-        <div className="glass-card p-4 flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-destructive/10"><UserX className="h-4 w-4 text-destructive" /></div>
-          <div><div className="text-lg font-bold">{counts.Inactive}</div><div className="text-xs text-muted-foreground">Inactive</div></div>
-        </div>
-      </div>
+      )}
 
       <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div className="flex gap-1">
-          {tabs.map(t => (
-            <button key={t} onClick={() => setTab(t)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
-              {t} ({counts[t as keyof typeof counts]})
-            </button>
-          ))}
-        </div>
+        {mainTab === 'team' ? (
+          <div className="flex gap-1">
+            {tabs.map(t => (
+              <button key={t} onClick={() => setTab(t)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+                {t} ({counts[t as keyof typeof counts]})
+              </button>
+            ))}
+          </div>
+        ) : <div />}
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users..." className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={mainTab === 'clients' ? 'Search clients...' : 'Search users...'} className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
         </div>
       </div>
 
+      {mainTab === 'team' ? (
       <div className="glass-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -530,6 +535,58 @@ export default function AdminUsers() {
           </tbody>
         </table>
       </div>
+      ) : (
+        // Clients tab — companies fetched from /clients
+        <div className="glass-card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
+                <th className="p-4">Company</th>
+                <th className="p-4">Email</th>
+                <th className="p-4">Phone</th>
+                <th className="p-4">Type</th>
+                <th className="p-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clientsLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={5} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
+              clientCompanies.map((c: any) => (
+                <tr key={c.id} className="border-b border-border/50 hover:bg-secondary/50 transition-colors">
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">{c.company_name?.[0] || 'C'}</div>
+                      <div>
+                        <div className="font-medium">{c.company_name || c.name || '—'}</div>
+                        <div className="text-xs text-muted-foreground">{c.contact_name || c.industry || ''}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-4 text-muted-foreground">{c.email || '—'}</td>
+                  <td className="p-4 text-muted-foreground">{c.phone || '—'}</td>
+                  <td className="p-4">
+                    {c.client_type ? <span className={c.client_type === 'VIP' ? 'badge-warning' : c.client_type === 'At-Risk' ? 'badge-danger' : 'badge-info'}>{c.client_type}</span> : <span className="text-xs text-muted-foreground">—</span>}
+                  </td>
+                  <td className="p-4">
+                    <button
+                      onClick={() => activatePortalMut.mutate(c.id)}
+                      disabled={activatePortalMut.isPending}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
+                    >
+                      <Zap className="h-3.5 w-3.5" /> Activate Portal
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {clientCompanies.length === 0 && !clientsLoading && (
+                <tr><td colSpan={5} className="p-12 text-center">
+                  <div className="text-muted-foreground text-sm mb-3">No clients found</div>
+                  <button onClick={() => setShowAddClient(true)} className="text-sm text-primary hover:underline">Add your first client →</button>
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Add User Modal */}
       {showAdd && (
