@@ -101,8 +101,31 @@ export default function AdminUsers() {
     queryFn: () => api.get('/users', { params: { search } }).then(r => {
       const d = r.data;
       const list = d?.users || d?.data || (Array.isArray(d) ? d : []);
-      console.log('[AdminUsers] raw response:', d, 'parsed list:', list);
       return list;
+    }),
+  });
+
+  // Clients tab data — fetched from /clients (companies), not /users
+  const { data: clientsData = [], isLoading: clientsLoading } = useQuery({
+    queryKey: ['clients-companies', search],
+    queryFn: () => api.get('/clients', { params: { search } }).then(r => {
+      const d = r.data;
+      return Array.isArray(d) ? d : (d?.clients || d?.data?.clients || d?.data || []);
+    }),
+    enabled: mainTab === 'clients',
+  });
+
+  // User stats from backend
+  const { data: userStats } = useQuery({
+    queryKey: ['users-stats'],
+    queryFn: () => api.get('/users/stats').then(r => {
+      const d = r.data?.data || r.data || {};
+      return {
+        active: Number(d.active ?? 0),
+        inactive: Number(d.inactive ?? 0),
+        on_leave: Number(d.on_leave ?? 0),
+        total: Number(d.total ?? 0),
+      };
     }),
   });
 
