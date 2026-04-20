@@ -139,7 +139,15 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
       )}
 
       {showReset && portalUser && (
-        <ResetPasswordModal userId={portalUser.id} onClose={() => setShowReset(false)} />
+        <ResetPasswordModal
+          clientId={clientId}
+          email={portalUser.email}
+          onClose={() => setShowReset(false)}
+          onSuccess={(newPassword) => {
+            setCreatedCreds({ email: portalUser.email, password: newPassword, oneTime: true });
+            setShowReset(false);
+          }}
+        />
       )}
 
       {showRevoke && portalUser && (
