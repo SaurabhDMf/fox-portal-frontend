@@ -7,7 +7,6 @@ import { useState } from 'react';
 import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2 } from 'lucide-react';
 import { extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectTask } from '@/lib/projectTypes';
-import KanbanBoard from '@/components/projects/KanbanBoard';
 import TasksListView from '@/components/projects/TasksListView';
 import EpicsView from '@/components/projects/EpicsView';
 import SprintsView from '@/components/projects/SprintsView';
