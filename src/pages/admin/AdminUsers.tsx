@@ -395,8 +395,11 @@ export default function AdminUsers() {
       <div className="page-header">
         <div><h1 className="page-title">Team & Users</h1><p className="page-subtitle">Manage your team members and clients</p></div>
         {perm.canCreate && (
-          <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
-            <Plus className="h-4 w-4" /> Add User
+          <button
+            onClick={() => (mainTab === 'clients' ? setShowAddClient(true) : openAdd())}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
+          >
+            <Plus className="h-4 w-4" /> {mainTab === 'clients' ? 'Add Client' : 'Add User'}
           </button>
         )}
       </div>
@@ -407,7 +410,7 @@ export default function AdminUsers() {
           <Users className="inline h-4 w-4 mr-1.5" /> Team ({teamUsers.length})
         </button>
         <button onClick={() => { setMainTab('clients'); setTab('All'); }} className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${mainTab === 'clients' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
-          <UserCheck className="inline h-4 w-4 mr-1.5" /> Clients ({clientUsers.length})
+          <UserCheck className="inline h-4 w-4 mr-1.5" /> Clients ({clientCompanies.length})
         </button>
       </div>
 
