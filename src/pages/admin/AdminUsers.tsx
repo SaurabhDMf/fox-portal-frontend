@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { dependencyDelete } from '@/lib/dependencyDelete';
 import { useState } from 'react';
 import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2, Shield, Check, X as XIcon, MoreVertical, Power, AlertTriangle, KeyRound, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';

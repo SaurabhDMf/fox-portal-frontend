@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { dependencyDelete } from '@/lib/dependencyDelete';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS, BOARD_COLUMNS } from '@/lib/projectTypes';
 import type { ProjectTask } from '@/lib/projectTypes';

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { dependencyDelete } from '@/lib/dependencyDelete';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import type { Sprint, ProjectTask } from '@/lib/projectTypes';
 import { useState } from 'react';
