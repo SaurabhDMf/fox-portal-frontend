@@ -1,10 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Plus, X, ListTodo } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
@@ -30,6 +32,7 @@ function StatusBadge({ status }: { status?: string }) {
 
 export default function CPTasks() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [showCreate, setShowCreate] = useState(false);
 
   const { data: tasks = [], isLoading } = useQuery({
@@ -45,7 +48,7 @@ export default function CPTasks() {
       <div className="page-header">
         <div>
           <h1 className="page-title">My Tasks</h1>
-          <p className="page-subtitle">Tasks and requests linked to your account</p>
+          <p className="page-subtitle">Track requests you've submitted</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -60,6 +63,7 @@ export default function CPTasks() {
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
+              <TableHead>Project</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Due Date</TableHead>
@@ -68,16 +72,26 @@ export default function CPTasks() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">Loading tasks…</TableCell></TableRow>
+              Array.from({ length: 3 }).map((_, i) => (
+                <TableRow key={i}>
+                  {Array.from({ length: 6 }).map((__, j) => (
+                    <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+                  ))}
+                </TableRow>
+              ))
             ) : tasks.length > 0 ? tasks.map((t: any) => (
-              <TableRow key={t.id} className="hover:bg-muted/50">
+              <TableRow
+                key={t.id}
+                className="hover:bg-muted/50 cursor-pointer"
+                onClick={() => navigate(`/client-portal/tasks/${t.id}`)}
+              >
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {t.task_number && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{t.task_number}</span>}
                     <span className="font-medium text-sm">{t.title}</span>
                   </div>
-                  {t.project_name && <div className="text-xs text-muted-foreground mt-0.5">{t.project_name}</div>}
                 </TableCell>
+                <TableCell className="text-xs text-muted-foreground">{t.project_name || '—'}</TableCell>
                 <TableCell><StatusBadge status={t.status} /></TableCell>
                 <TableCell>
                   <Badge variant="secondary" className={`text-[10px] ${PRIORITY_CLS[t.priority] || ''}`}>{t.priority || '—'}</Badge>
@@ -87,7 +101,7 @@ export default function CPTasks() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={5} className="py-16 text-center">
+                <TableCell colSpan={6} className="py-16 text-center">
                   <ListTodo className="h-10 w-10 mx-auto text-muted-foreground/50 mb-2" />
                   <div className="text-sm text-muted-foreground mb-3">No tasks yet</div>
                   <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">
@@ -114,20 +128,34 @@ export default function CPTasks() {
 }
 
 function CreateTaskModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ title: '', description: '', priority: 'Medium', due_date: '' });
+  const [form, setForm] = useState({ title: '', description: '', project_id: '', priority: 'Medium', due_date: '' });
   const [loading, setLoading] = useState(false);
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ['cp-projects-for-task'],
+    queryFn: () => api.get('/projects').then(r => {
+      const d = r.data?.data ?? r.data?.projects ?? r.data;
+      return Array.isArray(d) ? d : [];
+    }),
+  });
+
+  // Preselect when only one project
+  useEffect(() => {
+    if (projects.length === 1 && !form.project_id) {
+      setForm(f => ({ ...f, project_id: String(projects[0].id) }));
+    }
+  }, [projects]);
 
   const submit = async () => {
     if (!form.title.trim()) { toast.error('Title is required'); return; }
     setLoading(true);
     try {
-      await api.post('/tasks', {
-        title: form.title.trim(),
-        description: form.description.trim() || undefined,
-        priority: form.priority,
-        due_date: form.due_date || undefined,
-      });
-      toast.success('Request submitted — our team will review it shortly');
+      const payload: any = { title: form.title.trim(), priority: form.priority };
+      if (form.description.trim()) payload.description = form.description.trim();
+      if (form.project_id) payload.project_id = form.project_id;
+      if (form.due_date) payload.due_date = form.due_date;
+      await api.post('/tasks', payload);
+      toast.success('Request submitted');
       onCreated();
     } catch (e: any) {
       toast.error(e.response?.data?.message || e.response?.data?.error || 'Failed to submit request');
@@ -137,6 +165,7 @@ function CreateTaskModal({ onClose, onCreated }: { onClose: () => void; onCreate
   };
 
   const inputCls = "w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
+  const disabled = loading || !form.title.trim();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
@@ -153,7 +182,16 @@ function CreateTaskModal({ onClose, onCreated }: { onClose: () => void; onCreate
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
-            <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={5} className={`${inputCls} resize-y min-h-[100px]`} placeholder="Describe what you need…" />
+            <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={4} className={`${inputCls} resize-y min-h-[100px]`} placeholder="Describe what you need…" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Project</label>
+            <select value={form.project_id} onChange={e => setForm(f => ({ ...f, project_id: e.target.value }))} className={inputCls}>
+              <option value="">— None —</option>
+              {projects.map((p: any) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -175,8 +213,8 @@ function CreateTaskModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary">Cancel</button>
           <button
             onClick={submit}
-            disabled={loading}
-            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
+            disabled={disabled}
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Submitting…' : 'Submit Request'}
           </button>
