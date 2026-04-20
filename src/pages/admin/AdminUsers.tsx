@@ -133,11 +133,38 @@ export default function AdminUsers() {
     mutationFn: (d: typeof form) => api.post('/users/invite', d),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
+      qc.invalidateQueries({ queryKey: ['users-stats'] });
       setShowAdd(false);
       setForm({ ...emptyForm });
       toast.success('User added successfully');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error adding user'),
+  });
+
+  const createClientMut = useMutation({
+    mutationFn: (d: ClientFormData) => api.post('/clients', d),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clients-companies'] });
+      setShowAddClient(false);
+      toast.success('Client created successfully');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error creating client'),
+  });
+
+  const activatePortalMut = useMutation({
+    mutationFn: (clientId: string) => api.post(`/clients/${clientId}/activate-portal`),
+    onSuccess: (res) => {
+      const d = res.data;
+      const user = d?.data ?? d?.user ?? d ?? {};
+      const tempPassword: string | undefined = d?.temp_password ?? user?.temp_password;
+      qc.invalidateQueries({ queryKey: ['clients-companies'] });
+      if (tempPassword) {
+        setActivatePortalSuccess({ email: user?.email || '', password: tempPassword });
+      } else {
+        toast.success('Portal activated');
+      }
+    },
+    onError: (e: any) => toast.error(e.response?.data?.detail || e.response?.data?.error || e.response?.data?.message || 'Failed to activate portal'),
   });
 
   const editMut = useMutation({
