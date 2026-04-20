@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
+import { dependencyDelete } from '@/lib/dependencyDelete';
 import { useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
 import { ArrowLeft, LayoutGrid, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2 } from 'lucide-react';
@@ -103,14 +104,30 @@ export default function ProjectDetail() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: () => api.delete(`/projects/${id}`, { skipConfirm: true } as any),
+    mutationFn: () =>
+      dependencyDelete({
+        url: `/projects/${id}`,
+        entityType: 'project',
+        entityName: (project as any)?.name,
+        skipPreConfirm: true,
+        dependencyLabels: {
+          sprints: 'Sprint',
+          modules: 'Module',
+          epics: 'Epic',
+          tasks: 'Task',
+          subtasks: 'Subtask',
+          members: 'Member',
+        },
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('Project deleted');
       const basePath = window.location.pathname.startsWith('/emp') ? '/emp' : '/admin';
       navigate(`${basePath}/projects`);
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to delete'),
+    onError: (e: any) => {
+      if (e?.message === 'cancelled') return;
+      toast.error(e?.response?.data?.message || 'Failed to delete');
+    },
   });
 
   const openEdit = () => {

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { dependencyDelete } from '@/lib/dependencyDelete';
 import { useState } from 'react';
 import { Plus, Search, X, Pencil, Eye, Users, UserCheck, UserX, Target, Trash2, Shield, Check, X as XIcon, MoreVertical, Power, AlertTriangle, KeyRound, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -178,12 +179,26 @@ export default function AdminUsers() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api.delete(`/users/${id}`),
+    mutationFn: (id: string) =>
+      dependencyDelete({
+        url: `/users/${id}`,
+        entityType: 'user',
+        skipPreConfirm: false,
+        dependencyLabels: {
+          tasks: 'Assigned Task',
+          projects: 'Owned Project',
+          leads: 'Owned Lead',
+          tickets: 'Assigned Ticket',
+          invoices: 'Created Invoice',
+        },
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
-      toast.success('User deleted successfully');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting user'),
+    onError: (e: any) => {
+      if (e?.message === 'cancelled') return;
+      toast.error(e?.response?.data?.message || 'Error deleting user');
+    },
   });
 
   const activateMut = useMutation({

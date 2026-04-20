@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { dependencyDelete } from '@/lib/dependencyDelete';
 import { extractProjectArray, extractProjectEntity } from '@/lib/projectResponse';
 import { TASK_TYPE_CONFIG, PRIORITY_COLORS, BOARD_COLUMNS } from '@/lib/projectTypes';
 import type { ProjectTask } from '@/lib/projectTypes';
@@ -258,14 +259,26 @@ export default function SprintDetailPage({ projectId, sprintId, sprintName, onBa
 
   // Delete module
   const deleteModuleMut = useMutation({
-    mutationFn: (moduleId: string) => api.delete(`/projects/${projectId}/modules/${moduleId}`, { skipConfirm: true } as any),
+    mutationFn: (moduleId: string) =>
+      dependencyDelete({
+        url: `/projects/${projectId}/modules/${moduleId}`,
+        entityType: 'module',
+        skipPreConfirm: true,
+        dependencyLabels: {
+          tasks: 'Task',
+          epics: 'Epic',
+          subtasks: 'Subtask',
+        },
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sprint-detail-hierarchy', projectId, sprintId] });
       qc.invalidateQueries({ queryKey: ['sprint-detail-tasks', projectId, sprintId] });
       setDeleteModuleId(null);
-      toast.success('Module deleted');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to delete module'),
+    onError: (e: any) => {
+      if (e?.message === 'cancelled') { setDeleteModuleId(null); return; }
+      toast.error(e?.response?.data?.message || 'Failed to delete module');
+    },
   });
 
   const toggleModule = (id: string) => setExpandedModules(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });

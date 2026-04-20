@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import ClientFormModal, { type ClientFormData } from '@/components/clients/ClientFormModal';
 import { useAuthStore } from '@/stores/authStore';
 import PortalAccessSection from '@/components/clients/PortalAccessSection';
+import { dependencyDelete } from '@/lib/dependencyDelete';
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -47,13 +48,34 @@ export default function ClientDetail() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: () => api.delete(`/clients/${id}`, { skipConfirm: true } as any),
+    mutationFn: () =>
+      dependencyDelete({
+        url: `/clients/${id}`,
+        entityType: 'client',
+        entityName: (client as any)?.company_name,
+        skipPreConfirm: true, // ClientDetail already shows its own confirm modal
+        dependencyLabels: {
+          invoices: 'Invoice',
+          leads: 'Lead',
+          projects: 'Project',
+          tickets: 'Ticket',
+          contacts: 'Contact',
+        },
+        onViewDependency: {
+          invoices: () => navigate(`/admin/invoicing?client_id=${id}`),
+          leads: () => navigate(`/admin/crm?client_id=${id}`),
+          projects: () => navigate(`/admin/projects?client_id=${id}`),
+          tickets: () => navigate(`/admin/tickets?client_id=${id}`),
+        },
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clients'] });
-      toast.success('Client deleted');
       navigate('/admin/clients');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to delete'),
+    onError: (e: any) => {
+      if (e?.message === 'cancelled') return;
+      toast.error(e?.response?.data?.message || 'Failed to delete');
+    },
   });
 
   if (isLoading) return <div className="page-container"><div className="glass-card h-64 animate-pulse" /></div>;

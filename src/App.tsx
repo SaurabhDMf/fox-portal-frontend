@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "@/stores/authStore";
 import { usePermissionsRefresh } from "@/hooks/usePermissionsRefresh";
 import { ConfirmDialogHost } from "@/lib/confirmDialog";
+import { DependencyDeleteHost } from "@/lib/dependencyDelete";
 
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -82,6 +83,7 @@ const App = () => (
       }}
     />
     <ConfirmDialogHost />
+    <DependencyDeleteHost />
     <BrowserRouter>
       <PermissionsLoader>
       <Routes>
