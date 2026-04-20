@@ -81,6 +81,8 @@ export default function AdminUsers() {
   const [resetPwValue, setResetPwValue] = useState('Welcome123!');
   const [resetPwError, setResetPwError] = useState('');
   const [resetPwSuccess, setResetPwSuccess] = useState<{ email: string; password: string } | null>(null);
+  const [showAddClient, setShowAddClient] = useState(false);
+  const [activatePortalSuccess, setActivatePortalSuccess] = useState<{ email: string; password: string } | null>(null);
   const qc = useQueryClient();
 
   const { data: apiRoles } = useQuery({
@@ -203,7 +205,9 @@ export default function AdminUsers() {
   const populateForm = (u: any) => {
     setForm({
       full_name: u.full_name || '', email: u.email || '', phone: u.phone || '', role: u.role || 'sales_rep',
-      employment_type: u.employment_type || 'full_time', department: u.department || '', job_title: u.job_title || '',
+      employment_type: u.employment_type || 'full_time',
+      employment_status: u.employment_status || u.status || 'active',
+      department: u.department || '', job_title: u.job_title || '',
       password: '', date_of_joining: u.date_of_joining ? u.date_of_joining.substring(0, 10) : '',
       reporting_to: u.manager_id || u.reporting_to || '',
       salary: u.salary || '', address: u.address || '', emergency_contact: u.emergency_contact || '',
