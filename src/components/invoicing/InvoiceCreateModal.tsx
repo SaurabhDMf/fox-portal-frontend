@@ -32,7 +32,11 @@ export default function InvoiceCreateModal({ onClose }: Props) {
 
   const { data: clients = [] } = useQuery({
     queryKey: ['clients-list'],
-    queryFn: () => api.get('/clients').then(r => r.data?.clients || r.data || []),
+    queryFn: () => api.get('/clients').then(r => {
+      const d = r.data;
+      const arr = Array.isArray(d) ? d : (d?.data || d?.clients || []);
+      return Array.isArray(arr) ? arr : [];
+    }),
   });
 
   const { data: company } = useQuery({
@@ -93,7 +97,7 @@ export default function InvoiceCreateModal({ onClose }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <select value={form.client_id} onChange={e => setForm(f => ({ ...f, client_id: e.target.value }))} className={inputCls}>
             <option value="">Select Client</option>
-            {clientsArr.map((c: any) => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+            {clientsArr.map((c: any) => <option key={c.id} value={c.id}>{c.company_name || c.name || c.contact_name || c.email || c.id}</option>)}
           </select>
           <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} className={inputCls} />
           <select value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))} className={inputCls}>
