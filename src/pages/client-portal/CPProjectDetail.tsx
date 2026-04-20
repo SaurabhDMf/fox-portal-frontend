@@ -274,31 +274,8 @@ function TasksTab({ projectId, onTaskClick }: { projectId: string; onTaskClick: 
     }),
   });
 
-  // Read the per-project permission flag from the project payload — no preflight POST.
-  // Backend returns can_create_tasks on the project (granted via Members tab toggle).
-  const { data: projectMeta } = useQuery({
-    queryKey: ['cp-project', projectId],
-    queryFn: () => api.get(`/client/projects/${projectId}`).then(r => r.data?.data || r.data || {}),
-    enabled: !!projectId,
-  });
-  const memberPermissions = Array.isArray(projectMeta?.members)
-    ? projectMeta.members
-    : Array.isArray(projectMeta?.team)
-      ? projectMeta.team
-      : [];
-  const currentClientMember = memberPermissions.find((member: any) =>
-    member?.user_id === currentUserId || member?.id === currentUserId || member?.email === projectMeta?.client_email
-  );
-  const fallbackClientMember = memberPermissions.find((member: any) =>
-    member?.user_role === 'client' || member?.project_role === 'client' || member?.role === 'client'
-  );
-  const canCreate = Boolean(
-    projectMeta?.can_create_tasks ??
-    projectMeta?.client_can_create_tasks ??
-    projectMeta?.permissions?.can_create_tasks ??
-    currentClientMember?.can_create_tasks ??
-    fallbackClientMember?.can_create_tasks
-  );
+  // Clients can always create tasks in their own projects by default.
+  const canCreate = true;
 
   const tasks = rawTasks.filter((t: any) => {
     if (statusF && t.status !== statusF) return false;

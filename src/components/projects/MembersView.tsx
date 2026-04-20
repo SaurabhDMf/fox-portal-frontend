@@ -269,15 +269,6 @@ export default function MembersView({ projectId }: Props) {
                 <p className="text-sm font-medium">{member.full_name}</p>
                 {member.email && <p className="text-xs text-muted-foreground">{member.email}</p>}
               </div>
-              {canManage && (isClient || isLinkedCompany) && (
-                <label className="flex items-center gap-1.5 cursor-pointer" title="Allow client to create tasks in their portal">
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">Can create tasks</span>
-                  <Switch
-                    checked={!!member.can_create_tasks}
-                    onCheckedChange={(checked) => toggleTaskMut.mutate({ userId: member.user_id, canCreate: checked })}
-                  />
-                </label>
-              )}
               {canManage && !isClient && !isLinkedCompany && (
                 <label className="flex items-center gap-1.5 cursor-pointer" title="Show this member to clients in the client portal">
                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">Visible to Client</span>
