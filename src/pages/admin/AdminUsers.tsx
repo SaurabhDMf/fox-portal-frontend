@@ -13,6 +13,8 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
+import ClientFormModal, { type ClientFormData } from '@/components/clients/ClientFormModal';
+import { Zap } from 'lucide-react';
 
 const PERM_MODULES = ['crm', 'invoicing', 'clients', 'chat', 'projects', 'vault', 'payroll', 'tracker', 'tickets', 'users', 'reports'] as const;
 const PERM_ACTIONS = ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_export'] as const;
