@@ -255,7 +255,6 @@ function TasksTab({ projectId, onTaskClick }: { projectId: string; onTaskClick: 
   const [priorityF, setPriorityF] = useState('');
   const [sprintF, setSprintF] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [canCreate, setCanCreate] = useState<boolean | null>(null);
 
   const { data: rawTasks = [], isLoading } = useQuery({
     queryKey: ['cp-project-tasks', projectId],
@@ -273,25 +272,18 @@ function TasksTab({ projectId, onTaskClick }: { projectId: string; onTaskClick: 
     }),
   });
 
-  // Check if client can create tasks by attempting a preflight-style check
-  useQuery({
-    queryKey: ['cp-can-create-task', projectId],
-    queryFn: async () => {
-      try {
-        // Try OPTIONS or a lightweight check; fallback: attempt POST with empty to see 403 vs 400
-        await api.post(`/client/projects/${projectId}/tasks`, { title: '' });
-        setCanCreate(true);
-        return true;
-      } catch (e: any) {
-        if (e.response?.status === 403) { setCanCreate(false); return false; }
-        // 400/422 means endpoint exists and is allowed, just validation failed
-        setCanCreate(true);
-        return true;
-      }
-    },
-    retry: false,
-    staleTime: Infinity,
+  // Read the per-project permission flag from the project payload — no preflight POST.
+  // Backend returns can_create_tasks on the project (granted via Members tab toggle).
+  const { data: projectMeta } = useQuery({
+    queryKey: ['cp-project', projectId],
+    queryFn: () => api.get(`/client/projects/${projectId}`).then(r => r.data?.data || r.data || {}),
+    enabled: !!projectId,
   });
+  const canCreate = Boolean(
+    projectMeta?.can_create_tasks ??
+    projectMeta?.client_can_create_tasks ??
+    projectMeta?.permissions?.can_create_tasks
+  );
 
   const tasks = rawTasks.filter((t: any) => {
     if (statusF && t.status !== statusF) return false;
