@@ -37,13 +37,6 @@ import EmpDashboard from "./pages/emp/EmpDashboard";
 import EmpTasks from "./pages/emp/EmpTasks";
 import EmpProfile from "./pages/emp/EmpProfile";
 
-// Client Portal (old — kept for backward compat)
-import ClientDashboard from "./pages/portal/ClientDashboard";
-import ClientInvoices from "./pages/portal/ClientInvoices";
-import ClientProjects from "./pages/portal/ClientProjects";
-import ClientDocuments from "./pages/portal/ClientDocuments";
-import ClientSupport from "./pages/portal/ClientSupport";
-
 // New Client Portal
 import ClientPortalLayout from "./components/layouts/ClientPortalLayout";
 import CPDashboard from "./pages/client-portal/CPDashboard";
