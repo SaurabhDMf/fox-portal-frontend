@@ -225,9 +225,6 @@ export default function ProjectDetail() {
         ))}
       </div>
 
-      {activeTab === 'board' && (
-        <KanbanBoard projectId={id!} onTaskClick={setSelectedTask} onCreateTask={(status) => setCreateTaskDefaults({ status: status || 'Open' })} />
-      )}
       {activeTab === 'tasks' && <TasksListView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />}
       {activeTab === 'epics' && <EpicsView projectId={id!} onTaskClick={setSelectedTask} />}
       {activeTab === 'sprints' && (
