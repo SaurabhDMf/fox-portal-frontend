@@ -57,15 +57,21 @@ export default function MembersView({ projectId }: Props) {
     || (project as any)?.client?.id
     || (project as any)?.client?.client_id
     || '';
+  // The backend may already return the linked client as a member row (with can_create_tasks).
+  // Prefer that row so the "Can create tasks" toggle reflects/persists real state.
+  const existingLinkedClientMember = linkedClientId
+    ? clientMembers.find(m => m.user_id === linkedClientId)
+    : undefined;
   const linkedClientCompany = linkedClientId
     ? [{
-        id: `linked-client-${linkedClientId}`,
+        id: existingLinkedClientMember?.id ?? `linked-client-${linkedClientId}`,
         user_id: linkedClientId,
         full_name: linkedClientName || 'Unnamed client',
         email: linkedClientEmail,
         role: 'client',
         project_role: 'client',
         user_role: 'client_company',
+        can_create_tasks: !!(existingLinkedClientMember as any)?.can_create_tasks,
         isLinkedCompany: true,
       } as ProjectMember & { isLinkedCompany: true }]
     : [];
@@ -249,8 +255,8 @@ export default function MembersView({ projectId }: Props) {
                 <p className="text-sm font-medium">{member.full_name}</p>
                 {member.email && <p className="text-xs text-muted-foreground">{member.email}</p>}
               </div>
-              {canManage && isClient && !isLinkedCompany && (
-                <label className="flex items-center gap-1.5 cursor-pointer" title="Allow client to create tasks">
+              {canManage && (isClient || isLinkedCompany) && (
+                <label className="flex items-center gap-1.5 cursor-pointer" title="Allow client to create tasks in their portal">
                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">Can create tasks</span>
                   <Switch
                     checked={!!member.can_create_tasks}
