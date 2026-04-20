@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, Outlet } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "@/stores/authStore";
 import { usePermissionsRefresh } from "@/hooks/usePermissionsRefresh";
@@ -75,6 +75,14 @@ function PermissionsLoader({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function ClientPortalRedirect() {
+  return <Navigate to="/client-portal" replace />;
+}
+
+function ClientPortalChildRedirect() {
+  return <Navigate to={`/client-portal${window.location.pathname.replace(/^\/portal/, '')}${window.location.search}${window.location.hash}`} replace />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <Toaster
@@ -135,13 +143,9 @@ const App = () => (
         </Route>
 
         {/* Legacy Client Portal (redirect) */}
-        <Route path="/portal" element={<ProtectedRoute allowedRoles={['client']}><PortalLayout /></ProtectedRoute>}>
-          <Route index element={<ClientDashboard />} />
-          <Route path="invoices" element={<ClientInvoices />} />
-          <Route path="projects" element={<ClientProjects />} />
-          <Route path="documents" element={<ClientDocuments />} />
-          <Route path="messages" element={<Chat />} />
-          <Route path="support" element={<ClientSupport />} />
+        <Route path="/portal" element={<ProtectedRoute allowedRoles={['client']}><Outlet /></ProtectedRoute>}>
+          <Route index element={<ClientPortalRedirect />} />
+          <Route path="*" element={<ClientPortalChildRedirect />} />
         </Route>
 
         {/* New Client Portal */}
