@@ -153,12 +153,22 @@ export default function AdminUsers() {
   });
 
   const activatePortalMut = useMutation({
-    mutationFn: (clientId: string) => api.post(`/clients/${clientId}/activate-portal`),
-    onSuccess: (res) => {
-      const d = res.data;
-      const user = d?.data ?? d?.user ?? d ?? {};
-      const tempPassword: string | undefined = d?.temp_password ?? user?.temp_password;
+    mutationFn: (clientId: string) => api.post(`/clients/${clientId}/activate-portal`).then(r => ({ clientId, data: r.data })),
+    onSuccess: ({ clientId, data }) => {
+      const user = data?.data ?? data?.user ?? data ?? {};
+      const tempPassword: string | undefined = data?.temp_password ?? user?.temp_password;
+
+      // Optimistically mark this client as portal-activated so the row flips immediately
+      qc.setQueriesData({ queryKey: ['clients-companies'] }, (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((c: any) =>
+          c.id === clientId
+            ? { ...c, portal_active: true, has_portal_user: true, portal_user_id: user?.id ?? c.portal_user_id ?? true }
+            : c
+        );
+      });
       qc.invalidateQueries({ queryKey: ['clients-companies'] });
+
       if (tempPassword) {
         setActivatePortalSuccess({ email: user?.email || '', password: tempPassword });
       } else {
@@ -588,13 +598,19 @@ export default function AdminUsers() {
                     {c.client_type ? <span className={c.client_type === 'VIP' ? 'badge-warning' : c.client_type === 'At-Risk' ? 'badge-danger' : 'badge-info'}>{c.client_type}</span> : <span className="text-xs text-muted-foreground">—</span>}
                   </td>
                   <td className="p-4">
-                    <button
-                      onClick={() => activatePortalMut.mutate(c.id)}
-                      disabled={activatePortalMut.isPending}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
-                    >
-                      <Zap className="h-3.5 w-3.5" /> Activate Portal
-                    </button>
+                    {(c.portal_active || c.has_portal_user || c.portal_user_id || c.portal_user) ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/10 text-success text-xs font-medium">
+                        <Check className="h-3.5 w-3.5" /> Portal Activated
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => activatePortalMut.mutate(c.id)}
+                        disabled={activatePortalMut.isPending}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
+                      >
+                        <Zap className="h-3.5 w-3.5" /> {activatePortalMut.isPending ? 'Activating…' : 'Activate Portal'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
