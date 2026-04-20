@@ -103,14 +103,30 @@ export default function ProjectDetail() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: () => api.delete(`/projects/${id}`, { skipConfirm: true } as any),
+    mutationFn: () =>
+      dependencyDelete({
+        url: `/projects/${id}`,
+        entityType: 'project',
+        entityName: (project as any)?.name,
+        skipPreConfirm: true,
+        dependencyLabels: {
+          sprints: 'Sprint',
+          modules: 'Module',
+          epics: 'Epic',
+          tasks: 'Task',
+          subtasks: 'Subtask',
+          members: 'Member',
+        },
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('Project deleted');
       const basePath = window.location.pathname.startsWith('/emp') ? '/emp' : '/admin';
       navigate(`${basePath}/projects`);
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to delete'),
+    onError: (e: any) => {
+      if (e?.message === 'cancelled') return;
+      toast.error(e?.response?.data?.message || 'Failed to delete');
+    },
   });
 
   const openEdit = () => {
