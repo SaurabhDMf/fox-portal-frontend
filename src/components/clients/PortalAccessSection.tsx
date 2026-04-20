@@ -139,7 +139,15 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
       )}
 
       {showReset && portalUser && (
-        <ResetPasswordModal userId={portalUser.id} onClose={() => setShowReset(false)} />
+        <ResetPasswordModal
+          clientId={clientId}
+          email={portalUser.email}
+          onClose={() => setShowReset(false)}
+          onSuccess={(newPassword) => {
+            setCreatedCreds({ email: portalUser.email, password: newPassword, oneTime: true });
+            setShowReset(false);
+          }}
+        />
       )}
 
       {showRevoke && portalUser && (
@@ -205,30 +213,48 @@ function CreatePortalModal({ clientId, defaultName, defaultEmail, onClose, onSuc
   );
 }
 
-function ResetPasswordModal({ userId, onClose }: { userId: string; onClose: () => void }) {
-  const [password, setPassword] = useState('');
-
+function ResetPasswordModal({ clientId, email, onClose, onSuccess }: {
+  clientId: string;
+  email: string;
+  onClose: () => void;
+  onSuccess: (newPassword: string) => void;
+}) {
   const mut = useMutation({
-    mutationFn: () => api.put(`/users/${userId}`, { password }).then(r => r.data),
-    onSuccess: () => { toast.success('Password updated. Share new credentials with client.'); onClose(); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to reset password'),
+    mutationFn: () => api.post(`/clients/${clientId}/reset-portal-password`).then(r => r.data),
+    onSuccess: (data: any) => {
+      const newPassword: string | undefined =
+        data?.new_password ?? data?.password ?? data?.temp_password ?? data?.data?.new_password;
+      if (!newPassword) {
+        toast.error('Password reset succeeded but no new password was returned');
+        onClose();
+        return;
+      }
+      toast.success('Password reset. Share new credentials with client.');
+      onSuccess(newPassword);
+    },
+    onError: (e: any) =>
+      toast.error(
+        e?.response?.data?.detail
+          || e?.response?.data?.error
+          || e?.response?.data?.message
+          || 'Failed to reset password'
+      ),
   });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-card border border-border rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <h2 className="text-lg font-semibold mb-4">Reset Password</h2>
-        <div>
-          <label className="text-sm font-medium text-foreground">New Password</label>
-          <input value={password} onChange={e => setPassword(e.target.value)} type="text" placeholder="New password"
-            className="mt-1 w-full px-3 py-2 rounded-lg border border-input bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
-        </div>
-        <div className="flex justify-end gap-2 mt-5">
+        <h2 className="text-lg font-semibold mb-2">Reset Portal Password</h2>
+        <p className="text-sm text-muted-foreground mb-5">
+          A new random password will be generated for <span className="font-medium text-foreground">{email}</span>.
+          You'll see it once and can copy it to share with the client.
+        </p>
+        <div className="flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm border border-border hover:bg-secondary transition-colors">Cancel</button>
-          <button onClick={() => mut.mutate()} disabled={!password.trim() || mut.isPending}
+          <button onClick={() => mut.mutate()} disabled={mut.isPending}
             className="px-4 py-2 rounded-lg text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50">
-            {mut.isPending ? 'Updating...' : 'Reset Password'}
+            {mut.isPending ? 'Resetting...' : 'Generate New Password'}
           </button>
         </div>
       </div>
