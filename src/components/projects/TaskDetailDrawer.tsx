@@ -182,11 +182,17 @@ function ProjectEpicSelect({ projectId, sprintId, moduleId, value, onChange }: {
       if (moduleId) params.module_id = moduleId;
       return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<any>(r.data, ['epics']));
     },
+    enabled: !!moduleId,
   });
   const epics = Array.isArray(epicsRaw) ? epicsRaw : [];
   return (
-    <select value={value} onChange={e => onChange(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-      <option value="">No Epic</option>
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      disabled={!moduleId}
+      className="mt-1 w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <option value="">{moduleId ? 'No Epic' : 'Select module first'}</option>
       {epics.map((ep: any) => <option key={ep.id} value={ep.id}>{ep.title}</option>)}
     </select>
   );
@@ -250,10 +256,16 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const members = Array.isArray(membersRaw) ? membersRaw : [];
   const task = normalizeTaskEntity(taskDetail || initialTask, members);
 
-  // Modules list (the "Module" picker — backend route is /modules, table was historically called epics)
+  // Modules list — scoped to the task's current sprint (cascade)
   const { data: modulesRaw } = useQuery({
-    queryKey: ['project-modules', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/modules`).then(r => extractProjectArray<Module>(r.data, ['modules', 'epics'])),
+    queryKey: ['project-modules', projectId, (taskDetail || initialTask)?.sprint_id || ''],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      const sid = (taskDetail || initialTask)?.sprint_id;
+      if (sid) params.sprint_id = sid;
+      return api.get(`/projects/${projectId}/modules`, { params }).then(r => extractProjectArray<Module>(r.data, ['modules', 'epics']));
+    },
+    enabled: !!((taskDetail || initialTask)?.sprint_id),
   });
   const modules: Module[] = Array.isArray(modulesRaw) ? modulesRaw : [];
 
