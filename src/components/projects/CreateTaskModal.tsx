@@ -58,10 +58,15 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
 
   // Removed project-members query — using UserPicker with /users/active instead
 
-  // Modules layer (legacy field name `epic_id` on tasks)
+  // Modules layer — scoped to selected sprint (cascade)
   const { data: modulesRaw } = useQuery({
-    queryKey: ['project-modules', projectId],
-    queryFn: () => api.get(`/projects/${projectId}/modules`).then(r => extractProjectArray<Module>(r.data, ['modules', 'epics'])),
+    queryKey: ['project-modules', projectId, form.sprint_id],
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      if (form.sprint_id) params.sprint_id = form.sprint_id;
+      return api.get(`/projects/${projectId}/modules`, { params }).then(r => extractProjectArray<Module>(r.data, ['modules', 'epics']));
+    },
+    enabled: !!form.sprint_id,
   });
   const modules = (Array.isArray(modulesRaw) ? modulesRaw : [])
     .slice()
@@ -73,7 +78,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
   });
   const sprints = (Array.isArray(sprintsRaw) ? sprintsRaw : []).filter((s: Sprint) => s.status !== 'Completed');
 
-  // Epic layer (project_epics) — filtered by selected module and/or sprint when set.
+  // Epic layer — scoped to selected module (and sprint). Only fetched when module is selected.
   const { data: projectEpicsRaw } = useQuery({
     queryKey: ['project-epics-picker', projectId, form.sprint_id, form.epic_id],
     queryFn: () => {
@@ -82,6 +87,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
       if (form.epic_id) params.module_id = form.epic_id;
       return api.get(`/projects/${projectId}/epics`, { params }).then(r => extractProjectArray<Epic>(r.data, ['epics']));
     },
+    enabled: !!form.epic_id,
   });
   const projectEpics = (Array.isArray(projectEpicsRaw) ? projectEpicsRaw : [])
     .slice()
@@ -291,11 +297,14 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
           </div>
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Module (optional)</label>
-            <select value={form.epic_id} onChange={e => { set('epic_id', e.target.value); set('project_epic_id', ''); }} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-              <option value="">None</option>
-              {modules
-                .filter((m: Module) => !form.sprint_id || m.sprint_id === form.sprint_id)
-                .map((m: Module) => <option key={m.id} value={m.id}>{m.title}{m.sprint_name ? ` — ${m.sprint_name}` : ''}</option>)}
+            <select
+              value={form.epic_id}
+              onChange={e => { set('epic_id', e.target.value); set('project_epic_id', ''); }}
+              disabled={!form.sprint_id}
+              className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="">{form.sprint_id ? 'None' : 'Select sprint first'}</option>
+              {modules.map((m: Module) => <option key={m.id} value={m.id}>{m.title}{m.sprint_name ? ` — ${m.sprint_name}` : ''}</option>)}
             </select>
           </div>
         </div>
@@ -304,8 +313,13 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Epic (optional)</label>
-            <select value={form.project_epic_id} onChange={e => set('project_epic_id', e.target.value)} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-              <option value="">None</option>
+            <select
+              value={form.project_epic_id}
+              onChange={e => set('project_epic_id', e.target.value)}
+              disabled={!form.epic_id}
+              className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="">{form.epic_id ? 'None' : 'Select module first'}</option>
               {projectEpics.map((pe: any) => (
                 <option key={pe.id} value={pe.id}>{pe.title}</option>
               ))}
