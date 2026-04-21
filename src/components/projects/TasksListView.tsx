@@ -11,6 +11,7 @@ import type { ProjectTask, Sprint, Epic, ProjectMember } from '@/lib/projectType
 import { useAuthStore } from '@/stores/authStore';
 import { useProjectStatuses, type StatusOption } from '@/hooks/useProjectOptions';
 import HandoffBadge from './HandoffBadge';
+import { computeHierarchicalNumbers } from '@/lib/hierarchicalTaskNumbers';
 import toast from 'react-hot-toast';
 
 interface Props {
