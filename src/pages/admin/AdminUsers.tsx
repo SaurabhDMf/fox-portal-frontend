@@ -371,65 +371,50 @@ export default function AdminUsers() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <div><h1 className="page-title">Team & Users</h1><p className="page-subtitle">Manage your team members and clients</p></div>
+        <div><h1 className="page-title">Team & Users</h1><p className="page-subtitle">Manage your internal team members</p></div>
         {perm.canCreate && (
           <button
-            onClick={() => (mainTab === 'clients' ? setShowAddClient(true) : openAdd())}
+            onClick={openAdd}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
           >
-            <Plus className="h-4 w-4" /> {mainTab === 'clients' ? 'Add Client' : 'Add User'}
+            <Plus className="h-4 w-4" /> Add User
           </button>
         )}
       </div>
 
-      {/* Main Tabs: Team vs Clients */}
-      <div className="flex gap-1 mb-4">
-        <button onClick={() => { setMainTab('team'); setTab('All'); }} className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${mainTab === 'team' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
-          <Users className="inline h-4 w-4 mr-1.5" /> Team ({teamUsers.length})
-        </button>
-        <button onClick={() => { setMainTab('clients'); setTab('All'); }} className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${mainTab === 'clients' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
-          <UserCheck className="inline h-4 w-4 mr-1.5" /> Clients ({clientCompanies.length})
-        </button>
-      </div>
-
-      {mainTab === 'team' && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="glass-card p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10"><Users className="h-4 w-4 text-primary" /></div>
-            <div><div className="text-lg font-bold">{counts.All}</div><div className="text-xs text-muted-foreground">Total Users</div></div>
-          </div>
-          <div className="glass-card p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[hsl(var(--success))]/10"><UserCheck className="h-4 w-4 text-[hsl(var(--success))]" /></div>
-            <div><div className="text-lg font-bold">{counts.Active}</div><div className="text-xs text-muted-foreground">Active</div></div>
-          </div>
-          <div className="glass-card p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[hsl(var(--warning))]/10"><UserX className="h-4 w-4 text-[hsl(var(--warning))]" /></div>
-            <div><div className="text-lg font-bold">{counts['On Leave']}</div><div className="text-xs text-muted-foreground">On Leave</div></div>
-          </div>
-          <div className="glass-card p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-destructive/10"><UserX className="h-4 w-4 text-destructive" /></div>
-            <div><div className="text-lg font-bold">{counts.Inactive}</div><div className="text-xs text-muted-foreground">Inactive</div></div>
-          </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="glass-card p-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10"><Users className="h-4 w-4 text-primary" /></div>
+          <div><div className="text-lg font-bold">{counts.All}</div><div className="text-xs text-muted-foreground">Total Users</div></div>
         </div>
-      )}
+        <div className="glass-card p-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-[hsl(var(--success))]/10"><UserCheck className="h-4 w-4 text-[hsl(var(--success))]" /></div>
+          <div><div className="text-lg font-bold">{counts.Active}</div><div className="text-xs text-muted-foreground">Active</div></div>
+        </div>
+        <div className="glass-card p-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-[hsl(var(--warning))]/10"><UserX className="h-4 w-4 text-[hsl(var(--warning))]" /></div>
+          <div><div className="text-lg font-bold">{counts['On Leave']}</div><div className="text-xs text-muted-foreground">On Leave</div></div>
+        </div>
+        <div className="glass-card p-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-destructive/10"><UserX className="h-4 w-4 text-destructive" /></div>
+          <div><div className="text-lg font-bold">{counts.Inactive}</div><div className="text-xs text-muted-foreground">Inactive</div></div>
+        </div>
+      </div>
 
       <div className="flex flex-wrap gap-3 items-center justify-between">
-        {mainTab === 'team' ? (
-          <div className="flex gap-1">
-            {tabs.map(t => (
-              <button key={t} onClick={() => setTab(t)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
-                {t} ({counts[t as keyof typeof counts]})
-              </button>
-            ))}
-          </div>
-        ) : <div />}
+        <div className="flex gap-1">
+          {tabs.map(t => (
+            <button key={t} onClick={() => setTab(t)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+              {t} ({counts[t as keyof typeof counts]})
+            </button>
+          ))}
+        </div>
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={mainTab === 'clients' ? 'Search clients...' : 'Search users...'} className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users..." className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
         </div>
       </div>
 
-      {mainTab === 'team' ? (
       <div className="glass-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
