@@ -125,6 +125,8 @@ export default function AdminUsers() {
     },
     onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error adding user'),
   });
+
+  const editMut = useMutation({
     mutationFn: (d: { id: string; data: typeof form }) => api.put(`/users/${d.id}`, d.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
