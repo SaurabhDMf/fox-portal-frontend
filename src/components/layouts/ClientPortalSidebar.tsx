@@ -8,17 +8,18 @@ import {
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import ThemeLogo from '@/components/ThemeLogo';
+import { useClientPermissions } from '@/hooks/useClientPermissions';
 
-const navItems = [
-  { label: 'Dashboard', path: '/client-portal', icon: LayoutDashboard },
-  { label: 'Invoices', path: '/client-portal/invoices', icon: FileText },
-  { label: 'Projects', path: '/client-portal/projects', icon: FolderKanban },
-  { label: 'Tasks', path: '/client-portal/tasks', icon: ListTodo },
-  { label: 'Documents', path: '/client-portal/documents', icon: BookOpen },
-  { label: 'Vault', path: '/client-portal/vault', icon: Lock },
-  { label: 'Support', path: '/client-portal/support', icon: Ticket },
-  { label: 'Profile', path: '/client-portal/profile', icon: User },
-];
+const allNavItems = [
+  { label: 'Dashboard', path: '/client-portal', icon: LayoutDashboard, permKey: null },
+  { label: 'Invoices', path: '/client-portal/invoices', icon: FileText, permKey: 'can_view_invoices' },
+  { label: 'Projects', path: '/client-portal/projects', icon: FolderKanban, permKey: 'can_view_projects' },
+  { label: 'Tasks', path: '/client-portal/tasks', icon: ListTodo, permKey: 'can_view_tasks' },
+  { label: 'Documents', path: '/client-portal/documents', icon: BookOpen, permKey: 'can_view_documents' },
+  { label: 'Vault', path: '/client-portal/vault', icon: Lock, permKey: 'can_view_vault' },
+  { label: 'Support', path: '/client-portal/support', icon: Ticket, permKey: 'can_view_support' },
+  { label: 'Profile', path: '/client-portal/profile', icon: User, permKey: null },
+] as const;
 
 const rootPath = '/client-portal';
 
@@ -32,6 +33,12 @@ export default function ClientPortalSidebar({ mobileOpen, onMobileClose }: Sideb
   const { collapsed, setCollapsed } = useClientSidebarCollapsed();
   const location = useLocation();
   const navigate = useNavigate();
+  const permissions = useClientPermissions();
+
+  // Hide nav items where backend explicitly returns false; show by default.
+  const navItems = allNavItems.filter(
+    (item) => !item.permKey || permissions[item.permKey] !== false
+  );
 
   const handleLogout = async () => {
     try { await api.post('/auth/logout', { refreshToken }); } catch {}
