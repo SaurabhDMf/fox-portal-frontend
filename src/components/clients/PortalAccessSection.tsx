@@ -225,16 +225,40 @@ function CreatePortalModal({ clientId, defaultName, defaultEmail, onClose, onSuc
               className="mt-1 w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
           <div>
-            <label className="text-sm font-medium text-foreground">Password *</label>
-            <input value={password} onChange={e => setPassword(e.target.value)} type="text" placeholder="Initial password"
-              className="mt-1 w-full px-3 py-2 rounded-lg border border-input bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring" />
-            <p className="text-[11px] text-muted-foreground mt-1">Plain text — share manually with client</p>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground">Password</label>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoGenerate}
+                  onChange={e => setAutoGenerate(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-input"
+                />
+                Auto-generate
+              </label>
+            </div>
+            <input
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              type="text"
+              disabled={autoGenerate}
+              placeholder={autoGenerate ? 'A strong password will be generated' : 'Set a custom password'}
+              className="mt-1 w-full px-3 py-2 rounded-lg border border-input bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 disabled:cursor-not-allowed"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {autoGenerate
+                ? "You'll see the generated password once — copy and share it with the client."
+                : 'Plain text — share manually with the client.'}
+            </p>
           </div>
         </div>
         <div className="flex justify-end gap-2 mt-5">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm border border-border hover:bg-secondary transition-colors">Cancel</button>
-          <button onClick={() => mut.mutate()} disabled={!email.trim() || !password.trim() || mut.isPending}
-            className="px-4 py-2 rounded-lg text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50">
+          <button
+            onClick={() => mut.mutate()}
+            disabled={!email.trim() || (!autoGenerate && !password.trim()) || mut.isPending}
+            className="px-4 py-2 rounded-lg text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
             {mut.isPending ? 'Creating...' : 'Create Access'}
           </button>
         </div>
