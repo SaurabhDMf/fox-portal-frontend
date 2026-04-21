@@ -89,7 +89,9 @@ export default function AdminUsers() {
       return list.map((r: any) => ({ value: r.name, label: r.label || r.name }));
     },
   });
-  const roles = (apiRoles && apiRoles.length > 0) ? apiRoles : fallbackRoles;
+  // Filter out 'client' — backend rejects creating internal users with that role.
+  const roles = ((apiRoles && apiRoles.length > 0) ? apiRoles : fallbackRoles)
+    .filter((r: { value: string }) => r.value !== 'client');
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['users', search],
