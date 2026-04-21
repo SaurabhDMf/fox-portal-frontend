@@ -265,6 +265,148 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   const selectCls = "px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[100px]";
 
+  // Renders a single task row. `isParent` adds the expansion chevron when it has children.
+  // `isSubtask` indents the title and applies a subtle background.
+  const renderTaskRow = (
+    t: ProjectTask,
+    opts: { isParent?: boolean; hasChildren?: boolean; isOpen?: boolean; onToggle?: () => void; isSubtask?: boolean } = {}
+  ) => {
+    const { isParent, hasChildren, isOpen, onToggle, isSubtask } = opts;
+    const assigneeName = (t as any).assignee_name ?? t.assignees?.[0]?.full_name;
+    const assigneeAvatar = (t as any).assignee_avatar ?? t.assignees?.[0]?.avatar_url;
+    const visibleStatus = seesMasterStatus ? t.status : (t.my_status || t.status);
+    const statusColor = statusObjects.find(s => s.name === visibleStatus)?.color;
+    const rowBg = STATUS_ROW_COLORS[visibleStatus] || '';
+    const subtaskBg = isSubtask ? 'bg-muted/30' : '';
+
+    return (
+      <TableRow
+        key={t.id}
+        className={`cursor-pointer group ${rowBg} ${subtaskBg}`}
+        onClick={() => onTaskClick?.(t)}
+        style={!STATUS_ROW_COLORS[visibleStatus] && statusColor ? { borderLeft: `3px solid ${statusColor}` } : undefined}
+      >
+        <TableCell>
+          <div className={`min-w-[200px] flex items-center gap-2 ${isSubtask ? 'pl-8' : ''}`}>
+            {isParent && hasChildren ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggle?.(); }}
+                className="p-0.5 rounded hover:bg-muted shrink-0"
+                aria-label={isOpen ? 'Collapse subtasks' : 'Expand subtasks'}
+              >
+                {isOpen
+                  ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+              </button>
+            ) : isParent ? (
+              <span className="w-4 shrink-0" />
+            ) : null}
+            <div className="flex items-center gap-2 flex-wrap">
+              {t.task_number && (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                  {t.task_number}
+                </span>
+              )}
+              <span className="font-medium text-foreground">{t.title}</span>
+              {isParent && hasChildren && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                  {(subtasksByParent.get(t.id) || []).length}
+                </span>
+              )}
+              <HandoffBadge handoffInfo={(t as any).handoff_info} />
+            </div>
+          </div>
+        </TableCell>
+        <TableCell>
+          <Badge variant="secondary" className={`text-[10px] ${TYPE_COLORS[t.type] || ''}`}>
+            {t.type || '—'}
+          </Badge>
+        </TableCell>
+        <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
+          {fmtDate(t.created_at)}
+        </TableCell>
+        <TableCell>
+          {assigneeName ? (
+            <div className="flex items-center gap-2">
+              <Avatar className="h-6 w-6">
+                {assigneeAvatar && <AvatarImage src={assigneeAvatar} />}
+                <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                  {initials(assigneeName)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-xs truncate max-w-[100px]">{assigneeName}</span>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">Unassigned</span>
+          )}
+        </TableCell>
+        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+          {(t as any).reporter_name || t.reporter?.full_name || '—'}
+        </TableCell>
+        <TableCell className={`text-xs whitespace-nowrap ${isPastDue(t.due_date) && visibleStatus !== 'Done' ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground'}`}>
+          {fmtDate(t.due_date)}
+        </TableCell>
+        <TableCell>
+          <Badge variant="secondary" className={`text-[10px] ${PRIORITY_COLORS[t.priority] || ''}`}>
+            {t.priority || '—'}
+          </Badge>
+        </TableCell>
+        <TableCell onClick={e => e.stopPropagation()}>
+          <select
+            value={visibleStatus}
+            onChange={e => handleStatusChange(t.id, e.target.value)}
+            className="px-2 py-1 rounded-md bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+            title={seesMasterStatus ? 'Master task status' : 'Your personal status on this task'}
+          >
+            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </TableCell>
+        <TableCell onClick={e => e.stopPropagation()}>
+          <select
+            value={(t as any).code_repo_status || ''}
+            onChange={e => handleCodeRepoChange(t.id, e.target.value || null)}
+            className="px-2 py-1 rounded-md bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            <option value="">—</option>
+            <option value="not_pushed">Not Pushed</option>
+            <option value="pushed">Pushed</option>
+            <option value="conflict">Conflict</option>
+          </select>
+        </TableCell>
+        <TableCell className="text-xs text-muted-foreground">
+          {(t as any).epic_title || t.epic_name || '—'}
+        </TableCell>
+        <TableCell className="text-xs">
+          {(t as any).project_epic_title ? (
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-medium"
+              style={{
+                background: `${(t as any).project_epic_color || 'hsl(var(--primary))'}22`,
+                color: (t as any).project_epic_color || 'hsl(var(--primary))',
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: (t as any).project_epic_color || 'hsl(var(--primary))' }} />
+              {(t as any).project_epic_title}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </TableCell>
+        <TableCell className="text-xs text-muted-foreground">
+          {t.sprint_name || (t as any).sprint_title || '—'}
+        </TableCell>
+        <TableCell onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => onTaskClick?.(t)}
+            className="p-1.5 rounded-md hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+          >
+            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
