@@ -20,6 +20,11 @@ type PortalUserRecord = {
   [key: string]: any;
 };
 
+type PortalUserQueryState = {
+  user: PortalUserRecord | null;
+  resolved: boolean;
+};
+
 function coerceBoolean(value: unknown) {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') return value === 1;
@@ -27,8 +32,9 @@ function coerceBoolean(value: unknown) {
   return Boolean(value);
 }
 
-function normalizePortalUser(payload: any): PortalUserRecord | null {
+function parsePortalUserResponse(payload: any): PortalUserQueryState {
   const candidates = [
+    payload?.data?.data?.user,
     payload?.data?.data,
     payload?.data?.portal_user,
     payload?.data?.user,
@@ -54,12 +60,27 @@ function normalizePortalUser(payload: any): PortalUserRecord | null {
     if (!looksLikePortalUser) continue;
 
     return {
-      ...candidate,
-      is_active: coerceBoolean(candidate.is_active),
+      user: {
+        ...candidate,
+        is_active: coerceBoolean(candidate.is_active),
+      },
+      resolved: true,
     };
   }
 
-  return null;
+  const explicitNull = [
+    payload,
+    payload?.data,
+    payload?.data?.data,
+    payload?.portal_user,
+    payload?.user,
+    payload?.client_portal_user,
+    payload?.data?.portal_user,
+    payload?.data?.user,
+    payload?.data?.client_portal_user,
+  ].some((value) => value === null);
+
+  return { user: null, resolved: explicitNull };
 }
 
 function extractOneTimePassword(payload: any, fallback?: string) {
@@ -83,22 +104,27 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
   const [optimisticPortalUser, setOptimisticPortalUser] = useState<PortalUserRecord | null>(null);
   const [createdCreds, setCreatedCreds] = useState<{ email: string; password: string; oneTime?: boolean } | null>(null);
 
-  const { data: portalUser, isLoading, refetch: refetchPortalUser } = useQuery({
+  const {
+    data: portalState,
+    isLoading,
+    isError,
+    refetch: refetchPortalUser,
+  } = useQuery<PortalUserQueryState>({
     queryKey: ['portal-user', clientId],
     queryFn: async () => {
       const response = await api.get(`/clients/${clientId}/portal-user`);
-      return normalizePortalUser(response.data);
+      return parsePortalUserResponse(response.data);
     },
     enabled: !!clientId,
     refetchInterval: justCreated ? 1000 : false,
   });
 
   useEffect(() => {
-    if (portalUser) {
-      setOptimisticPortalUser(portalUser);
+    if (portalState?.user) {
+      setOptimisticPortalUser(portalState.user);
       if (justCreated) setJustCreated(false);
     }
-  }, [portalUser, justCreated]);
+  }, [portalState, justCreated]);
 
   useEffect(() => {
     if (!justCreated) return;
@@ -113,9 +139,12 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
       || e?.message
       || fallback;
 
-  const currentPortalUser = portalUser ?? optimisticPortalUser;
+  const currentPortalUser = portalState?.user ?? optimisticPortalUser;
+  const hasResolvedPortalState = portalState?.resolved ?? false;
 
-  if (isLoading && !currentPortalUser) return <div className="glass-card p-5 animate-pulse h-24" />;
+  if ((isLoading || (!hasResolvedPortalState && !isError)) && !currentPortalUser) {
+    return <div className="glass-card p-5 animate-pulse h-24" />;
+  }
 
   return (
     <div className="glass-card p-5">
@@ -145,13 +174,17 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
         </div>
       )}
 
-      {!currentPortalUser ? (
+      {!currentPortalUser && hasResolvedPortalState ? (
         <div>
           <p className="text-sm text-muted-foreground mb-3">This client does not have portal access yet.</p>
           <button onClick={() => setShowCreate(true)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
             <UserPlus className="h-4 w-4" /> Create Portal Access
           </button>
+        </div>
+      ) : !currentPortalUser ? (
+        <div className="rounded-lg border border-border bg-secondary/30 px-4 py-3 text-sm text-muted-foreground">
+          Checking portal access…
         </div>
       ) : (
         <div className="space-y-3">
@@ -201,7 +234,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
                     refetchType: 'all'
                   });
                   const fresh = await refetchPortalUser();
-                  const normalized = fresh.data ?? null;
+                  const normalized = fresh.data?.user ?? null;
                   if (normalized) setOptimisticPortalUser(normalized);
                   if (creds) setCreatedCreds(creds);
                 }}
@@ -223,7 +256,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
             setJustCreated(true);
             if (user) {
               setOptimisticPortalUser(user);
-              qc.setQueryData(['portal-user', clientId], user);
+              qc.setQueryData<PortalUserQueryState>(['portal-user', clientId], { user, resolved: true });
             }
             await qc.invalidateQueries({
               queryKey: ['portal-user', clientId],
@@ -253,7 +286,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
           onClose={() => setShowRevoke(false)}
           onSuccess={async () => {
             setOptimisticPortalUser(null);
-            qc.setQueryData(['portal-user', clientId], null);
+            qc.setQueryData<PortalUserQueryState>(['portal-user', clientId], { user: null, resolved: true });
             await qc.invalidateQueries({
               queryKey: ['portal-user', clientId],
               refetchType: 'all'
@@ -291,7 +324,7 @@ function CreatePortalModal({ clientId, defaultName, defaultEmail, onClose, onSuc
       return api.post(`/clients/${clientId}/portal-users`, payload).then(r => r.data);
     },
     onSuccess: (data: any) => {
-      const normalizedUser = normalizePortalUser(data);
+      const normalizedUser = parsePortalUserResponse(data).user;
       const returnedPassword = extractOneTimePassword(data, !autoGenerate ? password.trim() : undefined);
       if (!returnedPassword) {
         toast.error('Portal access created but no password was returned');
@@ -299,7 +332,7 @@ function CreatePortalModal({ clientId, defaultName, defaultEmail, onClose, onSuc
         return;
       }
       if (normalizedUser) {
-        qc.setQueryData(['portal-user', clientId], normalizedUser);
+        qc.setQueryData<PortalUserQueryState>(['portal-user', clientId], { user: normalizedUser, resolved: true });
       }
       toast.success('Portal access created');
       onSuccess(email.trim().toLowerCase(), returnedPassword, normalizedUser);
@@ -467,10 +500,10 @@ function ReactivateButton({
         toast.error(data?.detail || data?.error || 'Failed to reactivate');
         return;
       }
-      const user = normalizePortalUser(data);
+      const user = parsePortalUserResponse(data).user;
       const tempPassword = extractOneTimePassword(data);
       if (user) {
-        qc.setQueryData(['portal-user', clientId], user);
+        qc.setQueryData<PortalUserQueryState>(['portal-user', clientId], { user, resolved: true });
       }
       await onActivated(
         tempPassword
@@ -494,4 +527,3 @@ function ReactivateButton({
     </button>
   );
 }
-
