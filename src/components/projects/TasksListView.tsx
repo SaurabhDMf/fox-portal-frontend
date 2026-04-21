@@ -128,42 +128,82 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   const tasks: ProjectTask[] = raw ?? [];
 
-  // Client-side filters (priority + status multi-select)
-  const filtered = useMemo(() => {
-    let result = tasks;
-    if (statusFilter.length > 0) result = result.filter(t => statusFilter.includes(t.status));
-    if (priorityFilter) result = result.filter(t => t.priority === priorityFilter);
+  // Client-side filter predicate (priority + status multi-select + search).
+  const matchesFilters = useCallback((t: ProjectTask) => {
+    if (statusFilter.length > 0 && !statusFilter.includes(t.status)) return false;
+    if (priorityFilter && t.priority !== priorityFilter) return false;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      result = result.filter(t =>
+      const hit =
         t.title?.toLowerCase().includes(q) ||
         t.task_number?.toLowerCase().includes(q) ||
         (t as any).assignee_name?.toLowerCase().includes(q) ||
-        t.assignees?.[0]?.full_name?.toLowerCase().includes(q)
-      );
+        t.assignees?.[0]?.full_name?.toLowerCase().includes(q);
+      if (!hit) return false;
     }
-    return result;
-  }, [tasks, statusFilter, priorityFilter, search]);
+    return true;
+  }, [statusFilter, priorityFilter, search]);
 
   // Group subtasks under their parent tasks for accordion display.
-  // A task is a subtask if it has parent_task_id pointing to another task in the list.
-  const { parentTasks, subtasksByParent } = useMemo(() => {
+  // IMPORTANT: when a subtask matches the filter but its parent does not, we
+  // still surface the parent (as a "context" row) so users can see which
+  // module/story the subtask belongs to. Parents pulled in only for context
+  // are tracked in `contextParentIds` so we can dim them and auto-expand.
+  const { parentTasks, subtasksByParent, contextParentIds, autoExpandIds, filtered } = useMemo(() => {
+    // First, pick all directly matching tasks
+    const matched = tasks.filter(matchesFilters);
+    const matchedIds = new Set(matched.map(t => t.id));
+    const tasksById = new Map(tasks.map(t => [t.id, t]));
+
+    // Identify subtasks among matches whose parent isn't in the match set —
+    // we need to pull those parents in for context.
+    const contextParents = new Set<string>();
+    for (const t of matched) {
+      const pid = (t as any).parent_task_id;
+      if (pid && tasksById.has(pid) && !matchedIds.has(pid)) {
+        contextParents.add(pid);
+      }
+    }
+
+    // Build the working set: matched tasks + context parents.
+    const workingIds = new Set<string>([...matchedIds, ...contextParents]);
+    const working: ProjectTask[] = [];
+    for (const id of workingIds) {
+      const t = tasksById.get(id);
+      if (t) working.push(t);
+    }
+
+    // Group: anything with parent_task_id pointing inside the working set
+    // becomes a subtask row; everything else is a top-level parent row.
     const byParent = new Map<string, ProjectTask[]>();
     const parents: ProjectTask[] = [];
-    const idSet = new Set(filtered.map(t => t.id));
-    for (const t of filtered) {
+    for (const t of working) {
       const pid = (t as any).parent_task_id;
-      if (pid && idSet.has(pid)) {
+      if (pid && workingIds.has(pid)) {
         if (!byParent.has(pid)) byParent.set(pid, []);
         byParent.get(pid)!.push(t);
       } else {
         parents.push(t);
       }
     }
-    return { parentTasks: parents, subtasksByParent: byParent };
-  }, [filtered]);
 
-  // Expansion state for accordion rows
+    // Auto-expand parents that have matching children, so subtasks are visible
+    // immediately when a status filter is applied.
+    const autoExpand = new Set<string>();
+    for (const [pid, kids] of byParent.entries()) {
+      if (kids.some(k => matchedIds.has(k.id))) autoExpand.add(pid);
+    }
+
+    return {
+      parentTasks: parents,
+      subtasksByParent: byParent,
+      contextParentIds: contextParents,
+      autoExpandIds: autoExpand,
+      filtered: working,
+    };
+  }, [tasks, matchesFilters]);
+
+  // Expansion state for accordion rows (manual toggles only)
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggleExpanded = useCallback((id: string) => {
     setExpanded(prev => {
@@ -267,22 +307,24 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   // Renders a single task row. `isParent` adds the expansion chevron when it has children.
   // `isSubtask` indents the title and applies a subtle background.
+  // `dimmed` reduces opacity for parent rows shown only as context for a matching subtask.
   const renderTaskRow = (
     t: ProjectTask,
-    opts: { isParent?: boolean; hasChildren?: boolean; isOpen?: boolean; onToggle?: () => void; isSubtask?: boolean } = {}
+    opts: { isParent?: boolean; hasChildren?: boolean; isOpen?: boolean; onToggle?: () => void; isSubtask?: boolean; dimmed?: boolean } = {}
   ) => {
-    const { isParent, hasChildren, isOpen, onToggle, isSubtask } = opts;
+    const { isParent, hasChildren, isOpen, onToggle, isSubtask, dimmed } = opts;
     const assigneeName = (t as any).assignee_name ?? t.assignees?.[0]?.full_name;
     const assigneeAvatar = (t as any).assignee_avatar ?? t.assignees?.[0]?.avatar_url;
     const visibleStatus = seesMasterStatus ? t.status : (t.my_status || t.status);
     const statusColor = statusObjects.find(s => s.name === visibleStatus)?.color;
     const rowBg = STATUS_ROW_COLORS[visibleStatus] || '';
     const subtaskBg = isSubtask ? 'bg-muted/30' : '';
+    const dimmedCls = dimmed ? 'opacity-60' : '';
 
     return (
       <TableRow
         key={t.id}
-        className={`cursor-pointer group ${rowBg} ${subtaskBg}`}
+        className={`cursor-pointer group ${rowBg} ${subtaskBg} ${dimmedCls}`}
         onClick={() => onTaskClick?.(t)}
         style={!STATUS_ROW_COLORS[visibleStatus] && statusColor ? { borderLeft: `3px solid ${statusColor}` } : undefined}
       >
@@ -552,8 +594,17 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
             ) : parentTasks.length > 0 ? (
               parentTasks.flatMap(t => {
                 const children = subtasksByParent.get(t.id) || [];
-                const isOpen = expanded.has(t.id);
-                const rows = [renderTaskRow(t, { isParent: true, hasChildren: children.length > 0, isOpen, onToggle: () => toggleExpanded(t.id) })];
+                // Auto-expand parents pulled in only because a subtask matched
+                // the active filter, OR any parent the user manually expanded.
+                const isOpen = expanded.has(t.id) || autoExpandIds.has(t.id);
+                const isContextOnly = contextParentIds.has(t.id);
+                const rows = [renderTaskRow(t, {
+                  isParent: true,
+                  hasChildren: children.length > 0,
+                  isOpen,
+                  onToggle: () => toggleExpanded(t.id),
+                  dimmed: isContextOnly,
+                })];
                 if (isOpen && children.length > 0) {
                   for (const c of children) rows.push(renderTaskRow(c, { isSubtask: true }));
                 }
