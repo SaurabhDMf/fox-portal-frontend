@@ -163,13 +163,25 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
     // Build full child map from unfiltered task list so every parent row
     // can render its complete subtask set.
+    //
+    // Rule: a task is a SUBTASK if either (a) it has a parent_task_id, or
+    // (b) its type is 'Subtask'. Subtasks must NEVER render as a top-level
+    // row. If we can't resolve the parent in the loaded set, the subtask is
+    // skipped from the top-level list entirely (it will still appear when
+    // the user opens its parent task detail view).
     const allChildrenByParent = new Map<string, ProjectTask[]>();
     const topLevel: ProjectTask[] = [];
+    const orphanSubtasks: ProjectTask[] = [];
     for (const t of tasks) {
       const pid = (t as any).parent_task_id;
+      const isSubtaskType = (t.type || '').toLowerCase() === 'subtask';
       if (pid && tasksById.has(pid)) {
         if (!allChildrenByParent.has(pid)) allChildrenByParent.set(pid, []);
         allChildrenByParent.get(pid)!.push(t);
+      } else if (pid || isSubtaskType) {
+        // Has a parent reference (but parent not loaded) OR is typed as a
+        // subtask without a parent link — do NOT promote to a top-level row.
+        orphanSubtasks.push(t);
       } else {
         topLevel.push(t);
       }
