@@ -3,14 +3,17 @@ import { useAuthStore } from '@/stores/authStore';
 import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { User, Shield, Bell, Palette, Pencil, X, Building2, KeyRound, Plug } from 'lucide-react';
+import { User, Shield, Bell, Palette, Pencil, X, Building2, KeyRound, Plug, Mail } from 'lucide-react';
 import CompanySettings from '@/components/settings/CompanySettings';
 import IntegrationsSettings from '@/components/settings/IntegrationsSettings';
+import EmailSettings from '@/components/settings/EmailSettings';
+import ChangePasswordSection from '@/components/settings/ChangePasswordSection';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'company', label: 'Company', icon: Building2 },
   { id: 'integrations', label: 'Integrations', icon: Plug, adminOnly: true },
+  { id: 'email', label: 'Email', icon: Mail, adminOnly: true },
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -161,29 +164,11 @@ export default function AdminSettings() {
       {/* Integrations */}
       {tab === 'integrations' && isAdmin && <IntegrationsSettings />}
 
+      {/* Email (SMTP) */}
+      {tab === 'email' && isAdmin && <EmailSettings />}
+
       {/* Security */}
-      {tab === 'security' && (
-        <div className="glass-card p-6 space-y-4">
-          <h2 className="text-sm font-semibold">Change Password</h2>
-          <div className="max-w-sm space-y-3">
-            <div>
-              <label className="text-xs text-muted-foreground">Current Password</label>
-              <input type="password" placeholder="Enter current password" value={pw.current} onChange={e => setPw(p => ({ ...p, current: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">New Password</label>
-              <input type="password" placeholder="Enter new password" value={pw.newPw} onChange={e => setPw(p => ({ ...p, newPw: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Confirm New Password</label>
-              <input type="password" placeholder="Confirm new password" value={pw.confirm} onChange={e => setPw(p => ({ ...p, confirm: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            </div>
-            <button onClick={changePw} disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-              {saving ? 'Saving...' : 'Update Password'}
-            </button>
-          </div>
-        </div>
-      )}
+      {tab === 'security' && <ChangePasswordSection />}
 
       {/* Notifications */}
       {tab === 'notifications' && (
