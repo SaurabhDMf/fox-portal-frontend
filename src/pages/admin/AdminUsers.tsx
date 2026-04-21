@@ -498,64 +498,6 @@ export default function AdminUsers() {
           </tbody>
         </table>
       </div>
-      ) : (
-        // Clients tab — companies fetched from /clients
-        <div className="glass-card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-                <th className="p-4">Company</th>
-                <th className="p-4">Email</th>
-                <th className="p-4">Phone</th>
-                <th className="p-4">Type</th>
-                <th className="p-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clientsLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={5} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
-              clientCompanies.map((c: any) => (
-                <tr key={c.id} className="border-b border-border/50 hover:bg-secondary/50 transition-colors">
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">{c.company_name?.[0] || 'C'}</div>
-                      <div>
-                        <div className="font-medium">{c.company_name || c.name || '—'}</div>
-                        <div className="text-xs text-muted-foreground">{c.contact_name || c.industry || ''}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4 text-muted-foreground">{c.email || '—'}</td>
-                  <td className="p-4 text-muted-foreground">{c.phone || '—'}</td>
-                  <td className="p-4">
-                    {c.client_type ? <span className={c.client_type === 'VIP' ? 'badge-warning' : c.client_type === 'At-Risk' ? 'badge-danger' : 'badge-info'}>{c.client_type}</span> : <span className="text-xs text-muted-foreground">—</span>}
-                  </td>
-                  <td className="p-4">
-                    {(c.portal_active || c.has_portal_user || c.portal_user_id || c.portal_user) ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/10 text-success text-xs font-medium">
-                        <Check className="h-3.5 w-3.5" /> Portal Activated
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => activatePortalMut.mutate(c.id)}
-                        disabled={activatePortalMut.isPending}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
-                      >
-                        <Zap className="h-3.5 w-3.5" /> {activatePortalMut.isPending ? 'Activating…' : 'Activate Portal'}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {clientCompanies.length === 0 && !clientsLoading && (
-                <tr><td colSpan={5} className="p-12 text-center">
-                  <div className="text-muted-foreground text-sm mb-3">No clients found</div>
-                  <button onClick={() => setShowAddClient(true)} className="text-sm text-primary hover:underline">Add your first client →</button>
-                </td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
 
       {/* Add User Modal */}
       {showAdd && (
