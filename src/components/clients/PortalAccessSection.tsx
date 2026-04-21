@@ -18,10 +18,19 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
   const [showRevoke, setShowRevoke] = useState(false);
   const [createdCreds, setCreatedCreds] = useState<{ email: string; password: string; oneTime?: boolean } | null>(null);
 
+  const [justCreated, setJustCreated] = useState(false);
+
   const { data: portalUser, isLoading, refetch: refetchPortalUser } = useQuery({
     queryKey: ['portal-user', clientId],
     queryFn: () => api.get(`/clients/${clientId}/portal-user`).then(r => r.data?.data ?? r.data ?? null),
+    // Poll every 1s for up to ~10s after creation to handle backend indexing delay
+    refetchInterval: justCreated ? 1000 : false,
   });
+
+  // Stop polling once the portal user appears
+  if (justCreated && portalUser) {
+    setTimeout(() => setJustCreated(false), 0);
+  }
 
   // Extract a useful error message from a server error response
   const extractErrorMessage = (e: any, fallback: string) =>
