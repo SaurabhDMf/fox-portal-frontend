@@ -14,8 +14,6 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
-import ClientFormModal, { type ClientFormData } from '@/components/clients/ClientFormModal';
-import { Zap } from 'lucide-react';
 
 const PERM_MODULES = ['crm', 'invoicing', 'clients', 'chat', 'projects', 'vault', 'payroll', 'tracker', 'tickets', 'users', 'reports'] as const;
 const PERM_ACTIONS = ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_export'] as const;
@@ -28,7 +26,6 @@ const fallbackRoles = [
   { value: 'sales_rep', label: 'Sales Rep' },
   { value: 'resource', label: 'Resource' },
   { value: 'freelancer', label: 'Freelancer' },
-  { value: 'client', label: 'Client' },
 ];
 const departments = ['Sales', 'Marketing', 'Engineering', 'Design', 'HR', 'Finance', 'Operations', 'Support', 'Management', 'Other'];
 const employmentTypes = [
@@ -38,7 +35,6 @@ const employmentTypes = [
   { value: 'freelancer', label: 'Freelancer' },
 ];
 const tabs = ['All', 'Active', 'Inactive', 'On Leave'];
-const CLIENT_ROLES = ['client'];
 
 const emptyForm = {
   full_name: '', email: '', phone: '', role: 'sales_rep', employment_type: 'full_time',
@@ -59,7 +55,7 @@ export default function AdminUsers() {
   const role = useRole();
   const currentUserId = useAuthStore((s) => s.user?.id);
   const isAdmin = role === 'admin' || role === 'super_admin';
-  const [mainTab, setMainTab] = useState<'team' | 'clients'>('team');
+  
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<any>(null);
   const [permanentDeleteConfirmName, setPermanentDeleteConfirmName] = useState('');
@@ -82,8 +78,6 @@ export default function AdminUsers() {
   const [resetPwValue, setResetPwValue] = useState('Welcome123!');
   const [resetPwError, setResetPwError] = useState('');
   const [resetPwSuccess, setResetPwSuccess] = useState<{ email: string; password: string } | null>(null);
-  const [showAddClient, setShowAddClient] = useState(false);
-  const [activatePortalSuccess, setActivatePortalSuccess] = useState<{ email: string; password: string } | null>(null);
   const qc = useQueryClient();
 
   const { data: apiRoles } = useQuery({
@@ -95,7 +89,9 @@ export default function AdminUsers() {
       return list.map((r: any) => ({ value: r.name, label: r.label || r.name }));
     },
   });
-  const roles = (apiRoles && apiRoles.length > 0) ? apiRoles : fallbackRoles;
+  // Filter out 'client' — backend rejects creating internal users with that role.
+  const roles = ((apiRoles && apiRoles.length > 0) ? apiRoles : fallbackRoles)
+    .filter((r: { value: string }) => r.value !== 'client');
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['users', search],
@@ -104,16 +100,6 @@ export default function AdminUsers() {
       const list = d?.users || d?.data || (Array.isArray(d) ? d : []);
       return list;
     }),
-  });
-
-  // Clients tab data — fetched from /clients (companies), not /users
-  const { data: clientsData = [], isLoading: clientsLoading } = useQuery({
-    queryKey: ['clients-companies', search],
-    queryFn: () => api.get('/clients', { params: { search } }).then(r => {
-      const d = r.data;
-      return Array.isArray(d) ? d : (d?.clients || d?.data?.clients || d?.data || []);
-    }),
-    enabled: mainTab === 'clients',
   });
 
   // User stats from backend
@@ -140,42 +126,6 @@ export default function AdminUsers() {
       toast.success('User added successfully');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error adding user'),
-  });
-
-  const createClientMut = useMutation({
-    mutationFn: (d: ClientFormData) => api.post('/clients', d),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['clients-companies'] });
-      setShowAddClient(false);
-      toast.success('Client created successfully');
-    },
-    onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error creating client'),
-  });
-
-  const activatePortalMut = useMutation({
-    mutationFn: (clientId: string) => api.post(`/clients/${clientId}/activate-portal`).then(r => ({ clientId, data: r.data })),
-    onSuccess: ({ clientId, data }) => {
-      const user = data?.data ?? data?.user ?? data ?? {};
-      const tempPassword: string | undefined = data?.temp_password ?? user?.temp_password;
-
-      // Optimistically mark this client as portal-activated so the row flips immediately
-      qc.setQueriesData({ queryKey: ['clients-companies'] }, (old: any) => {
-        if (!Array.isArray(old)) return old;
-        return old.map((c: any) =>
-          c.id === clientId
-            ? { ...c, portal_active: true, has_portal_user: true, portal_user_id: user?.id ?? c.portal_user_id ?? true }
-            : c
-        );
-      });
-      qc.invalidateQueries({ queryKey: ['clients-companies'] });
-
-      if (tempPassword) {
-        setActivatePortalSuccess({ email: user?.email || '', password: tempPassword });
-      } else {
-        toast.success('Portal activated');
-      }
-    },
-    onError: (e: any) => toast.error(e.response?.data?.detail || e.response?.data?.error || e.response?.data?.message || 'Failed to activate portal'),
   });
 
   const editMut = useMutation({
@@ -259,10 +209,9 @@ export default function AdminUsers() {
   });
 
   const rawUsers = Array.isArray(data) ? data : [];
-  const teamUsers = rawUsers.filter((u: any) => !CLIENT_ROLES.includes(u.role));
-  const clientCompanies = Array.isArray(clientsData) ? clientsData : [];
-  const allUsers = mainTab === 'team' ? teamUsers : clientCompanies;
-  const users = mainTab === 'clients' ? clientCompanies : allUsers.filter((u: any) => {
+  // Backend already excludes role=client from /users, but filter defensively for legacy rows.
+  const teamUsers = rawUsers.filter((u: any) => u.role !== 'client');
+  const users = teamUsers.filter((u: any) => {
     if (tab === 'All') return true;
     if (tab === 'Active') return u.status === 'active';
     if (tab === 'Inactive') return u.status === 'inactive' || u.status === 'terminated';
@@ -424,65 +373,50 @@ export default function AdminUsers() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <div><h1 className="page-title">Team & Users</h1><p className="page-subtitle">Manage your team members and clients</p></div>
+        <div><h1 className="page-title">Team & Users</h1><p className="page-subtitle">Manage your internal team members</p></div>
         {perm.canCreate && (
           <button
-            onClick={() => (mainTab === 'clients' ? setShowAddClient(true) : openAdd())}
+            onClick={openAdd}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
           >
-            <Plus className="h-4 w-4" /> {mainTab === 'clients' ? 'Add Client' : 'Add User'}
+            <Plus className="h-4 w-4" /> Add User
           </button>
         )}
       </div>
 
-      {/* Main Tabs: Team vs Clients */}
-      <div className="flex gap-1 mb-4">
-        <button onClick={() => { setMainTab('team'); setTab('All'); }} className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${mainTab === 'team' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
-          <Users className="inline h-4 w-4 mr-1.5" /> Team ({teamUsers.length})
-        </button>
-        <button onClick={() => { setMainTab('clients'); setTab('All'); }} className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${mainTab === 'clients' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
-          <UserCheck className="inline h-4 w-4 mr-1.5" /> Clients ({clientCompanies.length})
-        </button>
-      </div>
-
-      {mainTab === 'team' && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="glass-card p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10"><Users className="h-4 w-4 text-primary" /></div>
-            <div><div className="text-lg font-bold">{counts.All}</div><div className="text-xs text-muted-foreground">Total Users</div></div>
-          </div>
-          <div className="glass-card p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[hsl(var(--success))]/10"><UserCheck className="h-4 w-4 text-[hsl(var(--success))]" /></div>
-            <div><div className="text-lg font-bold">{counts.Active}</div><div className="text-xs text-muted-foreground">Active</div></div>
-          </div>
-          <div className="glass-card p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-[hsl(var(--warning))]/10"><UserX className="h-4 w-4 text-[hsl(var(--warning))]" /></div>
-            <div><div className="text-lg font-bold">{counts['On Leave']}</div><div className="text-xs text-muted-foreground">On Leave</div></div>
-          </div>
-          <div className="glass-card p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-destructive/10"><UserX className="h-4 w-4 text-destructive" /></div>
-            <div><div className="text-lg font-bold">{counts.Inactive}</div><div className="text-xs text-muted-foreground">Inactive</div></div>
-          </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="glass-card p-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10"><Users className="h-4 w-4 text-primary" /></div>
+          <div><div className="text-lg font-bold">{counts.All}</div><div className="text-xs text-muted-foreground">Total Users</div></div>
         </div>
-      )}
+        <div className="glass-card p-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-[hsl(var(--success))]/10"><UserCheck className="h-4 w-4 text-[hsl(var(--success))]" /></div>
+          <div><div className="text-lg font-bold">{counts.Active}</div><div className="text-xs text-muted-foreground">Active</div></div>
+        </div>
+        <div className="glass-card p-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-[hsl(var(--warning))]/10"><UserX className="h-4 w-4 text-[hsl(var(--warning))]" /></div>
+          <div><div className="text-lg font-bold">{counts['On Leave']}</div><div className="text-xs text-muted-foreground">On Leave</div></div>
+        </div>
+        <div className="glass-card p-4 flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-destructive/10"><UserX className="h-4 w-4 text-destructive" /></div>
+          <div><div className="text-lg font-bold">{counts.Inactive}</div><div className="text-xs text-muted-foreground">Inactive</div></div>
+        </div>
+      </div>
 
       <div className="flex flex-wrap gap-3 items-center justify-between">
-        {mainTab === 'team' ? (
-          <div className="flex gap-1">
-            {tabs.map(t => (
-              <button key={t} onClick={() => setTab(t)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
-                {t} ({counts[t as keyof typeof counts]})
-              </button>
-            ))}
-          </div>
-        ) : <div />}
+        <div className="flex gap-1">
+          {tabs.map(t => (
+            <button key={t} onClick={() => setTab(t)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+              {t} ({counts[t as keyof typeof counts]})
+            </button>
+          ))}
+        </div>
         <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={mainTab === 'clients' ? 'Search clients...' : 'Search users...'} className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users..." className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
         </div>
       </div>
 
-      {mainTab === 'team' ? (
       <div className="glass-card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -566,64 +500,6 @@ export default function AdminUsers() {
           </tbody>
         </table>
       </div>
-      ) : (
-        // Clients tab — companies fetched from /clients
-        <div className="glass-card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-                <th className="p-4">Company</th>
-                <th className="p-4">Email</th>
-                <th className="p-4">Phone</th>
-                <th className="p-4">Type</th>
-                <th className="p-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clientsLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={5} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
-              clientCompanies.map((c: any) => (
-                <tr key={c.id} className="border-b border-border/50 hover:bg-secondary/50 transition-colors">
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-primary/15 flex items-center justify-center text-xs font-bold text-primary">{c.company_name?.[0] || 'C'}</div>
-                      <div>
-                        <div className="font-medium">{c.company_name || c.name || '—'}</div>
-                        <div className="text-xs text-muted-foreground">{c.contact_name || c.industry || ''}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4 text-muted-foreground">{c.email || '—'}</td>
-                  <td className="p-4 text-muted-foreground">{c.phone || '—'}</td>
-                  <td className="p-4">
-                    {c.client_type ? <span className={c.client_type === 'VIP' ? 'badge-warning' : c.client_type === 'At-Risk' ? 'badge-danger' : 'badge-info'}>{c.client_type}</span> : <span className="text-xs text-muted-foreground">—</span>}
-                  </td>
-                  <td className="p-4">
-                    {(c.portal_active || c.has_portal_user || c.portal_user_id || c.portal_user) ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/10 text-success text-xs font-medium">
-                        <Check className="h-3.5 w-3.5" /> Portal Activated
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => activatePortalMut.mutate(c.id)}
-                        disabled={activatePortalMut.isPending}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
-                      >
-                        <Zap className="h-3.5 w-3.5" /> {activatePortalMut.isPending ? 'Activating…' : 'Activate Portal'}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {clientCompanies.length === 0 && !clientsLoading && (
-                <tr><td colSpan={5} className="p-12 text-center">
-                  <div className="text-muted-foreground text-sm mb-3">No clients found</div>
-                  <button onClick={() => setShowAddClient(true)} className="text-sm text-primary hover:underline">Add your first client →</button>
-                </td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
 
       {/* Add User Modal */}
       {showAdd && (
@@ -960,42 +836,6 @@ export default function AdminUsers() {
         </div>
       )}
 
-      {/* Add Client Modal — used when adding from Clients tab */}
-      <ClientFormModal
-        open={showAddClient}
-        onClose={() => setShowAddClient(false)}
-        onSubmit={(d) => createClientMut.mutate(d)}
-        isPending={createClientMut.isPending}
-        users={teamUsers.filter((u: any) => ['sales_manager', 'sales_rep'].includes((u.role || '').toLowerCase()))}
-      />
-
-      {/* Activate Portal Success — show temp password once */}
-      {activatePortalSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
-            <h2 className="text-lg font-semibold">Portal Activated</h2>
-            <p className="text-xs text-muted-foreground">
-              Share these credentials with the client — the password won't be shown again.
-            </p>
-            <div className="glass-card p-3 space-y-1 text-sm">
-              <div><span className="text-muted-foreground">Login:</span> {activatePortalSuccess.email}</div>
-              <div><span className="text-muted-foreground">Password:</span> {activatePortalSuccess.password}</div>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(`Login: ${activatePortalSuccess.email}\nPassword: ${activatePortalSuccess.password}`);
-                  toast.success('Credentials copied');
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-sm font-medium hover:opacity-90 transition-all"
-              >
-                <Copy className="h-3.5 w-3.5" /> Copy
-              </button>
-              <button onClick={() => setActivatePortalSuccess(null)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-all">Done</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
