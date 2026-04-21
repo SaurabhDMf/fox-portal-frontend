@@ -109,7 +109,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
     isLoading,
     isError,
     refetch: refetchPortalUser,
-  } = useQuery({
+  } = useQuery<PortalUserQueryState>({
     queryKey: ['portal-user', clientId],
     queryFn: async () => {
       const response = await api.get(`/clients/${clientId}/portal-user`);
@@ -234,7 +234,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
                     refetchType: 'all'
                   });
                   const fresh = await refetchPortalUser();
-                  const normalized = fresh.data ?? null;
+                  const normalized = fresh.data?.user ?? null;
                   if (normalized) setOptimisticPortalUser(normalized);
                   if (creds) setCreatedCreds(creds);
                 }}
@@ -256,7 +256,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
             setJustCreated(true);
             if (user) {
               setOptimisticPortalUser(user);
-              qc.setQueryData(['portal-user', clientId], user);
+              qc.setQueryData<PortalUserQueryState>(['portal-user', clientId], { user, resolved: true });
             }
             await qc.invalidateQueries({
               queryKey: ['portal-user', clientId],
@@ -286,7 +286,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
           onClose={() => setShowRevoke(false)}
           onSuccess={async () => {
             setOptimisticPortalUser(null);
-            qc.setQueryData(['portal-user', clientId], null);
+            qc.setQueryData<PortalUserQueryState>(['portal-user', clientId], { user: null, resolved: true });
             await qc.invalidateQueries({
               queryKey: ['portal-user', clientId],
               refetchType: 'all'
@@ -324,7 +324,7 @@ function CreatePortalModal({ clientId, defaultName, defaultEmail, onClose, onSuc
       return api.post(`/clients/${clientId}/portal-users`, payload).then(r => r.data);
     },
     onSuccess: (data: any) => {
-      const normalizedUser = normalizePortalUser(data);
+      const normalizedUser = parsePortalUserResponse(data).user;
       const returnedPassword = extractOneTimePassword(data, !autoGenerate ? password.trim() : undefined);
       if (!returnedPassword) {
         toast.error('Portal access created but no password was returned');
@@ -332,7 +332,7 @@ function CreatePortalModal({ clientId, defaultName, defaultEmail, onClose, onSuc
         return;
       }
       if (normalizedUser) {
-        qc.setQueryData(['portal-user', clientId], normalizedUser);
+        qc.setQueryData<PortalUserQueryState>(['portal-user', clientId], { user: normalizedUser, resolved: true });
       }
       toast.success('Portal access created');
       onSuccess(email.trim().toLowerCase(), returnedPassword, normalizedUser);
@@ -500,10 +500,10 @@ function ReactivateButton({
         toast.error(data?.detail || data?.error || 'Failed to reactivate');
         return;
       }
-      const user = normalizePortalUser(data);
+      const user = parsePortalUserResponse(data).user;
       const tempPassword = extractOneTimePassword(data);
       if (user) {
-        qc.setQueryData(['portal-user', clientId], user);
+        qc.setQueryData<PortalUserQueryState>(['portal-user', clientId], { user, resolved: true });
       }
       await onActivated(
         tempPassword
@@ -527,4 +527,3 @@ function ReactivateButton({
     </button>
   );
 }
-
