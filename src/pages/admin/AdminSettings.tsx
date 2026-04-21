@@ -3,14 +3,17 @@ import { useAuthStore } from '@/stores/authStore';
 import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { User, Shield, Bell, Palette, Pencil, X, Building2, KeyRound, Plug } from 'lucide-react';
+import { User, Shield, Bell, Palette, Pencil, X, Building2, KeyRound, Plug, Mail } from 'lucide-react';
 import CompanySettings from '@/components/settings/CompanySettings';
 import IntegrationsSettings from '@/components/settings/IntegrationsSettings';
+import EmailSettings from '@/components/settings/EmailSettings';
+import ChangePasswordSection from '@/components/settings/ChangePasswordSection';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'company', label: 'Company', icon: Building2 },
   { id: 'integrations', label: 'Integrations', icon: Plug, adminOnly: true },
+  { id: 'email', label: 'Email', icon: Mail, adminOnly: true },
   { id: 'security', label: 'Security', icon: Shield },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -41,7 +44,6 @@ export default function AdminSettings() {
   const navigate = useNavigate();
   const [tab, setTab] = useState('profile');
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
-  const [pw, setPw] = useState({ current: '', newPw: '', confirm: '' });
   const [saving, setSaving] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: user?.full_name || '', department: user?.department || '', job_title: user?.job_title || '' });
@@ -49,18 +51,6 @@ export default function AdminSettings() {
     Object.fromEntries(notificationSettings.map(n => [n.key, true]))
   );
   const [selectedAccent, setSelectedAccent] = useState('244 94% 62%');
-
-  const changePw = async () => {
-    if (pw.newPw !== pw.confirm) return toast.error('Passwords do not match');
-    if (pw.newPw.length < 6) return toast.error('Password must be at least 6 characters');
-    setSaving(true);
-    try {
-      await api.put('/auth/change-password', { current_password: pw.current, new_password: pw.newPw });
-      toast.success('Password changed');
-      setPw({ current: '', newPw: '', confirm: '' });
-    } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); }
-    finally { setSaving(false); }
-  };
 
   const toggleNotification = (key: string) => {
     setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
@@ -161,29 +151,11 @@ export default function AdminSettings() {
       {/* Integrations */}
       {tab === 'integrations' && isAdmin && <IntegrationsSettings />}
 
+      {/* Email (SMTP) */}
+      {tab === 'email' && isAdmin && <EmailSettings />}
+
       {/* Security */}
-      {tab === 'security' && (
-        <div className="glass-card p-6 space-y-4">
-          <h2 className="text-sm font-semibold">Change Password</h2>
-          <div className="max-w-sm space-y-3">
-            <div>
-              <label className="text-xs text-muted-foreground">Current Password</label>
-              <input type="password" placeholder="Enter current password" value={pw.current} onChange={e => setPw(p => ({ ...p, current: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">New Password</label>
-              <input type="password" placeholder="Enter new password" value={pw.newPw} onChange={e => setPw(p => ({ ...p, newPw: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Confirm New Password</label>
-              <input type="password" placeholder="Confirm new password" value={pw.confirm} onChange={e => setPw(p => ({ ...p, confirm: e.target.value }))} className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-            </div>
-            <button onClick={changePw} disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
-              {saving ? 'Saving...' : 'Update Password'}
-            </button>
-          </div>
-        </div>
-      )}
+      {tab === 'security' && <ChangePasswordSection />}
 
       {/* Notifications */}
       {tab === 'notifications' && (
