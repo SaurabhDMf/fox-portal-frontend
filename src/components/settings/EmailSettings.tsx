@@ -176,7 +176,7 @@ export default function EmailSettings() {
             <div className="flex items-center gap-2">
               <label className="text-xs text-muted-foreground">SMTP Password</label>
               {passSet && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-success bg-success/10 px-1.5 py-0.5 rounded">
                   <CheckCircle2 className="h-3 w-3" /> Saved
                 </span>
               )}
