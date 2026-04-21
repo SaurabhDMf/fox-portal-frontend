@@ -112,8 +112,11 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
                 userId={portalUser.id}
                 clientId={clientId}
                 onActivated={async (creds) => {
+                  await qc.invalidateQueries({
+                    queryKey: ['portal-user', clientId],
+                    refetchType: 'all'
+                  });
                   await refetchPortalUser();
-                  qc.invalidateQueries({ queryKey: ['portal-user', clientId] });
                   if (creds) setCreatedCreds(creds);
                 }}
                 extractErrorMessage={extractErrorMessage}
