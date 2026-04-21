@@ -129,10 +129,14 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
           defaultName={contactName || clientName || ''}
           defaultEmail={contactEmail || ''}
           onClose={() => setShowCreate(false)}
-          onSuccess={(email, password) => {
+          onSuccess={async (email, password) => {
             setCreatedCreds({ email, password, oneTime: true });
-            qc.invalidateQueries({ queryKey: ['portal-user', clientId] });
-            refetchPortalUser();
+            // Force immediate refetch after invalidation
+            await qc.invalidateQueries({
+              queryKey: ['portal-user', clientId],
+              refetchType: 'all'
+            });
+            await refetchPortalUser();
             setShowCreate(false);
           }}
         />
