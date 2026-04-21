@@ -11,6 +11,7 @@ import type { ProjectTask, Sprint, Epic, ProjectMember } from '@/lib/projectType
 import { useAuthStore } from '@/stores/authStore';
 import { useProjectStatuses, type StatusOption } from '@/hooks/useProjectOptions';
 import HandoffBadge from './HandoffBadge';
+import { computeHierarchicalNumbers } from '@/lib/hierarchicalTaskNumbers';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -127,6 +128,10 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
   });
 
   const tasks: ProjectTask[] = raw ?? [];
+
+  // Hierarchical "1", "1.1", "1.1.1" numbering computed from the unfiltered
+  // project task list so numbers stay stable when filters are active.
+  const hierarchicalNumbers = useMemo(() => computeHierarchicalNumbers(tasks), [tasks]);
 
   // Client-side filter predicate (priority + status multi-select + search).
   const matchesFilters = useCallback((t: ProjectTask) => {
@@ -344,11 +349,19 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               <span className="w-4 shrink-0" />
             ) : null}
             <div className="flex items-center gap-2 flex-wrap">
-              {t.task_number && (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                  {t.task_number}
-                </span>
-              )}
+              {(() => {
+                const hierNum = hierarchicalNumbers.get(t.id);
+                const display = hierNum || t.task_number;
+                if (!display) return null;
+                return (
+                  <span
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+                    title={hierNum && t.task_number ? t.task_number : undefined}
+                  >
+                    {display}
+                  </span>
+                );
+              })()}
               <span className="font-medium text-foreground">{t.title}</span>
               {isParent && hasChildren && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
