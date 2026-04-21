@@ -143,6 +143,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
           onClose={() => setShowCreate(false)}
           onSuccess={async (email, password) => {
             setCreatedCreds({ email, password, oneTime: true });
+            setJustCreated(true);
             // Force immediate refetch after invalidation
             await qc.invalidateQueries({
               queryKey: ['portal-user', clientId],
