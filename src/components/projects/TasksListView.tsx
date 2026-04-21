@@ -129,6 +129,10 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   const tasks: ProjectTask[] = raw ?? [];
 
+  // Hierarchical "1", "1.1", "1.1.1" numbering computed from the unfiltered
+  // project task list so numbers stay stable when filters are active.
+  const hierarchicalNumbers = useMemo(() => computeHierarchicalNumbers(tasks), [tasks]);
+
   // Client-side filter predicate (priority + status multi-select + search).
   const matchesFilters = useCallback((t: ProjectTask) => {
     if (statusFilter.length > 0 && !statusFilter.includes(t.status)) return false;
