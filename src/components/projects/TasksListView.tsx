@@ -349,11 +349,19 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               <span className="w-4 shrink-0" />
             ) : null}
             <div className="flex items-center gap-2 flex-wrap">
-              {t.task_number && (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                  {t.task_number}
-                </span>
-              )}
+              {(() => {
+                const hierNum = hierarchicalNumbers.get(t.id);
+                const display = hierNum || t.task_number;
+                if (!display) return null;
+                return (
+                  <span
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+                    title={hierNum && t.task_number ? t.task_number : undefined}
+                  >
+                    {display}
+                  </span>
+                );
+              })()}
               <span className="font-medium text-foreground">{t.title}</span>
               {isParent && hasChildren && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
