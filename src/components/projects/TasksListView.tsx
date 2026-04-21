@@ -307,22 +307,24 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   // Renders a single task row. `isParent` adds the expansion chevron when it has children.
   // `isSubtask` indents the title and applies a subtle background.
+  // `dimmed` reduces opacity for parent rows shown only as context for a matching subtask.
   const renderTaskRow = (
     t: ProjectTask,
-    opts: { isParent?: boolean; hasChildren?: boolean; isOpen?: boolean; onToggle?: () => void; isSubtask?: boolean } = {}
+    opts: { isParent?: boolean; hasChildren?: boolean; isOpen?: boolean; onToggle?: () => void; isSubtask?: boolean; dimmed?: boolean } = {}
   ) => {
-    const { isParent, hasChildren, isOpen, onToggle, isSubtask } = opts;
+    const { isParent, hasChildren, isOpen, onToggle, isSubtask, dimmed } = opts;
     const assigneeName = (t as any).assignee_name ?? t.assignees?.[0]?.full_name;
     const assigneeAvatar = (t as any).assignee_avatar ?? t.assignees?.[0]?.avatar_url;
     const visibleStatus = seesMasterStatus ? t.status : (t.my_status || t.status);
     const statusColor = statusObjects.find(s => s.name === visibleStatus)?.color;
     const rowBg = STATUS_ROW_COLORS[visibleStatus] || '';
     const subtaskBg = isSubtask ? 'bg-muted/30' : '';
+    const dimmedCls = dimmed ? 'opacity-60' : '';
 
     return (
       <TableRow
         key={t.id}
-        className={`cursor-pointer group ${rowBg} ${subtaskBg}`}
+        className={`cursor-pointer group ${rowBg} ${subtaskBg} ${dimmedCls}`}
         onClick={() => onTaskClick?.(t)}
         style={!STATUS_ROW_COLORS[visibleStatus] && statusColor ? { borderLeft: `3px solid ${statusColor}` } : undefined}
       >
