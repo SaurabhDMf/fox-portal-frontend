@@ -158,8 +158,11 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
         <RevokeModal
           userId={portalUser.id}
           onClose={() => setShowRevoke(false)}
-          onSuccess={() => {
-            qc.invalidateQueries({ queryKey: ['portal-user', clientId] });
+          onSuccess={async () => {
+            await qc.invalidateQueries({
+              queryKey: ['portal-user', clientId],
+              refetchType: 'all'
+            });
             setShowRevoke(false);
           }}
         />
