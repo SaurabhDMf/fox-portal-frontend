@@ -594,8 +594,17 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
             ) : parentTasks.length > 0 ? (
               parentTasks.flatMap(t => {
                 const children = subtasksByParent.get(t.id) || [];
-                const isOpen = expanded.has(t.id);
-                const rows = [renderTaskRow(t, { isParent: true, hasChildren: children.length > 0, isOpen, onToggle: () => toggleExpanded(t.id) })];
+                // Auto-expand parents pulled in only because a subtask matched
+                // the active filter, OR any parent the user manually expanded.
+                const isOpen = expanded.has(t.id) || autoExpandIds.has(t.id);
+                const isContextOnly = contextParentIds.has(t.id);
+                const rows = [renderTaskRow(t, {
+                  isParent: true,
+                  hasChildren: children.length > 0,
+                  isOpen,
+                  onToggle: () => toggleExpanded(t.id),
+                  dimmed: isContextOnly,
+                })];
                 if (isOpen && children.length > 0) {
                   for (const c of children) rows.push(renderTaskRow(c, { isSubtask: true }));
                 }
