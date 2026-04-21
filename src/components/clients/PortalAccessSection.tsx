@@ -1,6 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { useState } from 'react';
 import { ShieldCheck, ShieldOff, KeyRound, Copy, UserPlus, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -11,28 +11,101 @@ interface Props {
   contactEmail?: string;
 }
 
+type PortalUserRecord = {
+  id: string;
+  email: string;
+  full_name?: string;
+  is_active?: boolean | number | string;
+  last_login_at?: string | null;
+  [key: string]: any;
+};
+
+function coerceBoolean(value: unknown) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') return ['1', 'true', 'active', 'yes'].includes(value.toLowerCase());
+  return Boolean(value);
+}
+
+function normalizePortalUser(payload: any): PortalUserRecord | null {
+  const candidates = [
+    payload?.data?.data,
+    payload?.data?.portal_user,
+    payload?.data?.user,
+    payload?.data?.client_portal_user,
+    payload?.data,
+    payload?.portal_user,
+    payload?.user,
+    payload?.client_portal_user,
+    payload,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue;
+    const looksLikePortalUser = [
+      'id',
+      'email',
+      'full_name',
+      'client_id',
+      'is_active',
+      'last_login_at',
+    ].some((key) => key in candidate);
+
+    if (!looksLikePortalUser) continue;
+
+    return {
+      ...candidate,
+      is_active: coerceBoolean(candidate.is_active),
+    };
+  }
+
+  return null;
+}
+
+function extractOneTimePassword(payload: any, fallback?: string) {
+  return (
+    payload?.temp_password ??
+    payload?.data?.temp_password ??
+    payload?.new_password ??
+    payload?.data?.new_password ??
+    payload?.password ??
+    payload?.data?.password ??
+    fallback
+  );
+}
+
 export default function PortalAccessSection({ clientId, clientName, contactName, contactEmail }: Props) {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [showRevoke, setShowRevoke] = useState(false);
-  const [createdCreds, setCreatedCreds] = useState<{ email: string; password: string; oneTime?: boolean } | null>(null);
-
   const [justCreated, setJustCreated] = useState(false);
+  const [optimisticPortalUser, setOptimisticPortalUser] = useState<PortalUserRecord | null>(null);
+  const [createdCreds, setCreatedCreds] = useState<{ email: string; password: string; oneTime?: boolean } | null>(null);
 
   const { data: portalUser, isLoading, refetch: refetchPortalUser } = useQuery({
     queryKey: ['portal-user', clientId],
-    queryFn: () => api.get(`/clients/${clientId}/portal-user`).then(r => r.data?.data ?? r.data ?? null),
-    // Poll every 1s for up to ~10s after creation to handle backend indexing delay
+    queryFn: async () => {
+      const response = await api.get(`/clients/${clientId}/portal-user`);
+      return normalizePortalUser(response.data);
+    },
+    enabled: !!clientId,
     refetchInterval: justCreated ? 1000 : false,
   });
 
-  // Stop polling once the portal user appears
-  if (justCreated && portalUser) {
-    setTimeout(() => setJustCreated(false), 0);
-  }
+  useEffect(() => {
+    if (portalUser) {
+      setOptimisticPortalUser(portalUser);
+      if (justCreated) setJustCreated(false);
+    }
+  }, [portalUser, justCreated]);
 
-  // Extract a useful error message from a server error response
+  useEffect(() => {
+    if (!justCreated) return;
+    const timeout = window.setTimeout(() => setJustCreated(false), 10000);
+    return () => window.clearTimeout(timeout);
+  }, [justCreated]);
+
   const extractErrorMessage = (e: any, fallback: string) =>
     e?.response?.data?.detail
       || e?.response?.data?.error
@@ -40,7 +113,9 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
       || e?.message
       || fallback;
 
-  if (isLoading) return <div className="glass-card p-5 animate-pulse h-24" />;
+  const currentPortalUser = portalUser ?? optimisticPortalUser;
+
+  if (isLoading && !currentPortalUser) return <div className="glass-card p-5 animate-pulse h-24" />;
 
   return (
     <div className="glass-card p-5">
@@ -70,7 +145,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
         </div>
       )}
 
-      {!portalUser ? (
+      {!currentPortalUser ? (
         <div>
           <p className="text-sm text-muted-foreground mb-3">This client does not have portal access yet.</p>
           <button onClick={() => setShowCreate(true)}
@@ -82,17 +157,17 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
         <div className="space-y-3">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-sm font-medium">
-              {portalUser.is_active ? '✅ Portal Access Active' : '❌ Portal Access Inactive'}
+              {currentPortalUser.is_active ? '✅ Portal Access Active' : '❌ Portal Access Inactive'}
             </span>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><span className="text-muted-foreground">Name</span><div className="font-medium">{portalUser.full_name}</div></div>
-            <div><span className="text-muted-foreground">Email</span><div className="font-medium">{portalUser.email}</div></div>
+            <div><span className="text-muted-foreground">Name</span><div className="font-medium">{currentPortalUser.full_name || '—'}</div></div>
+            <div><span className="text-muted-foreground">Email</span><div className="font-medium">{currentPortalUser.email || '—'}</div></div>
             <div>
               <span className="text-muted-foreground">Status</span>
               <div>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${portalUser.is_active ? 'bg-success/15 text-success' : 'bg-destructive/15 text-destructive'}`}>
-                  {portalUser.is_active ? 'Active' : 'Inactive'}
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${currentPortalUser.is_active ? 'bg-success/15 text-success' : 'bg-destructive/15 text-destructive'}`}>
+                  {currentPortalUser.is_active ? 'Active' : 'Inactive'}
                 </span>
               </div>
             </div>
@@ -100,8 +175,8 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
               <span className="text-muted-foreground">Last Login</span>
               <div className="font-medium flex items-center gap-1">
                 <Clock className="h-3 w-3 text-muted-foreground" />
-                {portalUser.last_login_at
-                  ? new Date(portalUser.last_login_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                {currentPortalUser.last_login_at
+                  ? new Date(currentPortalUser.last_login_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                   : 'Never logged in'}
               </div>
             </div>
@@ -111,21 +186,23 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80 transition-colors">
               <KeyRound className="h-3.5 w-3.5" /> Reset Password
             </button>
-            {portalUser.is_active ? (
+            {currentPortalUser.is_active ? (
               <button onClick={() => setShowRevoke(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors">
                 <ShieldOff className="h-3.5 w-3.5" /> Revoke Access
               </button>
             ) : (
               <ReactivateButton
-                userId={portalUser.id}
+                userId={currentPortalUser.id}
                 clientId={clientId}
                 onActivated={async (creds) => {
                   await qc.invalidateQueries({
                     queryKey: ['portal-user', clientId],
                     refetchType: 'all'
                   });
-                  await refetchPortalUser();
+                  const fresh = await refetchPortalUser();
+                  const normalized = fresh.data ?? null;
+                  if (normalized) setOptimisticPortalUser(normalized);
                   if (creds) setCreatedCreds(creds);
                 }}
                 extractErrorMessage={extractErrorMessage}
@@ -141,10 +218,13 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
           defaultName={contactName || clientName || ''}
           defaultEmail={contactEmail || ''}
           onClose={() => setShowCreate(false)}
-          onSuccess={async (email, password) => {
+          onSuccess={async (email, password, user) => {
             setCreatedCreds({ email, password, oneTime: true });
             setJustCreated(true);
-            // Force immediate refetch after invalidation
+            if (user) {
+              setOptimisticPortalUser(user);
+              qc.setQueryData(['portal-user', clientId], user);
+            }
             await qc.invalidateQueries({
               queryKey: ['portal-user', clientId],
               refetchType: 'all'
@@ -155,23 +235,25 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
         />
       )}
 
-      {showReset && portalUser && (
+      {showReset && currentPortalUser && (
         <ResetPasswordModal
           clientId={clientId}
-          email={portalUser.email}
+          email={currentPortalUser.email}
           onClose={() => setShowReset(false)}
           onSuccess={(newPassword) => {
-            setCreatedCreds({ email: portalUser.email, password: newPassword, oneTime: true });
+            setCreatedCreds({ email: currentPortalUser.email, password: newPassword, oneTime: true });
             setShowReset(false);
           }}
         />
       )}
 
-      {showRevoke && portalUser && (
+      {showRevoke && currentPortalUser && (
         <RevokeModal
-          userId={portalUser.id}
+          userId={currentPortalUser.id}
           onClose={() => setShowRevoke(false)}
           onSuccess={async () => {
+            setOptimisticPortalUser(null);
+            qc.setQueryData(['portal-user', clientId], null);
             await qc.invalidateQueries({
               queryKey: ['portal-user', clientId],
               refetchType: 'all'
@@ -186,8 +268,9 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
 
 function CreatePortalModal({ clientId, defaultName, defaultEmail, onClose, onSuccess }: {
   clientId: string; defaultName: string; defaultEmail: string;
-  onClose: () => void; onSuccess: (email: string, pw: string) => void;
+  onClose: () => void; onSuccess: (email: string, pw: string, user: PortalUserRecord | null) => void;
 }) {
+  const qc = useQueryClient();
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
   const [password, setPassword] = useState('');
@@ -195,29 +278,31 @@ function CreatePortalModal({ clientId, defaultName, defaultEmail, onClose, onSuc
 
   const mut = useMutation({
     mutationFn: () => {
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanName = name.trim();
+      const cleanPassword = password.trim();
       const payload: Record<string, any> = {
-        client_id: clientId,
-        email,
-        full_name: name,
+        email: cleanEmail,
+        full_name: cleanName,
       };
-      if (!autoGenerate && password.trim()) {
-        payload.password = password.trim();
+      if (!autoGenerate && cleanPassword) {
+        payload.password = cleanPassword;
       }
-      return api.post('/users/invite-client', payload).then(r => r.data);
+      return api.post(`/clients/${clientId}/portal-users`, payload).then(r => r.data);
     },
     onSuccess: (data: any) => {
-      const returnedPassword: string | undefined =
-        data?.temp_password
-          ?? data?.data?.temp_password
-          ?? data?.password
-          ?? (!autoGenerate ? password : undefined);
+      const normalizedUser = normalizePortalUser(data);
+      const returnedPassword = extractOneTimePassword(data, !autoGenerate ? password.trim() : undefined);
       if (!returnedPassword) {
         toast.error('Portal access created but no password was returned');
         onClose();
         return;
       }
+      if (normalizedUser) {
+        qc.setQueryData(['portal-user', clientId], normalizedUser);
+      }
       toast.success('Portal access created');
-      onSuccess(email, returnedPassword);
+      onSuccess(email.trim().toLowerCase(), returnedPassword, normalizedUser);
     },
     onError: (e: any) =>
       toast.error(
@@ -276,7 +361,7 @@ function CreatePortalModal({ clientId, defaultName, defaultEmail, onClose, onSuc
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm border border-border hover:bg-secondary transition-colors">Cancel</button>
           <button
             onClick={() => mut.mutate()}
-            disabled={!email.trim() || (!autoGenerate && !password.trim()) || mut.isPending}
+            disabled={!email.trim() || !name.trim() || (!autoGenerate && !password.trim()) || mut.isPending}
             className="px-4 py-2 rounded-lg text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {mut.isPending ? 'Creating...' : 'Create Access'}
@@ -296,8 +381,7 @@ function ResetPasswordModal({ clientId, email, onClose, onSuccess }: {
   const mut = useMutation({
     mutationFn: () => api.post(`/clients/${clientId}/reset-portal-password`).then(r => r.data),
     onSuccess: (data: any) => {
-      const newPassword: string | undefined =
-        data?.new_password ?? data?.password ?? data?.temp_password ?? data?.data?.new_password;
+      const newPassword = extractOneTimePassword(data);
       if (!newPassword) {
         toast.error('Password reset succeeded but no new password was returned');
         onClose();
@@ -340,7 +424,7 @@ function RevokeModal({ userId, onClose, onSuccess }: { userId: string; onClose: 
   const mut = useMutation({
     mutationFn: () => api.put(`/users/${userId}`, { is_active: false }).then(r => r.data),
     onSuccess: () => { toast.success('Portal access revoked'); onSuccess(); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to revoke access'),
+    onError: (e: any) => toast.error(e?.response?.data?.detail || e?.response?.data?.error || e?.response?.data?.message || 'Failed to revoke access'),
   });
 
   return (
@@ -372,6 +456,7 @@ function ReactivateButton({
   onActivated: (creds: { email: string; password: string; oneTime: boolean } | null) => void | Promise<void>;
   extractErrorMessage: (e: any, fallback: string) => string;
 }) {
+  const qc = useQueryClient();
   const mut = useMutation({
     mutationFn: async () => {
       const res = await api.put(`/users/${userId}`, { is_active: true });
@@ -382,13 +467,14 @@ function ReactivateButton({
         toast.error(data?.detail || data?.error || 'Failed to reactivate');
         return;
       }
-      const user = data?.data ?? data?.user ?? data ?? {};
-      const tempPassword: string | undefined = data?.temp_password ?? user?.temp_password;
-      const created: boolean = Boolean(data?.created);
-      const email: string = user?.email || '';
+      const user = normalizePortalUser(data);
+      const tempPassword = extractOneTimePassword(data);
+      if (user) {
+        qc.setQueryData(['portal-user', clientId], user);
+      }
       await onActivated(
         tempPassword
-          ? { email, password: tempPassword, oneTime: created || true }
+          ? { email: user?.email || '', password: tempPassword, oneTime: true }
           : null
       );
       toast.success('Portal access reactivated');
@@ -408,3 +494,4 @@ function ReactivateButton({
     </button>
   );
 }
+
