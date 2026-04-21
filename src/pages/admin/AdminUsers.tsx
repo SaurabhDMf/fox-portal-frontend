@@ -14,8 +14,6 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
-import ClientFormModal, { type ClientFormData } from '@/components/clients/ClientFormModal';
-import { Zap } from 'lucide-react';
 
 const PERM_MODULES = ['crm', 'invoicing', 'clients', 'chat', 'projects', 'vault', 'payroll', 'tracker', 'tickets', 'users', 'reports'] as const;
 const PERM_ACTIONS = ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_export'] as const;
@@ -57,7 +55,7 @@ export default function AdminUsers() {
   const role = useRole();
   const currentUserId = useAuthStore((s) => s.user?.id);
   const isAdmin = role === 'admin' || role === 'super_admin';
-  const [mainTab, setMainTab] = useState<'team' | 'clients'>('team');
+  
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<any>(null);
   const [permanentDeleteConfirmName, setPermanentDeleteConfirmName] = useState('');
@@ -80,8 +78,6 @@ export default function AdminUsers() {
   const [resetPwValue, setResetPwValue] = useState('Welcome123!');
   const [resetPwError, setResetPwError] = useState('');
   const [resetPwSuccess, setResetPwSuccess] = useState<{ email: string; password: string } | null>(null);
-  const [showAddClient, setShowAddClient] = useState(false);
-  const [activatePortalSuccess, setActivatePortalSuccess] = useState<{ email: string; password: string } | null>(null);
   const qc = useQueryClient();
 
   const { data: apiRoles } = useQuery({
