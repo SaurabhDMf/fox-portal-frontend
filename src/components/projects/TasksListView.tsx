@@ -150,61 +150,83 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
   }, [statusFilter, priorityFilter, search]);
 
   // Group subtasks under their parent tasks for accordion display.
-  // IMPORTANT: when a subtask matches the filter but its parent does not, we
-  // still surface the parent (as a "context" row) so users can see which
-  // module/story the subtask belongs to. Parents pulled in only for context
-  // are tracked in `contextParentIds` so we can dim them and auto-expand.
-  const { parentTasks, subtasksByParent, contextParentIds, autoExpandIds, filtered } = useMemo(() => {
-    // First, pick all directly matching tasks
-    const matched = tasks.filter(matchesFilters);
-    const matchedIds = new Set(matched.map(t => t.id));
+  //
+  // Rule (per product): subtasks must ALWAYS appear under their parent task,
+  // regardless of active filters. So:
+  //   - Build a map of ALL subtasks by parent_task_id from the unfiltered list.
+  //   - A parent is shown if it matches filters OR any of its descendants match.
+  //   - Once a parent is shown, ALL of its subtasks render underneath
+  //     (matching ones highlighted, non-matching ones dimmed for context).
+  //   - Parents pulled in only because a child matched are themselves dimmed.
+  const { parentTasks, subtasksByParent, contextParentIds, dimmedSubtaskIds, autoExpandIds } = useMemo(() => {
     const tasksById = new Map(tasks.map(t => [t.id, t]));
 
-    // Identify subtasks among matches whose parent isn't in the match set —
-    // we need to pull those parents in for context.
-    const contextParents = new Set<string>();
-    for (const t of matched) {
+    // Build full child map from unfiltered task list so every parent row
+    // can render its complete subtask set.
+    const allChildrenByParent = new Map<string, ProjectTask[]>();
+    const topLevel: ProjectTask[] = [];
+    for (const t of tasks) {
       const pid = (t as any).parent_task_id;
-      if (pid && tasksById.has(pid) && !matchedIds.has(pid)) {
-        contextParents.add(pid);
-      }
-    }
-
-    // Build the working set: matched tasks + context parents.
-    const workingIds = new Set<string>([...matchedIds, ...contextParents]);
-    const working: ProjectTask[] = [];
-    for (const id of workingIds) {
-      const t = tasksById.get(id);
-      if (t) working.push(t);
-    }
-
-    // Group: anything with parent_task_id pointing inside the working set
-    // becomes a subtask row; everything else is a top-level parent row.
-    const byParent = new Map<string, ProjectTask[]>();
-    const parents: ProjectTask[] = [];
-    for (const t of working) {
-      const pid = (t as any).parent_task_id;
-      if (pid && workingIds.has(pid)) {
-        if (!byParent.has(pid)) byParent.set(pid, []);
-        byParent.get(pid)!.push(t);
+      if (pid && tasksById.has(pid)) {
+        if (!allChildrenByParent.has(pid)) allChildrenByParent.set(pid, []);
+        allChildrenByParent.get(pid)!.push(t);
       } else {
-        parents.push(t);
+        topLevel.push(t);
       }
     }
 
-    // Auto-expand parents that have matching children, so subtasks are visible
-    // immediately when a status filter is applied.
+    // Sort children by created_at to keep ordering stable / aligned with hier numbering.
+    for (const arr of allChildrenByParent.values()) {
+      arr.sort((a, b) => {
+        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return ta - tb;
+      });
+    }
+
+    // Direct matches (post-filter).
+    const matchedIds = new Set(tasks.filter(matchesFilters).map(t => t.id));
+
+    // Helper: does this task or any descendant match?
+    const subtreeMatches = (id: string): boolean => {
+      if (matchedIds.has(id)) return true;
+      const kids = allChildrenByParent.get(id);
+      if (!kids) return false;
+      return kids.some(k => subtreeMatches(k.id));
+    };
+
+    // Pick top-level parents whose subtree has any match.
+    const parents = topLevel.filter(t => subtreeMatches(t.id));
+
+    // Context parents: shown only because a descendant matched (parent itself doesn't match).
+    const contextParents = new Set<string>();
+    for (const p of parents) {
+      if (!matchedIds.has(p.id)) contextParents.add(p.id);
+    }
+
+    // Subtasks pulled in for context (parent is shown but this subtask doesn't match).
+    const dimmedSubs = new Set<string>();
+    for (const p of parents) {
+      const kids = allChildrenByParent.get(p.id) || [];
+      for (const k of kids) {
+        if (!matchedIds.has(k.id)) dimmedSubs.add(k.id);
+      }
+    }
+
+    // Auto-expand any parent that has a matching subtask, so users see them
+    // immediately when a filter is applied.
     const autoExpand = new Set<string>();
-    for (const [pid, kids] of byParent.entries()) {
-      if (kids.some(k => matchedIds.has(k.id))) autoExpand.add(pid);
+    for (const p of parents) {
+      const kids = allChildrenByParent.get(p.id) || [];
+      if (kids.some(k => matchedIds.has(k.id))) autoExpand.add(p.id);
     }
 
     return {
       parentTasks: parents,
-      subtasksByParent: byParent,
+      subtasksByParent: allChildrenByParent,
       contextParentIds: contextParents,
+      dimmedSubtaskIds: dimmedSubs,
       autoExpandIds: autoExpand,
-      filtered: working,
     };
   }, [tasks, matchesFilters]);
 
@@ -471,7 +493,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
             {isRestricted ? 'My Tasks' : 'All Tasks'}
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Showing {filtered.length} task{filtered.length !== 1 ? 's' : ''}
+            Showing {tasks.filter(matchesFilters).length} task{tasks.filter(matchesFilters).length !== 1 ? 's' : ''}
           </p>
         </div>
         {onCreateTask && (
@@ -619,7 +641,12 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                   dimmed: isContextOnly,
                 })];
                 if (isOpen && children.length > 0) {
-                  for (const c of children) rows.push(renderTaskRow(c, { isSubtask: true }));
+                  for (const c of children) {
+                    rows.push(renderTaskRow(c, {
+                      isSubtask: true,
+                      dimmed: dimmedSubtaskIds.has(c.id),
+                    }));
+                  }
                 }
                 return rows;
               })
