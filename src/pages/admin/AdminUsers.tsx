@@ -28,7 +28,6 @@ const fallbackRoles = [
   { value: 'sales_rep', label: 'Sales Rep' },
   { value: 'resource', label: 'Resource' },
   { value: 'freelancer', label: 'Freelancer' },
-  { value: 'client', label: 'Client' },
 ];
 const departments = ['Sales', 'Marketing', 'Engineering', 'Design', 'HR', 'Finance', 'Operations', 'Support', 'Management', 'Other'];
 const employmentTypes = [
@@ -38,7 +37,6 @@ const employmentTypes = [
   { value: 'freelancer', label: 'Freelancer' },
 ];
 const tabs = ['All', 'Active', 'Inactive', 'On Leave'];
-const CLIENT_ROLES = ['client'];
 
 const emptyForm = {
   full_name: '', email: '', phone: '', role: 'sales_rep', employment_type: 'full_time',
