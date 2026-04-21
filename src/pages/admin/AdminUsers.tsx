@@ -207,10 +207,9 @@ export default function AdminUsers() {
   });
 
   const rawUsers = Array.isArray(data) ? data : [];
-  const teamUsers = rawUsers.filter((u: any) => !CLIENT_ROLES.includes(u.role));
-  const clientCompanies = Array.isArray(clientsData) ? clientsData : [];
-  const allUsers = mainTab === 'team' ? teamUsers : clientCompanies;
-  const users = mainTab === 'clients' ? clientCompanies : allUsers.filter((u: any) => {
+  // Backend already excludes role=client from /users, but filter defensively for legacy rows.
+  const teamUsers = rawUsers.filter((u: any) => u.role !== 'client');
+  const users = teamUsers.filter((u: any) => {
     if (tab === 'All') return true;
     if (tab === 'Active') return u.status === 'active';
     if (tab === 'Inactive') return u.status === 'inactive' || u.status === 'terminated';
