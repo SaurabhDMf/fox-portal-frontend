@@ -493,7 +493,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
             {isRestricted ? 'My Tasks' : 'All Tasks'}
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Showing {filtered.length} task{filtered.length !== 1 ? 's' : ''}
+            Showing {tasks.filter(matchesFilters).length} task{tasks.filter(matchesFilters).length !== 1 ? 's' : ''}
           </p>
         </div>
         {onCreateTask && (
