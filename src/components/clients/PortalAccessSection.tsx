@@ -112,8 +112,11 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
                 userId={portalUser.id}
                 clientId={clientId}
                 onActivated={async (creds) => {
+                  await qc.invalidateQueries({
+                    queryKey: ['portal-user', clientId],
+                    refetchType: 'all'
+                  });
                   await refetchPortalUser();
-                  qc.invalidateQueries({ queryKey: ['portal-user', clientId] });
                   if (creds) setCreatedCreds(creds);
                 }}
                 extractErrorMessage={extractErrorMessage}
@@ -129,10 +132,14 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
           defaultName={contactName || clientName || ''}
           defaultEmail={contactEmail || ''}
           onClose={() => setShowCreate(false)}
-          onSuccess={(email, password) => {
+          onSuccess={async (email, password) => {
             setCreatedCreds({ email, password, oneTime: true });
-            qc.invalidateQueries({ queryKey: ['portal-user', clientId] });
-            refetchPortalUser();
+            // Force immediate refetch after invalidation
+            await qc.invalidateQueries({
+              queryKey: ['portal-user', clientId],
+              refetchType: 'all'
+            });
+            await refetchPortalUser();
             setShowCreate(false);
           }}
         />
@@ -154,8 +161,11 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
         <RevokeModal
           userId={portalUser.id}
           onClose={() => setShowRevoke(false)}
-          onSuccess={() => {
-            qc.invalidateQueries({ queryKey: ['portal-user', clientId] });
+          onSuccess={async () => {
+            await qc.invalidateQueries({
+              queryKey: ['portal-user', clientId],
+              refetchType: 'all'
+            });
             setShowRevoke(false);
           }}
         />
