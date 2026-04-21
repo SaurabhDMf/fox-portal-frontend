@@ -145,6 +145,34 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     return result;
   }, [tasks, statusFilter, priorityFilter, search]);
 
+  // Group subtasks under their parent tasks for accordion display.
+  // A task is a subtask if it has parent_task_id pointing to another task in the list.
+  const { parentTasks, subtasksByParent } = useMemo(() => {
+    const byParent = new Map<string, ProjectTask[]>();
+    const parents: ProjectTask[] = [];
+    const idSet = new Set(filtered.map(t => t.id));
+    for (const t of filtered) {
+      const pid = (t as any).parent_task_id;
+      if (pid && idSet.has(pid)) {
+        if (!byParent.has(pid)) byParent.set(pid, []);
+        byParent.get(pid)!.push(t);
+      } else {
+        parents.push(t);
+      }
+    }
+    return { parentTasks: parents, subtasksByParent: byParent };
+  }, [filtered]);
+
+  // Expansion state for accordion rows
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = useCallback((id: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
   // Filter option queries
   const { data: sprints } = useQuery({
     queryKey: ['project-sprints-list', projectId],
