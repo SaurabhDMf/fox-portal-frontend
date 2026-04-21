@@ -171,11 +171,41 @@ function CreatePortalModal({ clientId, defaultName, defaultEmail, onClose, onSuc
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
   const [password, setPassword] = useState('');
+  const [autoGenerate, setAutoGenerate] = useState(true);
 
   const mut = useMutation({
-    mutationFn: () => api.post('/users/invite-client', { full_name: name, email, password, client_id: clientId }).then(r => r.data),
-    onSuccess: () => { toast.success('Portal access created'); onSuccess(email, password); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to create portal access'),
+    mutationFn: () => {
+      const payload: Record<string, any> = {
+        client_id: clientId,
+        email,
+        full_name: name,
+      };
+      if (!autoGenerate && password.trim()) {
+        payload.password = password.trim();
+      }
+      return api.post('/users/invite-client', payload).then(r => r.data);
+    },
+    onSuccess: (data: any) => {
+      const returnedPassword: string | undefined =
+        data?.temp_password
+          ?? data?.data?.temp_password
+          ?? data?.password
+          ?? (!autoGenerate ? password : undefined);
+      if (!returnedPassword) {
+        toast.error('Portal access created but no password was returned');
+        onClose();
+        return;
+      }
+      toast.success('Portal access created');
+      onSuccess(email, returnedPassword);
+    },
+    onError: (e: any) =>
+      toast.error(
+        e?.response?.data?.detail
+          || e?.response?.data?.error
+          || e?.response?.data?.message
+          || 'Failed to create portal access'
+      ),
   });
 
   return (
