@@ -641,7 +641,12 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                   dimmed: isContextOnly,
                 })];
                 if (isOpen && children.length > 0) {
-                  for (const c of children) rows.push(renderTaskRow(c, { isSubtask: true }));
+                  for (const c of children) {
+                    rows.push(renderTaskRow(c, {
+                      isSubtask: true,
+                      dimmed: dimmedSubtaskIds.has(c.id),
+                    }));
+                  }
                 }
                 return rows;
               })
