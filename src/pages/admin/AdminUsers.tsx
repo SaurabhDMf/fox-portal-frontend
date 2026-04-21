@@ -100,16 +100,6 @@ export default function AdminUsers() {
     }),
   });
 
-  // Clients tab data — fetched from /clients (companies), not /users
-  const { data: clientsData = [], isLoading: clientsLoading } = useQuery({
-    queryKey: ['clients-companies', search],
-    queryFn: () => api.get('/clients', { params: { search } }).then(r => {
-      const d = r.data;
-      return Array.isArray(d) ? d : (d?.clients || d?.data?.clients || d?.data || []);
-    }),
-    enabled: mainTab === 'clients',
-  });
-
   // User stats from backend
   const { data: userStats } = useQuery({
     queryKey: ['users-stats'],
@@ -135,44 +125,6 @@ export default function AdminUsers() {
     },
     onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error adding user'),
   });
-
-  const createClientMut = useMutation({
-    mutationFn: (d: ClientFormData) => api.post('/clients', d),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['clients-companies'] });
-      setShowAddClient(false);
-      toast.success('Client created successfully');
-    },
-    onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error creating client'),
-  });
-
-  const activatePortalMut = useMutation({
-    mutationFn: (clientId: string) => api.post(`/clients/${clientId}/activate-portal`).then(r => ({ clientId, data: r.data })),
-    onSuccess: ({ clientId, data }) => {
-      const user = data?.data ?? data?.user ?? data ?? {};
-      const tempPassword: string | undefined = data?.temp_password ?? user?.temp_password;
-
-      // Optimistically mark this client as portal-activated so the row flips immediately
-      qc.setQueriesData({ queryKey: ['clients-companies'] }, (old: any) => {
-        if (!Array.isArray(old)) return old;
-        return old.map((c: any) =>
-          c.id === clientId
-            ? { ...c, portal_active: true, has_portal_user: true, portal_user_id: user?.id ?? c.portal_user_id ?? true }
-            : c
-        );
-      });
-      qc.invalidateQueries({ queryKey: ['clients-companies'] });
-
-      if (tempPassword) {
-        setActivatePortalSuccess({ email: user?.email || '', password: tempPassword });
-      } else {
-        toast.success('Portal activated');
-      }
-    },
-    onError: (e: any) => toast.error(e.response?.data?.detail || e.response?.data?.error || e.response?.data?.message || 'Failed to activate portal'),
-  });
-
-  const editMut = useMutation({
     mutationFn: (d: { id: string; data: typeof form }) => api.put(`/users/${d.id}`, d.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
