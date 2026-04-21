@@ -44,7 +44,6 @@ export default function AdminSettings() {
   const navigate = useNavigate();
   const [tab, setTab] = useState('profile');
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
-  const [pw, setPw] = useState({ current: '', newPw: '', confirm: '' });
   const [saving, setSaving] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: user?.full_name || '', department: user?.department || '', job_title: user?.job_title || '' });
@@ -52,18 +51,6 @@ export default function AdminSettings() {
     Object.fromEntries(notificationSettings.map(n => [n.key, true]))
   );
   const [selectedAccent, setSelectedAccent] = useState('244 94% 62%');
-
-  const changePw = async () => {
-    if (pw.newPw !== pw.confirm) return toast.error('Passwords do not match');
-    if (pw.newPw.length < 6) return toast.error('Password must be at least 6 characters');
-    setSaving(true);
-    try {
-      await api.put('/auth/change-password', { current_password: pw.current, new_password: pw.newPw });
-      toast.success('Password changed');
-      setPw({ current: '', newPw: '', confirm: '' });
-    } catch (e: any) { toast.error(e.response?.data?.message || 'Error'); }
-    finally { setSaving(false); }
-  };
 
   const toggleNotification = (key: string) => {
     setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
