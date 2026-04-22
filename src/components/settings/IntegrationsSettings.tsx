@@ -94,31 +94,7 @@ export default function IntegrationsSettings() {
       }
     }
 
-    if (section === 'smtp') {
-      payload.smtp_enabled = !!form.smtp_enabled;
-      payload.smtp_host = form.smtp_host || null;
-      payload.smtp_port = form.smtp_port ? Number(form.smtp_port) : null;
-      payload.smtp_username = form.smtp_username || null;
-      payload.smtp_from_address = form.smtp_from_address || null;
-      if (form.smtp_password && form.smtp_password !== MASKED) {
-        payload.smtp_password = form.smtp_password;
-      }
-    }
-
     return payload;
-  };
-
-  const sendTestEmail = async () => {
-    if (!testEmailTo.trim()) { toast.error('Enter a recipient email'); return; }
-    setTestingSmtp(true);
-    try {
-      await api.post('/company/test-smtp', { to: testEmailTo.trim() });
-      toast.success(`Test email sent to ${testEmailTo}`);
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || e.response?.data?.error || 'Failed to send test email');
-    } finally {
-      setTestingSmtp(false);
-    }
   };
 
   const inputCls = "w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
