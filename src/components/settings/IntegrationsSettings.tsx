@@ -219,65 +219,6 @@ export default function IntegrationsSettings() {
         </div>
       </div>
 
-      {/* SMTP */}
-      <div className="glass-card p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <Mail className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold">Email (SMTP)</h2>
-        </div>
-        <Toggle
-          label="Email Enabled"
-          checked={!!form.smtp_enabled}
-          onChange={(v) => setForm(f => ({ ...f, smtp_enabled: v }))}
-        />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls}>Host</label>
-            <input value={form.smtp_host || ''} placeholder="smtp.gmail.com" onChange={e => setForm(f => ({ ...f, smtp_host: e.target.value }))} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Port</label>
-            <input type="number" value={form.smtp_port || ''} placeholder="587" onChange={e => setForm(f => ({ ...f, smtp_port: e.target.value }))} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Username</label>
-            <input value={form.smtp_username || ''} placeholder="user@example.com" onChange={e => setForm(f => ({ ...f, smtp_username: e.target.value }))} className={inputCls} />
-          </div>
-          <SecretField name="smtp_password" label="Password" value={form.smtp_password || ''} />
-          <div className="md:col-span-2">
-            <label className={labelCls}>From Address</label>
-            <input value={form.smtp_from_address || ''} placeholder="noreply@yourcompany.com" onChange={e => setForm(f => ({ ...f, smtp_from_address: e.target.value }))} className={inputCls} />
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3 pt-2 border-t border-border">
-          <div className="flex-1 min-w-[200px]">
-            <label className={labelCls}>Send Test Email To</label>
-            <input
-              type="email"
-              value={testEmailTo}
-              onChange={e => setTestEmailTo(e.target.value)}
-              placeholder="admin@yourcompany.com"
-              className={inputCls}
-            />
-          </div>
-          <button
-            onClick={sendTestEmail}
-            disabled={testingSmtp || !form.smtp_enabled}
-            title={!form.smtp_enabled ? 'Enable Email and save first' : 'Send test email'}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80 transition-colors disabled:opacity-50"
-          >
-            <Send className="h-3.5 w-3.5" /> {testingSmtp ? 'Sending…' : 'Send Test Email'}
-          </button>
-          <button
-            onClick={() => saveMut.mutate(buildPayload('smtp'))}
-            disabled={saveMut.isPending}
-            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50"
-          >
-            {saveMut.isPending ? 'Saving…' : 'Save Email Settings'}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
