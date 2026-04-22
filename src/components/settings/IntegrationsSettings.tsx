@@ -64,7 +64,7 @@ export default function IntegrationsSettings() {
   });
 
   // Build a payload that omits any secret field still showing the masked placeholder.
-  const buildPayload = (section: 'stripe' | 'razorpay' | 'smtp') => {
+  const buildPayload = (section: 'stripe' | 'razorpay') => {
     const payload: Record<string, any> = {};
 
     if (section === 'stripe') {
