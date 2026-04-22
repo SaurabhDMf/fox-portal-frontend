@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { CreditCard, Mail, Send, Eye, EyeOff } from 'lucide-react';
+import { CreditCard, Eye, EyeOff } from 'lucide-react';
 
 const MASKED = '••••••••';
 
