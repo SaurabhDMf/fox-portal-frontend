@@ -670,7 +670,7 @@ function TaskDetailDrawer({ task, projectId, onClose }: { task: any; projectId: 
                       <span className="text-xs font-medium">{c.author_name || c.full_name || 'Unknown'}</span>
                       <span className="text-[10px] text-muted-foreground">{fmtDate(c.created_at)}</span>
                     </div>
-                    <p className="text-sm text-foreground pl-7">{c.text || c.content || c.body || c.message}</p>
+                    <p className="text-sm text-foreground pl-7 whitespace-pre-wrap break-words">{c.text || c.content || c.body || c.message}</p>
                   </div>
                 ))}
               </div>
