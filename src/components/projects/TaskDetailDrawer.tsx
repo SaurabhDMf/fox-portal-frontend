@@ -647,7 +647,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                           </div>
                         )}
                       </div>
-                      <p className="text-sm mt-0.5">{c.text}</p>
+                      <p className="text-sm mt-0.5 whitespace-pre-wrap break-words">{c.text}</p>
                     </div>
                   </div>
                 ))}
