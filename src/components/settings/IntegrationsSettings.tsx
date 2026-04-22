@@ -19,14 +19,6 @@ interface CompanyData {
   razorpay_key_id?: string;
   razorpay_key_secret?: string;
   razorpay_key_secret_set?: boolean;
-  // SMTP
-  smtp_enabled?: boolean;
-  smtp_host?: string;
-  smtp_port?: string | number;
-  smtp_username?: string;
-  smtp_password?: string;
-  smtp_password_set?: boolean;
-  smtp_from_address?: string;
   // Misc
   admin_email?: string;
   email?: string;
