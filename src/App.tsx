@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { usePermissionsRefresh } from "@/hooks/usePermissionsRefresh";
 import { ConfirmDialogHost } from "@/lib/confirmDialog";
 import { DependencyDeleteHost } from "@/lib/dependencyDelete";
+import NotificationsSocketBridge from "@/hooks/useNotificationsSocket";
 
 import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -88,6 +89,7 @@ const App = () => (
     <DependencyDeleteHost />
     <BrowserRouter>
       <PermissionsLoader>
+      <NotificationsSocketBridge />
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<Login />} />
