@@ -41,8 +41,6 @@ export default function IntegrationsSettings() {
 
   const [form, setForm] = useState<CompanyData>({});
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
-  const [testEmailTo, setTestEmailTo] = useState('');
-  const [testingSmtp, setTestingSmtp] = useState(false);
 
   // Sync form with fetched company once available; mask secret-set fields with placeholder.
   useEffect(() => {
@@ -60,17 +58,8 @@ export default function IntegrationsSettings() {
       razorpay_key_secret: company.razorpay_key_secret_set ? MASKED : '',
       razorpay_key_secret_set: company.razorpay_key_secret_set,
 
-      smtp_enabled: !!company.smtp_enabled,
-      smtp_host: company.smtp_host || '',
-      smtp_port: company.smtp_port || '',
-      smtp_username: company.smtp_username || '',
-      smtp_password: company.smtp_password_set ? MASKED : '',
-      smtp_password_set: company.smtp_password_set,
-      smtp_from_address: company.smtp_from_address || '',
-
       admin_email: company.admin_email || company.email || '',
     });
-    setTestEmailTo(company.admin_email || company.email || '');
   }, [company]);
 
   const saveMut = useMutation({
