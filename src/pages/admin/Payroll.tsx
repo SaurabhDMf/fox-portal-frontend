@@ -658,7 +658,7 @@ function RunDetail({ run, onBack, onApprove, onPay, onSendPayslips, onUpdateEmpl
                   <th className="pb-3 px-3 text-right font-medium">LOP</th>
                   <th className="pb-3 px-3 text-right font-medium">Deductions</th>
                   <th className="pb-3 px-3 text-right font-medium">Net Pay</th>
-                  {!isLocked && <th className="pb-3 pl-3 text-right font-medium">Actions</th>}
+                  <th className="pb-3 pl-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
