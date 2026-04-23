@@ -7,6 +7,31 @@ import api from '@/lib/api';
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from '@/components/expenses/ExpenseFormModal';
 import { INCOME_SOURCES } from './IncomeFormModal';
 
+const PDFJS_VERSION = '4.0.379';
+const PDFJS_CDN = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/legacy/build`;
+let pdfJsPromise: Promise<any> | null = null;
+
+function loadPdfJs(): Promise<any> {
+  if (pdfJsPromise) return pdfJsPromise;
+  pdfJsPromise = new Promise((resolve, reject) => {
+    if ((window as any).pdfjsLib) {
+      (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.js`;
+      return resolve((window as any).pdfjsLib);
+    }
+    const script = document.createElement('script');
+    script.src = `${PDFJS_CDN}/pdf.min.js`;
+    script.onload = () => {
+      const lib = (window as any).pdfjsLib;
+      if (!lib) return reject(new Error('Failed to load pdfjs'));
+      lib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.js`;
+      resolve(lib);
+    };
+    script.onerror = () => reject(new Error('Failed to load pdfjs from CDN'));
+    document.head.appendChild(script);
+  });
+  return pdfJsPromise;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
