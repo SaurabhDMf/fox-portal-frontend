@@ -188,3 +188,23 @@ CREATE TABLE income (
 - Validation: `title`, `source`, `amount > 0`, `income_date` required.
 - Add a new permission module key: `balance_sheet` (with standard `can_view/create/edit/delete/export` flags).
 - Expose `balance_sheet` in `enabled_modules` returned by `/auth/login`.
+
+---
+
+## Bank Statement Import (Frontend-only for now)
+
+The frontend parses Excel/CSV/PDF bank statements client-side and POSTs each
+detected transaction to the existing `/api/v1/income` or `/api/v1/expenses`
+endpoints. **No new backend endpoints required.**
+
+### Optional future enhancements
+- `POST /api/v1/bank-statements/import` — accept raw file, store original, return parsed rows. Lets us audit imports.
+- `bank_statement_imports` table: `id, file_name, uploaded_by, total_rows, success_count, failed_count, created_at`.
+- Add `import_batch_id` column to `income` and `expenses` tables to link rows back to the source upload.
+
+### Frontend behavior (already implemented)
+1. Upload `.xlsx / .xls / .csv / .pdf` (drag-drop or picker).
+2. Auto-detect header row + column mapping (Date, Description, Debit, Credit, Amount, Reference).
+3. User confirms / remaps columns + picks default expense category & income source.
+4. Each row classified as Income (credit > 0) or Expense (debit > 0). User can edit type, amount, date, description, category inline before import.
+5. POST one-by-one to `/income` or `/expenses` with `notes: "Imported from <filename>"`.
