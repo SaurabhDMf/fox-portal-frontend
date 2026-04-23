@@ -111,21 +111,50 @@ export default function BalanceSheet() {
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
-  const TabBtn = ({ id, label }: { id: Tab; label: string }) => (
+  const TabBtn = ({ id, label, count }: { id: Tab; label: string; count?: number }) => (
     <button onClick={() => setTab(id)}
-      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+      className={`relative px-4 py-2.5 text-sm font-medium transition-all flex items-center gap-2 ${
+        tab === id
+          ? 'text-primary'
+          : 'text-muted-foreground hover:text-foreground'
+      }`}>
       {label}
+      {typeof count === 'number' && (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+          tab === id ? 'bg-primary/15 text-primary' : 'bg-secondary text-muted-foreground'
+        }`}>{count}</span>
+      )}
+      {tab === id && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t" />}
     </button>
   );
 
+  const periodLabel = month === 'all'
+    ? `${year}`
+    : `${new Date(2000, month, 1).toLocaleString('default', { month: 'long' })} ${year}`;
+
   return (
     <div className="page-container">
-      <div className="page-header">
+      {/* Title row */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
-          <h1 className="page-title">Balance Sheet</h1>
-          <p className="page-subtitle">Track income, expenses, and net balance</p>
+          <h1 className="page-title">Input Sheet</h1>
+          <p className="page-subtitle">Track income, expenses, and net balance · <span className="text-foreground font-medium">{periodLabel}</span></p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => { setEditingIncome(null); setIncomeModal(true); }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-success/15 text-success text-sm font-medium hover:bg-success/25 transition-all">
+            <ArrowUpRight className="h-4 w-4" /> Income
+          </button>
+          <button onClick={() => { setEditingExpense(null); setExpenseModal(true); }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-destructive/15 text-destructive text-sm font-medium hover:bg-destructive/25 transition-all">
+            <ArrowDownRight className="h-4 w-4" /> Expense
+          </button>
+        </div>
+      </div>
+
+      {/* Toolbar: filters + import actions */}
+      <div className="glass-card p-3 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 mr-auto">
           <select value={month} onChange={e => setMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
             className="px-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none">
             <option value="all">All Months</option>
@@ -137,57 +166,64 @@ export default function BalanceSheet() {
             className="px-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none">
             {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
-          <button onClick={() => setBankImportModal(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/15 text-primary text-sm font-medium hover:bg-primary/25 transition-all">
-            <Upload className="h-4 w-4" /> Upload Statement
-          </button>
-          <button onClick={() => setImportModal(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-all">
-            <Download className="h-4 w-4" /> Import Won Leads
-          </button>
-          <button onClick={() => { setEditingIncome(null); setIncomeModal(true); }}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/15 text-success text-sm font-medium hover:bg-success/25 transition-all">
-            <ArrowUpRight className="h-4 w-4" /> Add Income
-          </button>
-          <button onClick={() => { setEditingExpense(null); setExpenseModal(true); }}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/15 text-destructive text-sm font-medium hover:bg-destructive/25 transition-all">
-            <ArrowDownRight className="h-4 w-4" /> Add Expense
-          </button>
         </div>
+        <button onClick={() => setBankImportModal(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-all">
+          <Upload className="h-4 w-4" /> Upload Statement
+        </button>
+        <button onClick={() => setImportModal(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-all">
+          <Download className="h-4 w-4" /> Import Won Leads
+        </button>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="stat-card border-l-4 border-l-success">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Income</p>
-            <TrendingUp className="h-4 w-4 text-success" />
+        <div className="glass-card p-5 relative overflow-hidden group hover:shadow-lg transition-shadow">
+          <div className="absolute inset-y-0 left-0 w-1 bg-success" />
+          <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-success/5 group-hover:bg-success/10 transition-colors" />
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Total Income</p>
+              <div className="p-1.5 rounded-lg bg-success/10"><TrendingUp className="h-4 w-4 text-success" /></div>
+            </div>
+            <p className="text-2xl font-bold mt-2 text-success">{fmtINR(totalIncome)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{filteredIncome.length} {filteredIncome.length === 1 ? 'entry' : 'entries'}</p>
           </div>
-          <p className="text-2xl font-bold mt-1 text-success">{fmtINR(totalIncome)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{filteredIncome.length} entries</p>
         </div>
-        <div className="stat-card border-l-4 border-l-destructive">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Expenses</p>
-            <TrendingDown className="h-4 w-4 text-destructive" />
+        <div className="glass-card p-5 relative overflow-hidden group hover:shadow-lg transition-shadow">
+          <div className="absolute inset-y-0 left-0 w-1 bg-destructive" />
+          <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-destructive/5 group-hover:bg-destructive/10 transition-colors" />
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Total Expenses</p>
+              <div className="p-1.5 rounded-lg bg-destructive/10"><TrendingDown className="h-4 w-4 text-destructive" /></div>
+            </div>
+            <p className="text-2xl font-bold mt-2 text-destructive">{fmtINR(totalExpense)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{filteredExpenses.length} {filteredExpenses.length === 1 ? 'entry' : 'entries'}</p>
           </div>
-          <p className="text-2xl font-bold mt-1 text-destructive">{fmtINR(totalExpense)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{filteredExpenses.length} entries</p>
         </div>
-        <div className={`stat-card border-l-4 ${netBalance >= 0 ? 'border-l-primary' : 'border-l-warning'}`}>
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Net Balance</p>
-            <Wallet className={`h-4 w-4 ${netBalance >= 0 ? 'text-primary' : 'text-warning'}`} />
+        <div className="glass-card p-5 relative overflow-hidden group hover:shadow-lg transition-shadow">
+          <div className={`absolute inset-y-0 left-0 w-1 ${netBalance >= 0 ? 'bg-primary' : 'bg-warning'}`} />
+          <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full ${netBalance >= 0 ? 'bg-primary/5 group-hover:bg-primary/10' : 'bg-warning/5 group-hover:bg-warning/10'} transition-colors`} />
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Net Balance</p>
+              <div className={`p-1.5 rounded-lg ${netBalance >= 0 ? 'bg-primary/10' : 'bg-warning/10'}`}>
+                <Wallet className={`h-4 w-4 ${netBalance >= 0 ? 'text-primary' : 'text-warning'}`} />
+              </div>
+            </div>
+            <p className={`text-2xl font-bold mt-2 ${netBalance >= 0 ? 'text-primary' : 'text-warning'}`}>{fmtINR(netBalance)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{netBalance >= 0 ? '↑ Profit' : '↓ Loss'}</p>
           </div>
-          <p className={`text-2xl font-bold mt-1 ${netBalance >= 0 ? 'text-primary' : 'text-warning'}`}>{fmtINR(netBalance)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{netBalance >= 0 ? 'Profit' : 'Loss'}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 border-b border-border pb-2">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-border">
         <TabBtn id="overview" label="Overview" />
-        <TabBtn id="income" label={`Income (${filteredIncome.length})`} />
-        <TabBtn id="expenses" label={`Expenses (${filteredExpenses.length})`} />
+        <TabBtn id="income" label="Income" count={filteredIncome.length} />
+        <TabBtn id="expenses" label="Expenses" count={filteredExpenses.length} />
       </div>
 
       {tab === 'overview' && (
@@ -243,12 +279,15 @@ export default function BalanceSheet() {
       )}
 
       {(tab === 'income' || tab === 'expenses') && (
-        <div className="glass-card p-4">
-          <div className="relative max-w-md">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${tab}...`}
+              className="w-full pl-9 pr-3 py-2 rounded-lg bg-card border border-border text-sm focus:border-primary focus:outline-none transition-colors" />
           </div>
+          <span className="text-xs text-muted-foreground ml-auto">
+            Showing <span className="text-foreground font-semibold">{tab === 'income' ? filteredIncome.length : filteredExpenses.length}</span> of {tab === 'income' ? incomes.length : expenses.length}
+          </span>
         </div>
       )}
 
@@ -256,35 +295,41 @@ export default function BalanceSheet() {
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground">
+              <thead className="bg-secondary/40 text-[11px] uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="text-left px-4 py-3">Date</th>
-                  <th className="text-left px-4 py-3">Title</th>
-                  <th className="text-left px-4 py-3">Source</th>
-                  <th className="text-left px-4 py-3">Client</th>
-                  <th className="text-left px-4 py-3">Method</th>
-                  <th className="text-right px-4 py-3">Amount</th>
-                  <th className="text-right px-4 py-3">Actions</th>
+                  <th className="text-left px-4 py-3 font-medium">Date</th>
+                  <th className="text-left px-4 py-3 font-medium">Title</th>
+                  <th className="text-left px-4 py-3 font-medium">Source</th>
+                  <th className="text-left px-4 py-3 font-medium">Client</th>
+                  <th className="text-left px-4 py-3 font-medium">Method</th>
+                  <th className="text-right px-4 py-3 font-medium">Amount</th>
+                  <th className="text-right px-4 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredIncome.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">No income entries</td></tr>
+                  <tr><td colSpan={7}>
+                    <div className="flex flex-col items-center justify-center py-14 text-muted-foreground">
+                      <div className="p-3 rounded-full bg-success/10 mb-3"><ArrowUpRight className="h-6 w-6 text-success" /></div>
+                      <p className="text-sm font-medium">No income entries</p>
+                      <p className="text-xs mt-1">Add an income or import won leads to get started</p>
+                    </div>
+                  </td></tr>
                 ) : filteredIncome.map(i => (
-                  <tr key={i.id} className="border-t border-border hover:bg-secondary/20">
-                    <td className="px-4 py-3 whitespace-nowrap">{i.income_date?.slice(0, 10)}</td>
+                  <tr key={i.id} className="border-t border-border hover:bg-secondary/20 transition-colors group">
+                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">{i.income_date?.slice(0, 10)}</td>
                     <td className="px-4 py-3 font-medium">
                       {i.title}
-                      {i.lead_id && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">CRM</span>}
+                      {i.lead_id && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">CRM</span>}
                     </td>
-                    <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-md bg-success/10 text-success text-xs">{i.source}</span></td>
+                    <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-md bg-success/10 text-success text-xs font-medium">{i.source}</span></td>
                     <td className="px-4 py-3 text-muted-foreground">{i.client_name || '—'}</td>
                     <td className="px-4 py-3 text-muted-foreground">{i.payment_method || '—'}</td>
-                    <td className="px-4 py-3 text-right font-medium text-success">+{fmtINR(Number(i.amount || 0))}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-success whitespace-nowrap">+{fmtINR(Number(i.amount || 0))}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => { setEditingIncome(i); setIncomeModal(true); }} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground"><Pencil className="h-4 w-4" /></button>
-                        <button onClick={() => i.id && deleteIncome.mutate(i.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="h-4 w-4" /></button>
+                      <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setEditingIncome(i); setIncomeModal(true); }} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => i.id && deleteIncome.mutate(i.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive transition-colors" title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
                       </div>
                     </td>
                   </tr>
@@ -299,32 +344,38 @@ export default function BalanceSheet() {
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground">
+              <thead className="bg-secondary/40 text-[11px] uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="text-left px-4 py-3">Date</th>
-                  <th className="text-left px-4 py-3">Title</th>
-                  <th className="text-left px-4 py-3">Category</th>
-                  <th className="text-left px-4 py-3">Vendor</th>
-                  <th className="text-left px-4 py-3">Method</th>
-                  <th className="text-right px-4 py-3">Amount</th>
-                  <th className="text-right px-4 py-3">Actions</th>
+                  <th className="text-left px-4 py-3 font-medium">Date</th>
+                  <th className="text-left px-4 py-3 font-medium">Title</th>
+                  <th className="text-left px-4 py-3 font-medium">Category</th>
+                  <th className="text-left px-4 py-3 font-medium">Vendor</th>
+                  <th className="text-left px-4 py-3 font-medium">Method</th>
+                  <th className="text-right px-4 py-3 font-medium">Amount</th>
+                  <th className="text-right px-4 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredExpenses.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">No expense entries</td></tr>
+                  <tr><td colSpan={7}>
+                    <div className="flex flex-col items-center justify-center py-14 text-muted-foreground">
+                      <div className="p-3 rounded-full bg-destructive/10 mb-3"><ArrowDownRight className="h-6 w-6 text-destructive" /></div>
+                      <p className="text-sm font-medium">No expense entries</p>
+                      <p className="text-xs mt-1">Add an expense to track outflows</p>
+                    </div>
+                  </td></tr>
                 ) : filteredExpenses.map(e => (
-                  <tr key={e.id} className="border-t border-border hover:bg-secondary/20">
-                    <td className="px-4 py-3 whitespace-nowrap">{e.expense_date?.slice(0, 10)}</td>
+                  <tr key={e.id} className="border-t border-border hover:bg-secondary/20 transition-colors group">
+                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">{e.expense_date?.slice(0, 10)}</td>
                     <td className="px-4 py-3 font-medium">{e.title}</td>
-                    <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs">{e.category}</span></td>
+                    <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">{e.category}</span></td>
                     <td className="px-4 py-3 text-muted-foreground">{e.vendor || '—'}</td>
                     <td className="px-4 py-3 text-muted-foreground">{e.payment_method || '—'}</td>
-                    <td className="px-4 py-3 text-right font-medium text-destructive">-{fmtINR(Number(e.amount || 0))}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-destructive whitespace-nowrap">-{fmtINR(Number(e.amount || 0))}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => { setEditingExpense(e); setExpenseModal(true); }} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground"><Pencil className="h-4 w-4" /></button>
-                        <button onClick={() => e.id && deleteExpense.mutate(e.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="h-4 w-4" /></button>
+                      <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setEditingExpense(e); setExpenseModal(true); }} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => e.id && deleteExpense.mutate(e.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive transition-colors" title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
                       </div>
                     </td>
                   </tr>
