@@ -32,6 +32,7 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import Permissions from "./pages/admin/Permissions";
 import RolesPermissions from "./pages/admin/RolesPermissions";
 import EmailPage from "./pages/admin/Email";
+import Expenses from "./pages/admin/Expenses";
 
 // Employee
 import EmpDashboard from "./pages/emp/EmpDashboard";
@@ -111,6 +112,7 @@ const App = () => (
           <Route path="tickets/:id" element={<TicketDetail />} />
           <Route path="tracker" element={<Tracker />} />
           <Route path="payroll" element={<Payroll />} />
+          <Route path="expenses" element={<Expenses />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<AdminSettings />} />
@@ -134,6 +136,7 @@ const App = () => (
           <Route path="tickets/:id" element={<TicketDetail />} />
           <Route path="tracker" element={<Tracker />} />
           <Route path="payroll" element={<Payroll />} />
+          <Route path="expenses" element={<Expenses />} />
           <Route path="profile" element={<EmpProfile />} />
         </Route>
 
