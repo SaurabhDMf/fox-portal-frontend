@@ -604,7 +604,8 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                   <SubtaskRowActions subtask={st} onEdit={(s) => setOpenSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
                 </div>
               </div>
-            ))}
+              );
+            })}
             {(!task.subtasks || task.subtasks.length === 0) && <p className="text-xs text-muted-foreground">No subtasks</p>}
           </div>
 
