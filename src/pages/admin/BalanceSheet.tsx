@@ -35,6 +35,7 @@ export default function BalanceSheet() {
   const [incomeModal, setIncomeModal] = useState(false);
   const [editingIncome, setEditingIncome] = useState<IncomeEntry | null>(null);
   const [importModal, setImportModal] = useState(false);
+  const [bankImportModal, setBankImportModal] = useState(false);
 
   const [expenseModal, setExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -136,6 +137,10 @@ export default function BalanceSheet() {
             className="px-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none">
             {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
+          <button onClick={() => setBankImportModal(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/15 text-primary text-sm font-medium hover:bg-primary/25 transition-all">
+            <Upload className="h-4 w-4" /> Upload Statement
+          </button>
           <button onClick={() => setImportModal(true)}
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-all">
             <Download className="h-4 w-4" /> Import Won Leads
@@ -333,6 +338,7 @@ export default function BalanceSheet() {
       <IncomeFormModal open={incomeModal} onClose={() => setIncomeModal(false)} income={editingIncome} />
       <ExpenseFormModal open={expenseModal} onClose={() => setExpenseModal(false)} expense={editingExpense} />
       <ImportLeadsModal open={importModal} onClose={() => setImportModal(false)} importedLeadIds={importedLeadIds} />
+      <BankStatementImportModal open={bankImportModal} onClose={() => setBankImportModal(false)} />
     </div>
   );
 }
