@@ -1,10 +1,11 @@
+import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useSidebarCollapsed } from './PortalLayout';
 import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
-  ChevronLeft, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale
+  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -16,6 +17,7 @@ interface NavItem {
   path: string;
   icon: React.ElementType;
   module?: string;
+  children?: NavItem[];
 }
 
 const adminNav: NavItem[] = [
@@ -30,8 +32,13 @@ const adminNav: NavItem[] = [
   { label: 'Tickets', path: '/admin/tickets', icon: Ticket, module: 'tickets' },
   { label: 'Tracker', path: '/admin/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/admin/payroll', icon: Wallet, module: 'payroll' },
-  { label: 'Expenses', path: '/admin/expenses', icon: Receipt },
-  { label: 'Balance Sheet', path: '/admin/balance-sheet', icon: Scale },
+  {
+    label: 'Balance Sheet', path: '/admin/balance-sheet', icon: Scale,
+    children: [
+      { label: 'Expenses', path: '/admin/expenses', icon: Receipt },
+      { label: 'Input Sheet', path: '/admin/balance-sheet', icon: ListChecks },
+    ],
+  },
   { label: 'Users', path: '/admin/users', icon: Users, module: 'users' },
   { label: 'Reports', path: '/admin/reports', icon: BarChart3, module: 'reports' },
   { label: 'Settings', path: '/admin/settings', icon: Settings },
