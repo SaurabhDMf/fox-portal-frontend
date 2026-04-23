@@ -111,21 +111,50 @@ export default function BalanceSheet() {
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
-  const TabBtn = ({ id, label }: { id: Tab; label: string }) => (
+  const TabBtn = ({ id, label, count }: { id: Tab; label: string; count?: number }) => (
     <button onClick={() => setTab(id)}
-      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+      className={`relative px-4 py-2.5 text-sm font-medium transition-all flex items-center gap-2 ${
+        tab === id
+          ? 'text-primary'
+          : 'text-muted-foreground hover:text-foreground'
+      }`}>
       {label}
+      {typeof count === 'number' && (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+          tab === id ? 'bg-primary/15 text-primary' : 'bg-secondary text-muted-foreground'
+        }`}>{count}</span>
+      )}
+      {tab === id && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t" />}
     </button>
   );
 
+  const periodLabel = month === 'all'
+    ? `${year}`
+    : `${new Date(2000, month, 1).toLocaleString('default', { month: 'long' })} ${year}`;
+
   return (
     <div className="page-container">
-      <div className="page-header">
+      {/* Title row */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
-          <h1 className="page-title">Balance Sheet</h1>
-          <p className="page-subtitle">Track income, expenses, and net balance</p>
+          <h1 className="page-title">Input Sheet</h1>
+          <p className="page-subtitle">Track income, expenses, and net balance · <span className="text-foreground font-medium">{periodLabel}</span></p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => { setEditingIncome(null); setIncomeModal(true); }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-success/15 text-success text-sm font-medium hover:bg-success/25 transition-all">
+            <ArrowUpRight className="h-4 w-4" /> Income
+          </button>
+          <button onClick={() => { setEditingExpense(null); setExpenseModal(true); }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-destructive/15 text-destructive text-sm font-medium hover:bg-destructive/25 transition-all">
+            <ArrowDownRight className="h-4 w-4" /> Expense
+          </button>
+        </div>
+      </div>
+
+      {/* Toolbar: filters + import actions */}
+      <div className="glass-card p-3 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 mr-auto">
           <select value={month} onChange={e => setMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
             className="px-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none">
             <option value="all">All Months</option>
@@ -137,57 +166,64 @@ export default function BalanceSheet() {
             className="px-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none">
             {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
-          <button onClick={() => setBankImportModal(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/15 text-primary text-sm font-medium hover:bg-primary/25 transition-all">
-            <Upload className="h-4 w-4" /> Upload Statement
-          </button>
-          <button onClick={() => setImportModal(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-all">
-            <Download className="h-4 w-4" /> Import Won Leads
-          </button>
-          <button onClick={() => { setEditingIncome(null); setIncomeModal(true); }}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/15 text-success text-sm font-medium hover:bg-success/25 transition-all">
-            <ArrowUpRight className="h-4 w-4" /> Add Income
-          </button>
-          <button onClick={() => { setEditingExpense(null); setExpenseModal(true); }}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/15 text-destructive text-sm font-medium hover:bg-destructive/25 transition-all">
-            <ArrowDownRight className="h-4 w-4" /> Add Expense
-          </button>
         </div>
+        <button onClick={() => setBankImportModal(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-all">
+          <Upload className="h-4 w-4" /> Upload Statement
+        </button>
+        <button onClick={() => setImportModal(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary text-foreground text-sm hover:bg-secondary/80 transition-all">
+          <Download className="h-4 w-4" /> Import Won Leads
+        </button>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="stat-card border-l-4 border-l-success">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Income</p>
-            <TrendingUp className="h-4 w-4 text-success" />
+        <div className="glass-card p-5 relative overflow-hidden group hover:shadow-lg transition-shadow">
+          <div className="absolute inset-y-0 left-0 w-1 bg-success" />
+          <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-success/5 group-hover:bg-success/10 transition-colors" />
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Total Income</p>
+              <div className="p-1.5 rounded-lg bg-success/10"><TrendingUp className="h-4 w-4 text-success" /></div>
+            </div>
+            <p className="text-2xl font-bold mt-2 text-success">{fmtINR(totalIncome)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{filteredIncome.length} {filteredIncome.length === 1 ? 'entry' : 'entries'}</p>
           </div>
-          <p className="text-2xl font-bold mt-1 text-success">{fmtINR(totalIncome)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{filteredIncome.length} entries</p>
         </div>
-        <div className="stat-card border-l-4 border-l-destructive">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Total Expenses</p>
-            <TrendingDown className="h-4 w-4 text-destructive" />
+        <div className="glass-card p-5 relative overflow-hidden group hover:shadow-lg transition-shadow">
+          <div className="absolute inset-y-0 left-0 w-1 bg-destructive" />
+          <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-destructive/5 group-hover:bg-destructive/10 transition-colors" />
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Total Expenses</p>
+              <div className="p-1.5 rounded-lg bg-destructive/10"><TrendingDown className="h-4 w-4 text-destructive" /></div>
+            </div>
+            <p className="text-2xl font-bold mt-2 text-destructive">{fmtINR(totalExpense)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{filteredExpenses.length} {filteredExpenses.length === 1 ? 'entry' : 'entries'}</p>
           </div>
-          <p className="text-2xl font-bold mt-1 text-destructive">{fmtINR(totalExpense)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{filteredExpenses.length} entries</p>
         </div>
-        <div className={`stat-card border-l-4 ${netBalance >= 0 ? 'border-l-primary' : 'border-l-warning'}`}>
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Net Balance</p>
-            <Wallet className={`h-4 w-4 ${netBalance >= 0 ? 'text-primary' : 'text-warning'}`} />
+        <div className="glass-card p-5 relative overflow-hidden group hover:shadow-lg transition-shadow">
+          <div className={`absolute inset-y-0 left-0 w-1 ${netBalance >= 0 ? 'bg-primary' : 'bg-warning'}`} />
+          <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full ${netBalance >= 0 ? 'bg-primary/5 group-hover:bg-primary/10' : 'bg-warning/5 group-hover:bg-warning/10'} transition-colors`} />
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Net Balance</p>
+              <div className={`p-1.5 rounded-lg ${netBalance >= 0 ? 'bg-primary/10' : 'bg-warning/10'}`}>
+                <Wallet className={`h-4 w-4 ${netBalance >= 0 ? 'text-primary' : 'text-warning'}`} />
+              </div>
+            </div>
+            <p className={`text-2xl font-bold mt-2 ${netBalance >= 0 ? 'text-primary' : 'text-warning'}`}>{fmtINR(netBalance)}</p>
+            <p className="text-xs text-muted-foreground mt-1">{netBalance >= 0 ? '↑ Profit' : '↓ Loss'}</p>
           </div>
-          <p className={`text-2xl font-bold mt-1 ${netBalance >= 0 ? 'text-primary' : 'text-warning'}`}>{fmtINR(netBalance)}</p>
-          <p className="text-xs text-muted-foreground mt-1">{netBalance >= 0 ? 'Profit' : 'Loss'}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 border-b border-border pb-2">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 border-b border-border">
         <TabBtn id="overview" label="Overview" />
-        <TabBtn id="income" label={`Income (${filteredIncome.length})`} />
-        <TabBtn id="expenses" label={`Expenses (${filteredExpenses.length})`} />
+        <TabBtn id="income" label="Income" count={filteredIncome.length} />
+        <TabBtn id="expenses" label="Expenses" count={filteredExpenses.length} />
       </div>
 
       {tab === 'overview' && (
