@@ -26,6 +26,16 @@ const fmtINR = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionD
 export default function Reports() {
   const [tab, setTab] = useState<Tab>('sales');
   const [year, setYear] = useState<number>(new Date().getFullYear());
+  const [month, setMonth] = useState<number | 'all'>('all'); // 0..11 or 'all'
+
+  const inSelectedRange = (dateStr?: string) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return false;
+    if (d.getFullYear() !== year) return false;
+    if (month !== 'all' && d.getMonth() !== month) return false;
+    return true;
+  };
 
   const { data: leadsData = [] } = useQuery({
     queryKey: ['leads-all'],
@@ -58,12 +68,16 @@ export default function Reports() {
   const presalesUsers = useMemo(() =>
     users.filter((u: any) => ['sales_rep', 'sales_manager', 'pre_sales'].includes(u.role)), [users]);
 
+  const filteredLeads = useMemo(() =>
+    leads.filter((l: any) => inSelectedRange(l.created_at || l.createdAt)),
+  [leads, year, month]);
+
   const leadsPerUser = useMemo(() => {
     const map: Record<string, { name: string; received: number; converted: number }> = {};
     presalesUsers.forEach((u: any) => {
       map[u.id] = { name: u.full_name || u.email || 'Unknown', received: 0, converted: 0 };
     });
-    leads.forEach((l: any) => {
+    filteredLeads.forEach((l: any) => {
       const uid = l.assigned_to || l.assigned_user_id || l.owner_id;
       if (!uid) return;
       if (!map[uid]) {
@@ -74,10 +88,10 @@ export default function Reports() {
       if (l.status === 'Closed Won' || l.converted) map[uid].converted += 1;
     });
     return Object.values(map).sort((a, b) => b.received - a.received);
-  }, [leads, presalesUsers, users]);
+  }, [filteredLeads, presalesUsers, users]);
 
-  const totalLeads = leads.length;
-  const totalConverted = leads.filter((l: any) => l.status === 'Closed Won' || l.converted).length;
+  const totalLeads = filteredLeads.length;
+  const totalConverted = filteredLeads.filter((l: any) => l.status === 'Closed Won' || l.converted).length;
   const conversionRate = totalLeads ? ((totalConverted / totalLeads) * 100).toFixed(1) : '0.0';
 
   const leadsByMonth = useMemo(() => {
@@ -150,12 +164,11 @@ export default function Reports() {
   const expenseByCategory = useMemo(() => {
     const map: Record<string, number> = {};
     expenses.forEach((e: any) => {
-      const d = new Date(e.expense_date);
-      if (d.getFullYear() !== year) return;
+      if (!inSelectedRange(e.expense_date)) return;
       map[e.category || 'Other'] = (map[e.category || 'Other'] || 0) + Number(e.amount || 0);
     });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [expenses, year]);
+  }, [expenses, year, month]);
 
   const expenseMonthlyByCategory = useMemo(() => {
     const cats = Array.from(new Set(expenses.map((e: any) => e.category || 'Other')));
@@ -190,6 +203,13 @@ export default function Reports() {
           <p className="page-subtitle">Business analytics and financial insights</p>
         </div>
         <div className="flex items-center gap-2">
+          <select value={month} onChange={e => setMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            className="px-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none">
+            <option value="all">All Months</option>
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i} value={i}>{new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}</option>
+            ))}
+          </select>
           <select value={year} onChange={e => setYear(Number(e.target.value))}
             className="px-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none">
             {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
