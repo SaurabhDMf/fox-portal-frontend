@@ -762,13 +762,17 @@ function RunDetail({ run, onBack, onApprove, onPay, onSendPayslips, onUpdateEmpl
                   <td className="py-3 px-3 text-right">—</td>
                   <td className="py-3 px-3 text-right text-destructive">-{fmtINR(totals.deductions)}</td>
                   <td className="py-3 px-3 text-right text-primary">{fmtINR(totals.net)}</td>
-                  {!isLocked && <td />}
+                  <td />
                 </tr>
               </tfoot>
             </table>
           </div>
         )}
       </div>
+
+      {payslipEmployee && (
+        <PayslipView run={run} employee={payslipEmployee} onClose={() => setPayslipEmployee(null)} />
+      )}
     </div>
   );
 }
