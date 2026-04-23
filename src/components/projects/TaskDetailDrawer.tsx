@@ -201,6 +201,7 @@ function ProjectEpicSelect({ projectId, sprintId, moduleId, value, onChange }: {
 export default function TaskDetailDrawer({ task: initialTask, onClose, projectId }: Props) {
   const qc = useQueryClient();
   const userRole = useAuthStore(s => s.user?.role);
+  const currentUser = useAuthStore(s => s.user);
   const seesMasterStatus = MASTER_STATUS_ROLES.has(userRole || '');
   const { statuses, statusObjects, addStatus } = useProjectStatuses(projectId);
   const { stages, stageObjects, addStage } = useProjectStages(projectId);
@@ -573,17 +574,27 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
               <h4 className="text-xs font-semibold text-muted-foreground">Subtasks</h4>
               <button onClick={() => setShowSubtask(true)} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="h-3 w-3" /> Add</button>
             </div>
-            {task.subtasks?.map((st: any) => (
+            {task.subtasks?.map((st: any) => {
+              // Per-user status: when this subtask was handed off TO the current user
+              // and they haven't acted yet, display "Open" until they explicitly change it.
+              const handoffTargetName = typeof (st as any).handoff_info === 'string'
+                ? ((st as any).handoff_info.split('|||')[0] || '').trim().toLowerCase()
+                : '';
+              const currentUserName = (currentUser?.full_name || '').trim().toLowerCase();
+              const handedOffToMe = handoffTargetName && currentUserName && handoffTargetName === currentUserName;
+              const displayedStatus = handedOffToMe ? 'Open' : (st.status || 'Open');
+
+              return (
               <div
                 key={st.id}
                 onClick={() => setOpenSubtask(st)}
                 className="flex items-center gap-2 py-2 px-2 rounded hover:bg-secondary/50 flex-wrap group cursor-pointer"
               >
-                <input type="checkbox" checked={st.status === 'Done'} onClick={(e) => e.stopPropagation()} onChange={(e) => { e.stopPropagation(); const newStatus = st.status === 'Done' ? 'Open' : 'Done'; api.put(`/tasks/${st.id}`, { status: newStatus }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success(`Subtask ${newStatus === 'Done' ? 'completed' : 'reopened'}`); }).catch(() => toast.error('Failed to update subtask')); }} className="rounded border-border cursor-pointer" />
+                <input type="checkbox" checked={displayedStatus === 'Done'} onClick={(e) => e.stopPropagation()} onChange={(e) => { e.stopPropagation(); const newStatus = displayedStatus === 'Done' ? 'Open' : 'Done'; api.put(`/tasks/${st.id}`, { status: newStatus }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success(`Subtask ${newStatus === 'Done' ? 'completed' : 'reopened'}`); }).catch(() => toast.error('Failed to update subtask')); }} className="rounded border-border cursor-pointer" />
                 <span className="text-xs font-mono text-muted-foreground">{st.task_number}</span>
-                <span className={`text-sm flex-1 min-w-[80px] ${st.status === 'Done' ? 'line-through text-muted-foreground' : ''}`}>{st.title}</span>
+                <span className={`text-sm flex-1 min-w-[80px] ${displayedStatus === 'Done' ? 'line-through text-muted-foreground' : ''}`}>{st.title}</span>
                 <HandoffBadge handoffInfo={(st as any).handoff_info} />
-                <select onClick={(e) => e.stopPropagation()} value={st.status || 'Open'} onChange={(e) => { e.stopPropagation(); api.put(`/tasks/${st.id}`, { status: e.target.value }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success('Status updated'); }).catch(() => toast.error('Failed to update')); }} className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer">
+                <select onClick={(e) => e.stopPropagation()} value={displayedStatus} onChange={(e) => { e.stopPropagation(); api.put(`/tasks/${st.id}`, { status: e.target.value }).then(() => { qc.invalidateQueries({ queryKey: ['task-detail', initialTask.id] }); toast.success('Status updated'); }).catch(() => toast.error('Failed to update')); }} className="px-1.5 py-0.5 rounded bg-secondary border border-border text-[10px] focus:outline-none cursor-pointer">
                   {BOARD_COLUMNS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <div onClick={(e) => e.stopPropagation()}>
@@ -594,7 +605,8 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
                   <SubtaskRowActions subtask={st} onEdit={(s) => setOpenSubtask(s)} onDelete={(s) => setDeletingSubtask(s)} />
                 </div>
               </div>
-            ))}
+              );
+            })}
             {(!task.subtasks || task.subtasks.length === 0) && <p className="text-xs text-muted-foreground">No subtasks</p>}
           </div>
 
