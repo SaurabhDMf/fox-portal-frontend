@@ -201,6 +201,7 @@ function ProjectEpicSelect({ projectId, sprintId, moduleId, value, onChange }: {
 export default function TaskDetailDrawer({ task: initialTask, onClose, projectId }: Props) {
   const qc = useQueryClient();
   const userRole = useAuthStore(s => s.user?.role);
+  const currentUser = useAuthStore(s => s.user);
   const seesMasterStatus = MASTER_STATUS_ROLES.has(userRole || '');
   const { statuses, statusObjects, addStatus } = useProjectStatuses(projectId);
   const { stages, stageObjects, addStage } = useProjectStages(projectId);
