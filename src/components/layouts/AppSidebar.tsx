@@ -4,7 +4,7 @@ import { useSidebarCollapsed } from './PortalLayout';
 import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
-  ChevronLeft, LogOut, ListChecks, BookOpen, X, Mail, Receipt
+  ChevronLeft, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -31,6 +31,7 @@ const adminNav: NavItem[] = [
   { label: 'Tracker', path: '/admin/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/admin/payroll', icon: Wallet, module: 'payroll' },
   { label: 'Expenses', path: '/admin/expenses', icon: Receipt, module: 'expenses' },
+  { label: 'Balance Sheet', path: '/admin/balance-sheet', icon: Scale, module: 'balance_sheet' },
   { label: 'Users', path: '/admin/users', icon: Users, module: 'users' },
   { label: 'Reports', path: '/admin/reports', icon: BarChart3, module: 'reports' },
   { label: 'Settings', path: '/admin/settings', icon: Settings },

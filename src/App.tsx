@@ -33,6 +33,7 @@ import Permissions from "./pages/admin/Permissions";
 import RolesPermissions from "./pages/admin/RolesPermissions";
 import EmailPage from "./pages/admin/Email";
 import Expenses from "./pages/admin/Expenses";
+import BalanceSheet from "./pages/admin/BalanceSheet";
 
 // Employee
 import EmpDashboard from "./pages/emp/EmpDashboard";
@@ -113,6 +114,7 @@ const App = () => (
           <Route path="tracker" element={<Tracker />} />
           <Route path="payroll" element={<Payroll />} />
           <Route path="expenses" element={<Expenses />} />
+          <Route path="balance-sheet" element={<BalanceSheet />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<AdminSettings />} />

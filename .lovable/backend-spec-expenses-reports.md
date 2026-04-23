@@ -124,3 +124,67 @@ Default access: `super_admin`, `admin` → full; `sales_manager` → view only; 
 - Use `null` for empty optional fields, not empty string.
 - `is_active` / soft-delete is NOT required for v1 — hard delete is fine.
 - Expose new module flag `expenses` in `enabled_modules` returned by `/auth/login` and `/auth/refresh`.
+
+---
+
+## 6. Income / Balance Sheet Module
+
+### Database — `income` table
+
+```sql
+CREATE TABLE income (
+  id              CHAR(36) PRIMARY KEY,
+  title           VARCHAR(255) NOT NULL,
+  source          VARCHAR(100) NOT NULL,   -- 'Lead Closed' / 'Invoice Payment' / 'Retainer' / 'Consulting' / 'Refund Received' / 'Interest / Investment' / 'Other Income'
+  amount          DECIMAL(14,2) NOT NULL DEFAULT 0,
+  income_date     DATE NOT NULL,
+  client_name     VARCHAR(255) NULL,
+  payment_method  VARCHAR(50)  NULL,
+  reference_no    VARCHAR(100) NULL,
+  notes           TEXT NULL,
+  lead_id         CHAR(36) NULL,           -- FK to leads.id when imported from CRM
+  created_by      CHAR(36) NULL,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_income_date (income_date),
+  INDEX idx_source (source),
+  INDEX idx_lead_id (lead_id),
+  UNIQUE KEY uk_lead_id (lead_id)          -- prevent duplicate import of same lead
+);
+```
+
+### REST endpoints
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| GET    | `/api/v1/income` | query: `from`, `to`, `source`, `q` | `{ income: Income[] }` |
+| GET    | `/api/v1/income/:id` | — | `{ income: Income }` |
+| POST   | `/api/v1/income` | Income (no id) | `{ income: Income }` |
+| PUT    | `/api/v1/income/:id` | Partial Income | `{ income: Income }` |
+| DELETE | `/api/v1/income/:id` | — | `{ success: true }` |
+
+### Income JSON shape
+
+```json
+{
+  "id": "uuid",
+  "title": "Lead Won: Acme Corp",
+  "source": "Lead Closed",
+  "amount": 250000.00,
+  "income_date": "2026-04-15",
+  "client_name": "Acme Corp",
+  "payment_method": "Bank Transfer",
+  "reference_no": "UTR123456",
+  "notes": "Auto-imported from CRM lead #abc",
+  "lead_id": "abc-uuid-or-null",
+  "created_at": "...",
+  "updated_at": "..."
+}
+```
+
+### Behaviour notes
+
+- The Balance Sheet UI imports won leads as income by POSTing one income record per selected lead with `lead_id` set. The `UNIQUE KEY uk_lead_id` enforces no duplicates.
+- Validation: `title`, `source`, `amount > 0`, `income_date` required.
+- Add a new permission module key: `balance_sheet` (with standard `can_view/create/edit/delete/export` flags).
+- Expose `balance_sheet` in `enabled_modules` returned by `/auth/login`.
