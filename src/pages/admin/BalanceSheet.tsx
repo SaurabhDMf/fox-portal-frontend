@@ -279,12 +279,15 @@ export default function BalanceSheet() {
       )}
 
       {(tab === 'income' || tab === 'expenses') && (
-        <div className="glass-card p-4">
-          <div className="relative max-w-md">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`Search ${tab}...`}
+              className="w-full pl-9 pr-3 py-2 rounded-lg bg-card border border-border text-sm focus:border-primary focus:outline-none transition-colors" />
           </div>
+          <span className="text-xs text-muted-foreground ml-auto">
+            Showing <span className="text-foreground font-semibold">{tab === 'income' ? filteredIncome.length : filteredExpenses.length}</span> of {tab === 'income' ? incomes.length : expenses.length}
+          </span>
         </div>
       )}
 
@@ -292,35 +295,41 @@ export default function BalanceSheet() {
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground">
+              <thead className="bg-secondary/40 text-[11px] uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="text-left px-4 py-3">Date</th>
-                  <th className="text-left px-4 py-3">Title</th>
-                  <th className="text-left px-4 py-3">Source</th>
-                  <th className="text-left px-4 py-3">Client</th>
-                  <th className="text-left px-4 py-3">Method</th>
-                  <th className="text-right px-4 py-3">Amount</th>
-                  <th className="text-right px-4 py-3">Actions</th>
+                  <th className="text-left px-4 py-3 font-medium">Date</th>
+                  <th className="text-left px-4 py-3 font-medium">Title</th>
+                  <th className="text-left px-4 py-3 font-medium">Source</th>
+                  <th className="text-left px-4 py-3 font-medium">Client</th>
+                  <th className="text-left px-4 py-3 font-medium">Method</th>
+                  <th className="text-right px-4 py-3 font-medium">Amount</th>
+                  <th className="text-right px-4 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredIncome.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">No income entries</td></tr>
+                  <tr><td colSpan={7}>
+                    <div className="flex flex-col items-center justify-center py-14 text-muted-foreground">
+                      <div className="p-3 rounded-full bg-success/10 mb-3"><ArrowUpRight className="h-6 w-6 text-success" /></div>
+                      <p className="text-sm font-medium">No income entries</p>
+                      <p className="text-xs mt-1">Add an income or import won leads to get started</p>
+                    </div>
+                  </td></tr>
                 ) : filteredIncome.map(i => (
-                  <tr key={i.id} className="border-t border-border hover:bg-secondary/20">
-                    <td className="px-4 py-3 whitespace-nowrap">{i.income_date?.slice(0, 10)}</td>
+                  <tr key={i.id} className="border-t border-border hover:bg-secondary/20 transition-colors group">
+                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">{i.income_date?.slice(0, 10)}</td>
                     <td className="px-4 py-3 font-medium">
                       {i.title}
-                      {i.lead_id && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">CRM</span>}
+                      {i.lead_id && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">CRM</span>}
                     </td>
-                    <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-md bg-success/10 text-success text-xs">{i.source}</span></td>
+                    <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-md bg-success/10 text-success text-xs font-medium">{i.source}</span></td>
                     <td className="px-4 py-3 text-muted-foreground">{i.client_name || '—'}</td>
                     <td className="px-4 py-3 text-muted-foreground">{i.payment_method || '—'}</td>
-                    <td className="px-4 py-3 text-right font-medium text-success">+{fmtINR(Number(i.amount || 0))}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-success whitespace-nowrap">+{fmtINR(Number(i.amount || 0))}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => { setEditingIncome(i); setIncomeModal(true); }} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground"><Pencil className="h-4 w-4" /></button>
-                        <button onClick={() => i.id && deleteIncome.mutate(i.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="h-4 w-4" /></button>
+                      <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setEditingIncome(i); setIncomeModal(true); }} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => i.id && deleteIncome.mutate(i.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive transition-colors" title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
                       </div>
                     </td>
                   </tr>
@@ -335,32 +344,38 @@ export default function BalanceSheet() {
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground">
+              <thead className="bg-secondary/40 text-[11px] uppercase tracking-wider text-muted-foreground">
                 <tr>
-                  <th className="text-left px-4 py-3">Date</th>
-                  <th className="text-left px-4 py-3">Title</th>
-                  <th className="text-left px-4 py-3">Category</th>
-                  <th className="text-left px-4 py-3">Vendor</th>
-                  <th className="text-left px-4 py-3">Method</th>
-                  <th className="text-right px-4 py-3">Amount</th>
-                  <th className="text-right px-4 py-3">Actions</th>
+                  <th className="text-left px-4 py-3 font-medium">Date</th>
+                  <th className="text-left px-4 py-3 font-medium">Title</th>
+                  <th className="text-left px-4 py-3 font-medium">Category</th>
+                  <th className="text-left px-4 py-3 font-medium">Vendor</th>
+                  <th className="text-left px-4 py-3 font-medium">Method</th>
+                  <th className="text-right px-4 py-3 font-medium">Amount</th>
+                  <th className="text-right px-4 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredExpenses.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">No expense entries</td></tr>
+                  <tr><td colSpan={7}>
+                    <div className="flex flex-col items-center justify-center py-14 text-muted-foreground">
+                      <div className="p-3 rounded-full bg-destructive/10 mb-3"><ArrowDownRight className="h-6 w-6 text-destructive" /></div>
+                      <p className="text-sm font-medium">No expense entries</p>
+                      <p className="text-xs mt-1">Add an expense to track outflows</p>
+                    </div>
+                  </td></tr>
                 ) : filteredExpenses.map(e => (
-                  <tr key={e.id} className="border-t border-border hover:bg-secondary/20">
-                    <td className="px-4 py-3 whitespace-nowrap">{e.expense_date?.slice(0, 10)}</td>
+                  <tr key={e.id} className="border-t border-border hover:bg-secondary/20 transition-colors group">
+                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">{e.expense_date?.slice(0, 10)}</td>
                     <td className="px-4 py-3 font-medium">{e.title}</td>
-                    <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs">{e.category}</span></td>
+                    <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">{e.category}</span></td>
                     <td className="px-4 py-3 text-muted-foreground">{e.vendor || '—'}</td>
                     <td className="px-4 py-3 text-muted-foreground">{e.payment_method || '—'}</td>
-                    <td className="px-4 py-3 text-right font-medium text-destructive">-{fmtINR(Number(e.amount || 0))}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-destructive whitespace-nowrap">-{fmtINR(Number(e.amount || 0))}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => { setEditingExpense(e); setExpenseModal(true); }} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground"><Pencil className="h-4 w-4" /></button>
-                        <button onClick={() => e.id && deleteExpense.mutate(e.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="h-4 w-4" /></button>
+                      <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setEditingExpense(e); setExpenseModal(true); }} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => e.id && deleteExpense.mutate(e.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive transition-colors" title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
                       </div>
                     </td>
                   </tr>
