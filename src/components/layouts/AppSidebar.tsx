@@ -1,10 +1,11 @@
+import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useSidebarCollapsed } from './PortalLayout';
 import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
-  ChevronLeft, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale
+  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -16,6 +17,7 @@ interface NavItem {
   path: string;
   icon: React.ElementType;
   module?: string;
+  children?: NavItem[];
 }
 
 const adminNav: NavItem[] = [
@@ -30,8 +32,13 @@ const adminNav: NavItem[] = [
   { label: 'Tickets', path: '/admin/tickets', icon: Ticket, module: 'tickets' },
   { label: 'Tracker', path: '/admin/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/admin/payroll', icon: Wallet, module: 'payroll' },
-  { label: 'Expenses', path: '/admin/expenses', icon: Receipt },
-  { label: 'Balance Sheet', path: '/admin/balance-sheet', icon: Scale },
+  {
+    label: 'Balance Sheet', path: '/admin/balance-sheet', icon: Scale,
+    children: [
+      { label: 'Expenses', path: '/admin/expenses', icon: Receipt },
+      { label: 'Input Sheet', path: '/admin/balance-sheet', icon: ListChecks },
+    ],
+  },
   { label: 'Users', path: '/admin/users', icon: Users, module: 'users' },
   { label: 'Reports', path: '/admin/reports', icon: BarChart3, module: 'reports' },
   { label: 'Settings', path: '/admin/settings', icon: Settings },
@@ -85,23 +92,19 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
   const role = user?.role || '';
   const navItems = getNavItems(role);
 
-  const visibleItems = navItems.filter((item) => {
-    // Always show items without a module key (Dashboard, Settings, Profile)
-    if (!item.module) return true;
-
-    // Strictly filter by enabled_modules — if the array exists, module MUST be in it
-    if (enabledModules && enabledModules.length > 0) {
-      if (!enabledModules.includes(item.module)) return false;
-    }
-
-    // Also check can_view permission — hide if explicitly denied
+  const isModuleAllowed = (mod?: string) => {
+    if (!mod) return true;
+    if (enabledModules && enabledModules.length > 0 && !enabledModules.includes(mod)) return false;
     if (permissions && Object.keys(permissions).length > 0) {
-      const mp = permissions[item.module];
+      const mp = permissions[mod];
       if (!mp || !mp.can_view) return false;
     }
-
     return true;
-  });
+  };
+
+  const visibleItems = navItems
+    .filter((item) => isModuleAllowed(item.module))
+    .map((item) => item.children ? { ...item, children: item.children.filter((c) => isModuleAllowed(c.module)) } : item);
 
   const handleLogout = async () => {
     try { await api.post('/auth/logout', { refreshToken }); } catch {}
@@ -113,9 +116,68 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
   const isItemActive = (path: string) =>
     location.pathname === path || (!rootPaths.includes(path) && location.pathname.startsWith(path));
 
+  const isGroupActive = (item: NavItem) =>
+    isItemActive(item.path) || (item.children?.some((c) => isItemActive(c.path)) ?? false);
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const toggleGroup = (path: string) => setOpenGroups((p) => ({ ...p, [path]: !p[path] }));
+
   const renderNavItems = (showLabels: boolean, onClick?: () => void) =>
     visibleItems.map((item) => {
+      const hasChildren = item.children && item.children.length > 0;
       const active = isItemActive(item.path);
+      const groupActive = isGroupActive(item);
+      const isOpen = openGroups[item.path] ?? groupActive;
+
+      // Parent with children
+      if (hasChildren) {
+        const headerClass = `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 cursor-pointer ${
+          groupActive ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+        } ${!showLabels ? 'justify-center' : ''}`;
+
+        const header = showLabels ? (
+          <button onClick={() => toggleGroup(item.path)} className={`${headerClass} w-full justify-between`}>
+            <span className="flex items-center gap-3 min-w-0">
+              <item.icon className={`h-4 w-4 flex-shrink-0 ${groupActive ? 'text-primary' : ''}`} />
+              <span className="truncate">{item.label}</span>
+            </span>
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? '' : '-rotate-90'}`} />
+          </button>
+        ) : (
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <NavLink to={item.path} end={rootPaths.includes(item.path)} onClick={onClick} className={headerClass}>
+                <item.icon className={`h-4 w-4 ${groupActive ? 'text-primary' : ''}`} />
+              </NavLink>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={8}>{item.label}</TooltipContent>
+          </Tooltip>
+        );
+
+        return (
+          <div key={item.path}>
+            {header}
+            {showLabels && isOpen && (
+              <div className="mt-1 ml-4 pl-3 border-l border-border space-y-1">
+                {item.children!.map((child) => {
+                  const childActive = isItemActive(child.path);
+                  return (
+                    <NavLink key={child.path} to={child.path} onClick={onClick}
+                      className={`flex items-center gap-2.5 px-3 py-1.5 rounded-md text-xs transition-all duration-150 ${
+                        childActive ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                      }`}>
+                      <child.icon className={`h-3.5 w-3.5 flex-shrink-0 ${childActive ? 'text-primary' : ''}`} />
+                      <span className="truncate">{child.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      // Leaf
       const link = (
         <NavLink key={item.path} to={item.path} end={rootPaths.includes(item.path)} onClick={onClick}
           className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
