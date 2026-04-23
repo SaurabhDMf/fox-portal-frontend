@@ -564,6 +564,7 @@ function CreateRunModal({ onClose, onSubmit, isSubmitting }: any) {
 function RunDetail({ run, onBack, onApprove, onPay, onSendPayslips, onUpdateEmployee, isApproving, isPaying, isSending }: any) {
   const [editing, setEditing] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [payslipEmployee, setPayslipEmployee] = useState<any>(null);
 
   const employees = run.employees || [];
   const totals = useMemo(() => {
