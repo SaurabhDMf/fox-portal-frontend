@@ -114,6 +114,7 @@ const App = () => (
           <Route path="tracker" element={<Tracker />} />
           <Route path="payroll" element={<Payroll />} />
           <Route path="expenses" element={<Expenses />} />
+          <Route path="balance-sheet" element={<BalanceSheet />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<AdminSettings />} />
