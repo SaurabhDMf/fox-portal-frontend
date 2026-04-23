@@ -155,11 +155,9 @@ export default function BankStatementImportModal({ open, onClose }: Props) {
 
   const parsePdf = async (file: File) => {
     try {
-      // @ts-ignore
-      const pdfjs = await import('pdfjs-dist/build/pdf.mjs');
-      // @ts-ignore
-      const worker = await import('pdfjs-dist/build/pdf.worker.mjs?url');
-      pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+      // @ts-ignore - legacy build avoids top-level await issues with esbuild
+      const pdfjs: any = await import('pdfjs-dist/legacy/build/pdf.mjs');
+      pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/legacy/build/pdf.worker.min.mjs`;
       const buf = await file.arrayBuffer();
       const doc = await pdfjs.getDocument({ data: buf }).promise;
       const lines: string[][] = [];
