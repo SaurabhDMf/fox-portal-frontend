@@ -726,18 +726,27 @@ function RunDetail({ run, onBack, onApprove, onPay, onSendPayslips, onUpdateEmpl
                       <td className="py-3 px-3 text-right text-warning">{Number(emp.lop_days || 0) > 0 ? `${emp.lop_days}d` : '—'}</td>
                       <td className="py-3 px-3 text-right text-destructive">-{fmtINR(deductions + Number(emp.lop_amount || 0))}</td>
                       <td className="py-3 px-3 text-right font-bold">{fmtINR(net)}</td>
-                      {!isLocked && (
+                      {!isLocked ? (
                         <td className="py-3 pl-3 text-right">
                           <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => setPayslipEmployee(emp)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="View Payslip">
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
                             <button onClick={() => startEdit(emp)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Edit">
                               <Pencil className="h-3.5 w-3.5" />
                             </button>
                             {emp.payslip_url && (
-                              <a href={emp.payslip_url} target="_blank" rel="noreferrer" className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Payslip">
+                              <a href={emp.payslip_url} target="_blank" rel="noreferrer" className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="Download Payslip">
                                 <Download className="h-3.5 w-3.5" />
                               </a>
                             )}
                           </div>
+                        </td>
+                      ) : (
+                        <td className="py-3 pl-3 text-right">
+                          <button onClick={() => setPayslipEmployee(emp)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors" title="View Payslip">
+                            <Eye className="h-3 w-3" /> Payslip
+                          </button>
                         </td>
                       )}
                     </tr>
