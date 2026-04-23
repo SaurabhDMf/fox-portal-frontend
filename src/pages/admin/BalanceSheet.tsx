@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Pencil, Trash2, TrendingUp, TrendingDown, Wallet, Download, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, TrendingUp, TrendingDown, Wallet, Download, ArrowUpRight, ArrowDownRight, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import {
@@ -8,6 +8,7 @@ import {
 } from 'recharts';
 import IncomeFormModal, { type IncomeEntry, INCOME_SOURCES } from '@/components/balance-sheet/IncomeFormModal';
 import ImportLeadsModal from '@/components/balance-sheet/ImportLeadsModal';
+import BankStatementImportModal from '@/components/balance-sheet/BankStatementImportModal';
 import ExpenseFormModal, { type Expense, EXPENSE_CATEGORIES } from '@/components/expenses/ExpenseFormModal';
 
 type Tab = 'overview' | 'income' | 'expenses';
