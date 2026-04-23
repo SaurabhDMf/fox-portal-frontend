@@ -30,8 +30,8 @@ const adminNav: NavItem[] = [
   { label: 'Tickets', path: '/admin/tickets', icon: Ticket, module: 'tickets' },
   { label: 'Tracker', path: '/admin/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/admin/payroll', icon: Wallet, module: 'payroll' },
-  { label: 'Expenses', path: '/admin/expenses', icon: Receipt, module: 'expenses' },
-  { label: 'Balance Sheet', path: '/admin/balance-sheet', icon: Scale, module: 'balance_sheet' },
+  { label: 'Expenses', path: '/admin/expenses', icon: Receipt },
+  { label: 'Balance Sheet', path: '/admin/balance-sheet', icon: Scale },
   { label: 'Users', path: '/admin/users', icon: Users, module: 'users' },
   { label: 'Reports', path: '/admin/reports', icon: BarChart3, module: 'reports' },
   { label: 'Settings', path: '/admin/settings', icon: Settings },
@@ -48,7 +48,7 @@ const empNav: NavItem[] = [
   { label: 'Tickets', path: '/emp/tickets', icon: Ticket, module: 'tickets' },
   { label: 'Tracker', path: '/emp/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/emp/payroll', icon: Wallet, module: 'payroll' },
-  { label: 'Expenses', path: '/emp/expenses', icon: Receipt, module: 'expenses' },
+  { label: 'Expenses', path: '/emp/expenses', icon: Receipt },
   { label: 'Profile', path: '/emp/profile', icon: Users },
 ];
 
