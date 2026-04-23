@@ -3,10 +3,11 @@ import api from '@/lib/api';
 import { useState, useMemo } from 'react';
 import {
   Plus, X, ChevronRight, Wallet, Users as UsersIcon, FileText, Check, Search,
-  Pencil, Save, Download, Send, Calculator, TrendingUp, AlertCircle, IndianRupee, ArrowLeft,
+  Pencil, Save, Download, Send, Calculator, TrendingUp, AlertCircle, IndianRupee, ArrowLeft, Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
+import PayslipView from '@/components/payroll/PayslipView';
 
 const fmtINR = (n: number) =>
   `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
