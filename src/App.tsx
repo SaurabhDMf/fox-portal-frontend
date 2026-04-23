@@ -33,6 +33,7 @@ import Permissions from "./pages/admin/Permissions";
 import RolesPermissions from "./pages/admin/RolesPermissions";
 import EmailPage from "./pages/admin/Email";
 import Expenses from "./pages/admin/Expenses";
+import BalanceSheet from "./pages/admin/BalanceSheet";
 
 // Employee
 import EmpDashboard from "./pages/emp/EmpDashboard";
