@@ -32,6 +32,14 @@ const DEDUCTION_FIELDS = [
 
 export default function Payroll() {
   const perm = useModulePermission('payroll');
+  const currentUser = useAuthStore(s => s.user);
+  const isAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
+
+  // Non-admins can only see their own payslips
+  if (!isAdmin) {
+    return <MyPayslips userId={currentUser?.id} userName={currentUser?.full_name} />;
+  }
+
   const qc = useQueryClient();
 
   const [tab, setTab] = useState<Tab>('overview');
