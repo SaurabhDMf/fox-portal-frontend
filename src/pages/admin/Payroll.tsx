@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
+import { useAuthStore } from '@/stores/authStore';
 import PayslipView from '@/components/payroll/PayslipView';
 
 const fmtINR = (n: number) =>
