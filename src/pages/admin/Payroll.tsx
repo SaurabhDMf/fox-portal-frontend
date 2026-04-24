@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
+import { useAuthStore } from '@/stores/authStore';
 import PayslipView from '@/components/payroll/PayslipView';
 
 const fmtINR = (n: number) =>
@@ -31,6 +32,8 @@ const DEDUCTION_FIELDS = [
 
 export default function Payroll() {
   const perm = useModulePermission('payroll');
+  const currentUser = useAuthStore(s => s.user);
+  const isAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
   const qc = useQueryClient();
 
   const [tab, setTab] = useState<Tab>('overview');
@@ -159,6 +162,11 @@ export default function Payroll() {
       {tab === id && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t" />}
     </button>
   );
+
+  // Non-admins (resource, freelancer, etc.) only see their own payslips
+  if (!isAdmin) {
+    return <MyPayslips userId={currentUser?.id} userName={currentUser?.full_name} />;
+  }
 
   return (
     <div className="page-container">
@@ -773,6 +781,178 @@ function RunDetail({ run, onBack, onApprove, onPay, onSendPayslips, onUpdateEmpl
       {payslipEmployee && (
         <PayslipView run={run} employee={payslipEmployee} onClose={() => setPayslipEmployee(null)} />
       )}
+    </div>
+  );
+}
+
+// ============= Employee-only "My Payslips" view =============
+function MyPayslips({ userId, userName }: { userId?: string; userName?: string }) {
+  const [selectedPayslip, setSelectedPayslip] = useState<{ run: any; employee: any } | null>(null);
+
+  const { data: runsData = [], isLoading } = useQuery({
+    queryKey: ['my-payslips', userId],
+    queryFn: () => api.get('/payroll/runs').then(r => r.data?.runs || r.data?.data || r.data || []),
+    enabled: !!userId,
+  });
+  const runs: any[] = Array.isArray(runsData) ? runsData : [];
+
+  // For each run, find this user's payslip row. Show only Approved/Paid runs.
+  const myPayslips = useMemo(() => {
+    return runs
+      .filter((r: any) => r.status === 'Approved' || r.status === 'Paid')
+      .map((r: any) => {
+        const employees = r.employees || [];
+        const me = employees.find((e: any) => (e.user_id || e.id) === userId);
+        return me ? { run: r, employee: { ...me, full_name: me.full_name || userName } } : null;
+      })
+      .filter(Boolean) as { run: any; employee: any }[];
+  }, [runs, userId, userName]);
+
+  // If runs list doesn't include employees inline, fetch each run detail on demand
+  const visibleRuns = runs.filter((r: any) => r.status === 'Approved' || r.status === 'Paid');
+  const needsDetailFetch = visibleRuns.length > 0 && myPayslips.length === 0;
+
+  return (
+    <div className="page-container">
+      <div>
+        <h1 className="page-title">My Payslips</h1>
+        <p className="page-subtitle">View and download your monthly payslips</p>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[...Array(3)].map((_, i) => <div key={i} className="glass-card h-20 animate-pulse" />)}
+        </div>
+      ) : visibleRuns.length === 0 ? (
+        <div className="glass-card p-12 text-center">
+          <FileText className="h-10 w-10 mx-auto text-muted-foreground mb-3 opacity-40" />
+          <p className="text-sm font-medium">No payslips available yet</p>
+          <p className="text-xs text-muted-foreground mt-1">Your payslips will appear here once payroll is processed</p>
+        </div>
+      ) : needsDetailFetch ? (
+        <MyPayslipsDetailFetch
+          userId={userId}
+          userName={userName}
+          runs={visibleRuns}
+          onView={(p) => setSelectedPayslip(p)}
+        />
+      ) : (
+        <div className="space-y-3">
+          {myPayslips.map(({ run, employee }) => {
+            const net = Number(employee.net_pay || 0);
+            return (
+              <div key={run.id}
+                className="glass-card p-5 flex items-center justify-between hover:shadow-lg transition-all group">
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
+                    <Wallet className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-sm">{run.period_label}</h3>
+                    <p className="text-xs text-muted-foreground">{fmtRange(run.period_start, run.period_end)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-sm font-bold">{fmtINR(net)}</p>
+                    <p className="text-[10px] text-muted-foreground">Net Pay</p>
+                  </div>
+                  <StatusBadge status={run.status} />
+                  <button
+                    onClick={() => setSelectedPayslip({ run, employee })}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all"
+                  >
+                    <Eye className="h-3.5 w-3.5" /> View Payslip
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {selectedPayslip && (
+        <PayslipView
+          run={selectedPayslip.run}
+          employee={selectedPayslip.employee}
+          onClose={() => setSelectedPayslip(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Fetches each run's detail to find the current user's payslip when not inlined in the list response
+function MyPayslipsDetailFetch({
+  userId, userName, runs, onView,
+}: { userId?: string; userName?: string; runs: any[]; onView: (p: { run: any; employee: any }) => void }) {
+  const detailQuery = useQuery({
+    queryKey: ['my-payslips-details', userId, runs.map(r => r.id).join(',')],
+    queryFn: async () => {
+      const results = await Promise.all(
+        runs.map(r => api.get(`/payroll/runs/${r.id}`).then(res => res.data?.data || res.data).catch(() => null))
+      );
+      return results
+        .map((d: any) => {
+          if (!d) return null;
+          const me = (d.employees || []).find((e: any) => (e.user_id || e.id) === userId);
+          return me ? { run: d, employee: { ...me, full_name: me.full_name || userName } } : null;
+        })
+        .filter(Boolean) as { run: any; employee: any }[];
+    },
+    enabled: !!userId && runs.length > 0,
+  });
+
+  if (detailQuery.isLoading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(2)].map((_, i) => <div key={i} className="glass-card h-20 animate-pulse" />)}
+      </div>
+    );
+  }
+
+  const items = detailQuery.data || [];
+  if (items.length === 0) {
+    return (
+      <div className="glass-card p-12 text-center">
+        <FileText className="h-10 w-10 mx-auto text-muted-foreground mb-3 opacity-40" />
+        <p className="text-sm font-medium">No payslips available yet</p>
+        <p className="text-xs text-muted-foreground mt-1">Your payslips will appear here once payroll is processed</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.map(({ run, employee }) => {
+        const net = Number(employee.net_pay || 0);
+        return (
+          <div key={run.id} className="glass-card p-5 flex items-center justify-between hover:shadow-lg transition-all group">
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
+                <Wallet className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm">{run.period_label}</h3>
+                <p className="text-xs text-muted-foreground">{fmtRange(run.period_start, run.period_end)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-sm font-bold">{fmtINR(net)}</p>
+                <p className="text-[10px] text-muted-foreground">Net Pay</p>
+              </div>
+              <StatusBadge status={run.status} />
+              <button
+                onClick={() => onView({ run, employee })}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all"
+              >
+                <Eye className="h-3.5 w-3.5" /> View Payslip
+              </button>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
