@@ -27,15 +27,6 @@ export const dummyProjects = [
   { id: 'p5', name: 'SkyTech CRM Integration', description: 'API integration with existing CRM system', status: 'Active', priority: 'High', progress: 45, client_name: 'SkyTech Solutions', due_date: '2026-07-10T00:00:00Z' },
 ];
 
-export const dummyInvoices = [
-  { id: 'i1', invoice_number: 'INV-2026-001', client_name: 'TechCorp India', total: 25000, status: 'Paid', due_date: '2026-03-15T00:00:00Z', currency: 'USD', created_at: '2026-03-01T00:00:00Z' },
-  { id: 'i2', invoice_number: 'INV-2026-002', client_name: 'Global Retail Inc', total: 15000, status: 'Sent', due_date: '2026-04-15T00:00:00Z', currency: 'USD', created_at: '2026-03-20T00:00:00Z' },
-  { id: 'i3', invoice_number: 'INV-2026-003', client_name: 'Dubai Logistics LLC', total: 8500, status: 'Overdue', due_date: '2026-03-25T00:00:00Z', currency: 'AED', created_at: '2026-03-10T00:00:00Z' },
-  { id: 'i4', invoice_number: 'INV-2026-004', client_name: 'BrightMedia UK', total: 32000, status: 'Draft', due_date: '2026-04-30T00:00:00Z', currency: 'GBP', created_at: '2026-04-01T00:00:00Z' },
-  { id: 'i5', invoice_number: 'INV-2026-005', client_name: 'SkyTech Solutions', total: 55000, status: 'Paid', due_date: '2026-02-28T00:00:00Z', currency: 'USD', created_at: '2026-02-15T00:00:00Z' },
-  { id: 'i6', invoice_number: 'INV-2026-006', client_name: 'InnovaTech Spain', total: 20000, status: 'Sent', due_date: '2026-04-20T00:00:00Z', currency: 'EUR', created_at: '2026-04-02T00:00:00Z' },
-];
-
 export const dummyTickets = [
   { id: 't1', title: 'Login page not loading on Safari', description: 'Users report blank screen on Safari 17.x when trying to access the login page', category: 'Bug Report', priority: 'Critical', status: 'Open', client_name: 'TechCorp India', assigned_to_name: 'Priya Singh', created_at: '2026-04-04T09:00:00Z' },
   { id: 't2', title: 'Add export to CSV feature', description: 'Need ability to export all reports data to CSV format for monthly review', category: 'Feature Request', priority: 'Medium', status: 'Open', client_name: 'Global Retail Inc', assigned_to_name: 'Rahul Mehta', created_at: '2026-04-03T14:00:00Z' },
