@@ -163,6 +163,11 @@ export default function Payroll() {
     </button>
   );
 
+  // Non-admins (resource, freelancer, etc.) only see their own payslips
+  if (!isAdmin) {
+    return <MyPayslips userId={currentUser?.id} userName={currentUser?.full_name} />;
+  }
+
   return (
     <div className="page-container">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
