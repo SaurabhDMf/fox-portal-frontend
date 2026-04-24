@@ -15,15 +15,7 @@ export default function InvoiceUploadModal({ onClose }: Props) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [form, setForm] = useState({
-    client_id: '',
-    invoice_number: '',
-    issue_date: '',
-    due_date: '',
-    amount: '',
-    currency: 'USD',
-    notes: '',
-  });
+  const [clientId, setClientId] = useState('');
   const [file, setFile] = useState<File | null>(null);
 
   const { data: clients = [] } = useQuery({
@@ -40,13 +32,7 @@ export default function InvoiceUploadModal({ onClose }: Props) {
   const uploadMut = useMutation({
     mutationFn: () => {
       const fd = new FormData();
-      fd.append('client_id', form.client_id);
-      fd.append('amount', String(form.amount));
-      if (form.invoice_number) fd.append('invoice_number', form.invoice_number);
-      if (form.issue_date) fd.append('issue_date', form.issue_date);
-      if (form.due_date) fd.append('due_date', form.due_date);
-      if (form.currency) fd.append('currency', form.currency);
-      if (form.notes) fd.append('notes', form.notes);
+      fd.append('client_id', clientId);
       if (file) fd.append('file', file);
       return api.post('/invoices/upload', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -54,7 +40,7 @@ export default function InvoiceUploadModal({ onClose }: Props) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success('Invoice uploaded');
+      toast.success('Invoice uploaded — visible in client portal');
       onClose();
     },
     onError: (e: any) =>
@@ -62,19 +48,22 @@ export default function InvoiceUploadModal({ onClose }: Props) {
   });
 
   const submit = () => {
-    if (!form.client_id) return toast.error('Select a client');
-    if (!form.amount || Number(form.amount) <= 0)
-      return toast.error('Enter a valid amount');
-    if (file && file.size > 20 * 1024 * 1024)
-      return toast.error('PDF must be ≤ 20MB');
+    if (!clientId) return toast.error('Select a client');
+    if (!file) return toast.error('Choose a PDF file');
+    if (file.size > 20 * 1024 * 1024) return toast.error('PDF must be ≤ 20MB');
     uploadMut.mutate();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-      <div className="glass-card w-full max-w-xl p-6 space-y-5 animate-slide-up max-h-[90vh] overflow-y-auto">
+      <div className="glass-card w-full max-w-lg p-6 space-y-5 animate-slide-up max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Upload Existing Invoice</h2>
+          <div>
+            <h2 className="text-lg font-semibold">Upload Invoice PDF</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              The client will see the exact PDF you upload — no other fields needed.
+            </p>
+          </div>
           <button
             onClick={onClose}
             className="p-1 rounded-md hover:bg-secondary"
@@ -83,16 +72,14 @@ export default function InvoiceUploadModal({ onClose }: Props) {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="md:col-span-2">
+        <div className="space-y-3">
+          <div>
             <label className="text-xs text-muted-foreground font-medium">
               Client *
             </label>
             <select
-              value={form.client_id}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, client_id: e.target.value }))
-              }
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
               className={inputCls + ' w-full mt-1'}
             >
               <option value="">Select Client</option>
@@ -106,101 +93,11 @@ export default function InvoiceUploadModal({ onClose }: Props) {
 
           <div>
             <label className="text-xs text-muted-foreground font-medium">
-              Invoice #
-            </label>
-            <input
-              placeholder="Auto-generated if blank"
-              value={form.invoice_number}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, invoice_number: e.target.value }))
-              }
-              className={inputCls + ' w-full mt-1'}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground font-medium">
-              Currency
-            </label>
-            <select
-              value={form.currency}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, currency: e.target.value }))
-              }
-              className={inputCls + ' w-full mt-1'}
-            >
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-              <option value="GBP">GBP</option>
-              <option value="INR">INR</option>
-              <option value="AED">AED</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground font-medium">
-              Issue Date
-            </label>
-            <input
-              type="date"
-              value={form.issue_date}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, issue_date: e.target.value }))
-              }
-              className={inputCls + ' w-full mt-1'}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground font-medium">
-              Due Date
-            </label>
-            <input
-              type="date"
-              value={form.due_date}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, due_date: e.target.value }))
-              }
-              className={inputCls + ' w-full mt-1'}
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="text-xs text-muted-foreground font-medium">
-              Amount *
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="0.00"
-              value={form.amount}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, amount: e.target.value }))
-              }
-              className={inputCls + ' w-full mt-1'}
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="text-xs text-muted-foreground font-medium">
-              Notes
-            </label>
-            <textarea
-              rows={2}
-              value={form.notes}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, notes: e.target.value }))
-              }
-              className={inputCls + ' w-full mt-1 resize-none'}
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="text-xs text-muted-foreground font-medium">
-              Invoice PDF (optional, ≤ 20MB)
+              Invoice PDF * (≤ 20MB)
             </label>
             <div
               onClick={() => fileRef.current?.click()}
-              className="mt-1 border border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:bg-secondary/50 transition-colors"
+              className="mt-1 border border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:bg-secondary/50 transition-colors"
             >
               <input
                 ref={fileRef}
@@ -211,16 +108,17 @@ export default function InvoiceUploadModal({ onClose }: Props) {
               />
               {file ? (
                 <div className="flex items-center justify-center gap-2 text-sm">
-                  <FileText className="h-4 w-4 text-primary" />
-                  <span>{file.name}</span>
+                  <FileText className="h-5 w-5 text-primary" />
+                  <span className="font-medium">{file.name}</span>
                   <span className="text-muted-foreground text-xs">
                     ({(file.size / 1024 / 1024).toFixed(2)} MB)
                   </span>
                 </div>
               ) : (
-                <div className="flex flex-col items-center gap-1 text-muted-foreground text-sm">
-                  <Upload className="h-5 w-5" />
+                <div className="flex flex-col items-center gap-1.5 text-muted-foreground text-sm">
+                  <Upload className="h-6 w-6" />
                   <span>Click to upload PDF</span>
+                  <span className="text-xs">This file will be shown as-is in the client portal</span>
                 </div>
               )}
             </div>
