@@ -720,7 +720,7 @@ function AddAccountModal({
             disabled={submitting}
             className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
           >
-            {submitting ? 'Verifying SMTP…' : 'Add Account'}
+            Add Account
           </button>
         </div>
       </div>
