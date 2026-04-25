@@ -8,6 +8,7 @@ import CompanySettings from '@/components/settings/CompanySettings';
 import IntegrationsSettings from '@/components/settings/IntegrationsSettings';
 import EmailSettings from '@/components/settings/EmailSettings';
 import ChangePasswordSection from '@/components/settings/ChangePasswordSection';
+import ConnectedEmailCard from '@/components/settings/ConnectedEmailCard';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
