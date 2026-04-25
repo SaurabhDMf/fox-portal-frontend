@@ -125,4 +125,22 @@ api.interceptors.response.use(
   }
 );
 
+export const emailApi = {
+  // Accounts
+  getAccounts:   ()              => api.get('/email/accounts'),
+  addAccount:    (data: any)     => api.post('/email/accounts', data),
+  deleteAccount: (id: string)    => api.delete(`/email/accounts/${id}`),
+  testAccount:   (id: string)    => api.post(`/email/accounts/${id}/test`),
+  syncAccount:   (id: string, folder = 'INBOX') =>
+    api.post(`/email/accounts/${id}/sync`, { folder }),
+  getFolders:    (id: string)    => api.get(`/email/accounts/${id}/folders`),
+  // Messages
+  getMessages:   (params: any)   => api.get('/email/messages', { params }),
+  getMessage:    (id: string)    => api.get(`/email/messages/${id}`),
+  patchMessage:  (id: string, data: any) => api.patch(`/email/messages/${id}`, data),
+  deleteMessage: (id: string)    => api.delete(`/email/messages/${id}`),
+  // Send
+  send:          (data: any)     => api.post('/email/send', data),
+};
+
 export default api;
