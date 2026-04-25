@@ -1,4 +1,8 @@
 import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import api from '@/lib/api';
+import { payWithStripe, payWithRazorpay } from '@/lib/payments';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Props {
   invoice: any;
@@ -7,6 +11,7 @@ interface Props {
 }
 
 export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) {
+  const qc = useQueryClient();
   // Backend already returns `company` alongside the invoice — no extra API call needed
   const company: any = invoice.company || {};
   const companyName = company.name || company.company_name || '';
