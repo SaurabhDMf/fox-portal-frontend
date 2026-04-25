@@ -99,10 +99,10 @@ export default function MyDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="My Tasks" value={stats.tasks ?? myTasks.length} icon={ListChecks} />
-        <StatCard label="My Projects" value={myProjects.length} icon={FolderKanban} iconColor="text-info" />
-        <StatCard label="Open Leads" value={stats.leads ?? myLeads.length} icon={Target} iconColor="text-warning" />
-        <StatCard label="Invoices" value={myInvoices.length} icon={FileText} iconColor="text-success" />
+        <StatCard label="My Tasks" value={toNum(stats.tasks, myTasks.length)} icon={ListChecks} />
+        <StatCard label="My Projects" value={toNum(stats.projects, myProjects.length)} icon={FolderKanban} iconColor="text-info" />
+        <StatCard label="Open Leads" value={toNum(stats.leads, myLeads.length)} icon={Target} iconColor="text-warning" />
+        <StatCard label="Invoices" value={toNum(stats.invoices, myInvoices.length)} icon={FileText} iconColor="text-success" />
       </div>
 
       {/* Time Tracker */}
