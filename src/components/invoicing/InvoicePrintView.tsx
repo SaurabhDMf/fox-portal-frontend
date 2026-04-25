@@ -37,13 +37,9 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
     .filter(Boolean)
     .join(', ');
 
-  // Payment link — prefer explicit URL from backend, otherwise build a client-portal deep link
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const paymentLink =
-    invoice.payment_link ||
-    invoice.payment_url ||
-    invoice.public_pay_url ||
-    (invoice.id ? `${origin}/client-portal/invoices/${invoice.id}` : '');
+  // Payment link comes ONLY from the invoice (Stripe/Razorpay checkout URL set by backend).
+  // If null/undefined, the Pay Now button is hidden — never fall back to an internal route.
+  const paymentLink: string = invoice.payment_link || '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static">
