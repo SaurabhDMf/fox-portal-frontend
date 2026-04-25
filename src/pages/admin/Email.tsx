@@ -268,7 +268,14 @@ export default function EmailPage() {
                 }`}
               >
                 <Icon size={16} />
-                {f.label}
+                <span className="flex-1 text-left">{f.label}</span>
+                {f.key === 'INBOX' && unreadCount > 0 && (
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                    active ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary'
+                  }`}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
             );
           })}
