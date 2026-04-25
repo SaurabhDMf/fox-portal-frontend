@@ -238,9 +238,9 @@ export default function InvoiceSettings() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="Company Name" field="name" />
-              <Field label="Company Email" field="email" type="email" />
-              <Field label="Company Phone" field="phone" />
+              <Field label="Company Name" value={form.name} onChange={(v) => set('name', v)} disabled={!isAdmin} />
+              <Field label="Company Email" value={form.email} onChange={(v) => set('email', v)} disabled={!isAdmin} type="email" />
+              <Field label="Company Phone" value={form.phone} onChange={(v) => set('phone', v)} disabled={!isAdmin} />
             </div>
           </div>
 
@@ -248,12 +248,12 @@ export default function InvoiceSettings() {
           <div className="glass-card p-6 space-y-4">
             <h2 className="text-sm font-semibold">Address</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="Address Line 1" field="address_line1" span />
-              <Field label="Address Line 2" field="address_line2" span />
-              <Field label="City" field="city" />
-              <Field label="State" field="state" />
-              <Field label="Postal Code" field="postal_code" />
-              <Field label="Country" field="country" />
+              <Field label="Address Line 1" value={form.address_line1} onChange={(v) => set('address_line1', v)} disabled={!isAdmin} span />
+              <Field label="Address Line 2" value={form.address_line2} onChange={(v) => set('address_line2', v)} disabled={!isAdmin} span />
+              <Field label="City" value={form.city} onChange={(v) => set('city', v)} disabled={!isAdmin} />
+              <Field label="State" value={form.state} onChange={(v) => set('state', v)} disabled={!isAdmin} />
+              <Field label="Postal Code" value={form.postal_code} onChange={(v) => set('postal_code', v)} disabled={!isAdmin} />
+              <Field label="Country" value={form.country} onChange={(v) => set('country', v)} disabled={!isAdmin} />
             </div>
           </div>
 
@@ -261,8 +261,8 @@ export default function InvoiceSettings() {
           <div className="glass-card p-6 space-y-4">
             <h2 className="text-sm font-semibold">Tax Identifiers <span className="text-xs text-muted-foreground font-normal">(optional)</span></h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="GST Number" field="gst_number" />
-              <Field label="PAN Number" field="pan_number" />
+              <Field label="GST Number" value={form.gst_number} onChange={(v) => set('gst_number', v)} disabled={!isAdmin} />
+              <Field label="PAN Number" value={form.pan_number} onChange={(v) => set('pan_number', v)} disabled={!isAdmin} />
             </div>
           </div>
 
@@ -270,8 +270,8 @@ export default function InvoiceSettings() {
           <div className="glass-card p-6 space-y-4">
             <h2 className="text-sm font-semibold">Invoice Defaults</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="Invoice Prefix" field="invoice_prefix" placeholder="INV" />
-              <Field label="Default Payment Terms" field="payment_terms" placeholder="Net 30" />
+              <Field label="Invoice Prefix" value={form.invoice_prefix} onChange={(v) => set('invoice_prefix', v)} disabled={!isAdmin} placeholder="INV" />
+              <Field label="Default Payment Terms" value={form.payment_terms} onChange={(v) => set('payment_terms', v)} disabled={!isAdmin} placeholder="Net 30" />
               <div className="md:col-span-2">
                 <label className="text-xs text-muted-foreground">Invoice Footer Notes</label>
                 <textarea
@@ -290,10 +290,10 @@ export default function InvoiceSettings() {
           <div className="glass-card p-6 space-y-4">
             <h2 className="text-sm font-semibold">Bank Details <span className="text-xs text-muted-foreground font-normal">(optional)</span></h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Field label="Bank Name" field="bank_name" />
-              <Field label="Account Number" field="bank_account" />
-              <Field label="IFSC" field="bank_ifsc" />
-              <Field label="SWIFT / BIC" field="bank_swift" />
+              <Field label="Bank Name" value={form.bank_name} onChange={(v) => set('bank_name', v)} disabled={!isAdmin} />
+              <Field label="Account Number" value={form.bank_account} onChange={(v) => set('bank_account', v)} disabled={!isAdmin} />
+              <Field label="IFSC" value={form.bank_ifsc} onChange={(v) => set('bank_ifsc', v)} disabled={!isAdmin} />
+              <Field label="SWIFT / BIC" value={form.bank_swift} onChange={(v) => set('bank_swift', v)} disabled={!isAdmin} />
             </div>
           </div>
 
