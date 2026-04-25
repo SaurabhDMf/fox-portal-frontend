@@ -56,7 +56,7 @@ export default function InvoiceCreateModal({ onClose }: Props) {
 
   const { data: company } = useQuery({
     queryKey: ['company-settings'],
-    queryFn: () => api.get('/company').then((r) => r.data),
+    queryFn: () => api.get('/company').then((r) => r.data?.data ?? r.data ?? {}),
   });
 
   // Defaults from company
@@ -72,6 +72,16 @@ export default function InvoiceCreateModal({ onClose }: Props) {
         `${company.invoice_prefix || 'INV'}-${String(Date.now()).slice(-6)}`,
     }));
   }, [company]);
+
+  const companyName = company?.name || company?.company_name || 'Your Company';
+  const companyAddress = [
+    company?.address_line1 || company?.address?.line1,
+    company?.address_line2 || company?.address?.line2,
+    company?.city,
+    company?.state,
+    company?.postal_code,
+    company?.country,
+  ].filter(Boolean).join(', ');
 
   const clientsArr = Array.isArray(clients) ? clients : [];
   const selectedClient = clientsArr.find((c: any) => c.id === form.client_id);
