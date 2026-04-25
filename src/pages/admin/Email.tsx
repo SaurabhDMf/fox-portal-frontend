@@ -20,7 +20,32 @@ const fmtRelative = (iso?: string) => {
   if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d`;
   return d.toLocaleDateString();
 };
-const fmtDateTime = (iso?: string) => (iso ? new Date(iso).toLocaleString() : '');
+const fmtDateTime = (iso?: string) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  // e.g. "23 Apr 2026, 9:05 PM"
+  const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${date}, ${time}`;
+};
+
+// Basic HTML sanitization — strip script/style tags and inline event handlers
+const sanitizeHtml = (html: string): string => {
+  if (!html) return '';
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+    .replace(/javascript:/gi, '');
+};
+
+const formatAddresses = (addrs: any): string => {
+  if (!addrs) return '';
+  if (Array.isArray(addrs)) return addrs.join(', ');
+  return String(addrs);
+};
 
 const FOLDERS = [
   { key: 'INBOX', label: 'Inbox', icon: Inbox },
