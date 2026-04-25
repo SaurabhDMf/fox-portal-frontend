@@ -300,6 +300,35 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
                 If you have any questions about this invoice, please contact us.
               </p>
             </div>
+
+            {/* Company details footer (inside card) */}
+            {(company?.address_line1 || company?.phone || company?.email || company?.bank_name) && (
+              <div className="border-t border-slate-200 pt-4 mt-2">
+                <div className="space-y-1 text-center text-[11px] text-slate-500 leading-relaxed">
+                  {[
+                    [company.address_line1, company.city, company.state, company.postal_code, company.country]
+                      .filter(Boolean)
+                      .join(', '),
+                    company?.phone && `📞 ${company.phone}`,
+                    company?.email && `✉ ${company.email}`,
+                    company?.website && company.website,
+                    company?.pan_number && `PAN: ${company.pan_number}`,
+                    company?.bank_name &&
+                      [
+                        `Bank: ${company.bank_name}`,
+                        company.bank_account && `A/C: ${company.bank_account}`,
+                        company.bank_ifsc && `IFSC: ${company.bank_ifsc}`,
+                      ]
+                        .filter(Boolean)
+                        .join(' · '),
+                  ]
+                    .filter(Boolean)
+                    .map((line, i) => (
+                      <p key={i}>{line as string}</p>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
