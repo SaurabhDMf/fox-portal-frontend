@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import StatCard from '@/components/ui/StatCard';
 import { useAuthStore } from '@/stores/authStore';
 import { useNavigate } from 'react-router-dom';
-import { ListChecks, FolderKanban, Target, FileText, Clock, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ListChecks, FolderKanban, Target, FileText, Clock, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 
 export default function MyDashboard() {
   const user = useAuthStore(s => s.user);
@@ -22,14 +23,54 @@ export default function MyDashboard() {
     queryFn: () => api.get('/tracker/tracker-summary').then(r => r.data),
   });
 
+  const { data: today } = useQuery({
+    queryKey: ['today-attendance'],
+    queryFn: () => api.get('/tracker/attendance/today').then(r => r.data?.data || r.data || {}),
+    refetchInterval: 60_000,
+  });
+
+  const invalidateTracker = () => {
+    qc.invalidateQueries({ queryKey: ['today-attendance'] });
+    qc.invalidateQueries({ queryKey: ['tracker-summary'] });
+  };
+
   const checkInMut = useMutation({
     mutationFn: () => api.post('/tracker/attendance/check-in'),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tracker-summary'] }),
+    onSuccess: () => { invalidateTracker(); toast.success('Checked in! Timer started.'); },
+    onError: (e: any) => toast.error(e?.response?.data?.error || e?.response?.data?.message || 'Check-in failed'),
   });
   const checkOutMut = useMutation({
     mutationFn: () => api.post('/tracker/attendance/check-out'),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tracker-summary'] }),
+    onSuccess: () => { invalidateTracker(); toast.success('Checked out. Have a great day!'); },
+    onError: (e: any) => toast.error(e?.response?.data?.error || e?.response?.data?.message || 'Check-out failed'),
   });
+
+  // Live tick — updates running timer every second while checked in
+  const [now, setNow] = useState(Date.now());
+  const isActive = !!today?.check_in_time && !today?.check_out_time;
+  useEffect(() => {
+    if (!isActive) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isActive]);
+
+  const formatElapsed = () => {
+    if (today?.check_in_time && today?.check_out_time) {
+      const hrs = Number(today.hours_worked || 0);
+      return `${Math.floor(hrs)}h ${Math.round((hrs % 1) * 60)}m`;
+    }
+    if (today?.check_in_time) {
+      const ms = now - new Date(today.check_in_time).getTime();
+      const totalSec = Math.max(0, Math.floor(ms / 1000));
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+    }
+    return trackerSummary?.today_hours || '0h 0m';
+  };
+
+  const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const stats = data?.stats || {};
   const myTasks: any[] = Array.isArray(data?.my_tasks) ? data.my_tasks : [];
