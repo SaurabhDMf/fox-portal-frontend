@@ -873,22 +873,38 @@ function AccountRow({
         active ? 'bg-muted' : 'hover:bg-muted/60'
       }`}
     >
-      <button
-        onClick={onSelect}
-        className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-left ${
-          active ? 'text-foreground font-semibold' : 'text-muted-foreground'
-        }`}
-      >
-        <span className="w-6 h-6 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[10px] font-bold uppercase">
-          {(acc.email_address || acc.email || '?')[0]}
-        </span>
-        <span className="truncate flex-1">{acc.email_address || acc.email}</span>
-        {acc.is_default && (
-          <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-            Default
+      <div className="flex items-center gap-1 pr-1">
+        <button
+          onClick={onSelect}
+          className={`flex-1 min-w-0 flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-left ${
+            active ? 'text-foreground font-semibold' : 'text-muted-foreground'
+          }`}
+        >
+          <span className="w-6 h-6 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[10px] font-bold uppercase">
+            {(acc.email_address || acc.email || '?')[0]}
           </span>
-        )}
-      </button>
+          <span className="truncate flex-1">{acc.email_address || acc.email}</span>
+          {acc.is_default && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+              Default
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleteMut.isPending}
+          title="Remove account"
+          aria-label={`Remove ${acc.email_address || acc.email || 'account'}`}
+          className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+        >
+          {deleteMut.isPending ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <Trash2 size={12} />
+          )}
+        </button>
+      </div>
 
       <div className="px-2 pb-2">
         <button
