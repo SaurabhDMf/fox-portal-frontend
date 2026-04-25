@@ -137,9 +137,10 @@ export default function EmailSettings() {
     <div className="space-y-4">
       <div className="glass-card p-6 space-y-5">
         <div>
-          <h2 className="text-sm font-semibold">Email Settings</h2>
+          <h2 className="text-sm font-semibold">System Email — Alerts & Invoices</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Configure outgoing email for system notifications and messages.
+            This email is used by the platform to send invoices, payslips, and system notifications.
+            Configure once for the whole company.
           </p>
         </div>
 
