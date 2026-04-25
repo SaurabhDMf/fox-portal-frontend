@@ -38,7 +38,10 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const userRole = useAuthStore((s) => s.user?.role);
+  const userGrants = useAuthStore((s) => s.grants);
   const isAdmin = userRole === 'admin' || userRole === 'super_admin' || userRole === 'supervisor';
+  const canViewFinancials = userRole === 'admin' || userRole === 'super_admin' || (Array.isArray(userGrants) && userGrants.includes('project_finance'));
+  const TABS = ALL_TABS.filter(t => t.id !== 'financials' || canViewFinancials);
   const [activeTab, setActiveTab] = useState<TabId>('tasks');
   const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
   const [createTaskDefaults, setCreateTaskDefaults] = useState<{ status?: string; sprint_id?: string; epic_id?: string } | null>(null);
