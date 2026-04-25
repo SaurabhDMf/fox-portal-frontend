@@ -186,7 +186,7 @@ export default function Invoicing() {
 
       {showCreate && <InvoiceCreateModal onClose={() => setShowCreate(false)} />}
       {showUpload && <InvoiceUploadModal onClose={() => setShowUpload(false)} />}
-      {showPrint && <InvoicePrintView invoice={showPrint} onClose={() => setShowPrint(null)} />}
+      {showPrint && <InvoicePrintView invoice={showPrint} onClose={() => setShowPrint(null)} onDelete={canDelete ? () => handleDelete(showPrint) : undefined} />}
       {showSend && <SendInvoiceModal invoice={showSend} onClose={() => setShowSend(null)} />}
     </div>
   );
