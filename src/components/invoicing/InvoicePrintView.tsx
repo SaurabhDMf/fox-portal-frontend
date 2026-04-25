@@ -78,16 +78,17 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
                 {company.logo_url ? (
                   <img
                     src={company.logo_url}
-                    alt={company.company_name || 'Logo'}
-                    className="h-14 w-14 rounded-xl bg-white p-1.5 object-contain shadow-md"
+                    alt={companyName || 'Company logo'}
+                    style={{ maxHeight: 48 }}
+                    className="rounded-lg bg-white p-1 object-contain shadow-md"
                   />
                 ) : (
-                  <div className="h-14 w-14 rounded-xl bg-white/10 ring-1 ring-white/20 flex items-center justify-center">
-                    <Building2 className="h-7 w-7 text-white" />
+                  <div className="h-12 w-12 rounded-xl bg-white/10 ring-1 ring-white/20 flex items-center justify-center">
+                    <Building2 className="h-6 w-6 text-white" />
                   </div>
                 )}
                 <div>
-                  <h2 className="text-xl font-bold tracking-tight">{company.company_name || 'Your Company'}</h2>
+                  <h2 className="text-xl font-bold tracking-tight">{companyName || '—'}</h2>
                   {company.tagline && <p className="text-xs text-white/70 mt-0.5">{company.tagline}</p>}
                   {company.gst_number && <p className="text-[11px] text-white/60 mt-1">GSTIN: {company.gst_number}</p>}
                 </div>
