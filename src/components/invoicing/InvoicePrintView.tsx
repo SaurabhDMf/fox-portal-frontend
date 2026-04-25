@@ -119,33 +119,68 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
           className="bg-white text-slate-900 rounded-2xl shadow-2xl overflow-hidden print:shadow-none print:rounded-none"
           id="invoice-print-area"
         >
-          {/* Branded header band */}
-          <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-blue-900 text-white px-10 py-8 print:bg-slate-900">
-            <div className="flex justify-between items-start gap-6 flex-wrap">
-              <div className="flex items-start gap-4">
+          {/* Two-column professional header */}
+          <div className="px-10 pt-10 pb-6 border-b border-slate-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+              {/* LEFT — company branding */}
+              <div className="space-y-2">
                 {company.logo_url ? (
                   <img
                     src={company.logo_url}
                     alt={companyName || 'Company logo'}
-                    style={{ maxHeight: 48 }}
-                    className="rounded-lg bg-white p-1 object-contain shadow-md"
+                    style={{ maxHeight: 80 }}
+                    className="object-contain"
                   />
                 ) : (
-                  <div className="h-12 w-12 rounded-xl bg-white/10 ring-1 ring-white/20 flex items-center justify-center">
-                    <Building2 className="h-6 w-6 text-white" />
+                  <div className="h-16 w-16 rounded-xl bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center">
+                    <Building2 className="h-7 w-7 text-slate-500" />
                   </div>
                 )}
-                <div>
-                  <h2 className="text-xl font-bold tracking-tight">{companyName || '—'}</h2>
-                  {company.tagline && <p className="text-xs text-white/70 mt-0.5">{company.tagline}</p>}
-                  {company.gst_number && <p className="text-[11px] text-white/60 mt-1">GSTIN: {company.gst_number}</p>}
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+                  {companyName || '—'}
+                </h2>
+                <div className="text-sm text-slate-600 leading-relaxed space-y-0.5">
+                  {company.address_line1 && <div>{company.address_line1}</div>}
+                  {(company.city || company.state || company.postal_code) && (
+                    <div>
+                      {[company.city, company.state, company.postal_code].filter(Boolean).join(', ')}
+                    </div>
+                  )}
+                  {company.country && <div>{company.country}</div>}
+                  {(company.email || company.phone) && (
+                    <div className="text-slate-500 pt-1">
+                      {[company.email, company.phone].filter(Boolean).join(' | ')}
+                    </div>
+                  )}
+                  {company.gst_number && (
+                    <div className="text-slate-500">GST: {company.gst_number}</div>
+                  )}
                 </div>
               </div>
-              <div className="text-right">
-                <h1 className="text-3xl font-bold tracking-tight">INVOICE</h1>
-                <p className="text-sm text-white/80 font-medium mt-0.5">{invoice.invoice_number || '—'}</p>
+
+              {/* RIGHT — invoice meta */}
+              <div className="sm:text-right space-y-2">
+                <h1 className="text-4xl font-bold tracking-tight text-slate-900">INVOICE</h1>
+                <div className="text-sm text-slate-700 space-y-1">
+                  <div>
+                    <span className="text-slate-500">Invoice #&nbsp;</span>
+                    <span className="font-semibold">{invoice.invoice_number || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Issue Date&nbsp;</span>
+                    <span className="font-medium">
+                      {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : '—'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Due Date&nbsp;</span>
+                    <span className="font-medium">
+                      {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '—'}
+                    </span>
+                  </div>
+                </div>
                 <span
-                  className={`inline-block mt-2 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ring-1 ${statusCls}`}
+                  className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ring-1 ${statusCls}`}
                 >
                   {invoice.status || 'Draft'}
                 </span>
@@ -154,14 +189,6 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
           </div>
 
           <div className="px-10 py-8 space-y-8">
-            {/* Meta strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 -mt-2">
-              <Meta label="Issue Date" value={invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : '—'} />
-              <Meta label="Due Date" value={invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '—'} />
-              <Meta label="Invoice #" value={invoice.invoice_number || '—'} />
-              <Meta label="Amount Due" value={fmt(amountDue)} highlight={!isPaid} />
-            </div>
-
             {/* Bill From / Bill To */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <Party
@@ -170,16 +197,25 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
                 address={companyAddress}
                 email={company.email}
                 phone={company.phone}
+                gst={company.gst_number}
               />
               <Party
                 label="Bill To"
-                name={invoice.client?.company_name || invoice.client_name || 'Client'}
+                name={invoice.billing_name || invoice.client?.company_name || invoice.client_name || 'Client'}
                 contact={invoice.billing_contact_name || invoice.client?.contact_name}
                 address={invoice.billing_address || invoice.client?.address || ''}
                 email={invoice.billing_email || invoice.client?.email}
                 phone={invoice.billing_phone || invoice.client?.phone}
-                gst={invoice.client?.gst_number}
+                gst={invoice.billing_gst_number || invoice.client?.gst_number}
               />
+            </div>
+
+            {/* Quick meta strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <Meta label="Issue Date" value={invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : '—'} />
+              <Meta label="Due Date" value={invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '—'} />
+              <Meta label="Invoice #" value={invoice.invoice_number || '—'} />
+              <Meta label="Amount Due" value={fmt(amountDue)} highlight={!isPaid} />
             </div>
 
             {/* Line Items */}
