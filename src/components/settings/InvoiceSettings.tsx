@@ -152,11 +152,15 @@ export default function InvoiceSettings() {
     },
   });
 
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
   const onUploadLogo = async (file: File) => {
+    setUploadingLogo(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await api.post('/uploads', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      // api instance already attaches Bearer token; let axios set the multipart boundary
+      const res = await api.post('/uploads', fd);
       const url = res.data?.url || res.data?.data?.url || res.data?.file_url;
       if (url) {
         set('logo_url', url);
@@ -165,7 +169,9 @@ export default function InvoiceSettings() {
         toast.error('Upload succeeded but no URL returned');
       }
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Upload failed — paste a URL instead');
+      toast.error(err?.response?.data?.message || err?.message || 'Upload failed — paste a URL instead');
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
