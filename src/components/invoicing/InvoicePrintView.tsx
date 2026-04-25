@@ -229,14 +229,13 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
                     </div>
                   </div>
                   {paymentLink && (
-                    <a
-                      href={paymentLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => window.open(paymentLink, '_blank', 'noopener,noreferrer')}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors print:hidden"
                     >
                       <CreditCard className="h-4 w-4" /> Pay {fmt(amountDue)}
-                    </a>
+                    </button>
                   )}
                 </div>
 
