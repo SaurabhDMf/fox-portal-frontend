@@ -39,7 +39,7 @@ export default function ClientDetail() {
 
   const { data: users = [] } = useQuery({
     queryKey: ['users-active'],
-    queryFn: () => api.get('/users/active').then(r => r.data?.users || r.data || []),
+    queryFn: () => api.get('/users/active').then(r => extractProjectArray<any>(r.data, ['users'])),
   });
 
   const editMut = useMutation({
