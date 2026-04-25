@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Plus, X, Trash2, Save, Send, Eraser, Hash } from 'lucide-react';
+import { Plus, X, Trash2, Save, Send, Eraser, Hash, Loader2 } from 'lucide-react';
 
 interface LineItem {
   description: string;
@@ -25,6 +25,7 @@ export default function InvoiceCreateModal({ onClose }: Props) {
 
   const [form, setForm] = useState({
     client_id: '',
+    project_id: '',
     due_date: '',
     currency: 'USD',
     discount_pct: 0,
@@ -33,11 +34,15 @@ export default function InvoiceCreateModal({ onClose }: Props) {
     terms: '',
     billing_address: '',
     billing_email: '',
+    billing_phone: '',
     billing_contact_name: '',
+    billing_company_name: '',
+    billing_gst_number: '',
     invoice_number: '',
   });
   const [items, setItems] = useState<LineItem[]>([{ description: '', quantity: 1, unit_price: 0 }]);
   const [signatureData, setSignatureData] = useState<string>('');
+  const [clientProjects, setClientProjects] = useState<Array<{ id: string; name: string; status?: string }>>([]);
 
   // Signature pad
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -84,35 +89,58 @@ export default function InvoiceCreateModal({ onClose }: Props) {
   ].filter(Boolean).join(', ');
 
   const clientsArr = Array.isArray(clients) ? clients : [];
-  const selectedClient = clientsArr.find((c: any) => c.id === form.client_id);
 
-  // Auto-fill billing details from client
+  // Fetch full invoice-data for the selected client and auto-fill billing fields
+  const { data: invoiceData, isFetching: loadingClientData } = useQuery({
+    queryKey: ['client-invoice-data', form.client_id],
+    enabled: !!form.client_id,
+    queryFn: () =>
+      api
+        .get(`/clients/${form.client_id}/invoice-data`)
+        .then((r) => r.data?.data ?? r.data ?? {}),
+  });
+
   useEffect(() => {
-    if (!selectedClient) return;
-    const addr =
-      selectedClient.billing_address ||
-      selectedClient.address ||
-      [
-        selectedClient.address_line1,
-        selectedClient.address_line2,
-        selectedClient.city,
-        selectedClient.state,
-        selectedClient.postal_code,
-        selectedClient.country,
-      ]
+    if (!invoiceData) return;
+    const d: any = invoiceData;
+
+    // Build address: prefer structured billing_address, otherwise compose from fields
+    let addr = '';
+    const ba = d.billing_address;
+    if (ba && typeof ba === 'object') {
+      addr = [ba.line1 || ba.address_line1, ba.line2 || ba.address_line2, ba.city, ba.state, ba.postal_code || ba.zip, ba.country]
         .filter(Boolean)
         .join(', ');
+    } else if (typeof ba === 'string' && ba.trim()) {
+      addr = ba;
+    }
+    if (!addr) {
+      addr = [d.address_line1, d.address_line2, d.city, d.state, d.postal_code, d.country]
+        .filter(Boolean)
+        .join(', ');
+    }
+
     setForm((f) => ({
       ...f,
-      billing_address: addr || '',
-      billing_email: selectedClient.email || '',
-      billing_contact_name:
-        selectedClient.contact_name ||
-        selectedClient.company_name ||
-        selectedClient.name ||
-        '',
+      billing_company_name: d.company_name || f.billing_company_name,
+      billing_contact_name: d.contact_name || f.billing_contact_name,
+      billing_email: d.contact_email || d.email || f.billing_email,
+      billing_phone: d.contact_phone || d.phone || f.billing_phone,
+      billing_address: addr || f.billing_address,
+      billing_gst_number: d.gst_number || f.billing_gst_number,
+      project_id: '', // reset project selection on client change
     }));
-  }, [form.client_id, selectedClient]);
+
+    setClientProjects(Array.isArray(d.projects) ? d.projects : []);
+  }, [invoiceData]);
+
+  // Reset projects + project_id immediately when client cleared
+  useEffect(() => {
+    if (!form.client_id) {
+      setClientProjects([]);
+      setForm((f) => ({ ...f, project_id: '' }));
+    }
+  }, [form.client_id]);
 
   // Signature pad handlers
   const getPos = (e: React.MouseEvent | React.TouchEvent) => {
@@ -291,7 +319,14 @@ export default function InvoiceCreateModal({ onClose }: Props) {
 
           {/* Bill To */}
           <div className="rounded-lg border border-border p-3 space-y-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Bill To</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Bill To</p>
+              {loadingClientData && (
+                <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading client…
+                </span>
+              )}
+            </div>
             <select
               value={form.client_id}
               onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}
@@ -306,28 +341,71 @@ export default function InvoiceCreateModal({ onClose }: Props) {
             </select>
 
             {form.client_id && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <input
-                  placeholder="Contact name"
-                  value={form.billing_contact_name}
-                  onChange={(e) => setForm((f) => ({ ...f, billing_contact_name: e.target.value }))}
-                  className={inputCls}
-                />
-                <input
-                  placeholder="Client email"
-                  type="email"
-                  value={form.billing_email}
-                  onChange={(e) => setForm((f) => ({ ...f, billing_email: e.target.value }))}
-                  className={inputCls}
-                />
-                <textarea
-                  value={form.billing_address}
-                  onChange={(e) => setForm((f) => ({ ...f, billing_address: e.target.value }))}
-                  rows={2}
-                  className={inputCls + ' md:col-span-2 resize-none'}
-                  placeholder="Billing address"
-                />
-              </div>
+              <>
+                {/* Project picker (optional) */}
+                <div>
+                  <label className="text-[11px] text-muted-foreground">Link to Project (optional)</label>
+                  <select
+                    value={form.project_id}
+                    onChange={(e) => setForm((f) => ({ ...f, project_id: e.target.value }))}
+                    className={inputCls + ' w-full mt-1'}
+                    disabled={loadingClientData}
+                  >
+                    <option value="">— No project —</option>
+                    {clientProjects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}{p.status ? ` (${p.status})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={`grid grid-cols-1 md:grid-cols-2 gap-2 ${loadingClientData ? 'opacity-60' : ''}`}>
+                  <input
+                    placeholder="Company / Bill to name"
+                    value={form.billing_company_name}
+                    onChange={(e) => setForm((f) => ({ ...f, billing_company_name: e.target.value }))}
+                    className={inputCls}
+                  />
+                  <input
+                    placeholder="Contact person"
+                    value={form.billing_contact_name}
+                    onChange={(e) => setForm((f) => ({ ...f, billing_contact_name: e.target.value }))}
+                    className={inputCls}
+                  />
+                  <input
+                    placeholder="Client email"
+                    type="email"
+                    value={form.billing_email}
+                    onChange={(e) => setForm((f) => ({ ...f, billing_email: e.target.value }))}
+                    className={inputCls}
+                  />
+                  <input
+                    placeholder="Client phone"
+                    value={form.billing_phone}
+                    onChange={(e) => setForm((f) => ({ ...f, billing_phone: e.target.value }))}
+                    className={inputCls}
+                  />
+                  <input
+                    placeholder="GST Number (optional)"
+                    value={form.billing_gst_number}
+                    onChange={(e) => setForm((f) => ({ ...f, billing_gst_number: e.target.value }))}
+                    className={inputCls + ' md:col-span-2'}
+                  />
+                  <div className="md:col-span-2 relative">
+                    <textarea
+                      value={form.billing_address}
+                      onChange={(e) => setForm((f) => ({ ...f, billing_address: e.target.value }))}
+                      rows={2}
+                      className={inputCls + ' w-full resize-none'}
+                      placeholder="Billing address"
+                    />
+                    {loadingClientData && (
+                      <Loader2 className="h-4 w-4 animate-spin absolute top-2 right-2 text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+              </>
             )}
           </div>
 
