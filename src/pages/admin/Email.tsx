@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import {
   Inbox, Send, FileText, Star, Archive, Trash2,
   Plus, RefreshCw, Search, Reply, MailOpen, Paperclip,
-  Minus, X,
+  Minus, X, PlugZap, CheckCircle2, XCircle, Loader2,
 } from 'lucide-react';
 import { emailApi } from '@/lib/api';
 
@@ -173,7 +173,7 @@ export default function EmailPage() {
   const addMutation = useMutation({
     mutationFn: (d: any) => emailApi.addAccount(d),
     onSuccess: () => {
-      toast.success('Account added & SMTP verified');
+      toast.success('Account added. Click Test Connection to verify your credentials.');
       accountForm.reset();
       setShowAddAccount(false);
       qc.invalidateQueries({ queryKey: ['email-accounts'] });
@@ -234,30 +234,14 @@ export default function EmailPage() {
             </button>
           </div>
           <div className="space-y-1">
-            {accounts.map((acc: any) => {
-              const active = activeAccountId === acc.id;
-              return (
-                <button
-                  key={acc.id}
-                  onClick={() => setActiveAccountId(acc.id)}
-                  className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-left transition-colors ${
-                    active
-                      ? 'bg-muted text-foreground font-semibold'
-                      : 'text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  <span className="w-6 h-6 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[10px] font-bold uppercase">
-                    {(acc.email_address || acc.email || '?')[0]}
-                  </span>
-                  <span className="truncate flex-1">{acc.email_address || acc.email}</span>
-                  {acc.is_default && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                      Default
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            {accounts.map((acc: any) => (
+              <AccountRow
+                key={acc.id}
+                acc={acc}
+                active={activeAccountId === acc.id}
+                onSelect={() => setActiveAccountId(acc.id)}
+              />
+            ))}
             {accounts.length === 0 && (
               <p className="text-xs text-muted-foreground px-2 py-2">No accounts yet</p>
             )}
@@ -720,9 +704,105 @@ function AddAccountModal({
             disabled={submitting}
             className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
           >
-            {submitting ? 'Verifying SMTP…' : 'Add Account'}
+            Add Account
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────
+// Account row with inline Test Connection
+// ────────────────────────────────────────
+function AccountRow({
+  acc,
+  active,
+  onSelect,
+}: {
+  acc: any;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const [result, setResult] = useState<
+    { ok: boolean; message: string } | null
+  >(null);
+
+  const testMut = useMutation({
+    mutationFn: () => emailApi.testAccount(acc.id),
+    onSuccess: (r: any) => {
+      const payload = r?.data?.data ?? r?.data ?? {};
+      const ok = payload.ok ?? payload.success ?? true;
+      setResult({
+        ok,
+        message:
+          payload.message ||
+          (ok ? 'Connection successful' : 'Connection failed'),
+      });
+    },
+    onError: (e: any) => {
+      setResult({ ok: false, message: errMsg(e) });
+    },
+  });
+
+  return (
+    <div
+      className={`rounded-lg transition-colors ${
+        active ? 'bg-muted' : 'hover:bg-muted/60'
+      }`}
+    >
+      <button
+        onClick={onSelect}
+        className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-left ${
+          active ? 'text-foreground font-semibold' : 'text-muted-foreground'
+        }`}
+      >
+        <span className="w-6 h-6 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[10px] font-bold uppercase">
+          {(acc.email_address || acc.email || '?')[0]}
+        </span>
+        <span className="truncate flex-1">{acc.email_address || acc.email}</span>
+        {acc.is_default && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+            Default
+          </span>
+        )}
+      </button>
+
+      <div className="px-2 pb-2">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setResult(null);
+            testMut.mutate();
+          }}
+          disabled={testMut.isPending}
+          className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
+        >
+          {testMut.isPending ? (
+            <Loader2 size={11} className="animate-spin" />
+          ) : (
+            <PlugZap size={11} />
+          )}
+          {testMut.isPending ? 'Testing…' : 'Test Connection'}
+        </button>
+
+        {result && (
+          <div
+            className={`mt-1.5 flex items-start gap-1.5 px-2 py-1 rounded-md text-[10px] leading-tight ${
+              result.ok
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                : 'bg-destructive/10 text-destructive'
+            }`}
+          >
+            {result.ok ? (
+              <CheckCircle2 size={11} className="shrink-0 mt-0.5" />
+            ) : (
+              <XCircle size={11} className="shrink-0 mt-0.5" />
+            )}
+            <span className="break-words">{result.message}</span>
+          </div>
+        )}
       </div>
     </div>
   );
