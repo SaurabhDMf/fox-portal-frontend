@@ -37,7 +37,7 @@ interface Props {
   onClose: () => void;
   onSubmit: (data: ClientFormData) => void;
   isPending: boolean;
-  users: { id: string; full_name: string }[];
+  users: { id: string; full_name: string; role?: string; job_title?: string }[];
   initial?: Partial<ClientFormData>;
   isEdit?: boolean;
 }
