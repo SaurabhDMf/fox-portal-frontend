@@ -23,9 +23,25 @@ export default function MyDashboard() {
     queryFn: () => api.get('/tracker/tracker-summary').then(r => r.data),
   });
 
+  // Normalize backend response — different shapes use different field names
+  const normalizeAttendance = (raw: any) => {
+    if (!raw) return {};
+    const r = raw?.data ?? raw;
+    const checkIn = r.check_in_time ?? r.check_in ?? r.checkin_time ?? r.checked_in_at ?? r.checkInTime ?? r.start_time ?? null;
+    const checkOut = r.check_out_time ?? r.check_out ?? r.checkout_time ?? r.checked_out_at ?? r.checkOutTime ?? r.end_time ?? null;
+    const isCheckedIn = !!(checkIn && !checkOut) || r.checked_in === true || r.is_checked_in === true || r.status === 'checked_in';
+    return {
+      ...r,
+      check_in_time: checkIn,
+      check_out_time: checkOut,
+      checked_in: isCheckedIn,
+      hours_worked: r.hours_worked ?? r.hours ?? r.total_hours ?? 0,
+    };
+  };
+
   const { data: today } = useQuery({
     queryKey: ['today-attendance'],
-    queryFn: () => api.get('/tracker/attendance/today').then(r => r.data?.data || r.data || {}),
+    queryFn: () => api.get('/tracker/attendance/today').then(r => normalizeAttendance(r.data?.data ?? r.data)),
     refetchInterval: 60_000,
   });
 
@@ -36,12 +52,33 @@ export default function MyDashboard() {
 
   const checkInMut = useMutation({
     mutationFn: () => api.post('/tracker/attendance/check-in'),
-    onSuccess: () => { invalidateTracker(); toast.success('Checked in! Timer started.'); },
-    onError: (e: any) => toast.error(e?.response?.data?.error || e?.response?.data?.message || 'Check-in failed'),
+    onSuccess: (res: any) => {
+      // Optimistically seed the today cache from the response so the timer starts immediately
+      const payload = normalizeAttendance(res?.data?.data ?? res?.data ?? {});
+      if (payload.check_in_time) {
+        qc.setQueryData(['today-attendance'], payload);
+      } else {
+        // Fallback: stamp now so the UI flips to "running" until refetch returns the real time
+        qc.setQueryData(['today-attendance'], { check_in_time: new Date().toISOString(), checked_in: true });
+      }
+      invalidateTracker();
+      toast.success('Checked in! Timer started.');
+    },
+    onError: (e: any) => {
+      const msg = e?.response?.data?.error || e?.response?.data?.message || 'Check-in failed';
+      // If backend says already checked in, refetch to sync the UI with the real state
+      if (/already/i.test(msg)) invalidateTracker();
+      toast.error(msg);
+    },
   });
   const checkOutMut = useMutation({
     mutationFn: () => api.post('/tracker/attendance/check-out'),
-    onSuccess: () => { invalidateTracker(); toast.success('Checked out. Have a great day!'); },
+    onSuccess: (res: any) => {
+      const payload = normalizeAttendance(res?.data?.data ?? res?.data ?? {});
+      if (payload.check_out_time) qc.setQueryData(['today-attendance'], payload);
+      invalidateTracker();
+      toast.success('Checked out. Have a great day!');
+    },
     onError: (e: any) => toast.error(e?.response?.data?.error || e?.response?.data?.message || 'Check-out failed'),
   });
 
