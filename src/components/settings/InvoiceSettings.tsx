@@ -63,6 +63,41 @@ function hydrate(d: any): InvoiceForm {
   };
 }
 
+// Defined OUTSIDE the parent component so its identity is stable across
+// re-renders. Defining it inside would unmount/remount the input on every
+// keystroke and steal focus from the user.
+function Field({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  span = false,
+  placeholder,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  span?: boolean;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className={span ? 'md:col-span-2' : ''}>
+      <label className="text-xs text-muted-foreground">{label}</label>
+      <input
+        type={type}
+        value={value ?? ''}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className={inputCls}
+      />
+    </div>
+  );
+}
+
 export default function InvoiceSettings() {
   const qc = useQueryClient();
   const user = useAuthStore((s) => s.user);
