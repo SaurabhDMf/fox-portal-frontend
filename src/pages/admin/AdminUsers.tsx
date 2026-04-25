@@ -259,6 +259,7 @@ export default function AdminUsers() {
   const openView = async (u: any) => {
     setViewTab('details');
     setViewPerms(null);
+    setViewGrants([]);
     try {
       const res = await api.get(`/users/${u.id}`);
       setShowView(res.data?.data || res.data);
@@ -274,6 +275,34 @@ export default function AdminUsers() {
       } catch {
         setViewPerms(null);
       }
+      // Fetch user grants
+      try {
+        const gRes = await api.get(`/permissions/users/${u.id}/grants`);
+        const gd = gRes.data?.data || gRes.data;
+        const list = Array.isArray(gd) ? gd : (gd?.grants || []);
+        setViewGrants(list);
+      } catch {
+        setViewGrants([]);
+      }
+    }
+  };
+
+  const toggleGrant = async (userId: string, permission: string, enabled: boolean) => {
+    setGrantBusy(permission);
+    try {
+      if (enabled) {
+        await api.post(`/permissions/users/${userId}/grant`, { permission });
+        setViewGrants((g) => Array.from(new Set([...g, permission])));
+        toast.success('Access granted');
+      } else {
+        await api.delete(`/permissions/users/${userId}/grant/${permission}`, { skipConfirm: true } as any);
+        setViewGrants((g) => g.filter((p) => p !== permission));
+        toast.success('Access revoked');
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to update grant');
+    } finally {
+      setGrantBusy(null);
     }
   };
 
