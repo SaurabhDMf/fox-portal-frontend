@@ -67,7 +67,8 @@ export default function MyDashboard() {
       const s = totalSec % 60;
       return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
     }
-    return trackerSummary?.today_hours || '0h 0m';
+    const th = trackerSummary?.today_hours;
+    return typeof th === 'string' || typeof th === 'number' ? String(th) : '0h 0m';
   };
 
   const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
