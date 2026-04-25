@@ -106,9 +106,13 @@ export default function InvoiceCreateModal({ onClose }: Props) {
       ...f,
       billing_address: addr || '',
       billing_email: selectedClient.email || '',
-      billing_contact_name: selectedClient.contact_name || selectedClient.name || '',
+      billing_contact_name:
+        selectedClient.contact_name ||
+        selectedClient.company_name ||
+        selectedClient.name ||
+        '',
     }));
-  }, [form.client_id]);
+  }, [form.client_id, selectedClient]);
 
   // Signature pad handlers
   const getPos = (e: React.MouseEvent | React.TouchEvent) => {
