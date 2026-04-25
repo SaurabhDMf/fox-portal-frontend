@@ -1,11 +1,12 @@
-import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe } from 'lucide-react';
+import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe, Trash2 } from 'lucide-react';
 
 interface Props {
   invoice: any;
   onClose: () => void;
+  onDelete?: () => void;
 }
 
-export default function InvoicePrintView({ invoice, onClose }: Props) {
+export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) {
   // Backend already returns `company` alongside the invoice — no extra API call needed
   const company: any = invoice.company || {};
   const companyName = company.name || company.company_name || '';
