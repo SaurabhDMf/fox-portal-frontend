@@ -242,7 +242,7 @@ export default function ProjectDetail() {
         <BacklogView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />
       )}
       {activeTab === 'members' && <MembersView projectId={id!} />}
-      {activeTab === 'financials' && <FinancialsView projectId={id!} />}
+      {activeTab === 'financials' && canViewFinancials && <FinancialsView projectId={id!} />}
 
       {selectedTask && (
         <TaskDetailDrawer task={selectedTask} onClose={() => setSelectedTask(null)} projectId={id!} />
