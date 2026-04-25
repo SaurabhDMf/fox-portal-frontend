@@ -142,21 +142,9 @@ export default function InvoiceSettings() {
     );
   }
 
-  const Field = ({
-    label, field, type = 'text', span = false, placeholder,
-  }: { label: string; field: keyof InvoiceForm; type?: string; span?: boolean; placeholder?: string }) => (
-    <div className={span ? 'md:col-span-2' : ''}>
-      <label className="text-xs text-muted-foreground">{label}</label>
-      <input
-        type={type}
-        value={(form[field] as string) ?? ''}
-        placeholder={placeholder}
-        onChange={(e) => set(field, e.target.value as any)}
-        disabled={!isAdmin}
-        className={inputCls}
-      />
-    </div>
-  );
+  // NOTE: Field must NOT be defined inside this component — that would create a
+  // new component identity on every render and remount the input on each keystroke,
+  // causing the input to lose focus while typing. Use the top-level <Field /> below.
 
   const previewAddress = [form.address_line1, form.address_line2, form.city, form.state, form.postal_code, form.country]
     .filter(Boolean).join(', ');
