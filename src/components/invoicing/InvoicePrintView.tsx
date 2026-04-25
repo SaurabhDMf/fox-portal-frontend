@@ -1,4 +1,6 @@
 import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 
 interface Props {
   invoice: any;
@@ -6,7 +8,12 @@ interface Props {
 }
 
 export default function InvoicePrintView({ invoice, onClose }: Props) {
-  const company = invoice.company || {};
+  const { data: companyData } = useQuery({
+    queryKey: ['company'],
+    queryFn: () => api.get('/company').then((r) => r.data),
+  });
+  // Prefer live company settings, fall back to whatever the invoice payload already had
+  const company = { ...(invoice.company || {}), ...(companyData || {}) };
   const items = invoice.items || [];
   const currency = invoice.currency_symbol || invoice.currency || company.currency_symbol || '$';
   const fmt = (n: number) =>
