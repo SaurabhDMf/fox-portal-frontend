@@ -137,6 +137,14 @@ export default function EmailPage() {
   });
   const email: any = emailData;
 
+  // When an email is opened, it's auto-marked read server-side — refresh unread count + list
+  useEffect(() => {
+    if (email?.id) {
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
+      qc.invalidateQueries({ queryKey: ['emails'] });
+    }
+  }, [email?.id]); // eslint-disable-line
+
   // ----- mutations -----
   const syncMutation = useMutation({
     mutationFn: () => emailApi.syncAccount(activeAccountId!, activeFolder),
