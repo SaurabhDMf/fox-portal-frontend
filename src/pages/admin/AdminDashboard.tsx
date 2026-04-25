@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import StatCard from '@/components/ui/StatCard';
-import { DollarSign, Users, Target, AlertTriangle, FileText, MessageSquare, Clock, LayoutDashboard, User } from 'lucide-react';
+import { DollarSign, Users, Target, AlertTriangle, FileText, MessageSquare, Clock, LayoutDashboard, User, FolderOpen, LifeBuoy, CalendarOff, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -94,6 +94,9 @@ function OrgDashboard({ onSwitchView }: { onSwitchView: () => void }) {
           </button>
         ))}
       </div>
+
+      {/* Recent Activity Feed */}
+      <RecentActivityCard activity={s.recentActivity || s.recent_activity || []} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="glass-card p-5">
