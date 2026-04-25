@@ -1,6 +1,4 @@
-import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe } from 'lucide-react';
 
 interface Props {
   invoice: any;
@@ -8,12 +6,9 @@ interface Props {
 }
 
 export default function InvoicePrintView({ invoice, onClose }: Props) {
-  const { data: companyData } = useQuery({
-    queryKey: ['company'],
-    queryFn: () => api.get('/company').then((r) => r.data),
-  });
-  // Prefer live company settings, fall back to whatever the invoice payload already had
-  const company = { ...(invoice.company || {}), ...(companyData || {}) };
+  // Backend already returns `company` alongside the invoice — no extra API call needed
+  const company: any = invoice.company || {};
+  const companyName = company.name || company.company_name || '';
   const items = invoice.items || [];
   const currency = invoice.currency_symbol || invoice.currency || company.currency_symbol || '$';
   const fmt = (n: number) =>
@@ -42,13 +37,9 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
     .filter(Boolean)
     .join(', ');
 
-  // Payment link — prefer explicit URL from backend, otherwise build a client-portal deep link
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const paymentLink =
-    invoice.payment_link ||
-    invoice.payment_url ||
-    invoice.public_pay_url ||
-    (invoice.id ? `${origin}/client-portal/invoices/${invoice.id}` : '');
+  // Payment link comes ONLY from the invoice (Stripe/Razorpay checkout URL set by backend).
+  // If null/undefined, the Pay Now button is hidden — never fall back to an internal route.
+  const paymentLink: string = invoice.payment_link || '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static">
@@ -56,14 +47,13 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
         {/* Action bar - hidden in print */}
         <div className="flex gap-2 justify-end mb-3 print:hidden">
           {!isPaid && paymentLink && (
-            <a
-              href={paymentLink}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => window.open(paymentLink, '_blank', 'noopener,noreferrer')}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
             >
               <CreditCard className="h-4 w-4" /> Pay Now
-            </a>
+            </button>
           )}
           <button
             onClick={() => window.print()}
@@ -88,16 +78,17 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
                 {company.logo_url ? (
                   <img
                     src={company.logo_url}
-                    alt={company.company_name || 'Logo'}
-                    className="h-14 w-14 rounded-xl bg-white p-1.5 object-contain shadow-md"
+                    alt={companyName || 'Company logo'}
+                    style={{ maxHeight: 48 }}
+                    className="rounded-lg bg-white p-1 object-contain shadow-md"
                   />
                 ) : (
-                  <div className="h-14 w-14 rounded-xl bg-white/10 ring-1 ring-white/20 flex items-center justify-center">
-                    <Building2 className="h-7 w-7 text-white" />
+                  <div className="h-12 w-12 rounded-xl bg-white/10 ring-1 ring-white/20 flex items-center justify-center">
+                    <Building2 className="h-6 w-6 text-white" />
                   </div>
                 )}
                 <div>
-                  <h2 className="text-xl font-bold tracking-tight">{company.company_name || 'Your Company'}</h2>
+                  <h2 className="text-xl font-bold tracking-tight">{companyName || '—'}</h2>
                   {company.tagline && <p className="text-xs text-white/70 mt-0.5">{company.tagline}</p>}
                   {company.gst_number && <p className="text-[11px] text-white/60 mt-1">GSTIN: {company.gst_number}</p>}
                 </div>
@@ -127,7 +118,7 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <Party
                 label="Bill From"
-                name={company.company_name || 'Your Company'}
+                name={companyName || '—'}
                 address={companyAddress}
                 email={company.email}
                 phone={company.phone}
@@ -238,14 +229,13 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
                     </div>
                   </div>
                   {paymentLink && (
-                    <a
-                      href={paymentLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => window.open(paymentLink, '_blank', 'noopener,noreferrer')}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors print:hidden"
                     >
                       <CreditCard className="h-4 w-4" /> Pay {fmt(amountDue)}
-                    </a>
+                    </button>
                   )}
                 </div>
 
@@ -301,31 +291,47 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
               </p>
             </div>
 
-            {/* Company details footer (inside card) */}
-            {(company?.address_line1 || company?.phone || company?.email || company?.bank_name) && (
+            {/* Company contact details footer (inside card) */}
+            {(company?.address_line1 ||
+              company?.address_line2 ||
+              company?.city ||
+              company?.phone ||
+              company?.email ||
+              company?.website ||
+              company?.gst_number ||
+              company?.tax_id ||
+              company?.pan_number) && (
               <div className="border-t border-slate-200 pt-4 mt-2">
                 <div className="space-y-1 text-center text-[11px] text-slate-500 leading-relaxed">
-                  {[
-                    [company.address_line1, company.city, company.state, company.postal_code, company.country]
+                  {(() => {
+                    const addressLine = [
+                      company.address_line1,
+                      company.address_line2,
+                      company.city,
+                      company.state,
+                      company.postal_code,
+                      company.country,
+                    ]
                       .filter(Boolean)
-                      .join(', '),
-                    company?.phone && `📞 ${company.phone}`,
-                    company?.email && `✉ ${company.email}`,
-                    company?.website && company.website,
-                    company?.pan_number && `PAN: ${company.pan_number}`,
-                    company?.bank_name &&
-                      [
-                        `Bank: ${company.bank_name}`,
-                        company.bank_account && `A/C: ${company.bank_account}`,
-                        company.bank_ifsc && `IFSC: ${company.bank_ifsc}`,
-                      ]
-                        .filter(Boolean)
-                        .join(' · '),
-                  ]
-                    .filter(Boolean)
-                    .map((line, i) => (
-                      <p key={i}>{line as string}</p>
-                    ))}
+                      .join(', ');
+                    const taxParts = [
+                      company.gst_number && `GST: ${company.gst_number}`,
+                      company.tax_id && `Tax ID: ${company.tax_id}`,
+                      company.pan_number && `PAN: ${company.pan_number}`,
+                    ].filter(Boolean);
+                    const contactParts = [
+                      company.phone && `📞 ${company.phone}`,
+                      company.email && `✉ ${company.email}`,
+                      company.website && `🌐 ${company.website}`,
+                    ].filter(Boolean);
+                    return [
+                      addressLine,
+                      contactParts.join(' · '),
+                      taxParts.join(' · '),
+                    ]
+                      .filter(Boolean)
+                      .map((line, i) => <p key={i}>{line as string}</p>);
+                  })()}
                 </div>
               </div>
             )}
@@ -335,9 +341,9 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
           <div className="bg-slate-50 border-t border-slate-200 px-10 py-5">
             <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-500">
               <div className="flex items-center gap-4 flex-wrap">
-                {company.company_name && (
+                {companyName && (
                   <span className="flex items-center gap-1.5">
-                    <Building2 className="h-3 w-3" /> {company.company_name}
+                    <Building2 className="h-3 w-3" /> {companyName}
                   </span>
                 )}
                 {companyAddress && (
@@ -359,7 +365,7 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
                 )}
                 {company.website && (
                   <span className="flex items-center gap-1.5">
-                    <Link2 className="h-3 w-3" /> {company.website}
+                    <Globe className="h-3 w-3" /> {company.website}
                   </span>
                 )}
               </div>
