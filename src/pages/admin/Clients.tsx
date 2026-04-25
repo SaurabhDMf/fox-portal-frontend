@@ -59,7 +59,7 @@ export default function Clients() {
 
   const rawClients = Array.isArray(data) ? data : [];
   const clients = rawClients;
-  const usersArr = salesUsers;
+  const usersArr = Array.isArray(users) ? users : [];
 
   return (
     <div className="page-container">
