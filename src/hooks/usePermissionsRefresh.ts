@@ -13,11 +13,11 @@ export function usePermissionsRefresh() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    api.get('/auth/permissions')
+    api.get('/permissions/my')
       .then((res) => {
-        const data = res.data;
+        const data = res.data?.data || res.data;
         if (data?.permissions) {
-          setPermissions(data.permissions, data.enabled_modules);
+          setPermissions(data.permissions, data.enabled_modules, data.grants);
         }
       })
       .catch(() => {

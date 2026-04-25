@@ -27,10 +27,12 @@ interface AuthState {
   refreshToken: string | null;
   user: User | null;
   permissions: Record<string, Permission>;
+  grants: string[];
   enabledModules: string[];
   isAuthenticated: boolean;
-  setAuth: (data: { accessToken: string; refreshToken: string; user: User; permissions: Record<string, Permission>; enabled_modules?: string[] }) => void;
-  setPermissions: (permissions: Record<string, Permission>, enabled_modules?: string[]) => void;
+  setAuth: (data: { accessToken: string; refreshToken: string; user: User; permissions: Record<string, Permission>; grants?: string[]; enabled_modules?: string[] }) => void;
+  setPermissions: (permissions: Record<string, Permission>, enabled_modules?: string[], grants?: string[]) => void;
+  hasGrant: (permission: string) => boolean;
   logout: () => void;
   canView: (module: string) => boolean;
   canCreate: (module: string) => boolean;
@@ -44,6 +46,7 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       user: null,
       permissions: {},
+      grants: [],
       enabledModules: [],
       isAuthenticated: false,
 
@@ -53,16 +56,23 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: data.refreshToken,
           user: data.user,
           permissions: data.permissions || {},
+          grants: data.grants || [],
           enabledModules: data.enabled_modules || [],
           isAuthenticated: true,
         }),
 
-      setPermissions: (permissions, enabled_modules) =>
+      setPermissions: (permissions, enabled_modules, grants) =>
         set((state) => ({
           ...state,
           permissions: permissions || state.permissions,
           enabledModules: enabled_modules || state.enabledModules,
+          grants: grants ?? state.grants,
         })),
+
+      hasGrant: (permission: string) => {
+        const g = get().grants;
+        return Array.isArray(g) && g.includes(permission);
+      },
 
       logout: () => {
         disconnectSocket();
@@ -71,6 +81,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           user: null,
           permissions: {},
+          grants: [],
           enabledModules: [],
           isAuthenticated: false,
         });

@@ -18,7 +18,7 @@ import ProjectSettingsModal from '@/components/projects/ProjectSettingsModal';
 import FinancialsView from '@/components/projects/FinancialsView';
 import toast from 'react-hot-toast';
 
-const TABS = [
+const ALL_TABS = [
   { id: 'tasks', label: 'Tasks', icon: List },
   { id: 'backlog', label: 'Backlog', icon: Archive },
   { id: 'epics', label: 'Modules', icon: Zap },
@@ -27,7 +27,7 @@ const TABS = [
   { id: 'financials', label: 'Financials', icon: IndianRupee },
 ] as const;
 
-type TabId = typeof TABS[number]['id'];
+type TabId = typeof ALL_TABS[number]['id'];
 
 const statusOptions = ['Active', 'On Hold', 'Completed', 'Cancelled'];
 const priorityOptions = ['Critical', 'High', 'Medium', 'Low'];
@@ -38,7 +38,10 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const userRole = useAuthStore((s) => s.user?.role);
+  const userGrants = useAuthStore((s) => s.grants);
   const isAdmin = userRole === 'admin' || userRole === 'super_admin' || userRole === 'supervisor';
+  const canViewFinancials = userRole === 'admin' || userRole === 'super_admin' || (Array.isArray(userGrants) && userGrants.includes('project_finance'));
+  const TABS = ALL_TABS.filter(t => t.id !== 'financials' || canViewFinancials);
   const [activeTab, setActiveTab] = useState<TabId>('tasks');
   const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
   const [createTaskDefaults, setCreateTaskDefaults] = useState<{ status?: string; sprint_id?: string; epic_id?: string } | null>(null);
@@ -239,7 +242,7 @@ export default function ProjectDetail() {
         <BacklogView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />
       )}
       {activeTab === 'members' && <MembersView projectId={id!} />}
-      {activeTab === 'financials' && <FinancialsView projectId={id!} />}
+      {activeTab === 'financials' && canViewFinancials && <FinancialsView projectId={id!} />}
 
       {selectedTask && (
         <TaskDetailDrawer task={selectedTask} onClose={() => setSelectedTask(null)} projectId={id!} />
