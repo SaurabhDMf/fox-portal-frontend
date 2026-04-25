@@ -314,6 +314,9 @@ export default function EmailPage() {
                 acc={acc}
                 active={activeAccountId === acc.id}
                 onSelect={() => setActiveAccountId(acc.id)}
+                onDeleted={(deletedId: string) => {
+                  if (activeAccountId === deletedId) setActiveAccountId(null);
+                }}
               />
             ))}
             {accounts.length === 0 && (
@@ -809,11 +812,14 @@ function AccountRow({
   acc,
   active,
   onSelect,
+  onDeleted,
 }: {
   acc: any;
   active: boolean;
   onSelect: () => void;
+  onDeleted?: (id: string) => void;
 }) {
+  const qc = useQueryClient();
   const [result, setResult] = useState<
     { ok: boolean; message: string } | null
   >(null);
@@ -834,6 +840,32 @@ function AccountRow({
       setResult({ ok: false, message: errMsg(e) });
     },
   });
+
+  const deleteMut = useMutation({
+    mutationFn: () => emailApi.deleteAccount(acc.id),
+    onSuccess: () => {
+      toast.success('Email account removed');
+      onDeleted?.(acc.id);
+      qc.invalidateQueries({ queryKey: ['email-accounts'] });
+      qc.invalidateQueries({ queryKey: ['emails'] });
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
+    },
+    onError: (e: any) => {
+      toast.error(errMsg(e) || 'Failed to remove account');
+    },
+  });
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const label = acc.email_address || acc.email || 'this account';
+    if (
+      window.confirm(
+        `Remove ${label}? This will also delete all synced emails for this account.`
+      )
+    ) {
+      deleteMut.mutate();
+    }
+  };
 
   return (
     <div
