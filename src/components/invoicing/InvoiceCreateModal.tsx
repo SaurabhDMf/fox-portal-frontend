@@ -319,7 +319,14 @@ export default function InvoiceCreateModal({ onClose }: Props) {
 
           {/* Bill To */}
           <div className="rounded-lg border border-border p-3 space-y-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Bill To</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Bill To</p>
+              {loadingClientData && (
+                <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading client…
+                </span>
+              )}
+            </div>
             <select
               value={form.client_id}
               onChange={(e) => setForm((f) => ({ ...f, client_id: e.target.value }))}
@@ -334,28 +341,71 @@ export default function InvoiceCreateModal({ onClose }: Props) {
             </select>
 
             {form.client_id && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <input
-                  placeholder="Contact name"
-                  value={form.billing_contact_name}
-                  onChange={(e) => setForm((f) => ({ ...f, billing_contact_name: e.target.value }))}
-                  className={inputCls}
-                />
-                <input
-                  placeholder="Client email"
-                  type="email"
-                  value={form.billing_email}
-                  onChange={(e) => setForm((f) => ({ ...f, billing_email: e.target.value }))}
-                  className={inputCls}
-                />
-                <textarea
-                  value={form.billing_address}
-                  onChange={(e) => setForm((f) => ({ ...f, billing_address: e.target.value }))}
-                  rows={2}
-                  className={inputCls + ' md:col-span-2 resize-none'}
-                  placeholder="Billing address"
-                />
-              </div>
+              <>
+                {/* Project picker (optional) */}
+                <div>
+                  <label className="text-[11px] text-muted-foreground">Link to Project (optional)</label>
+                  <select
+                    value={form.project_id}
+                    onChange={(e) => setForm((f) => ({ ...f, project_id: e.target.value }))}
+                    className={inputCls + ' w-full mt-1'}
+                    disabled={loadingClientData}
+                  >
+                    <option value="">— No project —</option>
+                    {clientProjects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}{p.status ? ` (${p.status})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className={`grid grid-cols-1 md:grid-cols-2 gap-2 ${loadingClientData ? 'opacity-60' : ''}`}>
+                  <input
+                    placeholder="Company / Bill to name"
+                    value={form.billing_company_name}
+                    onChange={(e) => setForm((f) => ({ ...f, billing_company_name: e.target.value }))}
+                    className={inputCls}
+                  />
+                  <input
+                    placeholder="Contact person"
+                    value={form.billing_contact_name}
+                    onChange={(e) => setForm((f) => ({ ...f, billing_contact_name: e.target.value }))}
+                    className={inputCls}
+                  />
+                  <input
+                    placeholder="Client email"
+                    type="email"
+                    value={form.billing_email}
+                    onChange={(e) => setForm((f) => ({ ...f, billing_email: e.target.value }))}
+                    className={inputCls}
+                  />
+                  <input
+                    placeholder="Client phone"
+                    value={form.billing_phone}
+                    onChange={(e) => setForm((f) => ({ ...f, billing_phone: e.target.value }))}
+                    className={inputCls}
+                  />
+                  <input
+                    placeholder="GST Number (optional)"
+                    value={form.billing_gst_number}
+                    onChange={(e) => setForm((f) => ({ ...f, billing_gst_number: e.target.value }))}
+                    className={inputCls + ' md:col-span-2'}
+                  />
+                  <div className="md:col-span-2 relative">
+                    <textarea
+                      value={form.billing_address}
+                      onChange={(e) => setForm((f) => ({ ...f, billing_address: e.target.value }))}
+                      rows={2}
+                      className={inputCls + ' w-full resize-none'}
+                      placeholder="Billing address"
+                    />
+                    {loadingClientData && (
+                      <Loader2 className="h-4 w-4 animate-spin absolute top-2 right-2 text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+              </>
             )}
           </div>
 
