@@ -67,7 +67,8 @@ export default function MyDashboard() {
       const s = totalSec % 60;
       return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
     }
-    return trackerSummary?.today_hours || '0h 0m';
+    const th = trackerSummary?.today_hours;
+    return typeof th === 'string' || typeof th === 'number' ? String(th) : '0h 0m';
   };
 
   const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -77,6 +78,15 @@ export default function MyDashboard() {
   const myProjects: any[] = Array.isArray(data?.my_projects) ? data.my_projects : [];
   const myLeads: any[] = Array.isArray(data?.my_leads) ? data.my_leads : [];
   const myInvoices: any[] = Array.isArray(data?.my_invoices) ? data.my_invoices : [];
+
+  // Coerce stat values to numbers — backend may return objects like { count: N } or strings
+  const toNum = (v: any, fallback = 0): number => {
+    if (v == null) return fallback;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : fallback;
+    if (typeof v === 'string') { const n = Number(v); return Number.isFinite(n) ? n : fallback; }
+    if (typeof v === 'object') return toNum(v.count ?? v.value ?? v.total, fallback);
+    return fallback;
+  };
   
 
   return (
@@ -90,10 +100,10 @@ export default function MyDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="My Tasks" value={stats.tasks ?? myTasks.length} icon={ListChecks} />
-        <StatCard label="My Projects" value={myProjects.length} icon={FolderKanban} iconColor="text-info" />
-        <StatCard label="Open Leads" value={stats.leads ?? myLeads.length} icon={Target} iconColor="text-warning" />
-        <StatCard label="Invoices" value={myInvoices.length} icon={FileText} iconColor="text-success" />
+        <StatCard label="My Tasks" value={toNum(stats.tasks, myTasks.length)} icon={ListChecks} />
+        <StatCard label="My Projects" value={toNum(stats.projects, myProjects.length)} icon={FolderKanban} iconColor="text-info" />
+        <StatCard label="Open Leads" value={toNum(stats.leads, myLeads.length)} icon={Target} iconColor="text-warning" />
+        <StatCard label="Invoices" value={toNum(stats.invoices, myInvoices.length)} icon={FileText} iconColor="text-success" />
       </div>
 
       {/* Time Tracker */}
