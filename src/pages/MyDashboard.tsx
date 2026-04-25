@@ -77,6 +77,15 @@ export default function MyDashboard() {
   const myProjects: any[] = Array.isArray(data?.my_projects) ? data.my_projects : [];
   const myLeads: any[] = Array.isArray(data?.my_leads) ? data.my_leads : [];
   const myInvoices: any[] = Array.isArray(data?.my_invoices) ? data.my_invoices : [];
+
+  // Coerce stat values to numbers — backend may return objects like { count: N } or strings
+  const toNum = (v: any, fallback = 0): number => {
+    if (v == null) return fallback;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : fallback;
+    if (typeof v === 'string') { const n = Number(v); return Number.isFinite(n) ? n : fallback; }
+    if (typeof v === 'object') return toNum(v.count ?? v.value ?? v.total, fallback);
+    return fallback;
+  };
   
 
   return (
