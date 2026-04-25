@@ -374,44 +374,6 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
         </div>
       </div>
 
-
-          {/* Footer */}
-          <div className="bg-slate-50 border-t border-slate-200 px-10 py-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-500">
-              <div className="flex items-center gap-4 flex-wrap">
-                {company.company_name && (
-                  <span className="flex items-center gap-1.5">
-                    <Building2 className="h-3 w-3" /> {company.company_name}
-                  </span>
-                )}
-                {companyAddress && (
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="h-3 w-3" /> {companyAddress}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-4 flex-wrap">
-                {company.email && (
-                  <span className="flex items-center gap-1.5">
-                    <Mail className="h-3 w-3" /> {company.email}
-                  </span>
-                )}
-                {company.phone && (
-                  <span className="flex items-center gap-1.5">
-                    <Phone className="h-3 w-3" /> {company.phone}
-                  </span>
-                )}
-                {company.website && (
-                  <span className="flex items-center gap-1.5">
-                    <Link2 className="h-3 w-3" /> {company.website}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Print isolation */}
       <style>{`
         @media print {
