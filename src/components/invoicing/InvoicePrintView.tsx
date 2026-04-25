@@ -291,35 +291,89 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
               </p>
             </div>
 
-            {/* Company details footer (inside card) */}
-            {(company?.address_line1 || company?.phone || company?.email || company?.bank_name) && (
+            {/* Company contact details footer (inside card) */}
+            {(company?.address_line1 ||
+              company?.address_line2 ||
+              company?.city ||
+              company?.phone ||
+              company?.email ||
+              company?.website ||
+              company?.gst_number ||
+              company?.tax_id ||
+              company?.pan_number) && (
               <div className="border-t border-slate-200 pt-4 mt-2">
                 <div className="space-y-1 text-center text-[11px] text-slate-500 leading-relaxed">
-                  {[
-                    [company.address_line1, company.city, company.state, company.postal_code, company.country]
+                  {(() => {
+                    const addressLine = [
+                      company.address_line1,
+                      company.address_line2,
+                      company.city,
+                      company.state,
+                      company.postal_code,
+                      company.country,
+                    ]
                       .filter(Boolean)
-                      .join(', '),
-                    company?.phone && `📞 ${company.phone}`,
-                    company?.email && `✉ ${company.email}`,
-                    company?.website && company.website,
-                    company?.pan_number && `PAN: ${company.pan_number}`,
-                    company?.bank_name &&
-                      [
-                        `Bank: ${company.bank_name}`,
-                        company.bank_account && `A/C: ${company.bank_account}`,
-                        company.bank_ifsc && `IFSC: ${company.bank_ifsc}`,
-                      ]
-                        .filter(Boolean)
-                        .join(' · '),
-                  ]
-                    .filter(Boolean)
-                    .map((line, i) => (
-                      <p key={i}>{line as string}</p>
-                    ))}
+                      .join(', ');
+                    const taxParts = [
+                      company.gst_number && `GST: ${company.gst_number}`,
+                      company.tax_id && `Tax ID: ${company.tax_id}`,
+                      company.pan_number && `PAN: ${company.pan_number}`,
+                    ].filter(Boolean);
+                    const contactParts = [
+                      company.phone && `📞 ${company.phone}`,
+                      company.email && `✉ ${company.email}`,
+                      company.website && `🌐 ${company.website}`,
+                    ].filter(Boolean);
+                    return [
+                      addressLine,
+                      contactParts.join(' · '),
+                      taxParts.join(' · '),
+                    ]
+                      .filter(Boolean)
+                      .map((line, i) => <p key={i}>{line as string}</p>);
+                  })()}
                 </div>
               </div>
             )}
           </div>
+
+          {/* Footer */}
+          <div className="bg-slate-50 border-t border-slate-200 px-10 py-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-500">
+              <div className="flex items-center gap-4 flex-wrap">
+                {companyName && (
+                  <span className="flex items-center gap-1.5">
+                    <Building2 className="h-3 w-3" /> {companyName}
+                  </span>
+                )}
+                {companyAddress && (
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="h-3 w-3" /> {companyAddress}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-4 flex-wrap">
+                {company.email && (
+                  <span className="flex items-center gap-1.5">
+                    <Mail className="h-3 w-3" /> {company.email}
+                  </span>
+                )}
+                {company.phone && (
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="h-3 w-3" /> {company.phone}
+                  </span>
+                )}
+                {company.website && (
+                  <span className="flex items-center gap-1.5">
+                    <Globe className="h-3 w-3" /> {company.website}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
           {/* Footer */}
           <div className="bg-slate-50 border-t border-slate-200 px-10 py-5">
