@@ -3,16 +3,18 @@ import { useAuthStore } from '@/stores/authStore';
 import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { User, Shield, Bell, Palette, Pencil, X, Building2, KeyRound, Plug, Mail } from 'lucide-react';
+import { User, Shield, Bell, Palette, Pencil, X, Building2, KeyRound, Plug, Mail, FileText } from 'lucide-react';
 import CompanySettings from '@/components/settings/CompanySettings';
 import IntegrationsSettings from '@/components/settings/IntegrationsSettings';
 import EmailSettings from '@/components/settings/EmailSettings';
 import ChangePasswordSection from '@/components/settings/ChangePasswordSection';
 import ConnectedEmailCard from '@/components/settings/ConnectedEmailCard';
+import InvoiceSettings from '@/components/settings/InvoiceSettings';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'company', label: 'Company', icon: Building2 },
+  { id: 'invoice', label: 'Invoice Settings', icon: FileText, adminOnly: true },
   { id: 'integrations', label: 'Integrations', icon: Plug, adminOnly: true },
   { id: 'email', label: 'Email', icon: Mail, adminOnly: true },
   { id: 'security', label: 'Security', icon: Shield },
