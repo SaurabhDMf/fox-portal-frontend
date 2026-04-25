@@ -8,6 +8,7 @@ import ClientFormModal, { type ClientFormData } from '@/components/clients/Clien
 import { useAuthStore } from '@/stores/authStore';
 import PortalAccessSection from '@/components/clients/PortalAccessSection';
 import { dependencyDelete } from '@/lib/dependencyDelete';
+import { extractProjectArray } from '@/lib/projectResponse';
 
 export default function ClientDetail() {
   const { id } = useParams();
