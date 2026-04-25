@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { Plus, Send, DollarSign, CheckCircle, Clock, AlertTriangle, FileText, Upload, Download } from 'lucide-react';
+import { Plus, Send, DollarSign, CheckCircle, Clock, AlertTriangle, FileText, Upload, Download, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
 import { useModulePermission } from '@/hooks/usePermission';
+import { useAuthStore } from '@/stores/authStore';
+import { confirmAction } from '@/lib/confirmDialog';
 
 import InvoiceCreateModal from '@/components/invoicing/InvoiceCreateModal';
 import InvoiceUploadModal from '@/components/invoicing/InvoiceUploadModal';
