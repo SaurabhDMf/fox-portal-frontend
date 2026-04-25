@@ -56,7 +56,7 @@ export default function InvoiceCreateModal({ onClose }: Props) {
 
   const { data: company } = useQuery({
     queryKey: ['company-settings'],
-    queryFn: () => api.get('/company').then((r) => r.data),
+    queryFn: () => api.get('/company').then((r) => r.data?.data ?? r.data ?? {}),
   });
 
   // Defaults from company
@@ -72,6 +72,16 @@ export default function InvoiceCreateModal({ onClose }: Props) {
         `${company.invoice_prefix || 'INV'}-${String(Date.now()).slice(-6)}`,
     }));
   }, [company]);
+
+  const companyName = company?.name || company?.company_name || 'Your Company';
+  const companyAddress = [
+    company?.address_line1 || company?.address?.line1,
+    company?.address_line2 || company?.address?.line2,
+    company?.city,
+    company?.state,
+    company?.postal_code,
+    company?.country,
+  ].filter(Boolean).join(', ');
 
   const clientsArr = Array.isArray(clients) ? clients : [];
   const selectedClient = clientsArr.find((c: any) => c.id === form.client_id);
@@ -96,9 +106,13 @@ export default function InvoiceCreateModal({ onClose }: Props) {
       ...f,
       billing_address: addr || '',
       billing_email: selectedClient.email || '',
-      billing_contact_name: selectedClient.contact_name || selectedClient.name || '',
+      billing_contact_name:
+        selectedClient.contact_name ||
+        selectedClient.company_name ||
+        selectedClient.name ||
+        '',
     }));
-  }, [form.client_id]);
+  }, [form.client_id, selectedClient]);
 
   // Signature pad handlers
   const getPos = (e: React.MouseEvent | React.TouchEvent) => {
@@ -214,15 +228,23 @@ export default function InvoiceCreateModal({ onClose }: Props) {
             <div className="rounded-lg border border-border p-3 bg-secondary/30">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">From</p>
               <div className="flex items-start gap-3">
-                {company?.logo_url && (
-                  <img src={company.logo_url} alt="Logo" className="h-10 w-10 object-contain rounded bg-background p-1" />
+                {company?.logo_url ? (
+                  <img src={company.logo_url} alt="Logo" className="h-12 w-12 object-contain rounded bg-background p-1 border border-border shrink-0" />
+                ) : (
+                  <div className="h-12 w-12 rounded bg-background border border-border flex items-center justify-center text-xs font-semibold text-muted-foreground shrink-0">
+                    {companyName.slice(0, 2).toUpperCase()}
+                  </div>
                 )}
-                <div className="text-sm">
-                  <p className="font-semibold">{company?.company_name || 'Your Company'}</p>
-                  <p className="text-xs text-muted-foreground leading-tight mt-0.5">
-                    {[company?.address_line1, company?.city, company?.country].filter(Boolean).join(', ') || '—'}
-                  </p>
-                  {company?.email && <p className="text-xs text-muted-foreground">{company.email}</p>}
+                <div className="text-sm min-w-0 flex-1">
+                  <p className="font-semibold truncate">{companyName}</p>
+                  {companyAddress && (
+                    <p className="text-xs text-muted-foreground leading-tight mt-0.5 break-words">{companyAddress}</p>
+                  )}
+                  {company?.email && <p className="text-xs text-muted-foreground truncate">{company.email}</p>}
+                  {company?.phone && <p className="text-xs text-muted-foreground">{company.phone}</p>}
+                  {(company?.gst_number || company?.tax_id) && (
+                    <p className="text-xs text-muted-foreground">GST: {company.gst_number || company.tax_id}</p>
+                  )}
                 </div>
               </div>
             </div>
