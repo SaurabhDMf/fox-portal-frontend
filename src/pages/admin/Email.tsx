@@ -234,30 +234,14 @@ export default function EmailPage() {
             </button>
           </div>
           <div className="space-y-1">
-            {accounts.map((acc: any) => {
-              const active = activeAccountId === acc.id;
-              return (
-                <button
-                  key={acc.id}
-                  onClick={() => setActiveAccountId(acc.id)}
-                  className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-left transition-colors ${
-                    active
-                      ? 'bg-muted text-foreground font-semibold'
-                      : 'text-muted-foreground hover:bg-muted'
-                  }`}
-                >
-                  <span className="w-6 h-6 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[10px] font-bold uppercase">
-                    {(acc.email_address || acc.email || '?')[0]}
-                  </span>
-                  <span className="truncate flex-1">{acc.email_address || acc.email}</span>
-                  {acc.is_default && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                      Default
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            {accounts.map((acc: any) => (
+              <AccountRow
+                key={acc.id}
+                acc={acc}
+                active={activeAccountId === acc.id}
+                onSelect={() => setActiveAccountId(acc.id)}
+              />
+            ))}
             {accounts.length === 0 && (
               <p className="text-xs text-muted-foreground px-2 py-2">No accounts yet</p>
             )}
