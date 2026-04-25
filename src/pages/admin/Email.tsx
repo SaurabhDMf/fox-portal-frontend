@@ -589,6 +589,13 @@ function AddAccountModal({
         </div>
 
         <div className="px-5 py-4 overflow-y-auto flex-1">
+          <div className="mb-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+            <p className="text-xs text-foreground">
+              Connect your <span className="font-semibold">personal work email</span>. This is only
+              for your own inbox — system alerts and invoices use a separate company email
+              configured in Settings.
+            </p>
+          </div>
           <p className="text-xs text-muted-foreground mb-4">
             SMTP is required to send emails. IMAP is optional — add it to sync received emails.
           </p>

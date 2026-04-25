@@ -3,6 +3,7 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import ConnectedEmailCard from '@/components/settings/ConnectedEmailCard';
 
 export default function EmpProfile() {
   const user = useAuthStore(s => s.user);
@@ -83,6 +84,8 @@ export default function EmpProfile() {
           <button onClick={changePw} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">Update Password</button>
         </div>
       </div>
+
+      <ConnectedEmailCard />
     </div>
   );
 }
