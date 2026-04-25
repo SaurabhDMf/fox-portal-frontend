@@ -97,19 +97,55 @@ export default function MyDashboard() {
       </div>
 
       {/* Time Tracker */}
-      <div className="glass-card p-5 flex flex-col sm:flex-row items-center gap-4">
-        <Clock className="h-8 w-8 text-primary" />
+      <div className={`glass-card p-5 flex flex-col sm:flex-row items-center gap-4 transition-colors ${isActive ? 'ring-1 ring-success/40' : ''}`}>
+        <div className="relative">
+          <Clock className={`h-8 w-8 ${isActive ? 'text-success' : 'text-primary'}`} />
+          {isActive && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-success" />
+            </span>
+          )}
+        </div>
         <div className="flex-1 text-center sm:text-left">
-          <div className="text-sm text-muted-foreground">Today</div>
-          <div className="text-xl font-bold">{ts.today_hours || '0h 0m'}</div>
+          <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-muted-foreground">
+            Today
+            {isActive && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-success/15 text-success text-[10px] font-semibold uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> Live
+              </span>
+            )}
+          </div>
+          <div className={`text-xl font-bold tabular-nums ${isActive ? 'text-success' : ''}`}>{formatElapsed()}</div>
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-1 text-xs">
+            {today?.check_in_time && <span className="text-success font-medium">In: {fmtTime(today.check_in_time)}</span>}
+            {today?.check_out_time && <span className="text-destructive font-medium">Out: {fmtTime(today.check_out_time)}</span>}
+          </div>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => checkInMut.mutate()} className="px-4 py-2 rounded-lg bg-success/15 text-success text-sm font-medium hover:bg-success/25 active:scale-[0.97] transition-all flex items-center gap-1">
-            <ArrowUpRight className="h-4 w-4" /> Check In
-          </button>
-          <button onClick={() => checkOutMut.mutate()} className="px-4 py-2 rounded-lg bg-destructive/15 text-destructive text-sm font-medium hover:bg-destructive/25 active:scale-[0.97] transition-all flex items-center gap-1">
-            <ArrowDownRight className="h-4 w-4" /> Check Out
-          </button>
+          {!today?.check_in_time && (
+            <button
+              onClick={() => checkInMut.mutate()}
+              disabled={checkInMut.isPending}
+              className="px-4 py-2 rounded-lg bg-success text-success-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.97] transition-all flex items-center gap-1 disabled:opacity-50"
+            >
+              <ArrowUpRight className="h-4 w-4" /> {checkInMut.isPending ? 'Checking in…' : 'Check In'}
+            </button>
+          )}
+          {today?.check_in_time && !today?.check_out_time && (
+            <button
+              onClick={() => checkOutMut.mutate()}
+              disabled={checkOutMut.isPending}
+              className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.97] transition-all flex items-center gap-1 disabled:opacity-50"
+            >
+              <ArrowDownRight className="h-4 w-4" /> {checkOutMut.isPending ? 'Checking out…' : 'Check Out'}
+            </button>
+          )}
+          {today?.check_in_time && today?.check_out_time && (
+            <span className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4 text-success" /> Day complete
+            </span>
+          )}
         </div>
       </div>
 
