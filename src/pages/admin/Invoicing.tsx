@@ -167,6 +167,15 @@ export default function Invoicing() {
                         <Send className="h-3 w-3" /> Send
                       </button>
                     )}
+                    {canDelete && (
+                      <button
+                        onClick={() => handleDelete(inv)}
+                        disabled={deleteMut.isPending}
+                        className="text-xs flex items-center gap-1 text-destructive hover:underline disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3 w-3" /> Delete
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
