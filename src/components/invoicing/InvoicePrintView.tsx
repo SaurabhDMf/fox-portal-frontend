@@ -118,7 +118,7 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <Party
                 label="Bill From"
-                name={company.company_name || 'Your Company'}
+                name={companyName || '—'}
                 address={companyAddress}
                 email={company.email}
                 phone={company.phone}
