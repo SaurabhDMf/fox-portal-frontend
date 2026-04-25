@@ -129,24 +129,55 @@ export default function Tracker() {
           <div className="glass-card p-5 flex flex-col sm:flex-row items-center gap-4">
             <Clock className="h-8 w-8 text-primary" />
             <div className="flex-1 text-center sm:text-left">
+          <div className="glass-card p-5 flex flex-col sm:flex-row items-center gap-4">
+            <Clock className="h-8 w-8 text-primary" />
+            <div className="flex-1 text-center sm:text-left">
               <div className="text-sm text-muted-foreground">Today</div>
-              <div className="text-xl font-bold">{s.today_hours || '0h 0m'}</div>
-              {s.checked_in_at && <div className="text-xs text-muted-foreground">Checked in at {new Date(s.checked_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>}
+              <div className="text-xl font-bold">
+                {today?.hours_worked != null
+                  ? `${Math.floor(Number(today.hours_worked))}h ${Math.round((Number(today.hours_worked) % 1) * 60)}m`
+                  : (s.today_hours || '0h 0m')}
+              </div>
+              <div className="flex flex-wrap items-center gap-3 mt-1 text-xs">
+                {today?.check_in_time && (
+                  <span className="text-success font-medium">In: {new Date(today.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                )}
+                {today?.check_out_time && (
+                  <span className="text-destructive font-medium">Out: {new Date(today.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                )}
+              </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => checkInMut.mutate()} disabled={checkInMut.isPending} className="px-4 py-2 rounded-lg bg-success/15 text-success text-sm font-medium hover:bg-success/25 active:scale-[0.97] transition-all flex items-center gap-1 disabled:opacity-50">
-                <ArrowUpRight className="h-4 w-4" /> Check In
-              </button>
-              <button onClick={() => checkOutMut.mutate()} disabled={checkOutMut.isPending} className="px-4 py-2 rounded-lg bg-destructive/15 text-destructive text-sm font-medium hover:bg-destructive/25 active:scale-[0.97] transition-all flex items-center gap-1 disabled:opacity-50">
-                <ArrowDownRight className="h-4 w-4" /> Check Out
-              </button>
+              {!today?.checked_in && !today?.check_in_time && (
+                <button
+                  onClick={() => checkInMut.mutate()}
+                  disabled={checkInMut.isPending}
+                  className="px-4 py-2 rounded-lg bg-success text-success-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.97] transition-all flex items-center gap-1 disabled:opacity-50"
+                >
+                  <ArrowUpRight className="h-4 w-4" /> {checkInMut.isPending ? 'Checking in…' : 'Check In'}
+                </button>
+              )}
+              {today?.checked_in && !today?.check_out_time && (
+                <button
+                  onClick={() => checkOutMut.mutate()}
+                  disabled={checkOutMut.isPending}
+                  className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.97] transition-all flex items-center gap-1 disabled:opacity-50"
+                >
+                  <ArrowDownRight className="h-4 w-4" /> {checkOutMut.isPending ? 'Checking out…' : 'Check Out'}
+                </button>
+              )}
+              {today?.check_in_time && today?.check_out_time && (
+                <span className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium">
+                  ✓ Day complete
+                </span>
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatCard label="Hours This Month" value={s.monthly_hours || '0'} icon={Clock} />
             <StatCard label="Leave Balance" value={s.leave_balance ?? '—'} icon={Calendar} iconColor="text-info" />
-            <StatCard label="Pending Expenses" value={s.pending_expenses ? `$${s.pending_expenses}` : '$0'} icon={DollarSign} iconColor="text-warning" />
+            <StatCard label="Pending Expenses" value={s.pending_expenses ? `₹${Number(s.pending_expenses).toLocaleString('en-IN')}` : '₹0'} icon={DollarSign} iconColor="text-warning" />
           </div>
 
           {/* Leave balance bars */}
