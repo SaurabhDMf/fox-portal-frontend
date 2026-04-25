@@ -73,6 +73,8 @@ export default function AdminUsers() {
   const [formTab, setFormTab] = useState('basic');
   const [viewTab, setViewTab] = useState<'details' | 'permissions'>('details');
   const [viewPerms, setViewPerms] = useState<Record<string, any> | null>(null);
+  const [viewGrants, setViewGrants] = useState<string[]>([]);
+  const [grantBusy, setGrantBusy] = useState<string | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
   const [resetPwTarget, setResetPwTarget] = useState<any>(null);
   const [resetPwValue, setResetPwValue] = useState('Welcome123!');
