@@ -1,4 +1,6 @@
 import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 
 interface Props {
   invoice: any;
@@ -6,7 +8,12 @@ interface Props {
 }
 
 export default function InvoicePrintView({ invoice, onClose }: Props) {
-  const company = invoice.company || {};
+  const { data: companyData } = useQuery({
+    queryKey: ['company'],
+    queryFn: () => api.get('/company').then((r) => r.data),
+  });
+  // Prefer live company settings, fall back to whatever the invoice payload already had
+  const company = { ...(invoice.company || {}), ...(companyData || {}) };
   const items = invoice.items || [];
   const currency = invoice.currency_symbol || invoice.currency || company.currency_symbol || '$';
   const fmt = (n: number) =>
@@ -293,6 +300,35 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
                 If you have any questions about this invoice, please contact us.
               </p>
             </div>
+
+            {/* Company details footer (inside card) */}
+            {(company?.address_line1 || company?.phone || company?.email || company?.bank_name) && (
+              <div className="border-t border-slate-200 pt-4 mt-2">
+                <div className="space-y-1 text-center text-[11px] text-slate-500 leading-relaxed">
+                  {[
+                    [company.address_line1, company.city, company.state, company.postal_code, company.country]
+                      .filter(Boolean)
+                      .join(', '),
+                    company?.phone && `📞 ${company.phone}`,
+                    company?.email && `✉ ${company.email}`,
+                    company?.website && company.website,
+                    company?.pan_number && `PAN: ${company.pan_number}`,
+                    company?.bank_name &&
+                      [
+                        `Bank: ${company.bank_name}`,
+                        company.bank_account && `A/C: ${company.bank_account}`,
+                        company.bank_ifsc && `IFSC: ${company.bank_ifsc}`,
+                      ]
+                        .filter(Boolean)
+                        .join(' · '),
+                  ]
+                    .filter(Boolean)
+                    .map((line, i) => (
+                      <p key={i}>{line as string}</p>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
