@@ -18,7 +18,7 @@ import ProjectSettingsModal from '@/components/projects/ProjectSettingsModal';
 import FinancialsView from '@/components/projects/FinancialsView';
 import toast from 'react-hot-toast';
 
-const TABS = [
+const ALL_TABS = [
   { id: 'tasks', label: 'Tasks', icon: List },
   { id: 'backlog', label: 'Backlog', icon: Archive },
   { id: 'epics', label: 'Modules', icon: Zap },
@@ -27,7 +27,7 @@ const TABS = [
   { id: 'financials', label: 'Financials', icon: IndianRupee },
 ] as const;
 
-type TabId = typeof TABS[number]['id'];
+type TabId = typeof ALL_TABS[number]['id'];
 
 const statusOptions = ['Active', 'On Hold', 'Completed', 'Cancelled'];
 const priorityOptions = ['Critical', 'High', 'Medium', 'Low'];
