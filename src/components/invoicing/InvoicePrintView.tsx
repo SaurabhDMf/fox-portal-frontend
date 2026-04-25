@@ -47,14 +47,13 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
         {/* Action bar - hidden in print */}
         <div className="flex gap-2 justify-end mb-3 print:hidden">
           {!isPaid && paymentLink && (
-            <a
-              href={paymentLink}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => window.open(paymentLink, '_blank', 'noopener,noreferrer')}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
             >
               <CreditCard className="h-4 w-4" /> Pay Now
-            </a>
+            </button>
           )}
           <button
             onClick={() => window.print()}
