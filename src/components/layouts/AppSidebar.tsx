@@ -51,7 +51,7 @@ const empNav: NavItem[] = [
   { label: 'Invoicing', path: '/emp/invoicing', icon: FileText, module: 'invoicing' },
   { label: 'Chat', path: '/emp/chat', icon: MessageSquare, module: 'chat' },
   { label: 'Vault', path: '/emp/vault', icon: Lock, module: 'vault' },
-  { label: 'Email', path: '/emp/email', icon: Mail, module: 'email' },
+  { label: 'Email', path: '/emp/email', icon: Mail },
   { label: 'Tickets', path: '/emp/tickets', icon: Ticket, module: 'tickets' },
   { label: 'Tracker', path: '/emp/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/emp/payroll', icon: Wallet, module: 'payroll' },
