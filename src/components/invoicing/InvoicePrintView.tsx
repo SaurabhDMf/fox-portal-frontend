@@ -43,19 +43,53 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
     .filter(Boolean)
     .join(', ');
 
-  // Payment link comes ONLY from the invoice (Stripe/Razorpay checkout URL set by backend).
-  // If null/undefined, the Pay Now button is hidden — never fall back to an internal route.
-  const paymentLink: string = invoice.payment_link || '';
+  // Fetch full invoice (with payment_providers) if not already present —
+  // list-endpoint payloads typically don't include payment_providers.
+  const [providers, setProviders] = useState<{ stripe: boolean; razorpay: boolean }>(
+    invoice.payment_providers || { stripe: false, razorpay: false },
+  );
+  useEffect(() => {
+    if (invoice.payment_providers || !invoice?.id) return;
+    let cancelled = false;
+    api.get(`/invoices/${invoice.id}`)
+      .then((r) => {
+        const data = r.data?.data ?? r.data ?? {};
+        if (!cancelled && data.payment_providers) setProviders(data.payment_providers);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [invoice?.id]);
+
+  const canPay = !isPaid
+    && invoice.status !== 'Cancelled'
+    && (providers?.stripe || providers?.razorpay);
+
+  const [showPayChoice, setShowPayChoice] = useState(false);
+
+  const onPaidSuccess = () => {
+    qc.invalidateQueries({ queryKey: ['invoices'] });
+    qc.invalidateQueries({ queryKey: ['cp-invoices'] });
+  };
+
+  const handlePayClick = () => {
+    if (providers.stripe && providers.razorpay) {
+      setShowPayChoice(true);
+    } else if (providers.stripe) {
+      payWithStripe(invoice.id);
+    } else if (providers.razorpay) {
+      payWithRazorpay(invoice.id, onPaidSuccess);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static">
       <div className="w-full max-w-4xl max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible">
         {/* Action bar - hidden in print */}
         <div className="flex gap-2 justify-end mb-3 print:hidden">
-          {!isPaid && paymentLink && (
+          {canPay && (
             <button
               type="button"
-              onClick={() => window.open(paymentLink, '_blank', 'noopener,noreferrer')}
+              onClick={handlePayClick}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
             >
               <CreditCard className="h-4 w-4" /> Pay Now
