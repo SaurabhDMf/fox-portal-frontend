@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Building2, Save } from 'lucide-react';
+import { Building2, Save, Upload, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
 const inputCls =
@@ -152,11 +152,15 @@ export default function InvoiceSettings() {
     },
   });
 
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
   const onUploadLogo = async (file: File) => {
+    setUploadingLogo(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await api.post('/uploads', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      // api instance already attaches Bearer token; let axios set the multipart boundary
+      const res = await api.post('/uploads', fd);
       const url = res.data?.url || res.data?.data?.url || res.data?.file_url;
       if (url) {
         set('logo_url', url);
@@ -165,7 +169,9 @@ export default function InvoiceSettings() {
         toast.error('Upload succeeded but no URL returned');
       }
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Upload failed — paste a URL instead');
+      toast.error(err?.response?.data?.message || err?.message || 'Upload failed — paste a URL instead');
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -221,13 +227,27 @@ export default function InvoiceSettings() {
                   />
                   {isAdmin && (
                     <div className="flex items-center gap-2">
-                      <label className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary text-xs cursor-pointer hover:bg-secondary/70">
-                        Upload image
+                      <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity ${uploadingLogo ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}>
+                        {uploadingLogo ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-3.5 w-3.5" /> Upload Logo
+                          </>
+                        )}
                         <input
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => e.target.files?.[0] && onUploadLogo(e.target.files[0])}
+                          disabled={uploadingLogo}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) onUploadLogo(f);
+                            // reset so selecting the same file again still triggers onChange
+                            e.target.value = '';
+                          }}
                         />
                       </label>
                       <span className="text-[11px] text-muted-foreground">or paste a URL above</span>
