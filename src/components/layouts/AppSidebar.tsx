@@ -28,7 +28,7 @@ const adminNav: NavItem[] = [
   { label: 'Chat', path: '/admin/chat', icon: MessageSquare, module: 'chat' },
   { label: 'Projects', path: '/admin/projects', icon: FolderKanban, module: 'projects' },
   { label: 'Vault', path: '/admin/vault', icon: Lock, module: 'vault' },
-  { label: 'Email', path: '/admin/email', icon: Mail, module: 'email' },
+  { label: 'Email', path: '/admin/email', icon: Mail },
   { label: 'Tickets', path: '/admin/tickets', icon: Ticket, module: 'tickets' },
   { label: 'Tracker', path: '/admin/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/admin/payroll', icon: Wallet, module: 'payroll' },
