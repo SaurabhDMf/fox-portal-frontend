@@ -411,32 +411,44 @@ export default function EmailPage() {
               <div className="w-10 h-10 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold uppercase">
                 {(email.from_name || email.from_address || '?')[0]}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-foreground">
-                    {email.from_name || email.from_address}
-                  </p>
-                  <span className="text-xs text-muted-foreground">
-                    {fmtDateTime(email.received_at || email.sent_at)}
+              <div className="flex-1 min-w-0 space-y-1">
+                <p className="text-sm text-foreground">
+                  <span className="text-muted-foreground font-normal">From: </span>
+                  <span className="font-semibold">
+                    {email.from_name ? `${email.from_name} ` : ''}
                   </span>
-                </div>
-                <p className="text-xs text-muted-foreground">To: {email.to_addresses}</p>
-                {email.cc_addresses && (
-                  <p className="text-xs text-muted-foreground">CC: {email.cc_addresses}</p>
+                  {email.from_address && (
+                    <span className="text-muted-foreground">&lt;{email.from_address}&gt;</span>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <span>To: </span>{formatAddresses(email.to_addresses)}
+                </p>
+                {email.cc_addresses && (formatAddresses(email.cc_addresses)) && (
+                  <p className="text-xs text-muted-foreground">
+                    <span>CC: </span>{formatAddresses(email.cc_addresses)}
+                  </p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  <span>Date: </span>{fmtDateTime(email.received_at || email.sent_at)}
+                </p>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-5">
-              {email.body_html ? (
+              {email.body_html && String(email.body_html).trim() ? (
                 <div
                   className="prose prose-sm max-w-none text-foreground"
-                  dangerouslySetInnerHTML={{ __html: email.body_html }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(email.body_html) }}
                 />
-              ) : (
+              ) : email.body_text && String(email.body_text).trim() ? (
                 <pre className="text-sm text-foreground whitespace-pre-wrap font-sans">
-                  {email.body_text || '(no content)'}
+                  {email.body_text}
                 </pre>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  This email has no content
+                </p>
               )}
 
               {email.attachments?.length > 0 && (
