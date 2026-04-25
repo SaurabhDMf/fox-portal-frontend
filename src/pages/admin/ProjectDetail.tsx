@@ -4,7 +4,7 @@ import api from '@/lib/api';
 import { dependencyDelete } from '@/lib/dependencyDelete';
 import { useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
-import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2 } from 'lucide-react';
+import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2, IndianRupee } from 'lucide-react';
 import { extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectTask } from '@/lib/projectTypes';
 import TasksListView from '@/components/projects/TasksListView';
@@ -15,6 +15,7 @@ import MembersView from '@/components/projects/MembersView';
 import TaskDetailDrawer from '@/components/projects/TaskDetailDrawer';
 import CreateTaskModal from '@/components/projects/CreateTaskModal';
 import ProjectSettingsModal from '@/components/projects/ProjectSettingsModal';
+import FinancialsView from '@/components/projects/FinancialsView';
 import toast from 'react-hot-toast';
 
 const TABS = [
@@ -23,6 +24,7 @@ const TABS = [
   { id: 'epics', label: 'Modules', icon: Zap },
   { id: 'sprints', label: 'Sprints', icon: Timer },
   { id: 'members', label: 'Members', icon: Users },
+  { id: 'financials', label: 'Financials', icon: IndianRupee },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -237,6 +239,7 @@ export default function ProjectDetail() {
         <BacklogView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />
       )}
       {activeTab === 'members' && <MembersView projectId={id!} />}
+      {activeTab === 'financials' && <FinancialsView projectId={id!} />}
 
       {selectedTask && (
         <TaskDetailDrawer task={selectedTask} onClose={() => setSelectedTask(null)} projectId={id!} />

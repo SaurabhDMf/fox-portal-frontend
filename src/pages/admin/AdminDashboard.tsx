@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import StatCard from '@/components/ui/StatCard';
-import { DollarSign, Users, Target, AlertTriangle, FileText, MessageSquare, Clock, LayoutDashboard, User } from 'lucide-react';
+import { DollarSign, Users, Target, AlertTriangle, FileText, MessageSquare, Clock, LayoutDashboard, User, FolderOpen, LifeBuoy, CalendarOff, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -95,6 +95,9 @@ function OrgDashboard({ onSwitchView }: { onSwitchView: () => void }) {
         ))}
       </div>
 
+      {/* Recent Activity Feed */}
+      <RecentActivityCard activity={s.recentActivity || s.recent_activity || []} />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
@@ -139,6 +142,45 @@ function OrgDashboard({ onSwitchView }: { onSwitchView: () => void }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+const ACTIVITY_ICONS: Record<string, any> = {
+  invoice: FileText,
+  project: FolderOpen,
+  lead: Target,
+  ticket: LifeBuoy,
+  leave: CalendarOff,
+};
+
+function RecentActivityCard({ activity }: { activity: Array<{ type: string; label: string; time: string }> }) {
+  const items = Array.isArray(activity) ? activity : [];
+  return (
+    <div className="glass-card p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Activity className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-sm font-semibold">Recent Activity</h2>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-6">No recent activity</p>
+      ) : (
+        <div className="space-y-2">
+          {items.slice(0, 8).map((a, i) => {
+            const Icon = ACTIVITY_ICONS[a.type] || Activity;
+            return (
+              <div key={i} className="flex items-start gap-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors">
+                <div className="p-1.5 rounded-md bg-primary/10 flex-shrink-0">
+                  <Icon className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm truncate">{a.label}</p>
+                  <p className="text-xs text-muted-foreground">{a.time}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
