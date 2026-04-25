@@ -114,9 +114,10 @@ export default function EmailPage() {
     mutationFn: () => emailApi.syncAccount(activeAccountId!, activeFolder),
     onSuccess: (r: any) => {
       toast.success(r.data?.message || 'Synced');
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
       refetch();
     },
-    onError: (e: any) => toast.error(errMsg(e)),
+    onError: () => toast.error('Could not reach mail server — check your IMAP settings'),
   });
 
   const star = useMutation({
