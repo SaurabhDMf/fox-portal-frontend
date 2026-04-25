@@ -83,6 +83,7 @@ export default function AdminSettings() {
 
       {/* Profile */}
       {tab === 'profile' && (
+        <div className="space-y-4">
         <div className="glass-card p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">Profile Information</h2>
@@ -143,6 +144,8 @@ export default function AdminSettings() {
               <div><label className="text-xs text-muted-foreground">Job Title</label><p className="text-sm font-medium mt-0.5">{user?.job_title || '—'}</p></div>
             </div>
           )}
+        </div>
+        <ConnectedEmailCard />
         </div>
       )}
 
