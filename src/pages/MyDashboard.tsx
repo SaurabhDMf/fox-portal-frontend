@@ -77,7 +77,7 @@ export default function MyDashboard() {
   const myProjects: any[] = Array.isArray(data?.my_projects) ? data.my_projects : [];
   const myLeads: any[] = Array.isArray(data?.my_leads) ? data.my_leads : [];
   const myInvoices: any[] = Array.isArray(data?.my_invoices) ? data.my_invoices : [];
-  const ts = trackerSummary || {};
+  
 
   return (
     <div className="page-container">
