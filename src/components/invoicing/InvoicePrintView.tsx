@@ -1,4 +1,8 @@
 import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import api from '@/lib/api';
+import { payWithStripe, payWithRazorpay } from '@/lib/payments';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Props {
   invoice: any;
@@ -7,6 +11,7 @@ interface Props {
 }
 
 export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) {
+  const qc = useQueryClient();
   // Backend already returns `company` alongside the invoice — no extra API call needed
   const company: any = invoice.company || {};
   const companyName = company.name || company.company_name || '';
@@ -38,19 +43,53 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
     .filter(Boolean)
     .join(', ');
 
-  // Payment link comes ONLY from the invoice (Stripe/Razorpay checkout URL set by backend).
-  // If null/undefined, the Pay Now button is hidden — never fall back to an internal route.
-  const paymentLink: string = invoice.payment_link || '';
+  // Fetch full invoice (with payment_providers) if not already present —
+  // list-endpoint payloads typically don't include payment_providers.
+  const [providers, setProviders] = useState<{ stripe: boolean; razorpay: boolean }>(
+    invoice.payment_providers || { stripe: false, razorpay: false },
+  );
+  useEffect(() => {
+    if (invoice.payment_providers || !invoice?.id) return;
+    let cancelled = false;
+    api.get(`/invoices/${invoice.id}`)
+      .then((r) => {
+        const data = r.data?.data ?? r.data ?? {};
+        if (!cancelled && data.payment_providers) setProviders(data.payment_providers);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [invoice?.id]);
+
+  const canPay = !isPaid
+    && invoice.status !== 'Cancelled'
+    && (providers?.stripe || providers?.razorpay);
+
+  const [showPayChoice, setShowPayChoice] = useState(false);
+
+  const onPaidSuccess = () => {
+    qc.invalidateQueries({ queryKey: ['invoices'] });
+    qc.invalidateQueries({ queryKey: ['cp-invoices'] });
+  };
+
+  const handlePayClick = () => {
+    if (providers.stripe && providers.razorpay) {
+      setShowPayChoice(true);
+    } else if (providers.stripe) {
+      payWithStripe(invoice.id);
+    } else if (providers.razorpay) {
+      payWithRazorpay(invoice.id, onPaidSuccess);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static">
       <div className="w-full max-w-4xl max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible">
         {/* Action bar - hidden in print */}
         <div className="flex gap-2 justify-end mb-3 print:hidden">
-          {!isPaid && paymentLink && (
+          {canPay && (
             <button
               type="button"
-              onClick={() => window.open(paymentLink, '_blank', 'noopener,noreferrer')}
+              onClick={handlePayClick}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
             >
               <CreditCard className="h-4 w-4" /> Pay Now
@@ -237,26 +276,16 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
                       </p>
                     </div>
                   </div>
-                  {paymentLink && (
+                  {canPay && (
                     <button
                       type="button"
-                      onClick={() => window.open(paymentLink, '_blank', 'noopener,noreferrer')}
+                      onClick={handlePayClick}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors print:hidden"
                     >
                       <CreditCard className="h-4 w-4" /> Pay {fmt(amountDue)}
                     </button>
                   )}
                 </div>
-
-                {paymentLink && (
-                  <div className="mt-4 pt-4 border-t border-blue-200 hidden print:block">
-                    <div className="flex items-center gap-2 text-xs text-slate-700">
-                      <Link2 className="h-3.5 w-3.5" />
-                      <span className="font-semibold">Payment Link:</span>
-                      <span className="font-mono break-all">{paymentLink}</span>
-                    </div>
-                  </div>
-                )}
 
                 {(company.bank_name || company.bank_account || company.upi_id) && (
                   <div className="mt-4 pt-4 border-t border-blue-200 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs">
@@ -392,6 +421,47 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
           #invoice-print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; }
         }
       `}</style>
+
+      {/* Provider choice modal */}
+      {showPayChoice && (
+        <div
+          className="fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowPayChoice(false)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-foreground mb-1">Choose payment method</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Select how you'd like to pay {fmt(amountDue)}.
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowPayChoice(false); payWithStripe(invoice.id); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
+              >
+                <CreditCard className="h-4 w-4" /> Pay with Card (Stripe)
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowPayChoice(false); payWithRazorpay(invoice.id, onPaidSuccess); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition"
+              >
+                <Wallet className="h-4 w-4" /> Pay with Razorpay
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPayChoice(false)}
+                className="w-full px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

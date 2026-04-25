@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
-import { ArrowLeft, Printer, Download, CreditCard, FileText } from 'lucide-react';
+import { ArrowLeft, Printer, Download, CreditCard, FileText, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { payWithStripe, payWithRazorpay } from '@/lib/payments';
 
@@ -42,8 +42,15 @@ export default function CPInvoiceDetail() {
   const total = inv.total_amount ?? inv.total ?? inv.amount ?? 0;
   const paid = inv.amount_paid ?? inv.paid_amount ?? 0;
   const due = inv.amount_due ?? Math.max(0, total - paid);
-  const isPayable = inv.status !== 'Paid' && inv.status !== 'Cancelled' && due > 0;
+  const providers = inv.payment_providers || { stripe: false, razorpay: false };
+  const hasProvider = !!(providers.stripe || providers.razorpay);
+  const isPayable =
+    inv.status !== 'Paid' &&
+    inv.status !== 'Cancelled' &&
+    due > 0 &&
+    hasProvider;
   const isUploadedPdf = inv.source === 'uploaded' && inv.has_pdf;
+  const [showPayChoice, setShowPayChoice] = useState(false);
 
   const downloadPdf = async () => {
     try {
@@ -107,20 +114,16 @@ export default function CPInvoiceDetail() {
             </button>
           )}
           {isPayable && (
-            <>
-              <button
-                onClick={() => payWithStripe(id!)}
-                className="px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 inline-flex items-center gap-2"
-              >
-                <CreditCard className="h-4 w-4" /> Pay with Card
-              </button>
-              <button
-                onClick={() => payWithRazorpay(id!, onPaidSuccess)}
-                className="px-3 py-2 rounded-lg text-sm bg-foreground text-background font-medium hover:opacity-90 inline-flex items-center gap-2"
-              >
-                <CreditCard className="h-4 w-4" /> Pay with Razorpay
-              </button>
-            </>
+            <button
+              onClick={() => {
+                if (providers.stripe && providers.razorpay) setShowPayChoice(true);
+                else if (providers.stripe) payWithStripe(id!);
+                else if (providers.razorpay) payWithRazorpay(id!, onPaidSuccess);
+              }}
+              className="px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 inline-flex items-center gap-2"
+            >
+              <CreditCard className="h-4 w-4" /> Pay Now
+            </button>
           )}
         </div>
       </div>
@@ -273,6 +276,47 @@ export default function CPInvoiceDetail() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Provider choice modal */}
+      {showPayChoice && (
+        <div
+          className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowPayChoice(false)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-foreground mb-1">Choose payment method</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Select how you'd like to pay {fmt(due)}.
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowPayChoice(false); payWithStripe(id!); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
+              >
+                <CreditCard className="h-4 w-4" /> Pay with Card (Stripe)
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowPayChoice(false); payWithRazorpay(id!, onPaidSuccess); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition"
+              >
+                <Wallet className="h-4 w-4" /> Pay with Razorpay
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPayChoice(false)}
+                className="w-full px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
