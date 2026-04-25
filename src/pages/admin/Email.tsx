@@ -312,7 +312,11 @@ export default function EmailPage() {
                       {msg.subject || '(no subject)'}
                     </p>
                     <p className="text-xs text-muted-foreground truncate font-normal">
-                      {msg.preview}
+                      {(() => {
+                        const p = msg.preview;
+                        if (p == null || typeof p !== 'string' || !p.trim()) return '';
+                        return p.length > 80 ? `${p.slice(0, 80)}...` : p;
+                      })()}
                     </p>
                     <div className="flex items-center gap-1.5 mt-1">
                       {!msg.is_read && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
