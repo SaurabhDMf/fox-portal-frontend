@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import {
   Inbox, Send, FileText, Star, Archive, Trash2,
   Plus, RefreshCw, Search, Reply, MailOpen, Paperclip,
-  Minus, X,
+  Minus, X, PlugZap, CheckCircle2, XCircle, Loader2,
 } from 'lucide-react';
 import { emailApi } from '@/lib/api';
 
