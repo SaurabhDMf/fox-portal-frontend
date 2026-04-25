@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
-import { ArrowLeft, Printer, Download, CreditCard, FileText } from 'lucide-react';
+import { ArrowLeft, Printer, Download, CreditCard, FileText, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { payWithStripe, payWithRazorpay } from '@/lib/payments';
 
