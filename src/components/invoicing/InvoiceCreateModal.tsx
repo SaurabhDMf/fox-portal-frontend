@@ -25,6 +25,7 @@ export default function InvoiceCreateModal({ onClose }: Props) {
 
   const [form, setForm] = useState({
     client_id: '',
+    project_id: '',
     due_date: '',
     currency: 'USD',
     discount_pct: 0,
@@ -33,11 +34,15 @@ export default function InvoiceCreateModal({ onClose }: Props) {
     terms: '',
     billing_address: '',
     billing_email: '',
+    billing_phone: '',
     billing_contact_name: '',
+    billing_company_name: '',
+    billing_gst_number: '',
     invoice_number: '',
   });
   const [items, setItems] = useState<LineItem[]>([{ description: '', quantity: 1, unit_price: 0 }]);
   const [signatureData, setSignatureData] = useState<string>('');
+  const [clientProjects, setClientProjects] = useState<Array<{ id: string; name: string; status?: string }>>([]);
 
   // Signature pad
   const canvasRef = useRef<HTMLCanvasElement>(null);
