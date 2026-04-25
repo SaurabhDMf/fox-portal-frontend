@@ -28,6 +28,11 @@ export default function Tracker() {
     queryFn: () => api.get('/tracker/tracker-summary').then(r => r.data),
   });
 
+  const { data: today } = useQuery({
+    queryKey: ['today-attendance'],
+    queryFn: () => api.get('/tracker/attendance/today').then(r => r.data?.data || r.data || {}),
+  });
+
   const { data: leaveRequests = [] } = useQuery({
     queryKey: ['leave-requests'],
     queryFn: () => api.get('/tracker/leave-requests').then(r => r.data?.leave_requests || r.data || []),
@@ -53,14 +58,22 @@ export default function Tracker() {
 
   const checkInMut = useMutation({
     mutationFn: () => api.post('/tracker/attendance/check-in'),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tracker-summary'] }); toast.success('Checked in!'); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Already checked in'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['today-attendance'] });
+      qc.invalidateQueries({ queryKey: ['tracker-summary'] });
+      toast.success('Checked in!');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.error || e.response?.data?.message || 'Check-in failed'),
   });
 
   const checkOutMut = useMutation({
     mutationFn: () => api.post('/tracker/attendance/check-out'),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tracker-summary'] }); toast.success('Checked out!'); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Not checked in'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['today-attendance'] });
+      qc.invalidateQueries({ queryKey: ['tracker-summary'] });
+      toast.success('Checked out!');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.error || e.response?.data?.message || 'Check-out failed'),
   });
 
   const leaveMut = useMutation({
