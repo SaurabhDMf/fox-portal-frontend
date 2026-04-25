@@ -89,35 +89,58 @@ export default function InvoiceCreateModal({ onClose }: Props) {
   ].filter(Boolean).join(', ');
 
   const clientsArr = Array.isArray(clients) ? clients : [];
-  const selectedClient = clientsArr.find((c: any) => c.id === form.client_id);
 
-  // Auto-fill billing details from client
+  // Fetch full invoice-data for the selected client and auto-fill billing fields
+  const { data: invoiceData, isFetching: loadingClientData } = useQuery({
+    queryKey: ['client-invoice-data', form.client_id],
+    enabled: !!form.client_id,
+    queryFn: () =>
+      api
+        .get(`/clients/${form.client_id}/invoice-data`)
+        .then((r) => r.data?.data ?? r.data ?? {}),
+  });
+
   useEffect(() => {
-    if (!selectedClient) return;
-    const addr =
-      selectedClient.billing_address ||
-      selectedClient.address ||
-      [
-        selectedClient.address_line1,
-        selectedClient.address_line2,
-        selectedClient.city,
-        selectedClient.state,
-        selectedClient.postal_code,
-        selectedClient.country,
-      ]
+    if (!invoiceData) return;
+    const d: any = invoiceData;
+
+    // Build address: prefer structured billing_address, otherwise compose from fields
+    let addr = '';
+    const ba = d.billing_address;
+    if (ba && typeof ba === 'object') {
+      addr = [ba.line1 || ba.address_line1, ba.line2 || ba.address_line2, ba.city, ba.state, ba.postal_code || ba.zip, ba.country]
         .filter(Boolean)
         .join(', ');
+    } else if (typeof ba === 'string' && ba.trim()) {
+      addr = ba;
+    }
+    if (!addr) {
+      addr = [d.address_line1, d.address_line2, d.city, d.state, d.postal_code, d.country]
+        .filter(Boolean)
+        .join(', ');
+    }
+
     setForm((f) => ({
       ...f,
-      billing_address: addr || '',
-      billing_email: selectedClient.email || '',
-      billing_contact_name:
-        selectedClient.contact_name ||
-        selectedClient.company_name ||
-        selectedClient.name ||
-        '',
+      billing_company_name: d.company_name || f.billing_company_name,
+      billing_contact_name: d.contact_name || f.billing_contact_name,
+      billing_email: d.contact_email || d.email || f.billing_email,
+      billing_phone: d.contact_phone || d.phone || f.billing_phone,
+      billing_address: addr || f.billing_address,
+      billing_gst_number: d.gst_number || f.billing_gst_number,
+      project_id: '', // reset project selection on client change
     }));
-  }, [form.client_id, selectedClient]);
+
+    setClientProjects(Array.isArray(d.projects) ? d.projects : []);
+  }, [invoiceData]);
+
+  // Reset projects + project_id immediately when client cleared
+  useEffect(() => {
+    if (!form.client_id) {
+      setClientProjects([]);
+      setForm((f) => ({ ...f, project_id: '' }));
+    }
+  }, [form.client_id]);
 
   // Signature pad handlers
   const getPos = (e: React.MouseEvent | React.TouchEvent) => {
