@@ -8,6 +8,7 @@ import ClientFormModal, { type ClientFormData } from '@/components/clients/Clien
 import { useAuthStore } from '@/stores/authStore';
 import PortalAccessSection from '@/components/clients/PortalAccessSection';
 import { dependencyDelete } from '@/lib/dependencyDelete';
+import { extractProjectArray } from '@/lib/projectResponse';
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -38,7 +39,7 @@ export default function ClientDetail() {
 
   const { data: users = [] } = useQuery({
     queryKey: ['users-active'],
-    queryFn: () => api.get('/users/active').then(r => r.data?.users || r.data || []),
+    queryFn: () => api.get('/users/active').then(r => extractProjectArray<any>(r.data, ['users'])),
   });
 
   const editMut = useMutation({
@@ -83,8 +84,7 @@ export default function ClientDetail() {
 
   const invoicesArr = Array.isArray(invoices) ? invoices : [];
   const leadsArr = Array.isArray(leads) ? leads : [];
-  const SALES_ROLES = new Set(['sales_manager', 'sales_rep']);
-  const usersArr = (Array.isArray(users) ? users : []).filter((u: any) => SALES_ROLES.has((u.role || '').toLowerCase()));
+  const usersArr = Array.isArray(users) ? users : [];
   const contacts = client.contacts || [];
   const address = [client.address_line1, client.address_line2, client.city, client.state, client.postal_code, client.country].filter(Boolean).join(', ');
 

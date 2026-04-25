@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
+import { extractProjectArray } from '@/lib/projectResponse';
 
 import ClientFormModal, { type ClientFormData } from '@/components/clients/ClientFormModal';
 
@@ -36,7 +37,7 @@ export default function Clients() {
 
   const { data: users = [] } = useQuery({
     queryKey: ['users-active'],
-    queryFn: () => api.get('/users/active').then(r => r.data?.users || r.data || []),
+    queryFn: () => api.get('/users/active').then(r => extractProjectArray<any>(r.data, ['users'])),
   });
 
   const createMut = useMutation({
