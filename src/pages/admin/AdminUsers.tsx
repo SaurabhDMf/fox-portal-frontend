@@ -709,44 +709,67 @@ export default function AdminUsers() {
             )}
 
             {viewTab === 'permissions' && (
-              <div className="glass-card overflow-hidden">
-                {viewPerms ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">Module</th>
-                          {PERM_ACTIONS.map(a => (
-                            <th key={a} className="text-center px-2 py-2 text-xs font-semibold text-muted-foreground uppercase">{PERM_LABELS[a]}</th>
-                          ))}
-                          <th className="text-center px-2 py-2 text-xs font-semibold text-muted-foreground uppercase">Scope</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {PERM_MODULES.map(mod => {
-                          const mp = viewPerms[mod];
-                          return (
-                            <tr key={mod} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                              <td className="px-3 py-2 font-medium capitalize">{mod}</td>
-                              {PERM_ACTIONS.map(a => (
-                                <td key={a} className="text-center px-2 py-2">
-                                  {mp?.[a] ? <Check className="h-3.5 w-3.5 text-emerald-500 mx-auto" /> : <XIcon className="h-3.5 w-3.5 text-muted-foreground/40 mx-auto" />}
-                                </td>
-                              ))}
-                              <td className="text-center px-2 py-2">
-                                <span className={`text-xs px-1.5 py-0.5 rounded-full ${mp?.own_only ? 'bg-amber-500/15 text-amber-500' : 'bg-emerald-500/15 text-emerald-500'}`}>
-                                  {mp?.own_only ? 'Own' : 'All'}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+              <div className="space-y-4">
+                {/* Special Grants */}
+                <div className="glass-card p-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Special Grants</h4>
+                  <div className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                    <div>
+                      <p className="text-sm font-medium">Project Finance Access</p>
+                      <p className="text-xs text-muted-foreground">Allows viewing the Financials tab on Project pages</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={viewGrants.includes('project_finance')}
+                        disabled={grantBusy === 'project_finance'}
+                        onChange={(e) => toggleGrant(showView.id, 'project_finance', e.target.checked)}
+                      />
+                      <div className="w-10 h-5 bg-secondary peer-focus:ring-2 peer-focus:ring-primary/40 rounded-full peer peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-background after:border after:border-border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary peer-disabled:opacity-50" />
+                    </label>
                   </div>
-                ) : (
-                  <div className="p-8 text-center text-sm text-muted-foreground">No permissions data available for this user.</div>
-                )}
+                </div>
+
+                <div className="glass-card overflow-hidden">
+                  {viewPerms ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">Module</th>
+                            {PERM_ACTIONS.map(a => (
+                              <th key={a} className="text-center px-2 py-2 text-xs font-semibold text-muted-foreground uppercase">{PERM_LABELS[a]}</th>
+                            ))}
+                            <th className="text-center px-2 py-2 text-xs font-semibold text-muted-foreground uppercase">Scope</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {PERM_MODULES.map(mod => {
+                            const mp = viewPerms[mod];
+                            return (
+                              <tr key={mod} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
+                                <td className="px-3 py-2 font-medium capitalize">{mod}</td>
+                                {PERM_ACTIONS.map(a => (
+                                  <td key={a} className="text-center px-2 py-2">
+                                    {mp?.[a] ? <Check className="h-3.5 w-3.5 text-emerald-500 mx-auto" /> : <XIcon className="h-3.5 w-3.5 text-muted-foreground/40 mx-auto" />}
+                                  </td>
+                                ))}
+                                <td className="text-center px-2 py-2">
+                                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${mp?.own_only ? 'bg-amber-500/15 text-amber-500' : 'bg-emerald-500/15 text-emerald-500'}`}>
+                                    {mp?.own_only ? 'Own' : 'All'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-sm text-muted-foreground">No permissions data available for this user.</div>
+                  )}
+                </div>
               </div>
             )}
 
