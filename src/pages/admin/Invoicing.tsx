@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { Plus, Send, DollarSign, CheckCircle, Clock, AlertTriangle, FileText, Upload, Download } from 'lucide-react';
+import { Plus, Send, DollarSign, CheckCircle, Clock, AlertTriangle, FileText, Upload, Download, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
 import { useModulePermission } from '@/hooks/usePermission';
+import { useAuthStore } from '@/stores/authStore';
+import { confirmAction } from '@/lib/confirmDialog';
 
 import InvoiceCreateModal from '@/components/invoicing/InvoiceCreateModal';
 import InvoiceUploadModal from '@/components/invoicing/InvoiceUploadModal';
@@ -36,12 +38,47 @@ async function downloadPdf(inv: any) {
 
 export default function Invoicing() {
   const perm = useModulePermission('invoicing');
+  const role = useAuthStore(s => s.user?.role);
+  const canDelete = role === 'admin' || role === 'super_admin';
   const [tab, setTab] = useState('All');
   const [showCreate, setShowCreate] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [showPrint, setShowPrint] = useState<any>(null);
   const [showSend, setShowSend] = useState<any>(null);
   const qc = useQueryClient();
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api.delete(`/invoices/${id}`),
+    onSuccess: (_res, id) => {
+      qc.setQueryData(['invoices', tab], (old: any) => {
+        if (!old) return old;
+        const list = old?.invoices || old?.data || (Array.isArray(old) ? old : []);
+        const filtered = (Array.isArray(list) ? list : []).filter((i: any) => i.id !== id);
+        if (Array.isArray(old)) return filtered;
+        if (old?.invoices) return { ...old, invoices: filtered };
+        if (old?.data) return { ...old, data: filtered };
+        return old;
+      });
+      qc.invalidateQueries({ queryKey: ['invoices'] });
+      setShowPrint(null);
+      toast.success('Invoice deleted');
+    },
+    onError: (e: any) => {
+      if (e?.response?.status === 403) toast.error('Only admins can delete invoices');
+      else toast.error(e?.response?.data?.message || 'Failed to delete invoice');
+    },
+  });
+
+  const handleDelete = async (inv: any) => {
+    const number = inv.invoice_number || `INV-${inv.id?.slice(0, 6)}`;
+    const ok = await confirmAction({
+      title: 'Delete invoice',
+      description: `Permanently delete invoice ${number}? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (ok) deleteMut.mutate(inv.id);
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['invoices', tab],
@@ -130,6 +167,15 @@ export default function Invoicing() {
                         <Send className="h-3 w-3" /> Send
                       </button>
                     )}
+                    {canDelete && (
+                      <button
+                        onClick={() => handleDelete(inv)}
+                        disabled={deleteMut.isPending}
+                        className="text-xs flex items-center gap-1 text-destructive hover:underline disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3 w-3" /> Delete
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -140,7 +186,7 @@ export default function Invoicing() {
 
       {showCreate && <InvoiceCreateModal onClose={() => setShowCreate(false)} />}
       {showUpload && <InvoiceUploadModal onClose={() => setShowUpload(false)} />}
-      {showPrint && <InvoicePrintView invoice={showPrint} onClose={() => setShowPrint(null)} />}
+      {showPrint && <InvoicePrintView invoice={showPrint} onClose={() => setShowPrint(null)} onDelete={canDelete ? () => handleDelete(showPrint) : undefined} />}
       {showSend && <SendInvoiceModal invoice={showSend} onClose={() => setShowSend(null)} />}
     </div>
   );

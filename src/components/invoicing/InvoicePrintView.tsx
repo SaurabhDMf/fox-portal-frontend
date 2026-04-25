@@ -1,11 +1,12 @@
-import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe } from 'lucide-react';
+import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe, Trash2 } from 'lucide-react';
 
 interface Props {
   invoice: any;
   onClose: () => void;
+  onDelete?: () => void;
 }
 
-export default function InvoicePrintView({ invoice, onClose }: Props) {
+export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) {
   // Backend already returns `company` alongside the invoice — no extra API call needed
   const company: any = invoice.company || {};
   const companyName = company.name || company.company_name || '';
@@ -61,6 +62,14 @@ export default function InvoicePrintView({ invoice, onClose }: Props) {
           >
             <Printer className="h-4 w-4" /> Print / PDF
           </button>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
+            >
+              <Trash2 className="h-4 w-4" /> Delete
+            </button>
+          )}
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary">
             <X className="h-4 w-4" />
           </button>
