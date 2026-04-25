@@ -42,8 +42,15 @@ export default function CPInvoiceDetail() {
   const total = inv.total_amount ?? inv.total ?? inv.amount ?? 0;
   const paid = inv.amount_paid ?? inv.paid_amount ?? 0;
   const due = inv.amount_due ?? Math.max(0, total - paid);
-  const isPayable = inv.status !== 'Paid' && inv.status !== 'Cancelled' && due > 0;
+  const providers = inv.payment_providers || { stripe: false, razorpay: false };
+  const hasProvider = !!(providers.stripe || providers.razorpay);
+  const isPayable =
+    inv.status !== 'Paid' &&
+    inv.status !== 'Cancelled' &&
+    due > 0 &&
+    hasProvider;
   const isUploadedPdf = inv.source === 'uploaded' && inv.has_pdf;
+  const [showPayChoice, setShowPayChoice] = useState(false);
 
   const downloadPdf = async () => {
     try {
