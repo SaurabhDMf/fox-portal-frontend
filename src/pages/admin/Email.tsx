@@ -173,7 +173,7 @@ export default function EmailPage() {
   const addMutation = useMutation({
     mutationFn: (d: any) => emailApi.addAccount(d),
     onSuccess: () => {
-      toast.success('Account added & SMTP verified');
+      toast.success('Account added. Click Test Connection to verify your credentials.');
       accountForm.reset();
       setShowAddAccount(false);
       qc.invalidateQueries({ queryKey: ['email-accounts'] });
