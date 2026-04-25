@@ -101,6 +101,34 @@ export default function EmailPage() {
   });
   const messages: any[] = msgData?.data || msgData || [];
 
+  // ----- unread inbox count -----
+  const { data: unreadData } = useQuery({
+    queryKey: ['email-unread', activeAccountId],
+    queryFn: () =>
+      emailApi
+        .getMessages({
+          folder: 'INBOX',
+          account_id: activeAccountId || undefined,
+          is_read: false,
+          limit: 1,
+        })
+        .then((r) => r.data),
+    enabled: !!activeAccountId,
+    refetchInterval: 60_000,
+  });
+  const unreadCount: number = (() => {
+    if (!unreadData) return 0;
+    if (typeof unreadData.total === 'number') return unreadData.total;
+    if (typeof unreadData.count === 'number') return unreadData.count;
+    if (Array.isArray(unreadData)) return unreadData.length;
+    if (Array.isArray(unreadData.data)) {
+      // If meta has total, prefer it
+      if (unreadData.meta?.total != null) return unreadData.meta.total;
+      return unreadData.data.length;
+    }
+    return 0;
+  })();
+
   // ----- selected message -----
   const { data: emailData } = useQuery({
     queryKey: ['email-message', selectedId],
