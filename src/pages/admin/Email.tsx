@@ -157,6 +157,7 @@ export default function EmailPage() {
     mutationFn: () => emailApi.patchMessage(email!.id, { is_archived: true }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['emails'] });
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
       setSelectedId(null);
     },
     onError: (e: any) => toast.error(errMsg(e)),
@@ -165,13 +166,17 @@ export default function EmailPage() {
     mutationFn: () => emailApi.patchMessage(email!.id, { is_deleted: true }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['emails'] });
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
       setSelectedId(null);
     },
     onError: (e: any) => toast.error(errMsg(e)),
   });
   const unread = useMutation({
     mutationFn: () => emailApi.patchMessage(email!.id, { is_read: false }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['emails'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['emails'] });
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
+    },
     onError: (e: any) => toast.error(errMsg(e)),
   });
 
