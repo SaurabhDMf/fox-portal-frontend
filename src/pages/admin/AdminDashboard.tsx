@@ -145,3 +145,42 @@ function OrgDashboard({ onSwitchView }: { onSwitchView: () => void }) {
     </div>
   );
 }
+const ACTIVITY_ICONS: Record<string, any> = {
+  invoice: FileText,
+  project: FolderOpen,
+  lead: Target,
+  ticket: LifeBuoy,
+  leave: CalendarOff,
+};
+
+function RecentActivityCard({ activity }: { activity: Array<{ type: string; label: string; time: string }> }) {
+  const items = Array.isArray(activity) ? activity : [];
+  return (
+    <div className="glass-card p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Activity className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-sm font-semibold">Recent Activity</h2>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-6">No recent activity</p>
+      ) : (
+        <div className="space-y-2">
+          {items.slice(0, 8).map((a, i) => {
+            const Icon = ACTIVITY_ICONS[a.type] || Activity;
+            return (
+              <div key={i} className="flex items-start gap-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors">
+                <div className="p-1.5 rounded-md bg-primary/10 flex-shrink-0">
+                  <Icon className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm truncate">{a.label}</p>
+                  <p className="text-xs text-muted-foreground">{a.time}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
