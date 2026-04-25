@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Plus, X, Trash2, Save, Send, Eraser, Hash } from 'lucide-react';
+import { Plus, X, Trash2, Save, Send, Eraser, Hash, Loader2 } from 'lucide-react';
 
 interface LineItem {
   description: string;
