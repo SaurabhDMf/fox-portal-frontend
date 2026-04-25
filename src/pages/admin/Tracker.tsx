@@ -129,9 +129,6 @@ export default function Tracker() {
           <div className="glass-card p-5 flex flex-col sm:flex-row items-center gap-4">
             <Clock className="h-8 w-8 text-primary" />
             <div className="flex-1 text-center sm:text-left">
-          <div className="glass-card p-5 flex flex-col sm:flex-row items-center gap-4">
-            <Clock className="h-8 w-8 text-primary" />
-            <div className="flex-1 text-center sm:text-left">
               <div className="text-sm text-muted-foreground">Today</div>
               <div className="text-xl font-bold">
                 {today?.hours_worked != null
