@@ -20,7 +20,32 @@ const fmtRelative = (iso?: string) => {
   if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d`;
   return d.toLocaleDateString();
 };
-const fmtDateTime = (iso?: string) => (iso ? new Date(iso).toLocaleString() : '');
+const fmtDateTime = (iso?: string) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  // e.g. "23 Apr 2026, 9:05 PM"
+  const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return `${date}, ${time}`;
+};
+
+// Basic HTML sanitization — strip script/style tags and inline event handlers
+const sanitizeHtml = (html: string): string => {
+  if (!html) return '';
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+    .replace(/javascript:/gi, '');
+};
+
+const formatAddresses = (addrs: any): string => {
+  if (!addrs) return '';
+  if (Array.isArray(addrs)) return addrs.join(', ');
+  return String(addrs);
+};
 
 const FOLDERS = [
   { key: 'INBOX', label: 'Inbox', icon: Inbox },
@@ -76,6 +101,34 @@ export default function EmailPage() {
   });
   const messages: any[] = msgData?.data || msgData || [];
 
+  // ----- unread inbox count -----
+  const { data: unreadData } = useQuery({
+    queryKey: ['email-unread', activeAccountId],
+    queryFn: () =>
+      emailApi
+        .getMessages({
+          folder: 'INBOX',
+          account_id: activeAccountId || undefined,
+          is_read: false,
+          limit: 1,
+        })
+        .then((r) => r.data),
+    enabled: !!activeAccountId,
+    refetchInterval: 60_000,
+  });
+  const unreadCount: number = (() => {
+    if (!unreadData) return 0;
+    if (typeof unreadData.total === 'number') return unreadData.total;
+    if (typeof unreadData.count === 'number') return unreadData.count;
+    if (Array.isArray(unreadData)) return unreadData.length;
+    if (Array.isArray(unreadData.data)) {
+      // If meta has total, prefer it
+      if (unreadData.meta?.total != null) return unreadData.meta.total;
+      return unreadData.data.length;
+    }
+    return 0;
+  })();
+
   // ----- selected message -----
   const { data: emailData } = useQuery({
     queryKey: ['email-message', selectedId],
@@ -84,14 +137,23 @@ export default function EmailPage() {
   });
   const email: any = emailData;
 
+  // When an email is opened, it's auto-marked read server-side — refresh unread count + list
+  useEffect(() => {
+    if (email?.id) {
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
+      qc.invalidateQueries({ queryKey: ['emails'] });
+    }
+  }, [email?.id]); // eslint-disable-line
+
   // ----- mutations -----
   const syncMutation = useMutation({
     mutationFn: () => emailApi.syncAccount(activeAccountId!, activeFolder),
     onSuccess: (r: any) => {
       toast.success(r.data?.message || 'Synced');
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
       refetch();
     },
-    onError: (e: any) => toast.error(errMsg(e)),
+    onError: () => toast.error('Could not reach mail server — check your IMAP settings'),
   });
 
   const star = useMutation({
@@ -103,6 +165,7 @@ export default function EmailPage() {
     mutationFn: () => emailApi.patchMessage(email!.id, { is_archived: true }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['emails'] });
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
       setSelectedId(null);
     },
     onError: (e: any) => toast.error(errMsg(e)),
@@ -111,13 +174,17 @@ export default function EmailPage() {
     mutationFn: () => emailApi.patchMessage(email!.id, { is_deleted: true }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['emails'] });
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
       setSelectedId(null);
     },
     onError: (e: any) => toast.error(errMsg(e)),
   });
   const unread = useMutation({
     mutationFn: () => emailApi.patchMessage(email!.id, { is_read: false }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['emails'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['emails'] });
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
+    },
     onError: (e: any) => toast.error(errMsg(e)),
   });
 
@@ -214,7 +281,14 @@ export default function EmailPage() {
                 }`}
               >
                 <Icon size={16} />
-                {f.label}
+                <span className="flex-1 text-left">{f.label}</span>
+                {f.key === 'INBOX' && unreadCount > 0 && (
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                    active ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary'
+                  }`}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -385,32 +459,44 @@ export default function EmailPage() {
               <div className="w-10 h-10 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold uppercase">
                 {(email.from_name || email.from_address || '?')[0]}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-foreground">
-                    {email.from_name || email.from_address}
-                  </p>
-                  <span className="text-xs text-muted-foreground">
-                    {fmtDateTime(email.received_at || email.sent_at)}
+              <div className="flex-1 min-w-0 space-y-1">
+                <p className="text-sm text-foreground">
+                  <span className="text-muted-foreground font-normal">From: </span>
+                  <span className="font-semibold">
+                    {email.from_name ? `${email.from_name} ` : ''}
                   </span>
-                </div>
-                <p className="text-xs text-muted-foreground">To: {email.to_addresses}</p>
-                {email.cc_addresses && (
-                  <p className="text-xs text-muted-foreground">CC: {email.cc_addresses}</p>
+                  {email.from_address && (
+                    <span className="text-muted-foreground">&lt;{email.from_address}&gt;</span>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <span>To: </span>{formatAddresses(email.to_addresses)}
+                </p>
+                {email.cc_addresses && (formatAddresses(email.cc_addresses)) && (
+                  <p className="text-xs text-muted-foreground">
+                    <span>CC: </span>{formatAddresses(email.cc_addresses)}
+                  </p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  <span>Date: </span>{fmtDateTime(email.received_at || email.sent_at)}
+                </p>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-5">
-              {email.body_html ? (
+              {email.body_html && String(email.body_html).trim() ? (
                 <div
                   className="prose prose-sm max-w-none text-foreground"
-                  dangerouslySetInnerHTML={{ __html: email.body_html }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(email.body_html) }}
                 />
-              ) : (
+              ) : email.body_text && String(email.body_text).trim() ? (
                 <pre className="text-sm text-foreground whitespace-pre-wrap font-sans">
-                  {email.body_text || '(no content)'}
+                  {email.body_text}
                 </pre>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">
+                  This email has no content
+                </p>
               )}
 
               {email.attachments?.length > 0 && (
