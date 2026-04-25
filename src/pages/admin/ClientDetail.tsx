@@ -84,8 +84,7 @@ export default function ClientDetail() {
 
   const invoicesArr = Array.isArray(invoices) ? invoices : [];
   const leadsArr = Array.isArray(leads) ? leads : [];
-  const SALES_ROLES = new Set(['sales_manager', 'sales_rep']);
-  const usersArr = (Array.isArray(users) ? users : []).filter((u: any) => SALES_ROLES.has((u.role || '').toLowerCase()));
+  const usersArr = Array.isArray(users) ? users : [];
   const contacts = client.contacts || [];
   const address = [client.address_line1, client.address_line2, client.city, client.state, client.postal_code, client.country].filter(Boolean).join(', ');
 
