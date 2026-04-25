@@ -114,20 +114,16 @@ export default function CPInvoiceDetail() {
             </button>
           )}
           {isPayable && (
-            <>
-              <button
-                onClick={() => payWithStripe(id!)}
-                className="px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 inline-flex items-center gap-2"
-              >
-                <CreditCard className="h-4 w-4" /> Pay with Card
-              </button>
-              <button
-                onClick={() => payWithRazorpay(id!, onPaidSuccess)}
-                className="px-3 py-2 rounded-lg text-sm bg-foreground text-background font-medium hover:opacity-90 inline-flex items-center gap-2"
-              >
-                <CreditCard className="h-4 w-4" /> Pay with Razorpay
-              </button>
-            </>
+            <button
+              onClick={() => {
+                if (providers.stripe && providers.razorpay) setShowPayChoice(true);
+                else if (providers.stripe) payWithStripe(id!);
+                else if (providers.razorpay) payWithRazorpay(id!, onPaidSuccess);
+              }}
+              className="px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 inline-flex items-center gap-2"
+            >
+              <CreditCard className="h-4 w-4" /> Pay Now
+            </button>
           )}
         </div>
       </div>
