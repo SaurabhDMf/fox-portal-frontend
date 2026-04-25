@@ -37,7 +37,7 @@ interface Props {
   onClose: () => void;
   onSubmit: (data: ClientFormData) => void;
   isPending: boolean;
-  users: { id: string; full_name: string }[];
+  users: { id: string; full_name: string; role?: string; job_title?: string }[];
   initial?: Partial<ClientFormData>;
   isEdit?: boolean;
 }
@@ -104,8 +104,11 @@ export default function ClientFormModal({ open, onClose, onSubmit, isPending, us
 
         {sectionLabel('Assignment')}
         <select value={form.account_manager_id} onChange={set('account_manager_id')} className={`w-full ${inputCls}`}>
-          <option value="">Select Sales Representative</option>
-          {users.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}
+          <option value="">Assign To</option>
+          {users.map(u => {
+            const label = (u.role ? u.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '') || u.job_title || '';
+            return <option key={u.id} value={u.id}>{u.full_name}{label ? `  —  ${label}` : ''}</option>;
+          })}
         </select>
 
         <div className="flex gap-2 justify-end pt-2">

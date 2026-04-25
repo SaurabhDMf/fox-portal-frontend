@@ -35,12 +35,9 @@ export default function Clients() {
   });
 
   const { data: users = [] } = useQuery({
-    queryKey: ['users-list'],
-    queryFn: () => api.get('/users').then(r => r.data?.users || r.data || []),
+    queryKey: ['users-active'],
+    queryFn: () => api.get('/users/active').then(r => r.data?.users || r.data || []),
   });
-
-  const SALES_ROLES = new Set(['sales_manager', 'sales_rep']);
-  const salesUsers = (Array.isArray(users) ? users : []).filter((u: any) => SALES_ROLES.has((u.role || '').toLowerCase()));
 
   const createMut = useMutation({
     mutationFn: (d: ClientFormData) => api.post('/clients', d),
@@ -62,7 +59,7 @@ export default function Clients() {
 
   const rawClients = Array.isArray(data) ? data : [];
   const clients = rawClients;
-  const usersArr = salesUsers;
+  const usersArr = Array.isArray(users) ? users : [];
 
   return (
     <div className="page-container">
