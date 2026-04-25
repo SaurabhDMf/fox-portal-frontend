@@ -421,6 +421,47 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
           #invoice-print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; }
         }
       `}</style>
+
+      {/* Provider choice modal */}
+      {showPayChoice && (
+        <div
+          className="fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowPayChoice(false)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-foreground mb-1">Choose payment method</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+              Select how you'd like to pay {fmt(amountDue)}.
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowPayChoice(false); payWithStripe(invoice.id); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
+              >
+                <CreditCard className="h-4 w-4" /> Pay with Card (Stripe)
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowPayChoice(false); payWithRazorpay(invoice.id, onPaidSuccess); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition"
+              >
+                <Wallet className="h-4 w-4" /> Pay with Razorpay
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPayChoice(false)}
+                className="w-full px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
