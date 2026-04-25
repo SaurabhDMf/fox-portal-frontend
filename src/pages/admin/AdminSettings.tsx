@@ -154,6 +154,9 @@ export default function AdminSettings() {
       {/* Company Profile */}
       {tab === 'company' && <CompanySettings />}
 
+      {/* Invoice Settings */}
+      {tab === 'invoice' && isAdmin && <InvoiceSettings />}
+
       {/* Integrations */}
       {tab === 'integrations' && isAdmin && <IntegrationsSettings />}
 
