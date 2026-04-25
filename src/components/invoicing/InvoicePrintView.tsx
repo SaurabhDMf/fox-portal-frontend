@@ -276,26 +276,16 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
                       </p>
                     </div>
                   </div>
-                  {paymentLink && (
+                  {canPay && (
                     <button
                       type="button"
-                      onClick={() => window.open(paymentLink, '_blank', 'noopener,noreferrer')}
+                      onClick={handlePayClick}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors print:hidden"
                     >
                       <CreditCard className="h-4 w-4" /> Pay {fmt(amountDue)}
                     </button>
                   )}
                 </div>
-
-                {paymentLink && (
-                  <div className="mt-4 pt-4 border-t border-blue-200 hidden print:block">
-                    <div className="flex items-center gap-2 text-xs text-slate-700">
-                      <Link2 className="h-3.5 w-3.5" />
-                      <span className="font-semibold">Payment Link:</span>
-                      <span className="font-mono break-all">{paymentLink}</span>
-                    </div>
-                  </div>
-                )}
 
                 {(company.bank_name || company.bank_account || company.upi_id) && (
                   <div className="mt-4 pt-4 border-t border-blue-200 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs">
