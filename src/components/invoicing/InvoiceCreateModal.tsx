@@ -14,6 +14,7 @@ interface LineItem {
 
 interface Props {
   onClose: () => void;
+  existing?: any; // when provided, the modal is in "edit" mode and PUTs to /invoices/:id
 }
 
 const inputCls =
@@ -39,8 +40,9 @@ const CURRENCY_OPTIONS = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'CAD', 'AUD'
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
-export default function InvoiceCreateModal({ onClose }: Props) {
+export default function InvoiceCreateModal({ onClose, existing }: Props) {
   const qc = useQueryClient();
+  const isEdit = !!existing?.id;
 
   const [form, setForm] = useState({
     client_id: '',
@@ -90,9 +92,9 @@ export default function InvoiceCreateModal({ onClose }: Props) {
     queryFn: () => api.get('/company').then((r) => r.data?.data ?? r.data ?? {}),
   });
 
-  // Defaults from company
+  // Defaults from company (skipped in edit mode — existing values win)
   useEffect(() => {
-    if (!company) return;
+    if (!company || isEdit) return;
     setForm((f) => {
       const companyTerms: string = company.payment_terms || '';
       const isPreset = PAYMENT_TERMS_PRESETS.includes(companyTerms);
@@ -108,7 +110,50 @@ export default function InvoiceCreateModal({ onClose }: Props) {
           `${company.invoice_prefix || 'INV'}-${String(Date.now()).slice(-6)}`,
       };
     });
-  }, [company]);
+  }, [company, isEdit]);
+
+  // Prefill from existing invoice when editing
+  useEffect(() => {
+    if (!existing) return;
+    const e: any = existing;
+    const terms: string = e.payment_terms || '';
+    const isPreset = PAYMENT_TERMS_PRESETS.includes(terms);
+    setForm({
+      client_id: e.client_id || e.client?.id || '',
+      project_id: e.project_id || e.project?.id || '',
+      issue_date: (e.issue_date || e.created_at || '').slice(0, 10) || todayISO(),
+      due_date: (e.due_date || '').slice(0, 10),
+      po_number: e.po_number || '',
+      currency: e.currency || 'USD',
+      discount_pct: Number(e.discount_pct) || 0,
+      tax_pct: Number(e.tax_pct) || 0,
+      tax_label: e.tax_label || '',
+      payment_terms: terms ? (isPreset ? terms : 'Custom') : '',
+      payment_terms_custom: terms && !isPreset ? terms : '',
+      notes: e.notes || '',
+      terms: e.terms || '',
+      billing_address: e.billing_address || '',
+      billing_email: e.billing_email || '',
+      billing_phone: e.billing_phone || '',
+      billing_contact_name: e.billing_contact_name || '',
+      billing_company_name: e.billing_company_name || e.billing_name || '',
+      billing_gst_number: e.billing_gst_number || '',
+      invoice_number: e.invoice_number || '',
+    });
+    if (Array.isArray(e.items) && e.items.length) {
+      setItems(
+        e.items.map((it: any) => ({
+          description: it.description || '',
+          quantity: Number(it.quantity) || 1,
+          unit_price: Number(it.unit_price) || 0,
+          unit: it.unit || '',
+          hsn_code: it.hsn_code || '',
+        })),
+      );
+    }
+    if (e.signature) setSignatureData(e.signature);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existing?.id]);
 
   const companyName = company?.name || company?.company_name || 'Your Company';
   const companyAddress = [
@@ -152,16 +197,20 @@ export default function InvoiceCreateModal({ onClose }: Props) {
         .join(', ');
     }
 
-    setForm((f) => ({
-      ...f,
-      billing_company_name: d.company_name || f.billing_company_name,
-      billing_contact_name: d.contact_name || f.billing_contact_name,
-      billing_email: d.contact_email || d.email || f.billing_email,
-      billing_phone: d.contact_phone || d.phone || f.billing_phone,
-      billing_address: addr || f.billing_address,
-      billing_gst_number: d.gst_number || f.billing_gst_number,
-      project_id: '', // reset project selection on client change
-    }));
+    setForm((f) => {
+      const projects = Array.isArray(d.projects) ? d.projects : [];
+      const keepProject = f.project_id && projects.some((p: any) => p.id === f.project_id);
+      return {
+        ...f,
+        billing_company_name: d.company_name || f.billing_company_name,
+        billing_contact_name: d.contact_name || f.billing_contact_name,
+        billing_email: d.contact_email || d.email || f.billing_email,
+        billing_phone: d.contact_phone || d.phone || f.billing_phone,
+        billing_address: addr || f.billing_address,
+        billing_gst_number: d.gst_number || f.billing_gst_number,
+        project_id: keepProject ? f.project_id : '',
+      };
+    });
 
     setClientProjects(Array.isArray(d.projects) ? d.projects : []);
   }, [invoiceData]);
@@ -252,17 +301,25 @@ export default function InvoiceCreateModal({ onClose }: Props) {
   };
 
   const saveMut = useMutation({
-    mutationFn: (status: 'Draft' | 'Sent') =>
-      api.post('/invoices', buildPayload({ status })),
+    mutationFn: (status: 'Draft' | 'Sent' | null) => {
+      const payload = status ? buildPayload({ status }) : buildPayload();
+      if (isEdit) {
+        return api.put(`/invoices/${existing.id}`, payload);
+      }
+      return api.post('/invoices', payload);
+    },
     onSuccess: (_, status) => {
       qc.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success(status === 'Sent' ? 'Invoice created & sent' : 'Invoice saved as draft');
+      qc.invalidateQueries({ queryKey: ['invoice', existing?.id] });
+      if (isEdit) toast.success('Invoice updated');
+      else toast.success(status === 'Sent' ? 'Invoice created & sent' : 'Invoice saved as draft');
       onClose();
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error creating invoice'),
+    onError: (e: any) =>
+      toast.error(e.response?.data?.message || (isEdit ? 'Error updating invoice' : 'Error creating invoice')),
   });
 
-  const handleSave = (status: 'Draft' | 'Sent') => {
+  const handleSave = (status: 'Draft' | 'Sent' | null) => {
     const err = validate();
     if (err) return toast.error(err);
     saveMut.mutate(status);
@@ -286,8 +343,10 @@ export default function InvoiceCreateModal({ onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-border">
           <div>
-            <h2 className="text-lg font-semibold">Create Invoice</h2>
-            <p className="text-xs text-muted-foreground">Fill in details, add a signature, then save or send</p>
+            <h2 className="text-lg font-semibold">{isEdit ? 'Edit Invoice' : 'Create Invoice'}</h2>
+            <p className="text-xs text-muted-foreground">
+              {isEdit ? 'Update invoice details and save your changes' : 'Fill in details, add a signature, then save or send'}
+            </p>
           </div>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-secondary">
             <X className="h-4 w-4" />
@@ -741,20 +800,32 @@ export default function InvoiceCreateModal({ onClose }: Props) {
             >
               Cancel
             </button>
-            <button
-              onClick={() => handleSave('Draft')}
-              disabled={saveMut.isPending}
-              className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all disabled:opacity-50 inline-flex items-center gap-2"
-            >
-              <Save className="h-4 w-4" /> Save Draft
-            </button>
-            <button
-              onClick={() => handleSave('Sent')}
-              disabled={saveMut.isPending}
-              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 inline-flex items-center gap-2"
-            >
-              <Send className="h-4 w-4" /> {saveMut.isPending ? 'Saving...' : 'Save & Send'}
-            </button>
+            {isEdit ? (
+              <button
+                onClick={() => handleSave(null)}
+                disabled={saveMut.isPending}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                <Save className="h-4 w-4" /> {saveMut.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleSave('Draft')}
+                  disabled={saveMut.isPending}
+                  className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  <Save className="h-4 w-4" /> Save Draft
+                </button>
+                <button
+                  onClick={() => handleSave('Sent')}
+                  disabled={saveMut.isPending}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  <Send className="h-4 w-4" /> {saveMut.isPending ? 'Saving...' : 'Save & Send'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

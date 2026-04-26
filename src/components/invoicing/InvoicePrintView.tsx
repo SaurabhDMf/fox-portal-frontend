@@ -1,10 +1,14 @@
-import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe, Trash2, Share2, Send } from 'lucide-react';
+import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe, Trash2, Share2, Send, Pencil, Lock, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { payWithStripe, payWithRazorpay } from '@/lib/payments';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import ShareInvoiceModal from './ShareInvoiceModal';
 import SendInvoiceModal from './SendInvoiceModal';
+import InvoiceCreateModal from './InvoiceCreateModal';
+import { useAuthStore } from '@/stores/authStore';
+import { confirmAction } from '@/lib/confirmDialog';
 
 interface Props {
   invoice: any;
@@ -12,8 +16,12 @@ interface Props {
   onDelete?: () => void;
 }
 
+const STATUS_OPTIONS = ['Draft', 'Sent', 'Viewed', 'Paid', 'Partially Paid', 'Overdue', 'Cancelled'];
+
 export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.user?.role);
+  const isAdmin = role === 'admin' || role === 'super_admin';
   // Backend already returns `company` alongside the invoice — no extra API call needed
   const company: any = invoice.company || {};
   const companyName = company.name || company.company_name || '';
@@ -69,6 +77,46 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
   const [showPayChoice, setShowPayChoice] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showSend, setShowSend] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState<string>(invoice.status || 'Draft');
+
+  useEffect(() => {
+    setCurrentStatus(invoice.status || 'Draft');
+  }, [invoice.status]);
+
+  const statusMut = useMutation({
+    mutationFn: (status: string) =>
+      api.patch(`/invoices/${invoice.id}/status`, { status }),
+    onSuccess: (_res, status) => {
+      setCurrentStatus(status);
+      toast.success(`Status updated to ${status}`);
+      qc.invalidateQueries({ queryKey: ['invoices'] });
+      qc.invalidateQueries({ queryKey: ['invoice', invoice.id] });
+    },
+    onError: (e: any, _status, _ctx) => {
+      // revert
+      setCurrentStatus(invoice.status || 'Draft');
+      toast.error(e?.response?.data?.message || 'Failed to update status');
+    },
+  });
+
+  const handleStatusChange = async (next: string) => {
+    if (next === currentStatus) return;
+    if (next === 'Paid') {
+      const ok = await confirmAction({
+        title: 'Mark invoice as Paid?',
+        description:
+          'This will mark the invoice as fully paid and may trigger downstream actions (receipts, accounting). Continue?',
+        confirmLabel: 'Mark as Paid',
+        destructive: false,
+      });
+      if (!ok) return;
+    }
+    setCurrentStatus(next); // optimistic
+    statusMut.mutate(next);
+  };
+
+  const isLocked = currentStatus === 'Paid';
 
   const onPaidSuccess = () => {
     qc.invalidateQueries({ queryKey: ['invoices'] });
@@ -89,7 +137,37 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static">
       <div className="w-full max-w-4xl max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible">
         {/* Action bar - hidden in print */}
-        <div className="flex gap-2 justify-end mb-3 print:hidden">
+        <div className="flex gap-2 items-center mb-3 print:hidden flex-wrap">
+          {/* LEFT: status control + lock indicator */}
+          <div className="flex items-center gap-2 mr-auto">
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground">Status</label>
+                <div className="relative">
+                  <select
+                    value={currentStatus}
+                    disabled={statusMut.isPending}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    className="px-3 py-2 pr-8 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+                  >
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  {statusMut.isPending && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  )}
+                </div>
+              </div>
+            )}
+            {isLocked && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20">
+                <Lock className="h-3 w-3" /> Invoice is paid and locked
+              </span>
+            )}
+          </div>
+
+          {/* RIGHT: actions */}
           {canPay && (
             <button
               type="button"
@@ -99,7 +177,15 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
               <CreditCard className="h-4 w-4" /> Pay Now
             </button>
           )}
-          {onDelete && invoice.status !== 'Cancelled' && (
+          {onDelete && !isLocked && (
+            <button
+              onClick={() => setShowEdit(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
+            >
+              <Pencil className="h-4 w-4" /> Edit Invoice
+            </button>
+          )}
+          {onDelete && currentStatus !== 'Cancelled' && (
             <button
               onClick={() => setShowSend(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
@@ -548,6 +634,19 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
 
       {showSend && (
         <SendInvoiceModal invoice={invoice} onClose={() => setShowSend(false)} />
+      )}
+
+      {showEdit && (
+        <InvoiceCreateModal
+          existing={invoice}
+          onClose={() => {
+            setShowEdit(false);
+            qc.invalidateQueries({ queryKey: ['invoices'] });
+            qc.invalidateQueries({ queryKey: ['invoice', invoice.id] });
+            // Close detail view so caller can refetch and reopen with fresh data
+            onClose();
+          }}
+        />
       )}
     </div>
   );
