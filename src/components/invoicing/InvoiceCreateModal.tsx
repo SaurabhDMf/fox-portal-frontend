@@ -8,6 +8,8 @@ interface LineItem {
   description: string;
   quantity: number;
   unit_price: number;
+  unit?: string;
+  hsn_code?: string;
 }
 
 interface Props {
@@ -17,8 +19,25 @@ interface Props {
 const inputCls =
   'px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50';
 
-const currencySymbol = (c: string) =>
-  c === 'USD' ? '$' : c === 'EUR' ? '€' : c === 'GBP' ? '£' : c === 'AED' ? 'AED ' : '₹';
+const currencySymbol = (c: string) => {
+  switch (c) {
+    case 'USD': return '$';
+    case 'EUR': return '€';
+    case 'GBP': return '£';
+    case 'AED': return 'AED ';
+    case 'SGD': return 'S$';
+    case 'CAD': return 'C$';
+    case 'AUD': return 'A$';
+    case 'INR': return '₹';
+    default: return '';
+  }
+};
+
+const PAYMENT_TERMS_PRESETS = ['Due on Receipt', 'Net 7', 'Net 15', 'Net 30', 'Net 45', 'Net 60', 'Custom'];
+const UNIT_OPTIONS = ['hrs', 'days', 'pcs', 'kg', 'l', 'm', 'sqft', 'fixed'];
+const CURRENCY_OPTIONS = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'CAD', 'AUD'];
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function InvoiceCreateModal({ onClose }: Props) {
   const qc = useQueryClient();
@@ -26,10 +45,15 @@ export default function InvoiceCreateModal({ onClose }: Props) {
   const [form, setForm] = useState({
     client_id: '',
     project_id: '',
+    issue_date: todayISO(),
     due_date: '',
+    po_number: '',
     currency: 'USD',
     discount_pct: 0,
     tax_pct: 0,
+    tax_label: '',
+    payment_terms: '',
+    payment_terms_custom: '',
     notes: '',
     terms: '',
     billing_address: '',
@@ -40,7 +64,9 @@ export default function InvoiceCreateModal({ onClose }: Props) {
     billing_gst_number: '',
     invoice_number: '',
   });
-  const [items, setItems] = useState<LineItem[]>([{ description: '', quantity: 1, unit_price: 0 }]);
+  const [items, setItems] = useState<LineItem[]>([
+    { description: '', quantity: 1, unit_price: 0, unit: '', hsn_code: '' },
+  ]);
   const [signatureData, setSignatureData] = useState<string>('');
   const [clientProjects, setClientProjects] = useState<Array<{ id: string; name: string; status?: string }>>([]);
 
@@ -67,15 +93,21 @@ export default function InvoiceCreateModal({ onClose }: Props) {
   // Defaults from company
   useEffect(() => {
     if (!company) return;
-    setForm((f) => ({
-      ...f,
-      currency: f.currency || company.default_currency || 'USD',
-      terms: f.terms || company.payment_terms || '',
-      notes: f.notes || company.invoice_notes || '',
-      invoice_number:
-        f.invoice_number ||
-        `${company.invoice_prefix || 'INV'}-${String(Date.now()).slice(-6)}`,
-    }));
+    setForm((f) => {
+      const companyTerms: string = company.payment_terms || '';
+      const isPreset = PAYMENT_TERMS_PRESETS.includes(companyTerms);
+      return {
+        ...f,
+        currency: f.currency || company.default_currency || 'USD',
+        terms: f.terms || company.payment_terms || '',
+        notes: f.notes || company.invoice_notes || '',
+        payment_terms: f.payment_terms || (companyTerms ? (isPreset ? companyTerms : 'Custom') : ''),
+        payment_terms_custom: f.payment_terms_custom || (companyTerms && !isPreset ? companyTerms : ''),
+        invoice_number:
+          f.invoice_number ||
+          `${company.invoice_prefix || 'INV'}-${String(Date.now()).slice(-6)}`,
+      };
+    });
   }, [company]);
 
   const companyName = company?.name || company?.company_name || 'Your Company';
@@ -186,10 +218,23 @@ export default function InvoiceCreateModal({ onClose }: Props) {
     setSignatureData('');
   };
 
+  const effectivePaymentTerms = () =>
+    form.payment_terms === 'Custom' ? form.payment_terms_custom : form.payment_terms;
+
   const buildPayload = (extra: Record<string, any> = {}) => {
-    const cleanItems = items.filter((i) => i.description.trim());
+    const cleanItems = items
+      .filter((i) => i.description.trim())
+      .map((i) => ({
+        description: i.description,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        unit: i.unit || null,
+        hsn_code: i.hsn_code || null,
+      }));
+    const { payment_terms_custom, ...rest } = form;
     const payload: any = {
-      ...form,
+      ...rest,
+      payment_terms: effectivePaymentTerms() || null,
       items: cleanItems,
       signature: signatureData || null,
       ...extra,
@@ -230,7 +275,7 @@ export default function InvoiceCreateModal({ onClose }: Props) {
   const total = taxable + tax;
   const sym = currencySymbol(form.currency);
 
-  const addItem = () => setItems([...items, { description: '', quantity: 1, unit_price: 0 }]);
+  const addItem = () => setItems([...items, { description: '', quantity: 1, unit_price: 0, unit: '', hsn_code: '' }]);
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
   const updateItem = (idx: number, field: keyof LineItem, value: string | number) =>
     setItems(items.map((item, i) => (i === idx ? { ...item, [field]: value } : item)));
@@ -290,18 +335,38 @@ export default function InvoiceCreateModal({ onClose }: Props) {
             </div>
 
             <div className="space-y-2">
-              <div>
-                <label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                  <Hash className="h-3 w-3" /> Invoice Number
-                </label>
-                <input
-                  value={form.invoice_number}
-                  onChange={(e) => setForm((f) => ({ ...f, invoice_number: e.target.value }))}
-                  className={inputCls + ' w-full mt-1'}
-                  placeholder="INV-000123"
-                />
-              </div>
               <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                    <Hash className="h-3 w-3" /> Invoice Number
+                  </label>
+                  <input
+                    value={form.invoice_number}
+                    onChange={(e) => setForm((f) => ({ ...f, invoice_number: e.target.value }))}
+                    className={inputCls + ' w-full mt-1'}
+                    placeholder="INV-000123"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground font-medium">PO / Reference No.</label>
+                  <input
+                    value={form.po_number}
+                    onChange={(e) => setForm((f) => ({ ...f, po_number: e.target.value }))}
+                    className={inputCls + ' w-full mt-1'}
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground font-medium">Issue Date</label>
+                  <input
+                    type="date"
+                    value={form.issue_date}
+                    onChange={(e) => setForm((f) => ({ ...f, issue_date: e.target.value }))}
+                    className={inputCls + ' w-full mt-1'}
+                  />
+                </div>
                 <div>
                   <label className="text-xs text-muted-foreground font-medium">Due Date</label>
                   <input
@@ -318,7 +383,7 @@ export default function InvoiceCreateModal({ onClose }: Props) {
                     onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
                     className={inputCls + ' w-full mt-1'}
                   >
-                    {['USD', 'EUR', 'GBP', 'INR', 'AED'].map((c) => (
+                    {CURRENCY_OPTIONS.map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>
@@ -429,70 +494,139 @@ export default function InvoiceCreateModal({ onClose }: Props) {
                 <Plus className="h-3 w-3" /> Add Item
               </button>
             </div>
-            {items.map((item, idx) => (
-              <div key={idx} className="flex gap-2 items-start">
-                <input
-                  placeholder="Description"
-                  value={item.description}
-                  onChange={(e) => updateItem(idx, 'description', e.target.value)}
-                  className={'flex-1 ' + inputCls}
-                />
-                <input
-                  type="number"
-                  placeholder="Qty"
-                  value={item.quantity}
-                  onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))}
-                  className={'w-20 ' + inputCls}
-                  min="1"
-                />
-                <input
-                  type="number"
-                  placeholder="Price"
-                  value={item.unit_price}
-                  onChange={(e) => updateItem(idx, 'unit_price', Number(e.target.value))}
-                  className={'w-28 ' + inputCls}
-                  min="0"
-                  step="0.01"
-                />
-                <span className="py-2 text-sm font-medium w-24 text-right">
-                  {sym}
-                  {(item.quantity * item.unit_price).toFixed(2)}
-                </span>
-                {items.length > 1 && (
-                  <button
-                    onClick={() => removeItem(idx)}
-                    className="p-2 text-muted-foreground hover:text-destructive"
+            {items.map((item, idx) => {
+              const isCustomUnit = !!item.unit && !UNIT_OPTIONS.includes(item.unit);
+              return (
+                <div key={idx} className="flex gap-2 items-start flex-wrap md:flex-nowrap">
+                  <input
+                    placeholder="Description"
+                    value={item.description}
+                    onChange={(e) => updateItem(idx, 'description', e.target.value)}
+                    className={'flex-1 min-w-[160px] ' + inputCls}
+                  />
+                  <select
+                    value={isCustomUnit ? '__custom__' : (item.unit || '')}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '__custom__') updateItem(idx, 'unit', ' ');
+                      else updateItem(idx, 'unit', v);
+                    }}
+                    className={'w-24 ' + inputCls}
+                    title="Unit"
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ))}
+                    <option value="">Unit</option>
+                    {UNIT_OPTIONS.map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                    <option value="__custom__">custom…</option>
+                  </select>
+                  {isCustomUnit && (
+                    <input
+                      placeholder="unit"
+                      value={item.unit || ''}
+                      onChange={(e) => updateItem(idx, 'unit', e.target.value)}
+                      className={'w-20 ' + inputCls}
+                    />
+                  )}
+                  <input
+                    type="number"
+                    placeholder="Qty"
+                    value={item.quantity}
+                    onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))}
+                    className={'w-20 ' + inputCls}
+                    min="1"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price"
+                    value={item.unit_price}
+                    onChange={(e) => updateItem(idx, 'unit_price', Number(e.target.value))}
+                    className={'w-28 ' + inputCls}
+                    min="0"
+                    step="0.01"
+                  />
+                  {form.billing_gst_number && (
+                    <input
+                      placeholder="HSN/SAC"
+                      value={item.hsn_code || ''}
+                      onChange={(e) => updateItem(idx, 'hsn_code', e.target.value)}
+                      className={'w-24 ' + inputCls}
+                    />
+                  )}
+                  <span className="py-2 text-sm font-medium w-24 text-right">
+                    {sym}
+                    {(item.quantity * item.unit_price).toFixed(2)}
+                  </span>
+                  {items.length > 1 && (
+                    <button
+                      onClick={() => removeItem(idx)}
+                      className="p-2 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Discount / Tax */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-muted-foreground whitespace-nowrap">Discount %</label>
-              <input
-                type="number"
-                value={form.discount_pct}
-                onChange={(e) => setForm((f) => ({ ...f, discount_pct: Number(e.target.value) }))}
-                className={'w-24 ' + inputCls}
-                min="0"
-                max="100"
-              />
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground whitespace-nowrap">Discount %</label>
+                <input
+                  type="number"
+                  value={form.discount_pct}
+                  onChange={(e) => setForm((f) => ({ ...f, discount_pct: Number(e.target.value) }))}
+                  className={'w-24 ' + inputCls}
+                  min="0"
+                  max="100"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground whitespace-nowrap">Tax %</label>
+                <input
+                  type="number"
+                  value={form.tax_pct}
+                  onChange={(e) => setForm((f) => ({ ...f, tax_pct: Number(e.target.value) }))}
+                  className={'w-24 ' + inputCls}
+                  min="0"
+                  max="100"
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-muted-foreground whitespace-nowrap">Tax %</label>
-              <input
-                type="number"
-                value={form.tax_pct}
-                onChange={(e) => setForm((f) => ({ ...f, tax_pct: Number(e.target.value) }))}
-                className={'w-24 ' + inputCls}
-                min="0"
-                max="100"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground font-medium">Tax Label</label>
+                <input
+                  value={form.tax_label}
+                  onChange={(e) => setForm((f) => ({ ...f, tax_label: e.target.value }))}
+                  className={inputCls + ' w-full mt-1'}
+                  placeholder="e.g. GST, IGST 18%, VAT"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground font-medium">Payment Terms</label>
+                <select
+                  value={form.payment_terms}
+                  onChange={(e) => setForm((f) => ({ ...f, payment_terms: e.target.value }))}
+                  className={inputCls + ' w-full mt-1'}
+                >
+                  <option value="">Select…</option>
+                  {PAYMENT_TERMS_PRESETS.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+                {form.payment_terms === 'Custom' && (
+                  <input
+                    value={form.payment_terms_custom}
+                    onChange={(e) => setForm((f) => ({ ...f, payment_terms_custom: e.target.value }))}
+                    className={inputCls + ' w-full mt-2'}
+                    placeholder="Enter custom payment terms"
+                  />
+                )}
+              </div>
             </div>
           </div>
 
@@ -514,9 +648,18 @@ export default function InvoiceCreateModal({ onClose }: Props) {
                 </span>
               </div>
             )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Taxable Amount</span>
+              <span>
+                {sym}
+                {taxable.toFixed(2)}
+              </span>
+            </div>
             {form.tax_pct > 0 && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Tax ({form.tax_pct}%)</span>
+                <span className="text-muted-foreground">
+                  {form.tax_label ? form.tax_label : 'Tax'} ({form.tax_pct}%)
+                </span>
                 <span>
                   {sym}
                   {tax.toFixed(2)}
