@@ -45,10 +45,15 @@ export default function InvoiceCreateModal({ onClose }: Props) {
   const [form, setForm] = useState({
     client_id: '',
     project_id: '',
+    issue_date: todayISO(),
     due_date: '',
+    po_number: '',
     currency: 'USD',
     discount_pct: 0,
     tax_pct: 0,
+    tax_label: '',
+    payment_terms: '',
+    payment_terms_custom: '',
     notes: '',
     terms: '',
     billing_address: '',
@@ -59,7 +64,9 @@ export default function InvoiceCreateModal({ onClose }: Props) {
     billing_gst_number: '',
     invoice_number: '',
   });
-  const [items, setItems] = useState<LineItem[]>([{ description: '', quantity: 1, unit_price: 0 }]);
+  const [items, setItems] = useState<LineItem[]>([
+    { description: '', quantity: 1, unit_price: 0, unit: '', hsn_code: '' },
+  ]);
   const [signatureData, setSignatureData] = useState<string>('');
   const [clientProjects, setClientProjects] = useState<Array<{ id: string; name: string; status?: string }>>([]);
 
