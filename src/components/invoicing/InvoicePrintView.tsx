@@ -1,8 +1,10 @@
-import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe, Trash2 } from 'lucide-react';
+import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe, Trash2, Share2, Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { payWithStripe, payWithRazorpay } from '@/lib/payments';
 import { useQueryClient } from '@tanstack/react-query';
+import ShareInvoiceModal from './ShareInvoiceModal';
+import SendInvoiceModal from './SendInvoiceModal';
 
 interface Props {
   invoice: any;
