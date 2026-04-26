@@ -159,8 +159,16 @@ export default function InvoiceSettings() {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      // api instance already attaches Bearer token; let axios set the multipart boundary
-      const res = await api.post('/uploads', fd);
+
+      // Use axios with explicit Content-Type override.
+      // Setting it to `undefined` tells axios to remove the default
+      // 'application/json' header so the browser can auto-set the
+      // correct multipart/form-data boundary.
+      const res = await api.post('/uploads', fd, {
+        headers: { 'Content-Type': undefined as any },
+        transformRequest: (data) => data, // prevent axios from JSON-stringifying FormData
+      });
+
       const url = res.data?.url || res.data?.data?.url || res.data?.file_url;
       if (url) {
         set('logo_url', url);
