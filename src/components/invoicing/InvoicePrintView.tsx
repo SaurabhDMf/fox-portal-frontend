@@ -99,6 +99,22 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
               <CreditCard className="h-4 w-4" /> Pay Now
             </button>
           )}
+          {onDelete && invoice.status !== 'Cancelled' && (
+            <button
+              onClick={() => setShowSend(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
+            >
+              <Send className="h-4 w-4" /> Send
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => setShowShare(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
+            >
+              <Share2 className="h-4 w-4" /> Share
+            </button>
+          )}
           <button
             onClick={() => window.print()}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
