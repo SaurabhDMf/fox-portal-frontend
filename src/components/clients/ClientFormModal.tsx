@@ -12,6 +12,8 @@ export interface ClientFormData {
   client_type: string;
   website: string;
   contact_name: string;
+  contact_email: string;
+  contact_phone: string;
   email: string;
   phone: string;
   address_line1: string;
@@ -27,7 +29,8 @@ export interface ClientFormData {
 
 const emptyForm: ClientFormData = {
   company_name: '', industry: '', client_type: 'New', website: '',
-  contact_name: '', email: '', phone: '',
+  contact_name: '', contact_email: '', contact_phone: '',
+  email: '', phone: '',
   address_line1: '', address_line2: '', city: '', state: '', postal_code: '', country: 'India',
   gst_number: '', pan_number: '', account_manager_id: '',
 };
@@ -38,7 +41,7 @@ interface Props {
   onSubmit: (data: ClientFormData) => void;
   isPending: boolean;
   users: { id: string; full_name: string; role?: string; job_title?: string }[];
-  initial?: Partial<ClientFormData>;
+  initial?: Partial<ClientFormData> & { contacts?: Array<any> };
   isEdit?: boolean;
 }
 
@@ -46,7 +49,25 @@ export default function ClientFormModal({ open, onClose, onSubmit, isPending, us
   const [form, setForm] = useState<ClientFormData>({ ...emptyForm });
 
   useEffect(() => {
-    if (open) setForm({ ...emptyForm, ...initial });
+    if (!open) return;
+    const init: any = initial || {};
+    const contacts: any[] = Array.isArray(init.contacts) ? init.contacts : [];
+    const primary = contacts.find((c: any) => c?.is_primary) ?? contacts[0];
+
+    const contact_name =
+      init.contact_name || primary?.full_name || primary?.name || '';
+    const contact_email =
+      init.contact_email || primary?.email || init.email || '';
+    const contact_phone =
+      init.contact_phone || primary?.phone || init.phone || '';
+
+    setForm({
+      ...emptyForm,
+      ...init,
+      contact_name,
+      contact_email,
+      contact_phone,
+    });
   }, [open, initial]);
 
   if (!open) return null;
@@ -82,8 +103,20 @@ export default function ClientFormModal({ open, onClose, onSubmit, isPending, us
         {sectionLabel('Contact')}
         <input placeholder="Contact Person Name" value={form.contact_name} onChange={set('contact_name')} className={`w-full ${inputCls}`} />
         <div className="grid grid-cols-2 gap-3">
-          <input placeholder="Email Address" type="email" value={form.email} onChange={set('email')} className={inputCls} />
-          <input placeholder="Phone Number" type="tel" value={form.phone} onChange={set('phone')} className={inputCls} />
+          <input
+            placeholder="Email Address"
+            type="email"
+            value={form.contact_email || form.email}
+            onChange={(e) => setForm(f => ({ ...f, contact_email: e.target.value, email: e.target.value }))}
+            className={inputCls}
+          />
+          <input
+            placeholder="Phone Number"
+            type="tel"
+            value={form.contact_phone || form.phone}
+            onChange={(e) => setForm(f => ({ ...f, contact_phone: e.target.value, phone: e.target.value }))}
+            className={inputCls}
+          />
         </div>
 
         {sectionLabel('Billing Address')}
