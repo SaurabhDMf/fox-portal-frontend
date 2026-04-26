@@ -93,15 +93,21 @@ export default function InvoiceCreateModal({ onClose }: Props) {
   // Defaults from company
   useEffect(() => {
     if (!company) return;
-    setForm((f) => ({
-      ...f,
-      currency: f.currency || company.default_currency || 'USD',
-      terms: f.terms || company.payment_terms || '',
-      notes: f.notes || company.invoice_notes || '',
-      invoice_number:
-        f.invoice_number ||
-        `${company.invoice_prefix || 'INV'}-${String(Date.now()).slice(-6)}`,
-    }));
+    setForm((f) => {
+      const companyTerms: string = company.payment_terms || '';
+      const isPreset = PAYMENT_TERMS_PRESETS.includes(companyTerms);
+      return {
+        ...f,
+        currency: f.currency || company.default_currency || 'USD',
+        terms: f.terms || company.payment_terms || '',
+        notes: f.notes || company.invoice_notes || '',
+        payment_terms: f.payment_terms || (companyTerms ? (isPreset ? companyTerms : 'Custom') : ''),
+        payment_terms_custom: f.payment_terms_custom || (companyTerms && !isPreset ? companyTerms : ''),
+        invoice_number:
+          f.invoice_number ||
+          `${company.invoice_prefix || 'INV'}-${String(Date.now()).slice(-6)}`,
+      };
+    });
   }, [company]);
 
   const companyName = company?.name || company?.company_name || 'Your Company';
