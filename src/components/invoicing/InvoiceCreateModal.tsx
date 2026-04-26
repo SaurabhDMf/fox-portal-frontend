@@ -335,18 +335,38 @@ export default function InvoiceCreateModal({ onClose }: Props) {
             </div>
 
             <div className="space-y-2">
-              <div>
-                <label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                  <Hash className="h-3 w-3" /> Invoice Number
-                </label>
-                <input
-                  value={form.invoice_number}
-                  onChange={(e) => setForm((f) => ({ ...f, invoice_number: e.target.value }))}
-                  className={inputCls + ' w-full mt-1'}
-                  placeholder="INV-000123"
-                />
-              </div>
               <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                    <Hash className="h-3 w-3" /> Invoice Number
+                  </label>
+                  <input
+                    value={form.invoice_number}
+                    onChange={(e) => setForm((f) => ({ ...f, invoice_number: e.target.value }))}
+                    className={inputCls + ' w-full mt-1'}
+                    placeholder="INV-000123"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground font-medium">PO / Reference No.</label>
+                  <input
+                    value={form.po_number}
+                    onChange={(e) => setForm((f) => ({ ...f, po_number: e.target.value }))}
+                    className={inputCls + ' w-full mt-1'}
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground font-medium">Issue Date</label>
+                  <input
+                    type="date"
+                    value={form.issue_date}
+                    onChange={(e) => setForm((f) => ({ ...f, issue_date: e.target.value }))}
+                    className={inputCls + ' w-full mt-1'}
+                  />
+                </div>
                 <div>
                   <label className="text-xs text-muted-foreground font-medium">Due Date</label>
                   <input
@@ -363,7 +383,7 @@ export default function InvoiceCreateModal({ onClose }: Props) {
                     onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
                     className={inputCls + ' w-full mt-1'}
                   >
-                    {['USD', 'EUR', 'GBP', 'INR', 'AED'].map((c) => (
+                    {CURRENCY_OPTIONS.map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>
