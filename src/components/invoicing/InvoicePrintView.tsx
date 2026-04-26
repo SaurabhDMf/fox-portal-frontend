@@ -211,7 +211,18 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
                 label="Bill To"
                 name={invoice.billing_name || invoice.client?.company_name || invoice.client_name || 'Client'}
                 contact={invoice.billing_contact_name || invoice.client?.contact_name}
-                address={invoice.billing_address || invoice.client?.address || ''}
+                address={
+                  invoice.billing_address ||
+                  invoice.client?.address ||
+                  [
+                    invoice.client?.address_line1,
+                    invoice.client?.address_line2,
+                    invoice.client?.city,
+                    invoice.client?.state,
+                    invoice.client?.postal_code || invoice.client?.zip,
+                    invoice.client?.country,
+                  ].filter(Boolean).join(', ')
+                }
                 email={invoice.billing_email || invoice.client?.email}
                 phone={invoice.billing_phone || invoice.client?.phone}
                 gst={invoice.billing_gst_number || invoice.client?.gst_number}
