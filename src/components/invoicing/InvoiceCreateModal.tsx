@@ -257,12 +257,24 @@ export default function InvoiceCreateModal({ onClose }: Props) {
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">From</p>
               <div className="flex items-start gap-3">
                 {company?.logo_url ? (
-                  <img src={company.logo_url} alt="Logo" className="h-12 w-12 object-contain rounded bg-background p-1 border border-border shrink-0" />
-                ) : (
-                  <div className="h-12 w-12 rounded bg-background border border-border flex items-center justify-center text-xs font-semibold text-muted-foreground shrink-0">
-                    {companyName.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
+                  <img
+                    src={company.logo_url}
+                    alt="Logo"
+                    className="h-12 w-12 object-contain rounded bg-background p-1 border border-border shrink-0"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      img.style.display = 'none';
+                      const fallback = img.nextElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div
+                  className="h-12 w-12 rounded bg-background border border-border items-center justify-center text-xs font-semibold text-muted-foreground shrink-0"
+                  style={{ display: company?.logo_url ? 'none' : 'flex' }}
+                >
+                  {companyName.slice(0, 2).toUpperCase()}
+                </div>
                 <div className="text-sm min-w-0 flex-1">
                   <p className="font-semibold truncate">{companyName}</p>
                   {companyAddress && (
