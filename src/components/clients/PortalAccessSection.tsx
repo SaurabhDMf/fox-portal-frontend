@@ -152,7 +152,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
   const currentPortalUser = portalState?.user ?? optimisticPortalUser;
   const hasResolvedPortalState = portalState?.resolved ?? false;
 
-  if ((isLoading || (!hasResolvedPortalState && !isError)) && !currentPortalUser) {
+  if (isLoading && !currentPortalUser && !hasResolvedPortalState && !isError) {
     return <div className="glass-card p-5 animate-pulse h-24" />;
   }
 
