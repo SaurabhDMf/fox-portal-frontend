@@ -537,6 +537,18 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
           </div>
         </div>
       )}
+
+      {showShare && (
+        <ShareInvoiceModal
+          invoiceId={invoice.id}
+          invoiceNumber={invoice.invoice_number}
+          onClose={() => setShowShare(false)}
+        />
+      )}
+
+      {showSend && (
+        <SendInvoiceModal invoice={invoice} onClose={() => setShowSend(false)} />
+      )}
     </div>
   );
 }
