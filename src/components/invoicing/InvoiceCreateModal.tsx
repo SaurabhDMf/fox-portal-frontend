@@ -8,6 +8,8 @@ interface LineItem {
   description: string;
   quantity: number;
   unit_price: number;
+  unit?: string;
+  hsn_code?: string;
 }
 
 interface Props {
@@ -17,8 +19,25 @@ interface Props {
 const inputCls =
   'px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50';
 
-const currencySymbol = (c: string) =>
-  c === 'USD' ? '$' : c === 'EUR' ? '€' : c === 'GBP' ? '£' : c === 'AED' ? 'AED ' : '₹';
+const currencySymbol = (c: string) => {
+  switch (c) {
+    case 'USD': return '$';
+    case 'EUR': return '€';
+    case 'GBP': return '£';
+    case 'AED': return 'AED ';
+    case 'SGD': return 'S$';
+    case 'CAD': return 'C$';
+    case 'AUD': return 'A$';
+    case 'INR': return '₹';
+    default: return '';
+  }
+};
+
+const PAYMENT_TERMS_PRESETS = ['Due on Receipt', 'Net 7', 'Net 15', 'Net 30', 'Net 45', 'Net 60', 'Custom'];
+const UNIT_OPTIONS = ['hrs', 'days', 'pcs', 'kg', 'l', 'm', 'sqft', 'fixed'];
+const CURRENCY_OPTIONS = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'CAD', 'AUD'];
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function InvoiceCreateModal({ onClose }: Props) {
   const qc = useQueryClient();
