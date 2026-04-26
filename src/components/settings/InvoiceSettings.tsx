@@ -209,12 +209,16 @@ export default function InvoiceSettings() {
             <div>
               <label className="text-xs text-muted-foreground">Company Logo</label>
               <div className="mt-1 flex items-center gap-4">
-                <div className="w-20 h-20 rounded-xl bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0">
-                  {form.logo_url ? (
-                    <img src={form.logo_url} alt="Logo preview" className="w-full h-full object-contain" onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')} />
-                  ) : (
-                    <Building2 className="h-8 w-8 text-muted-foreground" />
+                <div className="w-20 h-20 rounded-xl bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0 relative">
+                  {form.logo_url && (
+                    <img
+                      src={form.logo_url}
+                      alt="Logo preview"
+                      className="w-full h-full object-contain relative z-10"
+                      onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                    />
                   )}
+                  <Building2 className="h-8 w-8 text-muted-foreground absolute" />
                 </div>
                 <div className="flex-1 space-y-2">
                   <input
@@ -342,17 +346,16 @@ export default function InvoiceSettings() {
             <h2 className="text-sm font-semibold">Live Invoice Preview</h2>
             <div className="rounded-2xl border border-border bg-white text-slate-900 p-6 shadow-sm">
               <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden shrink-0">
-                  {form.logo_url ? (
+                <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 relative">
+                  {form.logo_url && (
                     <img
                       src={form.logo_url}
                       alt=""
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-contain relative z-10"
                       onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
                     />
-                  ) : (
-                    <Building2 className="h-7 w-7 text-slate-400" />
                   )}
+                  <Building2 className="h-7 w-7 text-slate-400 absolute" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-base font-bold truncate">{form.name || 'Your Company Name'}</div>
