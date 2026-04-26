@@ -92,9 +92,9 @@ export default function InvoiceCreateModal({ onClose, existing }: Props) {
     queryFn: () => api.get('/company').then((r) => r.data?.data ?? r.data ?? {}),
   });
 
-  // Defaults from company
+  // Defaults from company (skipped in edit mode — existing values win)
   useEffect(() => {
-    if (!company) return;
+    if (!company || isEdit) return;
     setForm((f) => {
       const companyTerms: string = company.payment_terms || '';
       const isPreset = PAYMENT_TERMS_PRESETS.includes(companyTerms);
@@ -110,7 +110,50 @@ export default function InvoiceCreateModal({ onClose, existing }: Props) {
           `${company.invoice_prefix || 'INV'}-${String(Date.now()).slice(-6)}`,
       };
     });
-  }, [company]);
+  }, [company, isEdit]);
+
+  // Prefill from existing invoice when editing
+  useEffect(() => {
+    if (!existing) return;
+    const e: any = existing;
+    const terms: string = e.payment_terms || '';
+    const isPreset = PAYMENT_TERMS_PRESETS.includes(terms);
+    setForm({
+      client_id: e.client_id || e.client?.id || '',
+      project_id: e.project_id || e.project?.id || '',
+      issue_date: (e.issue_date || e.created_at || '').slice(0, 10) || todayISO(),
+      due_date: (e.due_date || '').slice(0, 10),
+      po_number: e.po_number || '',
+      currency: e.currency || 'USD',
+      discount_pct: Number(e.discount_pct) || 0,
+      tax_pct: Number(e.tax_pct) || 0,
+      tax_label: e.tax_label || '',
+      payment_terms: terms ? (isPreset ? terms : 'Custom') : '',
+      payment_terms_custom: terms && !isPreset ? terms : '',
+      notes: e.notes || '',
+      terms: e.terms || '',
+      billing_address: e.billing_address || '',
+      billing_email: e.billing_email || '',
+      billing_phone: e.billing_phone || '',
+      billing_contact_name: e.billing_contact_name || '',
+      billing_company_name: e.billing_company_name || e.billing_name || '',
+      billing_gst_number: e.billing_gst_number || '',
+      invoice_number: e.invoice_number || '',
+    });
+    if (Array.isArray(e.items) && e.items.length) {
+      setItems(
+        e.items.map((it: any) => ({
+          description: it.description || '',
+          quantity: Number(it.quantity) || 1,
+          unit_price: Number(it.unit_price) || 0,
+          unit: it.unit || '',
+          hsn_code: it.hsn_code || '',
+        })),
+      );
+    }
+    if (e.signature) setSignatureData(e.signature);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existing?.id]);
 
   const companyName = company?.name || company?.company_name || 'Your Company';
   const companyAddress = [
