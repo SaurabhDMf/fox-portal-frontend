@@ -494,45 +494,80 @@ export default function InvoiceCreateModal({ onClose }: Props) {
                 <Plus className="h-3 w-3" /> Add Item
               </button>
             </div>
-            {items.map((item, idx) => (
-              <div key={idx} className="flex gap-2 items-start">
-                <input
-                  placeholder="Description"
-                  value={item.description}
-                  onChange={(e) => updateItem(idx, 'description', e.target.value)}
-                  className={'flex-1 ' + inputCls}
-                />
-                <input
-                  type="number"
-                  placeholder="Qty"
-                  value={item.quantity}
-                  onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))}
-                  className={'w-20 ' + inputCls}
-                  min="1"
-                />
-                <input
-                  type="number"
-                  placeholder="Price"
-                  value={item.unit_price}
-                  onChange={(e) => updateItem(idx, 'unit_price', Number(e.target.value))}
-                  className={'w-28 ' + inputCls}
-                  min="0"
-                  step="0.01"
-                />
-                <span className="py-2 text-sm font-medium w-24 text-right">
-                  {sym}
-                  {(item.quantity * item.unit_price).toFixed(2)}
-                </span>
-                {items.length > 1 && (
-                  <button
-                    onClick={() => removeItem(idx)}
-                    className="p-2 text-muted-foreground hover:text-destructive"
+            {items.map((item, idx) => {
+              const isCustomUnit = !!item.unit && !UNIT_OPTIONS.includes(item.unit);
+              return (
+                <div key={idx} className="flex gap-2 items-start flex-wrap md:flex-nowrap">
+                  <input
+                    placeholder="Description"
+                    value={item.description}
+                    onChange={(e) => updateItem(idx, 'description', e.target.value)}
+                    className={'flex-1 min-w-[160px] ' + inputCls}
+                  />
+                  <select
+                    value={isCustomUnit ? '__custom__' : (item.unit || '')}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '__custom__') updateItem(idx, 'unit', ' ');
+                      else updateItem(idx, 'unit', v);
+                    }}
+                    className={'w-24 ' + inputCls}
+                    title="Unit"
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ))}
+                    <option value="">Unit</option>
+                    {UNIT_OPTIONS.map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                    <option value="__custom__">custom…</option>
+                  </select>
+                  {isCustomUnit && (
+                    <input
+                      placeholder="unit"
+                      value={item.unit || ''}
+                      onChange={(e) => updateItem(idx, 'unit', e.target.value)}
+                      className={'w-20 ' + inputCls}
+                    />
+                  )}
+                  <input
+                    type="number"
+                    placeholder="Qty"
+                    value={item.quantity}
+                    onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))}
+                    className={'w-20 ' + inputCls}
+                    min="1"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Price"
+                    value={item.unit_price}
+                    onChange={(e) => updateItem(idx, 'unit_price', Number(e.target.value))}
+                    className={'w-28 ' + inputCls}
+                    min="0"
+                    step="0.01"
+                  />
+                  {form.billing_gst_number && (
+                    <input
+                      placeholder="HSN/SAC"
+                      value={item.hsn_code || ''}
+                      onChange={(e) => updateItem(idx, 'hsn_code', e.target.value)}
+                      className={'w-24 ' + inputCls}
+                    />
+                  )}
+                  <span className="py-2 text-sm font-medium w-24 text-right">
+                    {sym}
+                    {(item.quantity * item.unit_price).toFixed(2)}
+                  </span>
+                  {items.length > 1 && (
+                    <button
+                      onClick={() => removeItem(idx)}
+                      className="p-2 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Discount / Tax */}
