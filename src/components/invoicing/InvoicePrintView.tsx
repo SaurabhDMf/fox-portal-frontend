@@ -635,6 +635,19 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
       {showSend && (
         <SendInvoiceModal invoice={invoice} onClose={() => setShowSend(false)} />
       )}
+
+      {showEdit && (
+        <InvoiceCreateModal
+          existing={invoice}
+          onClose={() => {
+            setShowEdit(false);
+            qc.invalidateQueries({ queryKey: ['invoices'] });
+            qc.invalidateQueries({ queryKey: ['invoice', invoice.id] });
+            // Close detail view so caller can refetch and reopen with fresh data
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 }
