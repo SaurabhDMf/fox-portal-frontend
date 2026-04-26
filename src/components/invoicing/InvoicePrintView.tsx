@@ -68,6 +68,10 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
 
   const [showPayChoice, setShowPayChoice] = useState(false);
 
+  const [showPayChoice, setShowPayChoice] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [showSend, setShowSend] = useState(false);
+
   const onPaidSuccess = () => {
     qc.invalidateQueries({ queryKey: ['invoices'] });
     qc.invalidateQueries({ queryKey: ['cp-invoices'] });
