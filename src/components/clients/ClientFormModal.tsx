@@ -103,8 +103,20 @@ export default function ClientFormModal({ open, onClose, onSubmit, isPending, us
         {sectionLabel('Contact')}
         <input placeholder="Contact Person Name" value={form.contact_name} onChange={set('contact_name')} className={`w-full ${inputCls}`} />
         <div className="grid grid-cols-2 gap-3">
-          <input placeholder="Email Address" type="email" value={form.email} onChange={set('email')} className={inputCls} />
-          <input placeholder="Phone Number" type="tel" value={form.phone} onChange={set('phone')} className={inputCls} />
+          <input
+            placeholder="Email Address"
+            type="email"
+            value={form.contact_email || form.email}
+            onChange={(e) => setForm(f => ({ ...f, contact_email: e.target.value, email: e.target.value }))}
+            className={inputCls}
+          />
+          <input
+            placeholder="Phone Number"
+            type="tel"
+            value={form.contact_phone || form.phone}
+            onChange={(e) => setForm(f => ({ ...f, contact_phone: e.target.value, phone: e.target.value }))}
+            className={inputCls}
+          />
         </div>
 
         {sectionLabel('Billing Address')}
