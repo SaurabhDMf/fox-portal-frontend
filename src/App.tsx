@@ -55,6 +55,7 @@ import CPProfile from "./pages/client-portal/CPProfile";
 import CPTasks from "./pages/client-portal/CPTasks";
 
 import NotFound from "./pages/NotFound";
+import PublicInvoice from "./pages/PublicInvoice";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
