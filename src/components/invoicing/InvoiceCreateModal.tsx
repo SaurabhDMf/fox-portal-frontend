@@ -343,8 +343,10 @@ export default function InvoiceCreateModal({ onClose, existing }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-border">
           <div>
-            <h2 className="text-lg font-semibold">Create Invoice</h2>
-            <p className="text-xs text-muted-foreground">Fill in details, add a signature, then save or send</p>
+            <h2 className="text-lg font-semibold">{isEdit ? 'Edit Invoice' : 'Create Invoice'}</h2>
+            <p className="text-xs text-muted-foreground">
+              {isEdit ? 'Update invoice details and save your changes' : 'Fill in details, add a signature, then save or send'}
+            </p>
           </div>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-secondary">
             <X className="h-4 w-4" />
