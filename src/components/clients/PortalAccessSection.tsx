@@ -33,6 +33,26 @@ function coerceBoolean(value: unknown) {
 }
 
 function parsePortalUserResponse(payload: any): PortalUserQueryState {
+  // New canonical shape: { has_access: boolean, user: object | null }
+  const wrappers = [payload, payload?.data, payload?.data?.data].filter(
+    (v) => v && typeof v === 'object' && !Array.isArray(v),
+  );
+  for (const w of wrappers) {
+    if ('has_access' in w) {
+      if (w.has_access === false) return { user: null, resolved: true };
+      const u = w.user;
+      if (u && typeof u === 'object') {
+        return {
+          user: { ...u, is_active: coerceBoolean(u.is_active) },
+          resolved: true,
+        };
+      }
+      // has_access true but no user object — treat as resolved/no-user
+      return { user: null, resolved: true };
+    }
+  }
+
+  // Legacy shapes — fallback
   const candidates = [
     payload?.data?.data?.user,
     payload?.data?.data,
@@ -68,19 +88,9 @@ function parsePortalUserResponse(payload: any): PortalUserQueryState {
     };
   }
 
-  const explicitNull = [
-    payload,
-    payload?.data,
-    payload?.data?.data,
-    payload?.portal_user,
-    payload?.user,
-    payload?.client_portal_user,
-    payload?.data?.portal_user,
-    payload?.data?.user,
-    payload?.data?.client_portal_user,
-  ].some((value) => value === null);
-
-  return { user: null, resolved: explicitNull };
+  // Any successful response with no portal user info → treat as "no access"
+  // so we never get stuck on the loading state.
+  return { user: null, resolved: true };
 }
 
 function extractOneTimePassword(payload: any, fallback?: string) {
@@ -142,7 +152,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
   const currentPortalUser = portalState?.user ?? optimisticPortalUser;
   const hasResolvedPortalState = portalState?.resolved ?? false;
 
-  if ((isLoading || (!hasResolvedPortalState && !isError)) && !currentPortalUser) {
+  if (isLoading && !currentPortalUser && !hasResolvedPortalState && !isError) {
     return <div className="glass-card p-5 animate-pulse h-24" />;
   }
 
