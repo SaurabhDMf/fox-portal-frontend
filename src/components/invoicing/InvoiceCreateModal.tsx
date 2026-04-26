@@ -14,6 +14,7 @@ interface LineItem {
 
 interface Props {
   onClose: () => void;
+  existing?: any; // when provided, the modal is in "edit" mode and PUTs to /invoices/:id
 }
 
 const inputCls =
