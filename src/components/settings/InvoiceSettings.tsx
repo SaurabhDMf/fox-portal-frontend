@@ -217,16 +217,15 @@ export default function InvoiceSettings() {
             <div>
               <label className="text-xs text-muted-foreground">Company Logo</label>
               <div className="mt-1 flex items-center gap-4">
-                <div className="w-20 h-20 rounded-xl bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0 relative">
+                <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 flex items-center justify-center">
                   {form.logo_url && (
                     <img
                       src={form.logo_url}
                       alt="Logo preview"
-                      className="w-full h-full object-contain relative z-10"
+                      className="w-full h-full object-contain"
                       onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
                     />
                   )}
-                  <Building2 className="h-8 w-8 text-muted-foreground absolute" />
                 </div>
                 <div className="flex-1 space-y-2">
                   <input
