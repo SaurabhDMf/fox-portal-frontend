@@ -197,16 +197,20 @@ export default function InvoiceCreateModal({ onClose, existing }: Props) {
         .join(', ');
     }
 
-    setForm((f) => ({
-      ...f,
-      billing_company_name: d.company_name || f.billing_company_name,
-      billing_contact_name: d.contact_name || f.billing_contact_name,
-      billing_email: d.contact_email || d.email || f.billing_email,
-      billing_phone: d.contact_phone || d.phone || f.billing_phone,
-      billing_address: addr || f.billing_address,
-      billing_gst_number: d.gst_number || f.billing_gst_number,
-      project_id: '', // reset project selection on client change
-    }));
+    setForm((f) => {
+      const projects = Array.isArray(d.projects) ? d.projects : [];
+      const keepProject = f.project_id && projects.some((p: any) => p.id === f.project_id);
+      return {
+        ...f,
+        billing_company_name: d.company_name || f.billing_company_name,
+        billing_contact_name: d.contact_name || f.billing_contact_name,
+        billing_email: d.contact_email || d.email || f.billing_email,
+        billing_phone: d.contact_phone || d.phone || f.billing_phone,
+        billing_address: addr || f.billing_address,
+        billing_gst_number: d.gst_number || f.billing_gst_number,
+        project_id: keepProject ? f.project_id : '',
+      };
+    });
 
     setClientProjects(Array.isArray(d.projects) ? d.projects : []);
   }, [invoiceData]);
