@@ -67,8 +67,6 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
     && (providers?.stripe || providers?.razorpay);
 
   const [showPayChoice, setShowPayChoice] = useState(false);
-
-  const [showPayChoice, setShowPayChoice] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showSend, setShowSend] = useState(false);
 
