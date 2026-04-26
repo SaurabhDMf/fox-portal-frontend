@@ -130,12 +130,20 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
                     alt={companyName || 'Company logo'}
                     style={{ maxHeight: 80 }}
                     className="object-contain"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      img.style.display = 'none';
+                      const fallback = img.nextElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
                   />
-                ) : (
-                  <div className="h-16 w-16 rounded-xl bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center">
-                    <Building2 className="h-7 w-7 text-slate-500" />
-                  </div>
-                )}
+                ) : null}
+                <div
+                  className="h-16 w-16 rounded-xl bg-slate-100 ring-1 ring-slate-200 items-center justify-center"
+                  style={{ display: company.logo_url ? 'none' : 'flex' }}
+                >
+                  <Building2 className="h-7 w-7 text-slate-500" />
+                </div>
                 <h2 className="text-2xl font-bold tracking-tight text-slate-900">
                   {companyName || '—'}
                 </h2>
