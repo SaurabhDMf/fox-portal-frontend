@@ -218,10 +218,23 @@ export default function InvoiceCreateModal({ onClose }: Props) {
     setSignatureData('');
   };
 
+  const effectivePaymentTerms = () =>
+    form.payment_terms === 'Custom' ? form.payment_terms_custom : form.payment_terms;
+
   const buildPayload = (extra: Record<string, any> = {}) => {
-    const cleanItems = items.filter((i) => i.description.trim());
+    const cleanItems = items
+      .filter((i) => i.description.trim())
+      .map((i) => ({
+        description: i.description,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        unit: i.unit || null,
+        hsn_code: i.hsn_code || null,
+      }));
+    const { payment_terms_custom, ...rest } = form;
     const payload: any = {
-      ...form,
+      ...rest,
+      payment_terms: effectivePaymentTerms() || null,
       items: cleanItems,
       signature: signatureData || null,
       ...extra,
