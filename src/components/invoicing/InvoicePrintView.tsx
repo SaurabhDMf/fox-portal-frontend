@@ -1,10 +1,14 @@
-import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe, Trash2, Share2, Send } from 'lucide-react';
+import { X, Printer, Building2, Mail, Phone, MapPin, CreditCard, Link2, Wallet, Globe, Trash2, Share2, Send, Pencil, Lock, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { payWithStripe, payWithRazorpay } from '@/lib/payments';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import ShareInvoiceModal from './ShareInvoiceModal';
 import SendInvoiceModal from './SendInvoiceModal';
+import InvoiceCreateModal from './InvoiceCreateModal';
+import { useAuthStore } from '@/stores/authStore';
+import { confirmAction } from '@/lib/confirmDialog';
 
 interface Props {
   invoice: any;
@@ -12,8 +16,12 @@ interface Props {
   onDelete?: () => void;
 }
 
+const STATUS_OPTIONS = ['Draft', 'Sent', 'Viewed', 'Paid', 'Partially Paid', 'Overdue', 'Cancelled'];
+
 export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.user?.role);
+  const isAdmin = role === 'admin' || role === 'super_admin';
   // Backend already returns `company` alongside the invoice — no extra API call needed
   const company: any = invoice.company || {};
   const companyName = company.name || company.company_name || '';
