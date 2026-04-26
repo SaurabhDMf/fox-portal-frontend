@@ -301,17 +301,25 @@ export default function InvoiceCreateModal({ onClose, existing }: Props) {
   };
 
   const saveMut = useMutation({
-    mutationFn: (status: 'Draft' | 'Sent') =>
-      api.post('/invoices', buildPayload({ status })),
+    mutationFn: (status: 'Draft' | 'Sent' | null) => {
+      const payload = status ? buildPayload({ status }) : buildPayload();
+      if (isEdit) {
+        return api.put(`/invoices/${existing.id}`, payload);
+      }
+      return api.post('/invoices', payload);
+    },
     onSuccess: (_, status) => {
       qc.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success(status === 'Sent' ? 'Invoice created & sent' : 'Invoice saved as draft');
+      qc.invalidateQueries({ queryKey: ['invoice', existing?.id] });
+      if (isEdit) toast.success('Invoice updated');
+      else toast.success(status === 'Sent' ? 'Invoice created & sent' : 'Invoice saved as draft');
       onClose();
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error creating invoice'),
+    onError: (e: any) =>
+      toast.error(e.response?.data?.message || (isEdit ? 'Error updating invoice' : 'Error creating invoice')),
   });
 
-  const handleSave = (status: 'Draft' | 'Sent') => {
+  const handleSave = (status: 'Draft' | 'Sent' | null) => {
     const err = validate();
     if (err) return toast.error(err);
     saveMut.mutate(status);
