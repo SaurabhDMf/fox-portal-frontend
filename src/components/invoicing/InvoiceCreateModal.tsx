@@ -800,20 +800,32 @@ export default function InvoiceCreateModal({ onClose, existing }: Props) {
             >
               Cancel
             </button>
-            <button
-              onClick={() => handleSave('Draft')}
-              disabled={saveMut.isPending}
-              className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all disabled:opacity-50 inline-flex items-center gap-2"
-            >
-              <Save className="h-4 w-4" /> Save Draft
-            </button>
-            <button
-              onClick={() => handleSave('Sent')}
-              disabled={saveMut.isPending}
-              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 inline-flex items-center gap-2"
-            >
-              <Send className="h-4 w-4" /> {saveMut.isPending ? 'Saving...' : 'Save & Send'}
-            </button>
+            {isEdit ? (
+              <button
+                onClick={() => handleSave(null)}
+                disabled={saveMut.isPending}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                <Save className="h-4 w-4" /> {saveMut.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleSave('Draft')}
+                  disabled={saveMut.isPending}
+                  className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  <Save className="h-4 w-4" /> Save Draft
+                </button>
+                <button
+                  onClick={() => handleSave('Sent')}
+                  disabled={saveMut.isPending}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  <Send className="h-4 w-4" /> {saveMut.isPending ? 'Saving...' : 'Save & Send'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
