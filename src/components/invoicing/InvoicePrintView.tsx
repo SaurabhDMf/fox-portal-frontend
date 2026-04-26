@@ -77,6 +77,46 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
   const [showPayChoice, setShowPayChoice] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showSend, setShowSend] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState<string>(invoice.status || 'Draft');
+
+  useEffect(() => {
+    setCurrentStatus(invoice.status || 'Draft');
+  }, [invoice.status]);
+
+  const statusMut = useMutation({
+    mutationFn: (status: string) =>
+      api.patch(`/invoices/${invoice.id}/status`, { status }),
+    onSuccess: (_res, status) => {
+      setCurrentStatus(status);
+      toast.success(`Status updated to ${status}`);
+      qc.invalidateQueries({ queryKey: ['invoices'] });
+      qc.invalidateQueries({ queryKey: ['invoice', invoice.id] });
+    },
+    onError: (e: any, _status, _ctx) => {
+      // revert
+      setCurrentStatus(invoice.status || 'Draft');
+      toast.error(e?.response?.data?.message || 'Failed to update status');
+    },
+  });
+
+  const handleStatusChange = async (next: string) => {
+    if (next === currentStatus) return;
+    if (next === 'Paid') {
+      const ok = await confirmAction({
+        title: 'Mark invoice as Paid?',
+        description:
+          'This will mark the invoice as fully paid and may trigger downstream actions (receipts, accounting). Continue?',
+        confirmLabel: 'Mark as Paid',
+        destructive: false,
+      });
+      if (!ok) return;
+    }
+    setCurrentStatus(next); // optimistic
+    statusMut.mutate(next);
+  };
+
+  const isLocked = currentStatus === 'Paid';
 
   const onPaidSuccess = () => {
     qc.invalidateQueries({ queryKey: ['invoices'] });
