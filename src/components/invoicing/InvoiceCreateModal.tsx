@@ -40,8 +40,9 @@ const CURRENCY_OPTIONS = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'CAD', 'AUD'
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
-export default function InvoiceCreateModal({ onClose }: Props) {
+export default function InvoiceCreateModal({ onClose, existing }: Props) {
   const qc = useQueryClient();
+  const isEdit = !!existing?.id;
 
   const [form, setForm] = useState({
     client_id: '',
