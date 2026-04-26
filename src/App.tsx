@@ -96,6 +96,7 @@ const App = () => (
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/invoice/:token" element={<PublicInvoice />} />
 
         {/* Admin Portal */}
         <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'sales_manager', 'sales_rep']}><PortalLayout /></ProtectedRoute>}>
