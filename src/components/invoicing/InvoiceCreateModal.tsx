@@ -275,7 +275,7 @@ export default function InvoiceCreateModal({ onClose }: Props) {
   const total = taxable + tax;
   const sym = currencySymbol(form.currency);
 
-  const addItem = () => setItems([...items, { description: '', quantity: 1, unit_price: 0 }]);
+  const addItem = () => setItems([...items, { description: '', quantity: 1, unit_price: 0, unit: '', hsn_code: '' }]);
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
   const updateItem = (idx: number, field: keyof LineItem, value: string | number) =>
     setItems(items.map((item, i) => (i === idx ? { ...item, [field]: value } : item)));
