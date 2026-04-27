@@ -40,7 +40,9 @@ async function downloadPdf(inv: any) {
 export default function Invoicing() {
   const perm = useModulePermission('invoicing');
   const role = useAuthStore(s => s.user?.role);
-  const canDelete = role === 'admin' || role === 'super_admin';
+  const isAdmin = role === 'admin' || role === 'super_admin';
+  const canDelete = (inv: any) =>
+    isAdmin || (inv.status !== 'Paid' && inv.status !== 'Partially Paid');
   const [tab, setTab] = useState('All');
   const [showCreate, setShowCreate] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
@@ -66,7 +68,7 @@ export default function Invoicing() {
       toast.success('Invoice deleted');
     },
     onError: (e: any) => {
-      if (e?.response?.status === 403) toast.error('Only admins can delete invoices');
+      if (e?.response?.status === 403) toast.error(e?.response?.data?.error || 'Only admins can delete paid invoices');
       else toast.error(e?.response?.data?.message || 'Failed to delete invoice');
     },
   });
@@ -172,7 +174,7 @@ export default function Invoicing() {
                     <button onClick={() => setShowShare(inv)} className="text-xs flex items-center gap-1 text-muted-foreground hover:text-primary">
                       <Link2 className="h-3 w-3" /> Share
                     </button>
-                    {canDelete && (
+                    {canDelete(inv) && (
                       <button
                         onClick={() => handleDelete(inv)}
                         disabled={deleteMut.isPending}
@@ -191,7 +193,7 @@ export default function Invoicing() {
 
       {showCreate && <InvoiceCreateModal onClose={() => setShowCreate(false)} />}
       {showUpload && <InvoiceUploadModal onClose={() => setShowUpload(false)} />}
-      {showPrint && <InvoicePrintView invoice={showPrint} onClose={() => setShowPrint(null)} onDelete={canDelete ? () => handleDelete(showPrint) : undefined} />}
+      {showPrint && <InvoicePrintView invoice={showPrint} onClose={() => setShowPrint(null)} onDelete={canDelete(showPrint) ? () => handleDelete(showPrint) : undefined} />}
       {showSend && <SendInvoiceModal invoice={showSend} onClose={() => setShowSend(null)} />}
       {showShare && <ShareInvoiceModal invoiceId={showShare.id} invoiceNumber={showShare.invoice_number} onClose={() => setShowShare(null)} />}
     </div>
