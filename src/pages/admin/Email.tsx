@@ -397,7 +397,7 @@ export default function EmailPage() {
                     </p>
                     <div className="flex items-center gap-1.5 mt-1">
                       {!msg.is_read && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                      {msg.is_starred && <Star size={11} className="text-primary fill-primary" />}
+                      {!!msg.is_starred && <Star size={11} className="text-primary fill-primary" />}
                     </div>
                   </div>
                 </div>
