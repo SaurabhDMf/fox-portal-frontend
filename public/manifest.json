@@ -1,0 +1,16 @@
+{
+  "name": "Fox Portal",
+  "short_name": "Fox Portal",
+  "description": "Professional SaaS CRM Platform for managing clients, projects, invoicing, and team collaboration.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#6c63fa",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/favicon.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/favicon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["business", "productivity"],
+  "scope": "/"
+}

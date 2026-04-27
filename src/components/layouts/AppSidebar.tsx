@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useUnreadStore } from '@/stores/unreadStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSidebarCollapsed } from './PortalLayout';
 import {
@@ -79,6 +80,26 @@ function getNavItems(role: string): NavItem[] {
 
 const rootPaths = ['/admin', '/emp', '/portal'];
 
+function pathToModule(path: string): string {
+  if (path.includes('/chat'))      return 'chat';
+  if (path.includes('/email'))     return 'email';
+  if (path.includes('/projects'))  return 'projects';
+  if (path.includes('/crm'))       return 'crm';
+  if (path.includes('/invoicing')) return 'invoicing';
+  if (path.includes('/tickets'))   return 'tickets';
+  if (path.includes('/payroll'))   return 'payroll';
+  return '';
+}
+
+function PulsingDot() {
+  return (
+    <span className="relative flex h-2 w-2 ml-auto shrink-0">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
+      <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
+    </span>
+  );
+}
+
 interface SidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
@@ -118,6 +139,14 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
 
   const isGroupActive = (item: NavItem) =>
     isItemActive(item.path) || (item.children?.some((c) => isItemActive(c.path)) ?? false);
+
+  const { counts, clear } = useUnreadStore();
+
+  // Clear module badge when user navigates there
+  useEffect(() => {
+    const mod = pathToModule(location.pathname);
+    if (mod) clear(mod);
+  }, [location.pathname, clear]);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const toggleGroup = (path: string) => setOpenGroups((p) => ({ ...p, [path]: !p[path] }));
@@ -178,13 +207,19 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
       }
 
       // Leaf
+      const itemModule  = pathToModule(item.path);
+      const hasUnread   = itemModule ? (counts[itemModule] || 0) > 0 : false;
       const link = (
         <NavLink key={item.path} to={item.path} end={rootPaths.includes(item.path)} onClick={onClick}
-          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
+          className={`relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
             active ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
           } ${!showLabels ? 'justify-center' : ''}`}>
           <item.icon className={`h-4 w-4 flex-shrink-0 ${active ? 'text-primary' : ''}`} />
-          {showLabels && <span className="truncate">{item.label}</span>}
+          {showLabels && <span className="flex-1 truncate">{item.label}</span>}
+          {showLabels && hasUnread && <PulsingDot />}
+          {!showLabels && hasUnread && (
+            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-orange-500" />
+          )}
         </NavLink>
       );
       if (showLabels) return link;
