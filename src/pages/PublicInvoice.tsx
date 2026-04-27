@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 const API_BASE =
-  import.meta.env.VITE_API_URL || 'https://ubp-backend-production.up.railway.app/api/v1';
+  import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1';
 
 // Anonymous axios instance (no Bearer token, no auth interceptors)
 const publicApi = axios.create({

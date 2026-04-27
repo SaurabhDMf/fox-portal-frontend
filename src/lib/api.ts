@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { confirmDelete } from './confirmDialog';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://ubp-backend-production.up.railway.app/api/v1';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE,
