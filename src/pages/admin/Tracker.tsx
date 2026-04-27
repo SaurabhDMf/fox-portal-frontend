@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { Clock, Calendar, DollarSign, ArrowUpRight, ArrowDownRight, Plus, X } from 'lucide-react';
+import { Clock, Calendar, DollarSign, ArrowUpRight, ArrowDownRight, Plus, X, Coffee } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
 import { useAuthStore } from '@/stores/authStore';
@@ -56,24 +56,38 @@ export default function Tracker() {
     queryFn: () => api.get('/projects').then(r => r.data?.projects || r.data || []),
   });
 
+  const inv = () => {
+    qc.invalidateQueries({ queryKey: ['today-attendance'] });
+    qc.invalidateQueries({ queryKey: ['tracker-summary'] });
+  };
+
   const checkInMut = useMutation({
     mutationFn: () => api.post('/tracker/attendance/check-in'),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['today-attendance'] });
-      qc.invalidateQueries({ queryKey: ['tracker-summary'] });
-      toast.success('Checked in!');
-    },
+    onSuccess: () => { inv(); toast.success('Checked in!'); },
     onError: (e: any) => toast.error(e.response?.data?.error || e.response?.data?.message || 'Check-in failed'),
   });
 
   const checkOutMut = useMutation({
     mutationFn: () => api.post('/tracker/attendance/check-out'),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['today-attendance'] });
-      qc.invalidateQueries({ queryKey: ['tracker-summary'] });
-      toast.success('Checked out!');
-    },
+    onSuccess: () => { inv(); toast.success('Checked out!'); },
     onError: (e: any) => toast.error(e.response?.data?.error || e.response?.data?.message || 'Check-out failed'),
+  });
+
+  const startBreakMut = useMutation({
+    mutationFn: () => api.post('/tracker/attendance/break-start'),
+    onSuccess: () => { inv(); toast.success('Break started!'); },
+    onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to start break'),
+  });
+
+  const endBreakMut = useMutation({
+    mutationFn: () => api.post('/tracker/attendance/break-end'),
+    onSuccess: () => { inv(); toast.success('Break ended!'); },
+    onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to end break'),
+  });
+
+  const resetTodayMut = useMutation({
+    mutationFn: () => api.delete('/tracker/attendance/today'),
+    onSuccess: () => { inv(); toast.success('Attendance reset!'); },
   });
 
   const leaveMut = useMutation({
@@ -136,16 +150,31 @@ export default function Tracker() {
                   : (s.today_hours || '0h 0m')}
               </div>
               <div className="flex flex-wrap items-center gap-3 mt-1 text-xs">
-                {today?.check_in_time && (
-                  <span className="text-success font-medium">In: {new Date(today.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                {today?.check_in && (
+                  <span className="text-success font-medium">In: {new Date(today.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 )}
-                {today?.check_out_time && (
-                  <span className="text-destructive font-medium">Out: {new Date(today.check_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                {today?.check_out && (
+                  <span className="text-destructive font-medium">Out: {new Date(today.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                )}
+                {today?.total_break_minutes > 0 && (
+                  <span className="text-warning font-medium">Break: {today.total_break_minutes}m</span>
+                )}
+                {today?.on_break === 1 && (
+                  <span className="text-warning font-semibold animate-pulse">☕ On Break</span>
                 )}
               </div>
+              {today?.check_in && (
+                <button
+                  onClick={() => resetTodayMut.mutate()}
+                  disabled={resetTodayMut.isPending}
+                  className="text-[11px] text-muted-foreground hover:text-destructive underline mt-1 transition-colors"
+                >
+                  Reset today
+                </button>
+              )}
             </div>
-            <div className="flex gap-2">
-              {!today?.checked_in && !today?.check_in_time && (
+            <div className="flex flex-wrap gap-2 justify-center">
+              {!today?.check_in && (
                 <button
                   onClick={() => checkInMut.mutate()}
                   disabled={checkInMut.isPending}
@@ -154,7 +183,25 @@ export default function Tracker() {
                   <ArrowUpRight className="h-4 w-4" /> {checkInMut.isPending ? 'Checking in…' : 'Check In'}
                 </button>
               )}
-              {today?.checked_in && !today?.check_out_time && (
+              {today?.check_in && !today?.check_out && !today?.on_break && (
+                <button
+                  onClick={() => startBreakMut.mutate()}
+                  disabled={startBreakMut.isPending}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-warning text-warning hover:bg-warning/10 active:scale-[0.97] transition-all flex items-center gap-1 disabled:opacity-50"
+                >
+                  <Coffee className="h-4 w-4" /> {startBreakMut.isPending ? 'Starting…' : 'Break'}
+                </button>
+              )}
+              {today?.on_break === 1 && (
+                <button
+                  onClick={() => endBreakMut.mutate()}
+                  disabled={endBreakMut.isPending}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-success text-success hover:bg-success/10 active:scale-[0.97] transition-all flex items-center gap-1 disabled:opacity-50"
+                >
+                  <Coffee className="h-4 w-4" /> {endBreakMut.isPending ? 'Resuming…' : 'Resume'}
+                </button>
+              )}
+              {today?.check_in && !today?.check_out && (
                 <button
                   onClick={() => checkOutMut.mutate()}
                   disabled={checkOutMut.isPending}
@@ -163,7 +210,7 @@ export default function Tracker() {
                   <ArrowDownRight className="h-4 w-4" /> {checkOutMut.isPending ? 'Checking out…' : 'Check Out'}
                 </button>
               )}
-              {today?.check_in_time && today?.check_out_time && (
+              {today?.check_in && today?.check_out && (
                 <span className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium">
                   ✓ Day complete
                 </span>
