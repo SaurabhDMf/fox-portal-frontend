@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { Plus, Send, DollarSign, CheckCircle, Clock, AlertTriangle, FileText, Upload, Download, Trash2 } from 'lucide-react';
+import { Plus, Send, DollarSign, CheckCircle, Clock, AlertTriangle, FileText, Upload, Download, Trash2, Link2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
 import { useModulePermission } from '@/hooks/usePermission';
@@ -12,6 +12,7 @@ import InvoiceCreateModal from '@/components/invoicing/InvoiceCreateModal';
 import InvoiceUploadModal from '@/components/invoicing/InvoiceUploadModal';
 import InvoicePrintView from '@/components/invoicing/InvoicePrintView';
 import SendInvoiceModal from '@/components/invoicing/SendInvoiceModal';
+import ShareInvoiceModal from '@/components/invoicing/ShareInvoiceModal';
 
 const statusTabs = ['All', 'Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled'];
 
@@ -45,6 +46,7 @@ export default function Invoicing() {
   const [showUpload, setShowUpload] = useState(false);
   const [showPrint, setShowPrint] = useState<any>(null);
   const [showSend, setShowSend] = useState<any>(null);
+  const [showShare, setShowShare] = useState<any>(null);
   const qc = useQueryClient();
 
   const deleteMut = useMutation({
@@ -167,6 +169,9 @@ export default function Invoicing() {
                         <Send className="h-3 w-3" /> Send
                       </button>
                     )}
+                    <button onClick={() => setShowShare(inv)} className="text-xs flex items-center gap-1 text-muted-foreground hover:text-primary">
+                      <Link2 className="h-3 w-3" /> Share
+                    </button>
                     {canDelete && (
                       <button
                         onClick={() => handleDelete(inv)}
@@ -188,6 +193,7 @@ export default function Invoicing() {
       {showUpload && <InvoiceUploadModal onClose={() => setShowUpload(false)} />}
       {showPrint && <InvoicePrintView invoice={showPrint} onClose={() => setShowPrint(null)} onDelete={canDelete ? () => handleDelete(showPrint) : undefined} />}
       {showSend && <SendInvoiceModal invoice={showSend} onClose={() => setShowSend(null)} />}
+      {showShare && <ShareInvoiceModal invoiceId={showShare.id} invoiceNumber={showShare.invoice_number} onClose={() => setShowShare(null)} />}
     </div>
   );
 }
