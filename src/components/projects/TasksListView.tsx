@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, Search, X, Pencil, ChevronDown, ChevronRight, Check } from 'lucide-react';
+import { Plus, Search, X, Pencil, ChevronDown, ChevronRight, Check, ChevronUp } from 'lucide-react';
 import api from '@/lib/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -88,6 +88,20 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
   const [moduleFilter, setModuleFilter] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState('');
   const [reporterFilter, setReporterFilter] = useState('');
+  const [sortBy, setSortBy] = useState<string>('created_at');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const toggleSort = (col: string) => {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('desc'); }
+  };
+
+  const SortIcon = ({ col }: { col: string }) => {
+    if (sortBy !== col) return <ChevronDown className="h-3 w-3 opacity-30 ml-1 inline" />;
+    return sortDir === 'asc'
+      ? <ChevronUp className="h-3 w-3 text-primary ml-1 inline" />
+      : <ChevronDown className="h-3 w-3 text-primary ml-1 inline" />;
+  };
 
   // Close status dropdown on outside click
   useEffect(() => {
@@ -112,8 +126,10 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     if (moduleFilter) p.module_id = moduleFilter;
     if (assigneeFilter) p.assignee_id = assigneeFilter;
     if (reporterFilter) p.reporter_id = reporterFilter;
+    p.sort_by = sortBy;
+    p.sort_dir = sortDir;
     return p;
-  }, [projectId, typeFilter, sprintFilter, moduleFilter, assigneeFilter, reporterFilter]);
+  }, [projectId, typeFilter, sprintFilter, moduleFilter, assigneeFilter, reporterFilter, sortBy, sortDir]);
 
   // Main task query
   const { data: raw, isLoading } = useQuery({
@@ -616,14 +632,14 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Task Name</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('title')}>Task Name<SortIcon col="title" /></TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Assigned To</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('created_at')}>Created<SortIcon col="created_at" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('assignee_name')}>Assigned To<SortIcon col="assignee_name" /></TableHead>
               <TableHead>Assigned By</TableHead>
-              <TableHead>Due Date</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('due_date')}>Due Date<SortIcon col="due_date" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('priority')}>Priority<SortIcon col="priority" /></TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('status')}>Status<SortIcon col="status" /></TableHead>
               <TableHead>Code Repo</TableHead>
               <TableHead>Module</TableHead>
               <TableHead>Epic</TableHead>
