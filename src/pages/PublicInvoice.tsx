@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import toast, { Toaster } from 'react-hot-toast';
 import {
@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 const API_BASE =
-  import.meta.env.VITE_API_URL || 'https://ubp-backend-production.up.railway.app/api/v1';
+  import.meta.env.VITE_API_URL || 'https://fox-backend-production.up.railway.app/api/v1';
 
 // Anonymous axios instance (no Bearer token, no auth interceptors)
 const publicApi = axios.create({
@@ -34,6 +34,8 @@ function loadRazorpayScript(): Promise<boolean> {
 
 export default function PublicInvoice() {
   const { token } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  const paymentStatus = searchParams.get('payment'); // 'success' | 'cancelled' | null
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<any>(null);
@@ -209,6 +211,19 @@ export default function PublicInvoice() {
   return (
     <div className="min-h-screen bg-slate-100 py-8 px-4 print:bg-white print:py-0 print:px-0">
       <Toaster position="top-center" />
+
+      {paymentStatus === 'success' && (
+        <div className="max-w-3xl mx-auto mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-800 text-sm font-medium print:hidden">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+          Payment successful! Your invoice will be updated shortly.
+        </div>
+      )}
+      {paymentStatus === 'cancelled' && (
+        <div className="max-w-3xl mx-auto mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 ring-1 ring-amber-200 text-amber-800 text-sm font-medium print:hidden">
+          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+          Payment was cancelled. You can try again anytime.
+        </div>
+      )}
 
       {/* Action bar (hidden in print) */}
       <div className="max-w-3xl mx-auto mb-4 flex items-center justify-end gap-2 print:hidden">
