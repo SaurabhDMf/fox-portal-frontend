@@ -3,7 +3,7 @@ import api from '@/lib/api';
 import StatCard from '@/components/ui/StatCard';
 import { useAuthStore } from '@/stores/authStore';
 import { useNavigate } from 'react-router-dom';
-import { ListChecks, FolderKanban, Target, FileText, Clock, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react';
+import { ListChecks, FolderKanban, Target, FileText, Clock, ArrowUpRight, ArrowDownRight, CheckCircle2, Coffee } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 
@@ -82,6 +82,28 @@ export default function MyDashboard() {
     onError: (e: any) => toast.error(e?.response?.data?.error || e?.response?.data?.message || 'Check-out failed'),
   });
 
+  const startBreakMut = useMutation({
+    mutationFn: () => api.post('/tracker/attendance/break-start'),
+    onSuccess: (res: any) => {
+      const payload = normalizeAttendance(res?.data?.data ?? res?.data ?? {});
+      qc.setQueryData(['today-attendance'], payload);
+      invalidateTracker();
+      toast.success('Break started!');
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error || 'Failed to start break'),
+  });
+
+  const endBreakMut = useMutation({
+    mutationFn: () => api.post('/tracker/attendance/break-end'),
+    onSuccess: (res: any) => {
+      const payload = normalizeAttendance(res?.data?.data ?? res?.data ?? {});
+      qc.setQueryData(['today-attendance'], payload);
+      invalidateTracker();
+      toast.success('Break ended!');
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error || 'Failed to end break'),
+  });
+
   // Live tick — updates running timer every second while checked in
   const [now, setNow] = useState(Date.now());
   const isActive = !!today?.check_in_time && !today?.check_out_time;
@@ -157,19 +179,25 @@ export default function MyDashboard() {
         <div className="flex-1 text-center sm:text-left">
           <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-muted-foreground">
             Today
-            {isActive && (
+            {isActive && !today?.on_break && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-success/15 text-success text-[10px] font-semibold uppercase tracking-wider">
                 <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /> Live
               </span>
             )}
+            {today?.on_break === 1 && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-warning/15 text-warning text-[10px] font-semibold uppercase tracking-wider">
+                <Coffee className="h-3 w-3" /> On Break
+              </span>
+            )}
           </div>
-          <div className={`text-xl font-bold tabular-nums ${isActive ? 'text-success' : ''}`}>{formatElapsed()}</div>
+          <div className={`text-xl font-bold tabular-nums ${today?.on_break === 1 ? 'text-warning' : isActive ? 'text-success' : ''}`}>{formatElapsed()}</div>
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-1 text-xs">
             {today?.check_in_time && <span className="text-success font-medium">In: {fmtTime(today.check_in_time)}</span>}
             {today?.check_out_time && <span className="text-destructive font-medium">Out: {fmtTime(today.check_out_time)}</span>}
+            {(today?.total_break_minutes > 0) && <span className="text-muted-foreground">Break: {today.total_break_minutes}m</span>}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 justify-center sm:justify-end">
           {!today?.check_in_time && (
             <button
               onClick={() => checkInMut.mutate()}
@@ -179,7 +207,25 @@ export default function MyDashboard() {
               <ArrowUpRight className="h-4 w-4" /> {checkInMut.isPending ? 'Checking in…' : 'Check In'}
             </button>
           )}
-          {today?.check_in_time && !today?.check_out_time && (
+          {today?.check_in_time && !today?.check_out_time && !today?.on_break && (
+            <button
+              onClick={() => startBreakMut.mutate()}
+              disabled={startBreakMut.isPending}
+              className="px-4 py-2 rounded-lg border border-warning text-warning text-sm font-semibold hover:bg-warning/10 active:scale-[0.97] transition-all flex items-center gap-1 disabled:opacity-50"
+            >
+              <Coffee className="h-4 w-4" /> {startBreakMut.isPending ? 'Starting…' : 'Break'}
+            </button>
+          )}
+          {today?.on_break === 1 && (
+            <button
+              onClick={() => endBreakMut.mutate()}
+              disabled={endBreakMut.isPending}
+              className="px-4 py-2 rounded-lg border border-success text-success text-sm font-semibold hover:bg-success/10 active:scale-[0.97] transition-all flex items-center gap-1 disabled:opacity-50"
+            >
+              <Coffee className="h-4 w-4" /> {endBreakMut.isPending ? 'Resuming…' : 'Resume'}
+            </button>
+          )}
+          {today?.check_in_time && !today?.check_out_time && !today?.on_break && (
             <button
               onClick={() => checkOutMut.mutate()}
               disabled={checkOutMut.isPending}
