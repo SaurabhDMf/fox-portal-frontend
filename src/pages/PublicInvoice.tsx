@@ -10,12 +10,15 @@ import {
   AlertTriangle,
   CheckCircle2,
   Printer,
+  Mail,
+  Phone,
+  MapPin,
+  Globe,
 } from 'lucide-react';
 
 const API_BASE =
   import.meta.env.VITE_API_URL || 'https://fox-backend-production.up.railway.app/api/v1';
 
-// Anonymous axios instance (no Bearer token, no auth interceptors)
 const publicApi = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
@@ -35,7 +38,7 @@ function loadRazorpayScript(): Promise<boolean> {
 export default function PublicInvoice() {
   const { token } = useParams<{ token: string }>();
   const [searchParams] = useSearchParams();
-  const paymentStatus = searchParams.get('payment'); // 'success' | 'cancelled' | null
+  const paymentStatus = searchParams.get('payment');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<any>(null);
@@ -50,8 +53,18 @@ export default function PublicInvoice() {
       .get(`/invoices/public/${token}`)
       .then((r) => {
         if (cancelled) return;
-        const data = r.data?.data ?? r.data ?? {};
-        setInvoice(data);
+        const raw = r.data?.data ?? r.data ?? {};
+        // Backend returns { invoice, items, company, payment_providers }
+        const inv = raw.invoice ?? raw;
+        setInvoice({
+          ...inv,
+          items: raw.items ?? inv.items ?? [],
+          company: raw.company ?? inv.company ?? {},
+          payment_providers: raw.payment_providers ?? inv.payment_providers ?? { stripe: false, razorpay: false },
+          // Normalise field name differences between backend and template
+          total: inv.total ?? inv.total_amount,
+          created_at: inv.created_at ?? inv.issue_date,
+        });
       })
       .catch((e) => {
         if (cancelled) return;
@@ -63,39 +76,34 @@ export default function PublicInvoice() {
         }
       })
       .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [token]);
 
-  const company = invoice?.company || {};
-  const items = invoice?.items || [];
-  const currency = invoice?.currency_symbol || invoice?.currency || '$';
+  const company: any = invoice?.company || {};
+  const companyName = company.name || company.company_name || '';
+  const items: any[] = invoice?.items || [];
+  const currency = invoice?.currency_symbol || invoice?.currency || company.currency_symbol || '$';
   const fmt = (n: number) =>
-    `${currency}${Number(n || 0).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    `${currency}${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const subtotal = items.reduce(
-    (s: number, i: any) => s + Number(i.quantity || 0) * Number(i.unit_price || 0),
-    0,
-  );
+  const subtotal = items.reduce((s, i) => s + Number(i.quantity || 0) * Number(i.unit_price || 0), 0);
   const discountAmt =
-    Number(invoice?.discount_amount) ||
-    (subtotal * (Number(invoice?.discount_pct) || 0)) / 100;
+    Number(invoice?.discount_amount) || (subtotal * (Number(invoice?.discount_pct) || 0)) / 100;
   const taxableAmt = subtotal - discountAmt;
   const taxAmt =
-    Number(invoice?.tax_amount) ||
-    (taxableAmt * (Number(invoice?.tax_pct) || 0)) / 100;
+    Number(invoice?.tax_amount) || (taxableAmt * (Number(invoice?.tax_pct) || 0)) / 100;
   const total = Number(invoice?.total) || taxableAmt + taxAmt;
   const amountPaid = Number(invoice?.amount_paid) || 0;
   const amountDue = total - amountPaid;
   const isPaid = invoice?.status === 'Paid' || amountDue <= 0;
 
   const providers = invoice?.payment_providers || { stripe: false, razorpay: false };
-  const canPay =
-    !isPaid && invoice?.status !== 'Cancelled' && (providers.stripe || providers.razorpay);
+  const canPay = !isPaid && invoice?.status !== 'Cancelled' && (providers.stripe || providers.razorpay);
+
+  const companyAddress = [
+    company.address_line1, company.address_line2,
+    company.city, company.state, company.postal_code, company.country,
+  ].filter(Boolean).join(', ');
 
   const payWithStripe = async () => {
     setPaying(true);
@@ -131,7 +139,7 @@ export default function PublicInvoice() {
         description: data.description,
         order_id: data.order_id,
         prefill: data.prefill || {},
-        theme: { color: '#06b6d4' },
+        theme: { color: '#2563eb' },
         handler: async (resp: any) => {
           try {
             await publicApi.post(`/invoices/public/${token}/pay/razorpay/verify`, {
@@ -140,9 +148,15 @@ export default function PublicInvoice() {
               razorpay_signature: resp.razorpay_signature,
             });
             toast.success('Payment successful');
-            // Refresh invoice
             publicApi.get(`/invoices/public/${token}`).then((r) => {
-              setInvoice(r.data?.data ?? r.data ?? {});
+              const raw = r.data?.data ?? r.data ?? {};
+              const inv = raw.invoice ?? raw;
+              setInvoice((prev: any) => ({
+                ...prev,
+                ...inv,
+                total: inv.total ?? inv.total_amount,
+                created_at: inv.created_at ?? inv.issue_date,
+              }));
             });
           } catch (e: any) {
             toast.error(e?.response?.data?.message || 'Payment verification failed');
@@ -193,53 +207,49 @@ export default function PublicInvoice() {
     );
   }
 
-  const billingAddress =
-    invoice.billing_address ||
-    [
-      invoice.client?.address_line1,
-      invoice.client?.address_line2,
-      invoice.client?.city,
-      invoice.client?.state,
-      invoice.client?.postal_code,
-      invoice.client?.country,
-    ]
-      .filter(Boolean)
-      .join(', ');
-
-  const companyName = company.name || company.company_name || 'Company';
+  const statusStyles: Record<string, string> = {
+    Paid: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+    Overdue: 'bg-red-50 text-red-700 ring-red-200',
+    Sent: 'bg-blue-50 text-blue-700 ring-blue-200',
+    Viewed: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+    'Partially Paid': 'bg-amber-50 text-amber-700 ring-amber-200',
+    Draft: 'bg-slate-50 text-slate-700 ring-slate-200',
+  };
+  const statusCls = statusStyles[invoice.status] || 'bg-slate-50 text-slate-700 ring-slate-200';
 
   return (
     <div className="min-h-screen bg-slate-100 py-8 px-4 print:bg-white print:py-0 print:px-0">
       <Toaster position="top-center" />
 
+      {/* Payment result banners */}
       {paymentStatus === 'success' && (
-        <div className="max-w-3xl mx-auto mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-800 text-sm font-medium print:hidden">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+        <div className="max-w-4xl mx-auto mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-800 text-sm font-medium print:hidden">
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
           Payment successful! Your invoice will be updated shortly.
         </div>
       )}
       {paymentStatus === 'cancelled' && (
-        <div className="max-w-3xl mx-auto mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 ring-1 ring-amber-200 text-amber-800 text-sm font-medium print:hidden">
-          <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+        <div className="max-w-4xl mx-auto mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 ring-1 ring-amber-200 text-amber-800 text-sm font-medium print:hidden">
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
           Payment was cancelled. You can try again anytime.
         </div>
       )}
 
-      {/* Action bar (hidden in print) */}
-      <div className="max-w-3xl mx-auto mb-4 flex items-center justify-end gap-2 print:hidden">
+      {/* Action bar */}
+      <div className="max-w-4xl mx-auto mb-4 flex items-center justify-end gap-2 print:hidden">
         <button
           type="button"
           onClick={() => window.print()}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-slate-700 text-sm font-medium ring-1 ring-slate-200 hover:bg-slate-50 transition"
         >
-          <Printer className="h-4 w-4" /> Print
+          <Printer className="h-4 w-4" /> Print / PDF
         </button>
         {canPay && (
           <button
             type="button"
             disabled={paying}
             onClick={handlePay}
-            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:opacity-90 active:scale-[0.97] transition disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 active:scale-[0.97] transition disabled:opacity-50"
           >
             {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
             Pay {fmt(amountDue)}
@@ -253,15 +263,19 @@ export default function PublicInvoice() {
       </div>
 
       {/* Invoice document */}
-      <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden print:shadow-none print:rounded-none">
+      <div
+        className="max-w-4xl mx-auto bg-white text-slate-900 rounded-2xl shadow-2xl overflow-hidden print:shadow-none print:rounded-none"
+        id="invoice-print-area"
+      >
         {/* Header */}
         <div className="px-10 pt-10 pb-6 border-b border-slate-200">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+            {/* LEFT — company branding */}
             <div className="space-y-2">
               {company.logo_url ? (
                 <img
                   src={company.logo_url}
-                  alt={companyName}
+                  alt={companyName || 'Company logo'}
                   style={{ maxHeight: 80 }}
                   className="object-contain"
                   onError={(e) => {
@@ -278,17 +292,11 @@ export default function PublicInvoice() {
               >
                 <Building2 className="h-7 w-7 text-slate-500" />
               </div>
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-                {companyName}
-              </h2>
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900">{companyName || '—'}</h2>
               <div className="text-sm text-slate-600 leading-relaxed space-y-0.5">
                 {company.address_line1 && <div>{company.address_line1}</div>}
                 {(company.city || company.state || company.postal_code) && (
-                  <div>
-                    {[company.city, company.state, company.postal_code]
-                      .filter(Boolean)
-                      .join(', ')}
-                  </div>
+                  <div>{[company.city, company.state, company.postal_code].filter(Boolean).join(', ')}</div>
                 )}
                 {company.country && <div>{company.country}</div>}
                 {(company.email || company.phone) && (
@@ -296,9 +304,11 @@ export default function PublicInvoice() {
                     {[company.email, company.phone].filter(Boolean).join(' | ')}
                   </div>
                 )}
+                {company.gst_number && <div className="text-slate-500">GST: {company.gst_number}</div>}
               </div>
             </div>
 
+            {/* RIGHT — invoice meta */}
             <div className="sm:text-right space-y-2">
               <h1 className="text-4xl font-bold tracking-tight text-slate-900">INVOICE</h1>
               <div className="text-sm text-slate-700 space-y-1">
@@ -309,60 +319,67 @@ export default function PublicInvoice() {
                 <div>
                   <span className="text-slate-500">Issue Date&nbsp;</span>
                   <span className="font-medium">
-                    {invoice.created_at
-                      ? new Date(invoice.created_at).toLocaleDateString()
-                      : '—'}
+                    {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : '—'}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-500">Due Date&nbsp;</span>
                   <span className="font-medium">
-                    {invoice.due_date
-                      ? new Date(invoice.due_date).toLocaleDateString()
-                      : '—'}
+                    {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '—'}
                   </span>
                 </div>
               </div>
+              <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ring-1 ${statusCls}`}>
+                {invoice.status || 'Draft'}
+              </span>
             </div>
           </div>
         </div>
 
         <div className="px-10 py-8 space-y-8">
-          {/* Bill To */}
+          {/* Bill From / Bill To */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div>
-              <p className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase mb-1">
-                Bill To
-              </p>
-              <p className="font-semibold text-slate-900">
-                {invoice.billing_company_name ||
-                  invoice.billing_name ||
-                  invoice.client?.company_name ||
-                  invoice.client_name ||
-                  'Client'}
-              </p>
-              {invoice.billing_contact_name && (
-                <p className="text-sm text-slate-600">{invoice.billing_contact_name}</p>
-              )}
-              {billingAddress && (
-                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{billingAddress}</p>
-              )}
-              {invoice.billing_email && (
-                <p className="text-xs text-slate-500">{invoice.billing_email}</p>
-              )}
-            </div>
-            <div className="sm:text-right">
-              <p className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase mb-1">
-                Amount Due
-              </p>
-              <p className="text-3xl font-bold text-slate-900">{fmt(amountDue)}</p>
-              <p className="text-xs text-slate-500 mt-1">
-                Status: <span className="font-medium text-slate-700">{invoice.status}</span>
-              </p>
-            </div>
+            <Party
+              label="Bill From"
+              name={companyName || '—'}
+              address={companyAddress}
+              email={company.email}
+              phone={company.phone}
+              gst={company.gst_number}
+            />
+            <Party
+              label="Bill To"
+              name={
+                invoice.billing_name ||
+                invoice.billing_company_name ||
+                invoice.client?.company_name ||
+                invoice.client_name ||
+                'Client'
+              }
+              contact={invoice.billing_contact_name || invoice.client?.contact_name}
+              address={
+                invoice.billing_address ||
+                [
+                  invoice.client?.address_line1, invoice.client?.address_line2,
+                  invoice.client?.city, invoice.client?.state,
+                  invoice.client?.postal_code, invoice.client?.country,
+                ].filter(Boolean).join(', ')
+              }
+              email={invoice.billing_email || invoice.client?.email}
+              phone={invoice.billing_phone || invoice.client?.phone}
+              gst={invoice.billing_gst_number || invoice.client?.gst_number}
+            />
           </div>
 
-          {/* Items */}
+          {/* Meta strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <MetaCard label="Issue Date" value={invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : '—'} />
+            <MetaCard label="Due Date" value={invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '—'} />
+            <MetaCard label="Invoice #" value={invoice.invoice_number || '—'} />
+            <MetaCard label="Amount Due" value={fmt(amountDue)} highlight={!isPaid} />
+          </div>
+
+          {/* Line items */}
           <div className="overflow-hidden rounded-xl ring-1 ring-slate-200">
             <table className="w-full text-sm">
               <thead className="bg-slate-50">
@@ -393,16 +410,14 @@ export default function PublicInvoice() {
                     <tr key={i} className="border-t border-slate-100">
                       <td className="px-4 py-3 align-top">
                         <div className="font-medium text-slate-800">{item.description}</div>
+                        {item.details && <div className="text-xs text-slate-500 mt-0.5">{item.details}</div>}
                       </td>
-                      <td className="px-4 py-3 align-top text-right text-slate-700">
-                        {item.quantity}
-                        {item.unit ? ` ${item.unit}` : ''}
+                      <td className="px-4 py-3 text-right text-slate-700 align-top">
+                        {Number(item.quantity).toFixed(2)}
                       </td>
-                      <td className="px-4 py-3 align-top text-right text-slate-700">
-                        {fmt(Number(item.unit_price))}
-                      </td>
-                      <td className="px-4 py-3 align-top text-right font-medium text-slate-800">
-                        {fmt(Number(item.quantity) * Number(item.unit_price))}
+                      <td className="px-4 py-3 text-right text-slate-700 align-top">{fmt(item.unit_price)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-slate-900 align-top">
+                        {fmt(Number(item.quantity || 0) * Number(item.unit_price || 0))}
                       </td>
                     </tr>
                   ))
@@ -413,72 +428,181 @@ export default function PublicInvoice() {
 
           {/* Totals */}
           <div className="flex justify-end">
-            <div className="w-full sm:w-72 space-y-1 text-sm">
-              <div className="flex justify-between text-slate-600">
-                <span>Subtotal</span>
-                <span>{fmt(subtotal)}</span>
-              </div>
+            <div className="w-full sm:w-80 rounded-xl bg-slate-50 ring-1 ring-slate-200 p-5 space-y-2 text-sm">
+              <Row label="Subtotal" value={fmt(subtotal)} />
               {discountAmt > 0 && (
-                <div className="flex justify-between text-slate-600">
-                  <span>Discount</span>
-                  <span className="text-red-600">-{fmt(discountAmt)}</span>
-                </div>
+                <Row
+                  label={`Discount${invoice.discount_pct ? ` (${invoice.discount_pct}%)` : ''}`}
+                  value={`-${fmt(discountAmt)}`}
+                  valueClass="text-red-600"
+                />
               )}
               {taxAmt > 0 && (
-                <div className="flex justify-between text-slate-600">
-                  <span>{invoice.tax_label || 'Tax'}</span>
-                  <span>{fmt(taxAmt)}</span>
-                </div>
+                <Row
+                  label={`Tax${invoice.tax_pct ? ` (${invoice.tax_pct}%)` : ''}`}
+                  value={fmt(taxAmt)}
+                />
               )}
-              <div className="flex justify-between font-bold text-slate-900 text-base pt-2 border-t border-slate-200">
-                <span>Total</span>
-                <span>{fmt(total)}</span>
+              <div className="border-t border-slate-200 pt-2">
+                <Row label="Total" value={fmt(total)} bold />
               </div>
               {amountPaid > 0 && (
-                <div className="flex justify-between text-emerald-700">
-                  <span>Paid</span>
-                  <span>-{fmt(amountPaid)}</span>
-                </div>
+                <Row label="Amount Paid" value={`-${fmt(amountPaid)}`} valueClass="text-emerald-600" />
               )}
-              <div className="flex justify-between font-bold text-slate-900 text-base pt-2 border-t border-slate-200">
-                <span>Amount Due</span>
-                <span>{fmt(amountDue)}</span>
+              <div className="border-t-2 border-slate-300 pt-2 mt-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold text-slate-700">Amount Due</span>
+                  <span className={`text-xl font-bold ${isPaid ? 'text-emerald-600' : 'text-blue-700'}`}>
+                    {fmt(amountDue)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Notes */}
-          {invoice.notes && (
-            <div className="text-sm text-slate-600">
-              <p className="text-[11px] font-semibold tracking-wider text-slate-400 uppercase mb-1">
-                Notes
-              </p>
-              <p className="whitespace-pre-line">{invoice.notes}</p>
+          {/* Payment section */}
+          {canPay && (
+            <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 print:hidden">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-blue-600 text-white">
+                    <Wallet className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Make a Payment</h3>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Pay securely online via card, UPI, or bank transfer.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={paying}
+                  onClick={handlePay}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  Pay {fmt(amountDue)}
+                </button>
+              </div>
+
+              {(company.bank_name || company.bank_account || company.upi_id) && (
+                <div className="mt-4 pt-4 border-t border-blue-200 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs">
+                  <p className="font-semibold text-slate-700 col-span-full mb-1">Bank Transfer Details</p>
+                  {company.bank_name && <DetailRow label="Bank" value={company.bank_name} />}
+                  {company.bank_account_name && <DetailRow label="Account Name" value={company.bank_account_name} />}
+                  {company.bank_account && <DetailRow label="Account #" value={company.bank_account} />}
+                  {company.ifsc && <DetailRow label="IFSC" value={company.ifsc} />}
+                  {company.swift && <DetailRow label="SWIFT" value={company.swift} />}
+                  {company.upi_id && <DetailRow label="UPI" value={company.upi_id} />}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Pay CTA bottom */}
-          {canPay && (
-            <div className="flex justify-center pt-2 print:hidden">
-              <button
-                type="button"
-                disabled={paying}
-                onClick={handlePay}
-                className="flex items-center gap-2 px-6 py-3 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:opacity-90 active:scale-[0.97] transition disabled:opacity-50"
-              >
-                {paying ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CreditCard className="h-4 w-4" />
-                )}
-                Pay {fmt(amountDue)}
-              </button>
+          {/* Notes & Terms */}
+          {(invoice.notes || invoice.payment_terms || company.payment_terms) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {(invoice.payment_terms || company.payment_terms) && (
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Payment Terms</p>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {invoice.payment_terms || company.payment_terms}
+                  </p>
+                </div>
+              )}
+              {invoice.notes && (
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Notes</p>
+                  <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">{invoice.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Thank you */}
+          <div className="text-center py-3">
+            <p className="text-base font-semibold text-slate-800">Thank you for your business!</p>
+            <p className="text-xs text-slate-500 mt-1">
+              If you have any questions about this invoice, please contact us.
+            </p>
+          </div>
+
+          {/* Company footer inside card */}
+          {(company?.address_line1 || company?.city || company?.phone || company?.email ||
+            company?.website || company?.gst_number || company?.pan_number) && (
+            <div className="border-t border-slate-200 pt-4 mt-2">
+              <div className="space-y-1 text-center text-[11px] text-slate-500 leading-relaxed">
+                {(() => {
+                  const addressLine = [
+                    company.address_line1, company.address_line2,
+                    company.city, company.state, company.postal_code, company.country,
+                  ].filter(Boolean).join(', ');
+                  const taxParts = [
+                    company.gst_number && `GST: ${company.gst_number}`,
+                    company.pan_number && `PAN: ${company.pan_number}`,
+                  ].filter(Boolean);
+                  const contactParts = [
+                    company.phone && `📞 ${company.phone}`,
+                    company.email && `✉ ${company.email}`,
+                    company.website && `🌐 ${company.website}`,
+                  ].filter(Boolean);
+                  return [addressLine, contactParts.join(' · '), taxParts.join(' · ')]
+                    .filter(Boolean)
+                    .map((line, i) => <p key={i}>{line as string}</p>);
+                })()}
+              </div>
             </div>
           )}
         </div>
+
+        {/* Footer */}
+        <div className="bg-slate-50 border-t border-slate-200 px-10 py-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-500">
+            <div className="flex items-center gap-4 flex-wrap">
+              {companyName && (
+                <span className="flex items-center gap-1.5">
+                  <Building2 className="h-3 w-3" /> {companyName}
+                </span>
+              )}
+              {companyAddress && (
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="h-3 w-3" /> {companyAddress}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-4 flex-wrap">
+              {company.email && (
+                <span className="flex items-center gap-1.5">
+                  <Mail className="h-3 w-3" /> {company.email}
+                </span>
+              )}
+              {company.phone && (
+                <span className="flex items-center gap-1.5">
+                  <Phone className="h-3 w-3" /> {company.phone}
+                </span>
+              )}
+              {company.website && (
+                <span className="flex items-center gap-1.5">
+                  <Globe className="h-3 w-3" /> {company.website}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Provider choice */}
+      {/* Print styles */}
+      <style>{`
+        @media print {
+          @page { margin: 0; size: A4; }
+          body * { visibility: hidden !important; }
+          #invoice-print-area, #invoice-print-area * { visibility: visible !important; }
+          #invoice-print-area { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; }
+        }
+      `}</style>
+
+      {/* Payment provider choice */}
       {showPayChoice && (
         <div
           className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
@@ -488,30 +612,20 @@ export default function PublicInvoice() {
             className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-semibold text-slate-900 mb-1">
-              Choose payment method
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Select how you'd like to pay {fmt(amountDue)}.
-            </p>
+            <h3 className="text-base font-semibold text-slate-900 mb-1">Choose payment method</h3>
+            <p className="text-xs text-slate-500 mb-4">Select how you'd like to pay {fmt(amountDue)}.</p>
             <div className="grid grid-cols-1 gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setShowPayChoice(false);
-                  payWithStripe();
-                }}
+                onClick={() => { setShowPayChoice(false); payWithStripe(); }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:opacity-90 transition"
               >
                 <CreditCard className="h-4 w-4" /> Pay with Card (Stripe)
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowPayChoice(false);
-                  payWithRazorpay();
-                }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-cyan-600 text-white text-sm font-semibold hover:opacity-90 transition"
+                onClick={() => { setShowPayChoice(false); payWithRazorpay(); }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:opacity-90 transition"
               >
                 <Wallet className="h-4 w-4" /> Pay with Razorpay
               </button>
@@ -526,6 +640,66 @@ export default function PublicInvoice() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function MetaCard({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="rounded-lg bg-white ring-1 ring-slate-200 px-3 py-2 shadow-sm">
+      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{label}</p>
+      <p className={`text-sm font-semibold mt-0.5 ${highlight ? 'text-blue-700' : 'text-slate-800'}`}>{value}</p>
+    </div>
+  );
+}
+
+function Party({
+  label, name, contact, address, email, phone, gst,
+}: {
+  label: string; name: string; contact?: string; address?: string;
+  email?: string; phone?: string; gst?: string;
+}) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">{label}</p>
+      <p className="text-sm font-bold text-slate-900">{name}</p>
+      {contact && <p className="text-xs text-slate-600 mt-0.5">{contact}</p>}
+      {address && <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{address}</p>}
+      <div className="mt-1.5 space-y-0.5">
+        {email && (
+          <p className="text-xs text-slate-500 flex items-center gap-1.5">
+            <Mail className="h-3 w-3" /> {email}
+          </p>
+        )}
+        {phone && (
+          <p className="text-xs text-slate-500 flex items-center gap-1.5">
+            <Phone className="h-3 w-3" /> {phone}
+          </p>
+        )}
+        {gst && <p className="text-[11px] text-slate-500">GSTIN: {gst}</p>}
+      </div>
+    </div>
+  );
+}
+
+function Row({
+  label, value, bold, valueClass = '',
+}: {
+  label: string; value: string; bold?: boolean; valueClass?: string;
+}) {
+  return (
+    <div className={`flex justify-between ${bold ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
+      <span>{label}</span>
+      <span className={valueClass}>{value}</span>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2">
+      <span className="text-slate-500 min-w-[80px]">{label}:</span>
+      <span className="font-medium text-slate-800 break-all">{value}</span>
     </div>
   );
 }
