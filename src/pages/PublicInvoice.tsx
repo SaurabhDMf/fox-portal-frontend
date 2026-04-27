@@ -54,13 +54,14 @@ export default function PublicInvoice() {
       .then((r) => {
         if (cancelled) return;
         const raw = r.data?.data ?? r.data ?? {};
-        // Backend returns { invoice, items, company, payment_providers }
+        // Backend returns { invoice, items, company, payment_providers, razorpay_key_id }
         const inv = raw.invoice ?? raw;
         setInvoice({
           ...inv,
           items: raw.items ?? inv.items ?? [],
           company: raw.company ?? inv.company ?? {},
           payment_providers: raw.payment_providers ?? inv.payment_providers ?? { stripe: false, razorpay: false },
+          razorpay_key_id: raw.razorpay_key_id ?? inv.razorpay_key_id,
           // Normalise field name differences between backend and template
           total: inv.total ?? inv.total_amount,
           created_at: inv.created_at ?? inv.issue_date,
@@ -131,8 +132,14 @@ export default function PublicInvoice() {
     }
     try {
       const { data } = await publicApi.post(`/invoices/public/${token}/pay/razorpay`);
+      const razorpayKey = data.key_id || invoice?.razorpay_key_id;
+      if (!razorpayKey) {
+        toast.error('Razorpay is not configured for this account');
+        setPaying(false);
+        return;
+      }
       const rzp = new (window as any).Razorpay({
-        key: data.key_id,
+        key: razorpayKey,
         amount: data.amount,
         currency: data.currency,
         name: data.name,

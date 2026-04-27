@@ -42,6 +42,10 @@ export async function payWithRazorpay(
   }
   try {
     const { data } = await api.post(`/invoices/${invoiceId}/pay/razorpay`);
+    if (!data.key_id) {
+      toast.error('Razorpay is not configured — add keys in Settings → Payments');
+      return;
+    }
     const rzp = new (window as any).Razorpay({
       key: data.key_id,
       amount: data.amount,
