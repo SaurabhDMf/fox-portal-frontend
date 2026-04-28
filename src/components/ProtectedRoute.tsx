@@ -5,12 +5,13 @@ interface Props {
   children: React.ReactNode;
   allowedRoles?: string[];
   denyRoles?: string[];
+  loginPath?: string;
 }
 
-export default function ProtectedRoute({ children, allowedRoles, denyRoles }: Props) {
+export default function ProtectedRoute({ children, allowedRoles, denyRoles, loginPath = '/login' }: Props) {
   const { isAuthenticated, user } = useAuthStore();
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to={loginPath} replace />;
 
   if (denyRoles && user && denyRoles.includes(user.role)) {
     const store = useAuthStore.getState();

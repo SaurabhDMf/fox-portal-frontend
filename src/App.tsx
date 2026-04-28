@@ -148,13 +148,13 @@ const App = () => (
         </Route>
 
         {/* Legacy Client Portal (redirect) */}
-        <Route path="/portal" element={<ProtectedRoute allowedRoles={['client']}><Outlet /></ProtectedRoute>}>
+        <Route path="/portal" element={<ProtectedRoute allowedRoles={['client']} loginPath="/client-login"><Outlet /></ProtectedRoute>}>
           <Route index element={<ClientPortalRedirect />} />
           <Route path="*" element={<ClientPortalChildRedirect />} />
         </Route>
 
         {/* New Client Portal */}
-        <Route path="/client-portal" element={<ProtectedRoute allowedRoles={['client']}><ClientPortalLayout /></ProtectedRoute>}>
+        <Route path="/client-portal" element={<ProtectedRoute allowedRoles={['client']} loginPath="/client-login"><ClientPortalLayout /></ProtectedRoute>}>
           <Route index element={<CPDashboard />} />
           <Route path="invoices" element={<CPInvoices />} />
           <Route path="invoices/:id" element={<CPInvoiceDetail />} />
