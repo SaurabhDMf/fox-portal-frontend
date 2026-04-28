@@ -8,7 +8,6 @@ import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, Chevro
 import toast from 'react-hot-toast';
 import ConvertLeadModal from '@/components/crm/ConvertLeadModal';
 
-const CONVERT_ROLES = ['super_admin', 'admin', 'sales_manager'];
 
 
 const defaultStatuses = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Negotiation', 'Closed Won', 'Closed Lost'];
@@ -380,7 +379,7 @@ export default function CRM() {
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{resolveAssignedTo(lead) || '—'}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-1">
-                        {CONVERT_ROLES.includes(user?.role || '') && lead.status !== 'Closed Won' && (
+                        {perm.canEdit && lead.status !== 'Closed Won' && (
                           <button onClick={(e) => { e.stopPropagation(); setShowConvert(lead); }} className="p-1.5 rounded-md hover:bg-success/10 text-muted-foreground hover:text-success transition-colors" title="Convert to Client">
                             <UserCheck className="h-4 w-4" />
                           </button>

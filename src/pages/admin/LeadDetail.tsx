@@ -4,11 +4,10 @@ import api from '@/lib/api';
 import { useState } from 'react';
 import { ArrowLeft, Phone, Mail, Building2, Plus, X, UserCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useAuthStore } from '@/stores/authStore';
+import { useModulePermission } from '@/hooks/usePermission';
 import ConvertLeadModal from '@/components/crm/ConvertLeadModal';
 
 const activityTypes = ['Call', 'Email', 'Meeting', 'Note', 'Follow-up'];
-const CONVERT_ROLES = ['super_admin', 'admin', 'sales_manager'];
 
 function getLeadCountry(lead: any): string {
   return lead?.country || lead?.country_name || lead?.lead_country || lead?.location || lead?.meta?.country || '';
@@ -22,7 +21,7 @@ export default function LeadDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const userRole = useAuthStore(s => s.user?.role);
+  const perm = useModulePermission('crm');
   const [showActivity, setShowActivity] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
   const [actForm, setActForm] = useState({ type: 'Call', title: '', description: '', duration_mins: 0, outcome: '' });
@@ -53,7 +52,7 @@ export default function LeadDetail() {
         <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" /> Back to CRM
         </button>
-        {CONVERT_ROLES.includes(userRole || '') && lead.status !== 'Closed Won' && (
+        {perm.canEdit && lead.status !== 'Closed Won' && (
           <button
             onClick={() => setShowConvert(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
