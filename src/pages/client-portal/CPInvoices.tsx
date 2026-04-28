@@ -4,6 +4,7 @@ import { Download, Eye, CreditCard } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useCompanyCurrency } from '@/hooks/useCompanyCurrency';
 
 const STATUS_FILTERS = ['All', 'Paid', 'Overdue', 'Sent', 'Pending', 'Draft'];
 
@@ -25,6 +26,7 @@ async function downloadPdf(inv: any) {
 export default function CPInvoices() {
   const [filter, setFilter] = useState('All');
   const navigate = useNavigate();
+  const { currencySymbol } = useCompanyCurrency();
 
   const { data = [] } = useQuery({
     queryKey: ['cp-invoices'],
@@ -40,10 +42,8 @@ export default function CPInvoices() {
 
   const fmtDate = (d: string) =>
     d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-  const fmtAmt = (v: number, currency?: string) => {
-    const sym = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '₹';
-    return `${sym}${Number(v || 0).toLocaleString('en-IN')}`;
-  };
+  const fmtAmt = (v: number, currency?: string) =>
+    `${currencySymbol(currency)}${Number(v || 0).toLocaleString('en-IN')}`;
 
   return (
     <div className="page-container">

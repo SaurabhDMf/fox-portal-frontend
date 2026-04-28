@@ -5,6 +5,7 @@ import api from '@/lib/api';
 import { ArrowLeft, Printer, Download, CreditCard, FileText, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { payWithStripe, payWithRazorpay } from '@/lib/payments';
+import { useCompanyCurrency } from '@/hooks/useCompanyCurrency';
 
 export default function CPInvoiceDetail() {
   const { id } = useParams();
@@ -31,11 +32,11 @@ export default function CPInvoiceDetail() {
     }
   }, [searchParams]);
 
+  const { currencySymbol } = useCompanyCurrency();
   const inv = data || {};
   const items = inv.items || inv.line_items || [];
   const payments = inv.payments || [];
-  const sym = inv.currency === 'USD' ? '$' : inv.currency === 'EUR' ? '€' : inv.currency === 'GBP' ? '£' : '₹';
-  const fmt = (v: number) => `${sym}${Number(v || 0).toLocaleString('en-IN')}`;
+  const fmt = (v: number) => `${currencySymbol(inv.currency)}${Number(v || 0).toLocaleString('en-IN')}`;
   const fmtDate = (d: string) =>
     d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 

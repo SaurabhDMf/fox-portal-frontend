@@ -8,10 +8,11 @@ import api from '@/lib/api';
  */
 export function usePermissionsRefresh() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const accessToken = useAuthStore((s) => s.accessToken);
   const setPermissions = useAuthStore((s) => s.setPermissions);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !accessToken) return;
 
     api.get('/permissions/my')
       .then((res) => {

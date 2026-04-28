@@ -8,6 +8,7 @@ import { DependencyDeleteHost } from "@/lib/dependencyDelete";
 import NotificationsSocketBridge from "@/hooks/useNotificationsSocket";
 
 import Login from "./pages/Login";
+import ClientLogin from "./pages/ClientLogin";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PortalLayout from "./components/layouts/PortalLayout";
 
@@ -96,6 +97,7 @@ const App = () => (
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/client-login" element={<ClientLogin />} />
         <Route path="/invoice/:token" element={<PublicInvoice />} />
 
         {/* Admin Portal */}

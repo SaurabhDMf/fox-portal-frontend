@@ -9,8 +9,8 @@ import ThemeLogo from '@/components/ThemeLogo';
 
 type LoginMode = 'team' | 'client';
 
-export default function Login() {
-  const [mode, setMode] = useState<LoginMode>('team');
+export default function Login({ defaultMode = 'team' }: { defaultMode?: LoginMode }) {
+  const [mode, setMode] = useState<LoginMode>(defaultMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
