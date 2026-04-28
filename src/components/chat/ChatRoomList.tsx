@@ -30,6 +30,7 @@ interface Props {
   onSelectRoom: (id: string) => void;
   onCreateGroup: () => void;
   onCreateDM: () => void;
+  hideCreateGroup?: boolean;
 }
 
 function getDisplayName(room: ChatRoom) {
@@ -38,7 +39,7 @@ function getDisplayName(room: ChatRoom) {
     : (room.name ?? 'Unnamed Room');
 }
 
-export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, onCreateDM }: Props) {
+export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, onCreateDM, hideCreateGroup = false }: Props) {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'dm' | 'group'>('all');
   const user = useAuthStore(s => s.user);
@@ -135,14 +136,16 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-sm">Messages</h2>
           <div className="flex gap-1">
-            <button onClick={onCreateDM} title="Direct Message"
+            <button onClick={onCreateDM} title="New Message"
               className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
               <MessageSquare className="h-4 w-4" />
             </button>
-            <button onClick={onCreateGroup} title="New Group"
-              className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
-              <Plus className="h-4 w-4" />
-            </button>
+            {!hideCreateGroup && (
+              <button onClick={onCreateGroup} title="New Group"
+                className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+                <Plus className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
         <div className="relative">

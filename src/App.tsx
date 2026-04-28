@@ -54,6 +54,7 @@ import CPSupport from "./pages/client-portal/CPSupport";
 import CPTicketDetail from "./pages/client-portal/CPTicketDetail";
 import CPProfile from "./pages/client-portal/CPProfile";
 import CPTasks from "./pages/client-portal/CPTasks";
+import CPChat from "./pages/client-portal/CPChat";
 
 import NotFound from "./pages/NotFound";
 import PublicInvoice from "./pages/PublicInvoice";
@@ -160,6 +161,7 @@ const App = () => (
           <Route path="projects" element={<CPProjects />} />
           <Route path="projects/:id" element={<CPProjectDetail />} />
           <Route path="tasks" element={<CPTasks />} />
+          <Route path="chat" element={<CPChat />} />
           <Route path="documents" element={<CPDocuments />} />
           <Route path="vault" element={<CPVault />} />
           <Route path="support" element={<CPSupport />} />

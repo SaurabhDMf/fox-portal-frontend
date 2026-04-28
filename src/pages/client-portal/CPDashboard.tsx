@@ -3,10 +3,12 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { DollarSign, FolderKanban, Ticket, Receipt } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useCompanyCurrency } from '@/hooks/useCompanyCurrency';
 
 export default function CPDashboard() {
   const user = useAuthStore(s => s.user);
   const navigate = useNavigate();
+  const { currencySymbol } = useCompanyCurrency();
 
   const { data: dashData } = useQuery({
     queryKey: ['cp-dashboard'],
@@ -28,10 +30,10 @@ export default function CPDashboard() {
 
   const recentInvoices = Array.isArray(invoicesRaw) ? invoicesRaw.slice(0, 3) : [];
 
-  const fmt = (v: number) => {
-    const abs = Math.abs(v);
-    return abs >= 1000 ? `₹${abs.toLocaleString('en-IN')}` : `₹${abs}`;
-  };
+  // For aggregated stats (total billed / amount due) use the company currency.
+  // For per-invoice rows pass inv.currency explicitly.
+  const fmt = (v: number, currency?: string) =>
+    `${currencySymbol(currency)}${Number(Math.abs(v) || 0).toLocaleString()}`;
 
   return (
     <div className="page-container">
@@ -97,7 +99,7 @@ export default function CPDashboard() {
                   <tr key={inv.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer"
                       onClick={() => navigate(`/client-portal/invoices/${inv.id}`)}>
                     <td className="p-3 font-medium">{inv.invoice_number || inv.id?.slice(0, 8)}</td>
-                    <td className="p-3 font-semibold">{fmt(Number(inv.total || inv.amount || 0))}</td>
+                    <td className="p-3 font-semibold">{fmt(Number(inv.total || inv.amount || 0), inv.currency)}</td>
                     <td className="p-3"><StatusBadge status={inv.status} /></td>
                   </tr>
                 ))}
