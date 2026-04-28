@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useModulePermission } from '@/hooks/usePermission';
 import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, ChevronUp, Check, Pencil, ArrowUpDown, UserCheck } from 'lucide-react';
@@ -153,6 +153,8 @@ function useCustomFields(userId: string | undefined) {
 
 export default function CRM() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const portalBase = location.pathname.startsWith('/emp') ? '/emp' : '/admin';
   const user = useAuthStore(s => s.user);
   const perm = useModulePermission('crm');
   const [view, setView] = useState<'list' | 'kanban'>('list');
@@ -364,19 +366,19 @@ export default function CRM() {
                 return (
                   <tr key={lead.id}
                     className={`border-b border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer ${stale ? 'bg-destructive/5' : ''}`}>
-                    <td className={`p-4 text-muted-foreground ${stale ? 'text-destructive font-medium' : ''}`} onClick={() => navigate(`/admin/crm/${lead.id}`)}>
+                    <td className={`p-4 text-muted-foreground ${stale ? 'text-destructive font-medium' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>
                       {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—'}
                     </td>
-                    <td className={`p-4 font-medium ${stale ? 'text-destructive' : ''}`} onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.full_name}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.email || '—'}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{lead.phone || '—'}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{getLeadCountry(lead) || '—'}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{getLeadPurpose(lead) || '—'}</td>
-                    <td className="p-4" onClick={() => navigate(`/admin/crm/${lead.id}`)}>
+                    <td className={`p-4 font-medium ${stale ? 'text-destructive' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.full_name}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.email || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.phone || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{getLeadCountry(lead) || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{getLeadPurpose(lead) || '—'}</td>
+                    <td className="p-4" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>
                       <span className={lead.status === 'Closed Won' ? 'badge-success' : lead.status === 'Closed Lost' ? 'badge-danger' : 'badge-info'}>{lead.status}</span>
                     </td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{resolveAddedBy(lead) || '—'}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`/admin/crm/${lead.id}`)}>{resolveAssignedTo(lead) || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{resolveAddedBy(lead) || '—'}</td>
+                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{resolveAssignedTo(lead) || '—'}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-1">
                         {perm.canEdit && lead.status !== 'Closed Won' && (
@@ -425,7 +427,7 @@ export default function CRM() {
                   {col.map((lead: any) => {
                     const stale = isStale(lead);
                     return (
-                      <div key={lead.id} onClick={() => navigate(`/admin/crm/${lead.id}`)}
+                      <div key={lead.id} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}
                         className={`glass-card-hover p-3 space-y-2 cursor-pointer ${stale ? 'border-destructive/50 bg-destructive/5' : ''}`}>
                         <div className="flex items-start justify-between">
                           <div className={`font-medium text-sm ${stale ? 'text-destructive' : ''}`}>{lead.full_name}</div>

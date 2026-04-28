@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '@/lib/api';
 import { useState } from 'react';
 import { ArrowLeft, Phone, Mail, Building2, Plus, X, UserCheck } from 'lucide-react';
@@ -20,6 +20,8 @@ function getLeadPurpose(lead: any): string {
 export default function LeadDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdminPortal = location.pathname.startsWith('/admin');
   const qc = useQueryClient();
   const perm = useModulePermission('crm');
   const [showActivity, setShowActivity] = useState(false);
@@ -60,7 +62,7 @@ export default function LeadDetail() {
             <UserCheck className="h-4 w-4" /> Convert to Client
           </button>
         )}
-        {lead.status === 'Closed Won' && lead.client_id && (
+        {isAdminPortal && lead.status === 'Closed Won' && lead.client_id && (
           <button
             onClick={() => navigate(`/admin/clients/${lead.client_id}`)}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-success/10 text-success text-sm font-medium hover:bg-success/20 transition-all"
