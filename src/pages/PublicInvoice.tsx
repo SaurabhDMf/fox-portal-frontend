@@ -535,32 +535,6 @@ export default function PublicInvoice() {
             </p>
           </div>
 
-          {/* Company footer inside card */}
-          {(company?.address_line1 || company?.city || company?.phone || company?.email ||
-            company?.website || company?.gst_number || company?.pan_number) && (
-            <div className="border-t border-slate-200 pt-4 mt-2">
-              <div className="space-y-1 text-center text-[11px] text-slate-500 leading-relaxed">
-                {(() => {
-                  const addressLine = [
-                    company.address_line1, company.address_line2,
-                    company.city, company.state, company.postal_code, company.country,
-                  ].filter(Boolean).join(', ');
-                  const taxParts = [
-                    company.gst_number && `GST: ${company.gst_number}`,
-                    company.pan_number && `PAN: ${company.pan_number}`,
-                  ].filter(Boolean);
-                  const contactParts = [
-                    company.phone && `📞 ${company.phone}`,
-                    company.email && `✉ ${company.email}`,
-                    company.website && `🌐 ${company.website}`,
-                  ].filter(Boolean);
-                  return [addressLine, contactParts.join(' · '), taxParts.join(' · ')]
-                    .filter(Boolean)
-                    .map((line, i) => <p key={i}>{line as string}</p>);
-                })()}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
