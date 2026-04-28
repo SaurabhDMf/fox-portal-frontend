@@ -73,7 +73,7 @@ export default function PublicInvoice() {
         if (status === 404 || status === 410) {
           setError('This link is invalid or has been revoked.');
         } else {
-          setError(e?.response?.data?.message || 'Failed to load invoice');
+          setError(e?.response?.data?.error || e?.response?.data?.message || 'Failed to load invoice');
         }
       })
       .finally(() => !cancelled && setLoading(false));

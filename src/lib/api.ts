@@ -115,7 +115,11 @@ api.interceptors.response.use(
       } catch (err) {
         processQueue(err, null);
         localStorage.removeItem('ubp-auth');
-        window.location.href = '/login';
+        // Don't redirect away from public pages (e.g. /invoice/:token)
+        const isPublicPage = window.location.pathname.startsWith('/invoice/');
+        if (!isPublicPage) {
+          window.location.href = '/login';
+        }
         return Promise.reject(err);
       } finally {
         isRefreshing = false;
