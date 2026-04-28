@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { MessageSquare } from 'lucide-react';
 import ChatRoomList from '@/components/chat/ChatRoomList';
 import ChatMessageArea from '@/components/chat/ChatMessageArea';
-import CreateDMModal from '@/components/chat/CreateDMModal';
-import toast from 'react-hot-toast';
+import CPCreateDMModal from '@/components/chat/CPCreateDMModal';
 
 export default function CPChat() {
   const qc = useQueryClient();
@@ -66,7 +65,7 @@ export default function CPChat() {
       </div>
 
       {showCreateDM && (
-        <CreateDMModal
+        <CPCreateDMModal
           onClose={() => setShowCreateDM(false)}
           onCreated={(id) => { setActiveRoom(id); setShowCreateDM(false); }}
         />
