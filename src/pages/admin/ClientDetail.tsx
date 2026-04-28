@@ -45,7 +45,7 @@ export default function ClientDetail() {
   const editMut = useMutation({
     mutationFn: (d: ClientFormData) => api.put(`/clients/${id}`, d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['client', id] }); qc.invalidateQueries({ queryKey: ['clients'] }); setShowEdit(false); toast.success('Client updated'); },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
+    onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Failed to update client'),
   });
 
   const deleteMut = useMutation({

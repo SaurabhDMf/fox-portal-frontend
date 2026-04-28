@@ -45,7 +45,7 @@ export default function ClientPortalSidebar({ mobileOpen, onMobileClose }: Sideb
     try { await api.post('/auth/logout', { refreshToken }); } catch {}
     logout();
     toast.success('Logged out');
-    navigate('/login');
+    navigate('/client-login');
   };
 
   const isActive = (path: string) =>
