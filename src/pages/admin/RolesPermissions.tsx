@@ -31,6 +31,7 @@ export default function RolesPermissions() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingRole, setEditingRole] = useState<string | null>(null);
+  const [editingIsSystem, setEditingIsSystem] = useState(false);
   const [form, setForm] = useState<RoleForm>(emptyForm());
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
 
@@ -61,10 +62,11 @@ export default function RolesPermissions() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting role'),
   });
 
-  const openCreate = () => { setForm(emptyForm()); setEditingRole(null); setShowModal(true); };
+  const openCreate = () => { setForm(emptyForm()); setEditingRole(null); setEditingIsSystem(false); setShowModal(true); };
   const openEdit = (role: any) => {
     setForm({ name: role.name, label: role.label || role.name, description: role.description || '', permissions: role.permissions || emptyPermissions() });
     setEditingRole(role.name);
+    setEditingIsSystem(!!role.is_system);
     setShowModal(true);
   };
 
@@ -126,16 +128,16 @@ export default function RolesPermissions() {
                       {role.description && <p className="text-xs text-muted-foreground mt-0.5">{role.description}</p>}
                     </div>
                   </div>
-                  {!isSystem && (
-                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => openEdit(role)} className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button onClick={() => setDeleteTarget(role)} className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive">
+                  <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => openEdit(role)} className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground" title="Edit permissions">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    {!isSystem && (
+                      <button onClick={() => setDeleteTarget(role)} className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive" title="Delete role">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 {isOpen && perms && (
@@ -183,10 +185,16 @@ export default function RolesPermissions() {
           <div className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between p-6 border-b border-border">
               <h2 className="text-lg font-semibold">{editingRole ? 'Edit Role' : 'Create Role'}</h2>
-              <button onClick={() => { setShowModal(false); setEditingRole(null); }} className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground">
+              <button onClick={() => { setShowModal(false); setEditingRole(null); setEditingIsSystem(false); }} className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground">
                 <XIcon className="h-4 w-4" />
               </button>
             </div>
+            {editingIsSystem && (
+              <div className="mx-6 mt-0 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                <Lock className="h-3.5 w-3.5 shrink-0" />
+                System role — name cannot be changed. Editing permissions will affect all users with this role.
+              </div>
+            )}
             <div className="p-6 space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
@@ -238,7 +246,7 @@ export default function RolesPermissions() {
               </div>
             </div>
             <div className="flex gap-2 justify-end p-6 border-t border-border">
-              <button onClick={() => { setShowModal(false); setEditingRole(null); }} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={() => { setShowModal(false); setEditingRole(null); setEditingIsSystem(false); }} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
               <button onClick={handleSave} disabled={createMut.isPending || updateMut.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
                 {(createMut.isPending || updateMut.isPending) ? 'Saving...' : editingRole ? 'Update Role' : 'Create Role'}
               </button>
