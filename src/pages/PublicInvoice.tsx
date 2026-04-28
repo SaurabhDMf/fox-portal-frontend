@@ -275,68 +275,60 @@ export default function PublicInvoice() {
         id="invoice-print-area"
       >
         {/* Header */}
-        <div className="px-10 pt-10 pb-6 border-b border-slate-200">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+        <div className="px-8 sm:px-10 pt-10 pb-7 border-b border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
             {/* LEFT — company branding */}
-            <div className="space-y-2">
+            <div className="flex flex-col gap-3 flex-1 min-w-0">
               {company.logo_url ? (
                 <img
                   src={company.logo_url}
                   alt={companyName || 'Company logo'}
-                  style={{ maxHeight: 80 }}
-                  className="object-contain"
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    img.style.display = 'none';
-                    const fb = img.nextElementSibling as HTMLElement | null;
-                    if (fb) fb.style.display = 'flex';
-                  }}
+                  style={{ maxHeight: 64 }}
+                  className="object-contain object-left"
                 />
-              ) : null}
-              <div
-                className="h-16 w-16 rounded-xl bg-slate-100 ring-1 ring-slate-200 items-center justify-center"
-                style={{ display: company.logo_url ? 'none' : 'flex' }}
-              >
-                <Building2 className="h-7 w-7 text-slate-500" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900">{companyName || '—'}</h2>
-              <div className="text-sm text-slate-600 leading-relaxed space-y-0.5">
-                {company.address_line1 && <div>{company.address_line1}</div>}
-                {(company.city || company.state || company.postal_code) && (
-                  <div>{[company.city, company.state, company.postal_code].filter(Boolean).join(', ')}</div>
-                )}
-                {company.country && <div>{company.country}</div>}
-                {(company.email || company.phone) && (
-                  <div className="text-slate-500 pt-1">
-                    {[company.email, company.phone].filter(Boolean).join(' | ')}
-                  </div>
-                )}
-                {company.gst_number && <div className="text-slate-500">GST: {company.gst_number}</div>}
+              ) : (
+                <div className="h-14 w-14 rounded-xl bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center flex-shrink-0">
+                  <Building2 className="h-7 w-7 text-slate-500" />
+                </div>
+              )}
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 leading-tight">{companyName || '—'}</h2>
+                <div className="mt-1.5 text-sm text-slate-500 leading-relaxed space-y-0.5">
+                  {company.address_line1 && <div>{company.address_line1}</div>}
+                  {(company.city || company.state || company.postal_code) && (
+                    <div>{[company.city, company.state, company.postal_code].filter(Boolean).join(', ')}</div>
+                  )}
+                  {company.country && <div>{company.country}</div>}
+                  {(company.email || company.phone) && (
+                    <div className="pt-0.5">{[company.email, company.phone].filter(Boolean).join(' · ')}</div>
+                  )}
+                  {company.gst_number && <div>GST: {company.gst_number}</div>}
+                </div>
               </div>
             </div>
 
             {/* RIGHT — invoice meta */}
-            <div className="sm:text-right space-y-2">
-              <h1 className="text-4xl font-bold tracking-tight text-slate-900">INVOICE</h1>
-              <div className="text-sm text-slate-700 space-y-1">
-                <div>
-                  <span className="text-slate-500">Invoice #&nbsp;</span>
-                  <span className="font-semibold">{invoice.invoice_number || '—'}</span>
+            <div className="flex flex-col items-start sm:items-end gap-2 flex-shrink-0">
+              <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900">INVOICE</h1>
+              <div className="text-sm space-y-1.5 sm:text-right">
+                <div className="flex items-center sm:justify-end gap-3">
+                  <span className="text-slate-400 w-20 sm:w-auto">Invoice #</span>
+                  <span className="font-semibold text-slate-800">{invoice.invoice_number || '—'}</span>
                 </div>
-                <div>
-                  <span className="text-slate-500">Issue Date&nbsp;</span>
-                  <span className="font-medium">
+                <div className="flex items-center sm:justify-end gap-3">
+                  <span className="text-slate-400 w-20 sm:w-auto">Issue Date</span>
+                  <span className="font-medium text-slate-700">
                     {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString() : '—'}
                   </span>
                 </div>
-                <div>
-                  <span className="text-slate-500">Due Date&nbsp;</span>
-                  <span className="font-medium">
+                <div className="flex items-center sm:justify-end gap-3">
+                  <span className="text-slate-400 w-20 sm:w-auto">Due Date</span>
+                  <span className="font-medium text-slate-700">
                     {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '—'}
                   </span>
                 </div>
               </div>
-              <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ring-1 ${statusCls}`}>
+              <span className={`mt-1 inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold ring-1 ${statusCls}`}>
                 {invoice.status || 'Draft'}
               </span>
             </div>
