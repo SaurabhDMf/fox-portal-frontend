@@ -7,7 +7,6 @@ import ChatMessageArea from '@/components/chat/ChatMessageArea';
 import CPCreateDMModal from '@/components/chat/CPCreateDMModal';
 
 export default function CPChat() {
-  const qc = useQueryClient();
   const [activeRoom, setActiveRoom] = useState<string | null>(null);
   const [showCreateDM, setShowCreateDM] = useState(false);
 
