@@ -21,17 +21,25 @@ export default function CPDashboard() {
   });
 
   const stats = dashData || {};
-  const invoices = stats.invoices || {};
-  const totalBilled = invoices.total_billed ?? stats.total_invoiced ?? 0;
-  const totalPaid = invoices.total_paid ?? 0;
-  const amountDue = totalBilled - totalPaid || stats.amount_due || 0;
   const activeProjects = stats.projects?.count ?? stats.active_projects ?? 0;
   const openTickets = stats.open_tickets?.count ?? stats.open_tickets ?? 0;
 
-  const recentInvoices = Array.isArray(invoicesRaw) ? invoicesRaw.slice(0, 3) : [];
+  const allInvoices = Array.isArray(invoicesRaw) ? invoicesRaw : [];
+  const recentInvoices = allInvoices.slice(0, 3);
 
-  // For aggregated stats (total billed / amount due) use the company currency.
-  // For per-invoice rows pass inv.currency explicitly.
+  // Compute per-currency totals from the actual invoices (not pre-aggregated stats)
+  const currencyTotals = allInvoices.reduce((acc: Record<string, { billed: number; due: number }>, inv: any) => {
+    const cur = inv.currency || 'USD';
+    const total = Number(inv.total_amount ?? inv.total ?? inv.amount ?? 0);
+    const paid = Number(inv.amount_paid ?? inv.paid_amount ?? 0);
+    if (!acc[cur]) acc[cur] = { billed: 0, due: 0 };
+    acc[cur].billed += total;
+    acc[cur].due += Math.max(0, total - paid);
+    return acc;
+  }, {});
+
+  const currencyEntries = Object.entries(currencyTotals);
+
   const fmt = (v: number, currency?: string) =>
     `${currencySymbol(currency)}${Number(Math.abs(v) || 0).toLocaleString()}`;
 
@@ -50,7 +58,17 @@ export default function CPDashboard() {
             <div className="p-2.5 rounded-xl bg-primary/15"><Receipt className="h-5 w-5 text-primary" /></div>
           </div>
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total Billed</p>
-          <p className="text-2xl font-bold">{fmt(totalBilled)}</p>
+          {currencyEntries.length === 0 ? (
+            <p className="text-2xl font-bold">—</p>
+          ) : currencyEntries.length === 1 ? (
+            <p className="text-2xl font-bold">{fmt(currencyEntries[0][1].billed, currencyEntries[0][0])}</p>
+          ) : (
+            <div className="space-y-0.5">
+              {currencyEntries.map(([cur, t]) => (
+                <p key={cur} className="text-lg font-bold">{fmt(t.billed, cur)}</p>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="glass-card-hover p-5 cursor-pointer" onClick={() => navigate('/client-portal/invoices')}>
@@ -58,7 +76,17 @@ export default function CPDashboard() {
             <div className="p-2.5 rounded-xl bg-warning/15"><DollarSign className="h-5 w-5 text-warning" /></div>
           </div>
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Amount Due</p>
-          <p className="text-2xl font-bold">{fmt(amountDue)}</p>
+          {currencyEntries.length === 0 ? (
+            <p className="text-2xl font-bold">—</p>
+          ) : currencyEntries.length === 1 ? (
+            <p className="text-2xl font-bold">{fmt(currencyEntries[0][1].due, currencyEntries[0][0])}</p>
+          ) : (
+            <div className="space-y-0.5">
+              {currencyEntries.map(([cur, t]) => t.due > 0 && (
+                <p key={cur} className="text-lg font-bold">{fmt(t.due, cur)}</p>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="glass-card-hover p-5 cursor-pointer" onClick={() => navigate('/client-portal/projects')}>
