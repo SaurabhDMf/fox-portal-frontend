@@ -19,17 +19,21 @@ export default function CPInvoiceDetail() {
     enabled: !!id,
   });
 
-  // Stripe success redirect handler
+  // Stripe success redirect handler — call sync first so backend marks invoice
+  // as Paid before we refetch, otherwise the UI would still show the old status
   useEffect(() => {
-    if (searchParams.get('payment') === 'success') {
-      toast.success('Payment successful! Thank you.');
+    if (searchParams.get('payment') !== 'success') return;
+    (async () => {
+      try {
+        await api.post(`/invoices/${id}/sync`);
+      } catch { /* best-effort */ }
+      await refetch();
       qc.invalidateQueries({ queryKey: ['cp-invoices'] });
-      refetch();
-      // clean the query param
+      toast.success('Payment successful! Thank you.');
       const next = new URLSearchParams(searchParams);
       next.delete('payment');
       setSearchParams(next, { replace: true });
-    }
+    })();
   }, [searchParams]);
 
   const { currencySymbol } = useCompanyCurrency();

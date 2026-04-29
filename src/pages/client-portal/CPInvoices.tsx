@@ -35,6 +35,8 @@ export default function CPInvoices() {
         const d = r.data;
         return Array.isArray(d) ? d : d?.data || d?.invoices || [];
       }),
+    refetchOnWindowFocus: true,   // re-fetch when tab regains focus (e.g. returning from Stripe)
+    staleTime: 0,                 // always consider data stale so refetch runs on focus
   });
 
   const invoices = Array.isArray(data) ? data : [];
