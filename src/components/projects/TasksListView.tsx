@@ -238,11 +238,26 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   const selectCls = "px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[100px]";
 
+  const STATUS_CHIP_COLORS: Record<string, string> = {
+    'Open':        'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+    'In Progress': 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+    'Review':      'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    'Done':        'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    'Cancelled':   'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300',
+  };
+
   const renderTaskRow = (t: ProjectTask) => {
     const assigneeName = (t as any).assignee_name ?? t.assignees?.[0]?.full_name;
     const assigneeAvatar = (t as any).assignee_avatar ?? t.assignees?.[0]?.avatar_url;
     const visibleStatus = seesMasterStatus ? t.status : (t.my_status || t.status);
     const statusColor = statusObjects.find(s => s.name === visibleStatus)?.color;
+
+    // Parse per-user assignee statuses (admin only)
+    const rawAssigneeStatuses = (t as any).assignee_statuses;
+    const assigneeStatuses: { user_id: string; full_name: string; status: string; is_active: number }[] =
+      seesMasterStatus && rawAssigneeStatuses
+        ? (typeof rawAssigneeStatuses === 'string' ? JSON.parse(rawAssigneeStatuses) : rawAssigneeStatuses) ?? []
+        : [];
     const subtaskCount = (t as any).subtask_count ?? 0;
 
     const rowBg = STATUS_ROW_COLORS[visibleStatus] || '';
@@ -319,14 +334,35 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           </Badge>
         </TableCell>
         <TableCell onClick={e => e.stopPropagation()}>
-          <select
-            value={visibleStatus}
-            onChange={e => handleStatusChange(t.id, e.target.value)}
-            className="px-2 py-1 rounded-md bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-            title={seesMasterStatus ? 'Master task status' : 'Your personal status on this task'}
-          >
-            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <div className="flex flex-col gap-1.5 min-w-[120px]">
+            {/* Master status dropdown — admin controls overall status */}
+            <select
+              value={visibleStatus}
+              onChange={e => handleStatusChange(t.id, e.target.value)}
+              className="px-2 py-1 rounded-md bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 w-full"
+              title={seesMasterStatus ? 'Master task status (visible to all)' : 'Your personal status on this task'}
+            >
+              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {/* Per-user personal status chips — admin only */}
+            {assigneeStatuses.length > 0 && (
+              <div className="flex flex-col gap-0.5">
+                {assigneeStatuses.map(as => (
+                  <div key={as.user_id} className="flex items-center gap-1">
+                    <span className={`shrink-0 text-[9px] font-semibold px-1 py-0.5 rounded ${as.is_active ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                      {initials(as.full_name)}
+                    </span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_CHIP_COLORS[as.status] || 'bg-muted text-muted-foreground'}`}>
+                      {as.status}
+                    </span>
+                    {!as.is_active && (
+                      <span className="text-[8px] text-muted-foreground italic">prev</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </TableCell>
         <TableCell onClick={e => e.stopPropagation()}>
           <select
