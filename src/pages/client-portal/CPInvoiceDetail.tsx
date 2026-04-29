@@ -45,8 +45,8 @@ export default function CPInvoiceDetail() {
     d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
   const total = inv.total_amount ?? inv.total ?? inv.amount ?? 0;
-  const paid = inv.amount_paid ?? inv.paid_amount ?? 0;
-  const due = inv.amount_due ?? Math.max(0, total - paid);
+  const paid  = inv.status === 'Paid' && !inv.amount_paid ? total : (inv.amount_paid ?? inv.paid_amount ?? 0);
+  const due   = inv.status === 'Paid' ? 0 : (inv.amount_due ?? Math.max(0, Number(total) - Number(paid)));
   const providers = inv.payment_providers || { stripe: false, razorpay: false };
   const hasProvider = !!(providers.stripe || providers.razorpay);
   const isPayable =

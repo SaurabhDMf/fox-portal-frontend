@@ -31,10 +31,12 @@ export default function CPDashboard() {
   const currencyTotals = allInvoices.reduce((acc: Record<string, { billed: number; due: number }>, inv: any) => {
     const cur = inv.currency || 'USD';
     const total = Number(inv.total_amount ?? inv.total ?? inv.amount ?? 0);
-    const paid = Number(inv.amount_paid ?? inv.paid_amount ?? 0);
+    const paid  = Number(inv.amount_paid ?? inv.paid_amount ?? 0);
     if (!acc[cur]) acc[cur] = { billed: 0, due: 0 };
     acc[cur].billed += total;
-    acc[cur].due += Math.max(0, total - paid);
+    // amount_due is returned by backend; fall back to status-aware calc
+    const due = inv.status === 'Paid' ? 0 : Number(inv.amount_due ?? Math.max(0, total - paid));
+    acc[cur].due += due;
     return acc;
   }, {});
 
@@ -127,7 +129,7 @@ export default function CPDashboard() {
                   <tr key={inv.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors cursor-pointer"
                       onClick={() => navigate(`/client-portal/invoices/${inv.id}`)}>
                     <td className="p-3 font-medium">{inv.invoice_number || inv.id?.slice(0, 8)}</td>
-                    <td className="p-3 font-semibold">{fmt(Number(inv.total || inv.amount || 0), inv.currency)}</td>
+                    <td className="p-3 font-semibold">{fmt(Number(inv.total_amount || inv.total || inv.amount || 0), inv.currency)}</td>
                     <td className="p-3"><StatusBadge status={inv.status} /></td>
                   </tr>
                 ))}

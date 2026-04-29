@@ -85,9 +85,9 @@ export default function CPInvoices() {
           </thead>
           <tbody>
             {filtered.map((inv: any) => {
-              const total = inv.total_amount ?? inv.total ?? inv.amount ?? 0;
-              const paid = inv.amount_paid ?? inv.paid_amount ?? 0;
+              const total  = inv.total_amount ?? inv.total ?? inv.amount ?? 0;
               const isPaid = inv.status === 'Paid';
+              const paid   = isPaid && !inv.amount_paid ? total : (inv.amount_paid ?? inv.paid_amount ?? 0);
               return (
                 <tr key={inv.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
                   <td className="p-4 font-medium">{inv.invoice_number || inv.id?.slice(0, 8)}</td>
