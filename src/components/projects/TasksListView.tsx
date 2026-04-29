@@ -258,28 +258,28 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     };
   }, [tasks, matchesFilters]);
 
-  // Collapse state — default is ALL OPEN so subtasks are always visible under
-  // their parent. This set tracks parents the user has manually collapsed.
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Expanded set — default empty means all parents are COLLAPSED.
+  // Clicking a chevron adds the parent to this set (expands it).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggleExpanded = useCallback((id: string) => {
-    setCollapsed(prev => {
+    setExpanded(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   }, []);
 
-  // "Expand all" = clear the collapsed set (everything visible)
-  const expandAll = useCallback(() => setCollapsed(new Set()), []);
-
-  // "Collapse all" = add every parent that has subtasks to the collapsed set
-  const collapseAll = useCallback(() => {
+  // "Expand all" = put every parent that has subtasks into the expanded set
+  const expandAll = useCallback(() => {
     const ids = new Set<string>();
     for (const [pid, kids] of subtasksByParent.entries()) {
       if (kids.length > 0) ids.add(pid);
     }
-    setCollapsed(ids);
+    setExpanded(ids);
   }, [subtasksByParent]);
+
+  // "Collapse all" = clear the expanded set
+  const collapseAll = useCallback(() => setExpanded(new Set()), []);
 
   // Filter option queries
   const { data: sprints } = useQuery({
@@ -740,9 +740,9 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
             ) : parentTasks.length > 0 ? (
               parentTasks.flatMap(t => {
                 const children = subtasksByParent.get(t.id) || [];
-                // Open by default; closed only if user explicitly collapsed it.
-                // When a filter matches a subtask, force-expand even if collapsed.
-                const isOpen = !collapsed.has(t.id) || autoExpandIds.has(t.id);
+                // Collapsed by default; open when user expanded it or a filter
+                // matched one of its subtasks (auto-expand).
+                const isOpen = expanded.has(t.id) || autoExpandIds.has(t.id);
                 const isContextOnly = contextParentIds.has(t.id);
                 const rows = [renderTaskRow(t, {
                   isParent: true,
