@@ -45,28 +45,28 @@ export default function PublicInvoice() {
   const [paying, setPaying] = useState(false);
   const [showPayChoice, setShowPayChoice] = useState(false);
 
+  const applyInvoiceResponse = (r: any, prev?: any) => {
+    const raw = r.data?.data ?? r.data ?? {};
+    const inv = raw.invoice ?? raw;
+    return {
+      ...(prev ?? {}),
+      ...inv,
+      items: raw.items ?? inv.items ?? prev?.items ?? [],
+      company: raw.company ?? inv.company ?? prev?.company ?? {},
+      payment_providers: raw.payment_providers ?? inv.payment_providers ?? prev?.payment_providers ?? { stripe: false, razorpay: false },
+      razorpay_key_id: raw.razorpay_key_id ?? inv.razorpay_key_id ?? prev?.razorpay_key_id,
+      total: inv.total ?? inv.total_amount,
+      created_at: inv.created_at ?? inv.issue_date,
+    };
+  };
+
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
     setLoading(true);
     publicApi
       .get(`/invoices/public/${token}`)
-      .then((r) => {
-        if (cancelled) return;
-        const raw = r.data?.data ?? r.data ?? {};
-        // Backend returns { invoice, items, company, payment_providers, razorpay_key_id }
-        const inv = raw.invoice ?? raw;
-        setInvoice({
-          ...inv,
-          items: raw.items ?? inv.items ?? [],
-          company: raw.company ?? inv.company ?? {},
-          payment_providers: raw.payment_providers ?? inv.payment_providers ?? { stripe: false, razorpay: false },
-          razorpay_key_id: raw.razorpay_key_id ?? inv.razorpay_key_id,
-          // Normalise field name differences between backend and template
-          total: inv.total ?? inv.total_amount,
-          created_at: inv.created_at ?? inv.issue_date,
-        });
-      })
+      .then((r) => { if (!cancelled) setInvoice(applyInvoiceResponse(r)); })
       .catch((e) => {
         if (cancelled) return;
         const status = e?.response?.status;
@@ -79,6 +79,18 @@ export default function PublicInvoice() {
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, [token]);
+
+  // After Stripe redirects back with ?payment=success, sync status then re-fetch
+  useEffect(() => {
+    if (!token || paymentStatus !== 'success') return;
+    let cancelled = false;
+    publicApi
+      .post(`/invoices/public/${token}/sync`)
+      .then(() => publicApi.get(`/invoices/public/${token}`))
+      .then((r) => { if (!cancelled) setInvoice((prev: any) => applyInvoiceResponse(r, prev)); })
+      .catch(() => { /* silent — stale status is still shown, not a crash */ });
+    return () => { cancelled = true; };
+  }, [token, paymentStatus]);
 
   const company: any = invoice?.company || {};
   const companyName = company.name || company.company_name || '';
@@ -232,7 +244,9 @@ export default function PublicInvoice() {
       {paymentStatus === 'success' && (
         <div className="max-w-4xl mx-auto mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 ring-1 ring-emerald-200 text-emerald-800 text-sm font-medium print:hidden">
           <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-          Payment successful! Your invoice will be updated shortly.
+          {invoice?.status === 'Paid'
+            ? 'Payment confirmed! This invoice is now marked as Paid.'
+            : 'Payment received — confirming status…'}
         </div>
       )}
       {paymentStatus === 'cancelled' && (
