@@ -284,6 +284,28 @@ export default function CPInvoiceDetail() {
         </div>
       )}
 
+      {/* Print isolation — hide everything except the invoice card */}
+      <style>{`
+        @media print {
+          @page { margin: 12mm; size: A4 portrait; }
+          body * { visibility: hidden !important; }
+          #invoice-print, #invoice-print * { visibility: visible !important; }
+          #invoice-print {
+            position: absolute !important;
+            left: 0 !important; top: 0 !important; right: 0 !important;
+            background: white !important;
+            color: #1a1a1a !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+          }
+          #invoice-print .text-muted-foreground { color: #555 !important; }
+          #invoice-print .border-border, #invoice-print .border-border\\/50 { border-color: #d1d5db !important; }
+          #invoice-print table th { color: #666 !important; }
+        }
+      `}</style>
+
       {/* Provider choice modal */}
       {showPayChoice && (
         <div
