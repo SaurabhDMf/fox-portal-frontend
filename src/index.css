@@ -141,7 +141,7 @@
     @apply bg-card border border-border rounded-xl shadow-sm;
   }
   .glass-card-hover {
-    @apply glass-card transition-all duration-200 hover:border-primary/40 hover:shadow-md hover:shadow-primary/8;
+    @apply glass-card transition-all duration-200 hover:border-primary/40 hover:shadow-md;
   }
   .stat-card {
     @apply glass-card p-5;
