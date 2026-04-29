@@ -6,7 +6,7 @@ import { useSidebarCollapsed } from './PortalLayout';
 import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
-  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale
+  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale, RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -40,6 +40,7 @@ const adminNav: NavItem[] = [
       { label: 'Input Sheet', path: '/admin/balance-sheet', icon: ListChecks },
     ],
   },
+  { label: 'Subscriptions', path: '/admin/subscriptions', icon: RefreshCw },
   { label: 'Users', path: '/admin/users', icon: Users, module: 'users' },
   { label: 'Reports', path: '/admin/reports', icon: BarChart3, module: 'reports' },
   { label: 'Settings', path: '/admin/settings', icon: Settings },

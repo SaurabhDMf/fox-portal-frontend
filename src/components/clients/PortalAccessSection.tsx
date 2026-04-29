@@ -318,21 +318,20 @@ function CreatePortalModal({ clientId, defaultName, defaultEmail, onClose, onSuc
   const [email, setEmail] = useState(defaultEmail);
   const [password, setPassword] = useState('');
   const [autoGenerate, setAutoGenerate] = useState(true);
+  const [conflictWarning, setConflictWarning] = useState(false);
+
+  const submit = (force = false) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
+    const cleanPassword = password.trim();
+    const payload: Record<string, any> = { email: cleanEmail, full_name: cleanName };
+    if (!autoGenerate && cleanPassword) payload.password = cleanPassword;
+    if (force) payload.force = true;
+    return api.post(`/clients/${clientId}/portal-users`, payload).then(r => r.data);
+  };
 
   const mut = useMutation({
-    mutationFn: () => {
-      const cleanEmail = email.trim().toLowerCase();
-      const cleanName = name.trim();
-      const cleanPassword = password.trim();
-      const payload: Record<string, any> = {
-        email: cleanEmail,
-        full_name: cleanName,
-      };
-      if (!autoGenerate && cleanPassword) {
-        payload.password = cleanPassword;
-      }
-      return api.post(`/clients/${clientId}/portal-users`, payload).then(r => r.data);
-    },
+    mutationFn: () => submit(false),
     onSuccess: (data: any) => {
       const normalizedUser = parsePortalUserResponse(data).user;
       const returnedPassword = extractOneTimePassword(data, !autoGenerate ? password.trim() : undefined);
@@ -347,14 +346,66 @@ function CreatePortalModal({ clientId, defaultName, defaultEmail, onClose, onSuc
       toast.success('Portal access created');
       onSuccess(email.trim().toLowerCase(), returnedPassword, normalizedUser);
     },
-    onError: (e: any) =>
-      toast.error(
-        e?.response?.data?.detail
-          || e?.response?.data?.error
-          || e?.response?.data?.message
-          || 'Failed to create portal access'
-      ),
+    onError: (e: any) => {
+      if (e?.response?.status === 409 && e?.response?.data?.can_force) {
+        setConflictWarning(true);
+      } else {
+        toast.error(
+          e?.response?.data?.detail
+            || e?.response?.data?.error
+            || e?.response?.data?.message
+            || 'Failed to create portal access'
+        );
+      }
+    },
   });
+
+  const forceMut = useMutation({
+    mutationFn: () => submit(true),
+    onSuccess: (data: any) => {
+      const normalizedUser = parsePortalUserResponse(data).user;
+      const returnedPassword = extractOneTimePassword(data, !autoGenerate ? password.trim() : undefined);
+      if (!returnedPassword) {
+        toast.error('Portal access updated but no password was returned');
+        onClose();
+        return;
+      }
+      if (normalizedUser) {
+        qc.setQueryData<PortalUserQueryState>(['portal-user', clientId], { user: normalizedUser, resolved: true });
+      }
+      toast.success('Portal user reassigned to this client');
+      onSuccess(email.trim().toLowerCase(), returnedPassword, normalizedUser);
+    },
+    onError: (e: any) =>
+      toast.error(e?.response?.data?.error || 'Failed to reassign portal user'),
+  });
+
+  if (conflictWarning) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative bg-card border border-border rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+          <h2 className="text-lg font-semibold mb-3">Email Already In Use</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            <span className="font-medium text-foreground">{email.trim().toLowerCase()}</span> is already a portal user for a different client.
+          </p>
+          <p className="text-sm text-muted-foreground mb-5">
+            You can reassign this email to the current client. Their password will be reset and they'll be moved here.
+          </p>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setConflictWarning(false)} className="px-4 py-2 rounded-lg text-sm border border-border hover:bg-secondary transition-colors">Back</button>
+            <button
+              onClick={() => forceMut.mutate()}
+              disabled={forceMut.isPending}
+              className="px-4 py-2 rounded-lg text-sm bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50"
+            >
+              {forceMut.isPending ? 'Reassigning...' : 'Reassign to This Client'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">

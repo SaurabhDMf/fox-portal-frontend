@@ -35,6 +35,7 @@ import RolesPermissions from "./pages/admin/RolesPermissions";
 import EmailPage from "./pages/admin/Email";
 import Expenses from "./pages/admin/Expenses";
 import BalanceSheet from "./pages/admin/BalanceSheet";
+import Subscriptions from "./pages/admin/Subscriptions";
 
 // Employee
 import EmpDashboard from "./pages/emp/EmpDashboard";
@@ -55,6 +56,7 @@ import CPTicketDetail from "./pages/client-portal/CPTicketDetail";
 import CPProfile from "./pages/client-portal/CPProfile";
 import CPTasks from "./pages/client-portal/CPTasks";
 import CPChat from "./pages/client-portal/CPChat";
+import CPSubscriptions from "./pages/client-portal/CPSubscriptions";
 
 import NotFound from "./pages/NotFound";
 import PublicInvoice from "./pages/PublicInvoice";
@@ -125,6 +127,7 @@ const App = () => (
           <Route path="settings" element={<AdminSettings />} />
           <Route path="permissions" element={<Permissions />} />
           <Route path="roles" element={<RolesPermissions />} />
+          <Route path="subscriptions" element={<Subscriptions />} />
         </Route>
 
         {/* Employee Portal */}
@@ -167,6 +170,7 @@ const App = () => (
           <Route path="support" element={<CPSupport />} />
           <Route path="support/:id" element={<CPTicketDetail />} />
           <Route path="profile" element={<CPProfile />} />
+          <Route path="subscriptions" element={<CPSubscriptions />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

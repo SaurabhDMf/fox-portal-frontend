@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useClientSidebarCollapsed } from './ClientPortalLayout';
 import {
   LayoutDashboard, FileText, FolderKanban, BookOpen, Lock,
-  Ticket, User, ChevronLeft, LogOut, X, ListTodo, MessageSquare
+  Ticket, User, ChevronLeft, LogOut, X, ListTodo, MessageSquare, RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -19,6 +19,7 @@ const allNavItems = [
   { label: 'Vault', path: '/client-portal/vault', icon: Lock, permKey: 'can_view_vault' },
   { label: 'Chat', path: '/client-portal/chat', icon: MessageSquare, permKey: 'can_view_chat' },
   { label: 'Support', path: '/client-portal/support', icon: Ticket, permKey: 'can_view_support' },
+  { label: 'Subscriptions', path: '/client-portal/subscriptions', icon: RefreshCw, permKey: null },
   { label: 'Profile', path: '/client-portal/profile', icon: User, permKey: null },
 ] as const;
 

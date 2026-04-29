@@ -71,6 +71,99 @@ const FIELD_HINTS: Record<keyof ColumnMap, string[]> = {
 
 const NONE = '__none__';
 
+// ── Gateway format detection & parsing ──────────────────────────────────────
+
+type GatewayFormat = 'auto' | 'bank' | 'stripe' | 'razorpay';
+
+function detectGatewayFormat(headers: string[]): GatewayFormat {
+  const norm = (s: string) => s.toLowerCase().trim();
+  const nh = headers.map(norm);
+  // Stripe balance transaction export has "net", "fee", "available_on"
+  if (nh.some(h => h === 'available_on' || h === 'available on') && nh.some(h => h === 'net' || h === 'fee')) return 'stripe';
+  // Razorpay has "payment id", "settlement amount", "method"
+  if (nh.some(h => h.includes('payment id') || h === 'payment_id') && nh.some(h => h.includes('settlement'))) return 'razorpay';
+  return 'bank';
+}
+
+function parseStripeRows(rows: Record<string, any>[], fileName: string): ParsedRow[] {
+  return rows
+    .filter(r => {
+      const type = String(r['type'] || r['Type'] || '').toLowerCase();
+      // Include charges/payments; exclude refunds, payouts, fees
+      return !type || type === 'charge' || type === 'payment' || type === 'transfer';
+    })
+    .map((r, idx) => {
+      // Stripe exports amount in cents (integer) or as decimal — net is after fees
+      const netRaw = r['net'] ?? r['Net'] ?? r['amount'] ?? r['Amount'];
+      const net = parseAmount(netRaw);
+      if (net <= 0) return null; // skip refunds / negative entries
+
+      const createdRaw = r['created'] ?? r['Created'] ?? r['available_on'] ?? r['Available On'] ?? '';
+      const date = parseDateCell(createdRaw);
+      if (!date) return null;
+
+      const desc =
+        r['description'] ?? r['Description'] ?? r['statement_descriptor'] ??
+        r['customer_email'] ?? r['Customer Email'] ?? 'Stripe payment';
+
+      const ref = r['id'] ?? r['Id'] ?? r['source'] ?? r['Source'] ?? '';
+
+      return {
+        _id: `stripe-${idx}`,
+        raw: r,
+        date,
+        description: String(desc || 'Stripe payment').trim().slice(0, 120),
+        amount: net / 100, // Stripe amounts are in cents
+        type: 'income' as const,
+        reference: String(ref).trim(),
+        include: true,
+      };
+    })
+    .filter(Boolean) as ParsedRow[];
+}
+
+function parseRazorpayRows(rows: Record<string, any>[], fileName: string): ParsedRow[] {
+  return rows
+    .filter(r => {
+      const status = String(r['Status'] ?? r['status'] ?? r['Payment Status'] ?? '').toLowerCase();
+      return !status || status === 'captured' || status === 'settled' || status === 'success';
+    })
+    .map((r, idx) => {
+      // Try settlement amount first (after fees), then amount
+      const amtRaw =
+        r['Settlement Amount'] ?? r['settlement_amount'] ??
+        r['Amount'] ?? r['amount'] ?? 0;
+      const amt = parseAmount(amtRaw);
+      if (amt <= 0) return null;
+
+      const dateRaw =
+        r['Created At'] ?? r['created_at'] ?? r['Settled At'] ??
+        r['settled_at'] ?? r['Date'] ?? '';
+      const date = parseDateCell(dateRaw);
+      if (!date) return null;
+
+      const contact = r['Contact'] ?? r['contact'] ?? r['Email'] ?? r['email'] ?? '';
+      const method  = r['Method'] ?? r['method'] ?? '';
+      const desc = contact
+        ? `Razorpay payment${method ? ` (${method})` : ''} — ${contact}`
+        : `Razorpay payment${method ? ` (${method})` : ''}`;
+
+      const ref = r['Payment ID'] ?? r['payment_id'] ?? r['Order ID'] ?? r['order_id'] ?? '';
+
+      return {
+        _id: `rzp-${idx}`,
+        raw: r,
+        date,
+        description: desc.slice(0, 120),
+        amount: amt / 100, // Razorpay amounts are in paise
+        type: 'income' as const,
+        reference: String(ref).trim(),
+        include: true,
+      };
+    })
+    .filter(Boolean) as ParsedRow[];
+}
+
 function autoDetect(headers: string[]): ColumnMap {
   const norm = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9 ]/g, '');
   const map: ColumnMap = { date: NONE, description: NONE, debit: NONE, credit: NONE, amount: NONE, reference: NONE };
@@ -119,6 +212,8 @@ export default function BankStatementImportModal({ open, onClose }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>('upload');
   const [fileName, setFileName] = useState('');
+  const [gatewayFormat, setGatewayFormat] = useState<GatewayFormat>('auto');
+  const [detectedFormat, setDetectedFormat] = useState<GatewayFormat>('bank');
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, any>[]>([]);
   const [colMap, setColMap] = useState<ColumnMap>({ date: NONE, description: NONE, debit: NONE, credit: NONE, amount: NONE, reference: NONE });
@@ -135,6 +230,8 @@ export default function BankStatementImportModal({ open, onClose }: Props) {
       setFileName(''); setHeaders([]); setRows([]); setParsed([]);
       setColMap({ date: NONE, description: NONE, debit: NONE, credit: NONE, amount: NONE, reference: NONE });
       setParseError('');
+      setGatewayFormat('auto');
+      setDetectedFormat('bank');
       setProgress({ done: 0, total: 0, success: 0, failed: 0 });
     }
   }, [open]);
@@ -166,8 +263,21 @@ export default function BankStatementImportModal({ open, onClose }: Props) {
           });
         setHeaders(hdrs);
         setRows(dataRows);
-        setColMap(autoDetect(hdrs));
-        setStep('mapping');
+
+        // Detect gateway format and skip column mapping for known formats
+        const resolved: GatewayFormat = gatewayFormat === 'auto' ? detectGatewayFormat(hdrs) : gatewayFormat;
+        setDetectedFormat(resolved);
+
+        if (resolved === 'stripe') {
+          setParsed(parseStripeRows(dataRows, file.name));
+          setStep('preview');
+        } else if (resolved === 'razorpay') {
+          setParsed(parseRazorpayRows(dataRows, file.name));
+          setStep('preview');
+        } else {
+          setColMap(autoDetect(hdrs));
+          setStep('mapping');
+        }
       } else if (ext === 'pdf') {
         await parsePdf(file);
       } else {
@@ -219,8 +329,18 @@ export default function BankStatementImportModal({ open, onClose }: Props) {
       });
       setHeaders(hdrs);
       setRows(dataRows);
-      setColMap(autoDetect(hdrs));
-      setStep('mapping');
+      const resolved: GatewayFormat = gatewayFormat === 'auto' ? detectGatewayFormat(hdrs) : gatewayFormat;
+      setDetectedFormat(resolved);
+      if (resolved === 'stripe') {
+        setParsed(parseStripeRows(dataRows, file.name));
+        setStep('preview');
+      } else if (resolved === 'razorpay') {
+        setParsed(parseRazorpayRows(dataRows, file.name));
+        setStep('preview');
+      } else {
+        setColMap(autoDetect(hdrs));
+        setStep('mapping');
+      }
     } catch (e: any) {
       setParseError('PDF parse failed: ' + (e.message || 'unknown'));
     }
@@ -281,12 +401,15 @@ export default function BankStatementImportModal({ open, onClose }: Props) {
       const r = items[i];
       try {
         if (r.type === 'income') {
+          const source = detectedFormat === 'stripe' ? 'Stripe'
+            : detectedFormat === 'razorpay' ? 'Razorpay'
+            : defaultSource;
           await api.post('/income', {
             title: r.description.slice(0, 120),
-            source: defaultSource,
+            source,
             amount: r.amount,
             income_date: r.date,
-            payment_method: 'Bank Transfer',
+            payment_method: detectedFormat === 'stripe' ? 'Card' : detectedFormat === 'razorpay' ? 'Razorpay' : 'Bank Transfer',
             reference_no: r.reference || null,
             notes: `Imported from ${fileName}`,
           });
@@ -330,9 +453,15 @@ export default function BankStatementImportModal({ open, onClose }: Props) {
               Import Bank Statement
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {step === 'upload' && 'Upload Excel, CSV, or PDF bank statement'}
+              {step === 'upload' && 'Upload bank statement, Stripe, or Razorpay export'}
               {step === 'mapping' && 'Confirm column mapping'}
-              {step === 'preview' && `${includedCount} of ${parsed.length} transactions ready`}
+              {step === 'preview' && (
+                <span>
+                  {detectedFormat === 'stripe' && <span className="text-purple-500 font-medium">Stripe export · </span>}
+                  {detectedFormat === 'razorpay' && <span className="text-blue-500 font-medium">Razorpay export · </span>}
+                  {includedCount} of {parsed.length} transactions ready
+                </span>
+              )}
               {step === 'importing' && `Importing ${progress.done} / ${progress.total}...`}
               {step === 'done' && 'Import complete'}
             </p>
@@ -382,22 +511,38 @@ export default function BankStatementImportModal({ open, onClose }: Props) {
                   <AlertCircle className="h-4 w-4 mt-0.5" /> {parseError}
                 </div>
               )}
-              <div className="grid grid-cols-3 gap-3 text-xs">
-                <div className="p-3 rounded-lg bg-secondary/40 border border-border">
-                  <FileSpreadsheet className="h-4 w-4 text-success mb-1" />
-                  <p className="font-medium">Excel / CSV</p>
-                  <p className="text-muted-foreground">Best accuracy. Recommended.</p>
+
+              {/* Format selector */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">File format</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {([
+                    { value: 'auto', label: 'Auto-detect', sub: 'Let system decide' },
+                    { value: 'bank', label: 'Bank Statement', sub: 'Manual mapping' },
+                    { value: 'stripe', label: 'Stripe Export', sub: 'Balance transactions CSV' },
+                    { value: 'razorpay', label: 'Razorpay Export', sub: 'Payments CSV' },
+                  ] as { value: GatewayFormat; label: string; sub: string }[]).map(f => (
+                    <button key={f.value} onClick={() => setGatewayFormat(f.value)}
+                      className={`p-2.5 rounded-lg border text-left text-xs transition-colors ${
+                        gatewayFormat === f.value
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-secondary/30 text-muted-foreground hover:border-primary/50'
+                      }`}>
+                      <p className="font-semibold">{f.label}</p>
+                      <p className="text-[10px] mt-0.5 opacity-70">{f.sub}</p>
+                    </button>
+                  ))}
                 </div>
-                <div className="p-3 rounded-lg bg-secondary/40 border border-border">
-                  <FileText className="h-4 w-4 text-primary mb-1" />
-                  <p className="font-medium">PDF Statements</p>
-                  <p className="text-muted-foreground">Auto-extracts tables.</p>
-                </div>
-                <div className="p-3 rounded-lg bg-secondary/40 border border-border">
-                  <CheckCircle2 className="h-4 w-4 text-warning mb-1" />
-                  <p className="font-medium">Auto-detect</p>
-                  <p className="text-muted-foreground">Columns mapped automatically.</p>
-                </div>
+                {gatewayFormat === 'stripe' && (
+                  <p className="text-[11px] text-muted-foreground mt-1.5 ml-0.5">
+                    From Stripe Dashboard → Reports → Balance → Download CSV
+                  </p>
+                )}
+                {gatewayFormat === 'razorpay' && (
+                  <p className="text-[11px] text-muted-foreground mt-1.5 ml-0.5">
+                    From Razorpay Dashboard → Transactions → Payments → Export
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -592,7 +737,9 @@ export default function BankStatementImportModal({ open, onClose }: Props) {
             )}
             {step === 'preview' && (
               <>
-                <button onClick={() => setStep('mapping')} className="px-4 py-2 rounded-lg text-sm hover:bg-secondary">Back</button>
+                <button
+                  onClick={() => setStep(detectedFormat === 'stripe' || detectedFormat === 'razorpay' ? 'upload' : 'mapping')}
+                  className="px-4 py-2 rounded-lg text-sm hover:bg-secondary">Back</button>
                 <button onClick={importNow} disabled={includedCount === 0}
                   className="px-4 py-2 rounded-lg text-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
                   Import {includedCount} entries
