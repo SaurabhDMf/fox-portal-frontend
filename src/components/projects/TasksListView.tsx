@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, Search, X, Pencil, ChevronDown, ChevronRight, Check, ChevronUp } from 'lucide-react';
+import { Plus, Search, X, Pencil, ChevronDown, ChevronRight, Check, ChevronUp, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import api from '@/lib/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -268,6 +268,16 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     });
   }, []);
 
+  const expandAll = useCallback(() => {
+    const ids = new Set<string>();
+    for (const [pid, kids] of subtasksByParent.entries()) {
+      if (kids.length > 0) ids.add(pid);
+    }
+    setExpanded(ids);
+  }, [subtasksByParent]);
+
+  const collapseAll = useCallback(() => setExpanded(new Set()), []);
+
   // Filter option queries
   const { data: sprints } = useQuery({
     queryKey: ['project-sprints-list', projectId],
@@ -360,70 +370,119 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   const selectCls = "px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[100px]";
 
-  // Renders a single task row. `isParent` adds the expansion chevron when it has children.
-  // `isSubtask` indents the title and applies a subtle background.
-  // `dimmed` reduces opacity for parent rows shown only as context for a matching subtask.
+  // Renders a single task row.
+  // isSubtask: indented with tree connector + parent breadcrumb
+  // isContextParent: parent pulled in only because a subtask matched — shows amber chip
+  // dimmed: reduces opacity
+  // parentTask: used to show "↑ parent title" under the subtask title
   const renderTaskRow = (
     t: ProjectTask,
-    opts: { isParent?: boolean; hasChildren?: boolean; isOpen?: boolean; onToggle?: () => void; isSubtask?: boolean; dimmed?: boolean } = {}
+    opts: {
+      isParent?: boolean;
+      hasChildren?: boolean;
+      isOpen?: boolean;
+      onToggle?: () => void;
+      isSubtask?: boolean;
+      dimmed?: boolean;
+      isContextParent?: boolean;
+      parentTask?: ProjectTask;
+    } = {}
   ) => {
-    const { isParent, hasChildren, isOpen, onToggle, isSubtask, dimmed } = opts;
+    const { isParent, hasChildren, isOpen, onToggle, isSubtask, dimmed, isContextParent, parentTask } = opts;
     const assigneeName = (t as any).assignee_name ?? t.assignees?.[0]?.full_name;
     const assigneeAvatar = (t as any).assignee_avatar ?? t.assignees?.[0]?.avatar_url;
     const visibleStatus = seesMasterStatus ? t.status : (t.my_status || t.status);
     const statusColor = statusObjects.find(s => s.name === visibleStatus)?.color;
-    const rowBg = STATUS_ROW_COLORS[visibleStatus] || '';
-    const subtaskBg = isSubtask ? 'bg-muted/30' : '';
-    const dimmedCls = dimmed ? 'opacity-60' : '';
+
+    const rowBg = isSubtask
+      ? 'bg-muted/25 dark:bg-muted/10'
+      : (STATUS_ROW_COLORS[visibleStatus] || '');
+    const dimmedCls = dimmed ? 'opacity-50' : '';
+
+    const leftBorderStyle: React.CSSProperties = isSubtask
+      ? { borderLeft: '3px solid hsl(var(--primary) / 0.25)' }
+      : (statusColor && !STATUS_ROW_COLORS[visibleStatus]
+        ? { borderLeft: `3px solid ${statusColor}` }
+        : {});
 
     return (
       <TableRow
         key={t.id}
-        className={`cursor-pointer group ${rowBg} ${subtaskBg} ${dimmedCls}`}
+        className={`cursor-pointer group transition-colors ${rowBg} ${dimmedCls}`}
         onClick={() => onTaskClick?.(t)}
-        style={!STATUS_ROW_COLORS[visibleStatus] && statusColor ? { borderLeft: `3px solid ${statusColor}` } : undefined}
+        style={leftBorderStyle}
       >
+        {/* ── Title cell ── */}
         <TableCell>
-          <div className={`min-w-[200px] flex items-center gap-2 ${isSubtask ? 'pl-8' : ''}`}>
-            {isParent && hasChildren ? (
+          <div className={`min-w-[220px] flex items-start gap-1 ${isSubtask ? 'pl-5' : ''}`}>
+            {/* Tree connector (subtasks only) */}
+            {isSubtask && (
+              <div className="shrink-0 self-stretch flex flex-col" aria-hidden>
+                <div className="w-4 h-4 border-l-2 border-b-2 border-border/50 rounded-bl mt-2 mr-1 shrink-0" />
+              </div>
+            )}
+
+            {/* Expand / collapse button (parent rows only) */}
+            {!isSubtask && isParent && hasChildren ? (
               <button
                 onClick={(e) => { e.stopPropagation(); onToggle?.(); }}
-                className="p-0.5 rounded hover:bg-muted shrink-0"
+                className="p-0.5 rounded hover:bg-muted shrink-0 mt-1"
                 aria-label={isOpen ? 'Collapse subtasks' : 'Expand subtasks'}
               >
                 {isOpen
                   ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                   : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
               </button>
-            ) : isParent ? (
-              <span className="w-4 shrink-0" />
+            ) : !isSubtask ? (
+              <span className="w-5 shrink-0" />
             ) : null}
-            <div className="flex items-center gap-2 flex-wrap">
-              {(() => {
-                const hierNum = hierarchicalNumbers.get(t.id);
-                const display = hierNum || t.task_number;
-                if (!display) return null;
-                return (
-                  <span
-                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
-                    title={hierNum && t.task_number ? t.task_number : undefined}
-                  >
-                    {display}
+
+            <div className="flex flex-col gap-0.5 min-w-0">
+              {/* Title row */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {(() => {
+                  const hierNum = hierarchicalNumbers.get(t.id);
+                  const display = hierNum || t.task_number;
+                  if (!display) return null;
+                  return (
+                    <span
+                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
+                        isSubtask ? 'bg-primary/10 text-primary/80' : 'bg-muted text-muted-foreground'
+                      }`}
+                      title={hierNum && t.task_number ? t.task_number : undefined}
+                    >
+                      {display}
+                    </span>
+                  );
+                })()}
+                <span className={`leading-snug ${isSubtask ? 'text-sm text-foreground/90' : 'font-medium text-foreground'}`}>
+                  {t.title}
+                </span>
+                {isParent && hasChildren && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">
+                    {(subtasksByParent.get(t.id) || []).length} sub
                   </span>
-                );
-              })()}
-              <span className="font-medium text-foreground">{t.title}</span>
-              {isParent && hasChildren && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                  {(subtasksByParent.get(t.id) || []).length}
+                )}
+                {isContextParent && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-medium shrink-0">
+                    ↓ subtask match
+                  </span>
+                )}
+                <HandoffBadge handoffInfo={(t as any).handoff_info} />
+              </div>
+
+              {/* Parent breadcrumb — always shown on subtask rows so hierarchy is explicit */}
+              {isSubtask && parentTask && (
+                <span className="text-[10px] text-muted-foreground/60 truncate max-w-[200px] leading-tight">
+                  ↑ {parentTask.title}
                 </span>
               )}
-              <HandoffBadge handoffInfo={(t as any).handoff_info} />
             </div>
           </div>
         </TableCell>
+
         <TableCell>
-          <Badge variant="secondary" className={`text-[10px] ${TYPE_COLORS[t.type] || ''}`}>
+          <Badge variant="secondary" className={`text-[10px] ${isSubtask ? 'opacity-80' : ''} ${TYPE_COLORS[t.type] || ''}`}>
             {t.type || '—'}
           </Badge>
         </TableCell>
@@ -524,11 +583,32 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
             Showing {tasks.filter(matchesFilters).length} task{tasks.filter(matchesFilters).length !== 1 ? 's' : ''}
           </p>
         </div>
-        {onCreateTask && (
-          <Button size="sm" onClick={onCreateTask} className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" /> New Task
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Expand / collapse all — only relevant when tasks with subtasks exist */}
+          {subtasksByParent.size > 0 && (
+            <>
+              <button
+                onClick={expandAll}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-secondary hover:bg-secondary/70 text-muted-foreground transition-colors"
+                title="Expand all"
+              >
+                <ChevronsUpDown className="h-3 w-3" /> Expand All
+              </button>
+              <button
+                onClick={collapseAll}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-secondary hover:bg-secondary/70 text-muted-foreground transition-colors"
+                title="Collapse all"
+              >
+                <ChevronsDownUp className="h-3 w-3" /> Collapse All
+              </button>
+            </>
+          )}
+          {onCreateTask && (
+            <Button size="sm" onClick={onCreateTask} className="gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> New Task
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter bar */}
@@ -657,8 +737,6 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
             ) : parentTasks.length > 0 ? (
               parentTasks.flatMap(t => {
                 const children = subtasksByParent.get(t.id) || [];
-                // Auto-expand parents pulled in only because a subtask matched
-                // the active filter, OR any parent the user manually expanded.
                 const isOpen = expanded.has(t.id) || autoExpandIds.has(t.id);
                 const isContextOnly = contextParentIds.has(t.id);
                 const rows = [renderTaskRow(t, {
@@ -666,13 +744,15 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                   hasChildren: children.length > 0,
                   isOpen,
                   onToggle: () => toggleExpanded(t.id),
-                  dimmed: isContextOnly,
+                  dimmed: isContextOnly && !isOpen,
+                  isContextParent: isContextOnly,
                 })];
                 if (isOpen && children.length > 0) {
                   for (const c of children) {
                     rows.push(renderTaskRow(c, {
                       isSubtask: true,
                       dimmed: dimmedSubtaskIds.has(c.id),
+                      parentTask: t,
                     }));
                   }
                 }

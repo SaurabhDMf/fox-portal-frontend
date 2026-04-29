@@ -136,90 +136,93 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static">
       <div className="w-full max-w-4xl max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible">
-        {/* Action bar - hidden in print */}
-        <div className="flex items-center justify-between gap-3 mb-3 print:hidden">
-          {/* LEFT: status control + lock indicator + delete */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {isAdmin && (
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground whitespace-nowrap">Status</label>
-                <div className="relative">
-                  <select
-                    value={currentStatus}
-                    disabled={statusMut.isPending}
-                    onChange={(e) => handleStatusChange(e.target.value)}
-                    className="px-3 py-2 pr-8 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                  {statusMut.isPending && (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  )}
-                </div>
+        {/* Action bar - single row, hidden in print */}
+        <div className="flex items-center gap-2 mb-3 print:hidden">
+          {/* Status dropdown */}
+          {isAdmin && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <label className="text-xs text-muted-foreground whitespace-nowrap">Status</label>
+              <div className="relative">
+                <select
+                  value={currentStatus}
+                  disabled={statusMut.isPending}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                  className="px-2.5 py-1.5 pr-7 rounded-lg bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+                >
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                {statusMut.isPending && (
+                  <Loader2 className="h-3 w-3 animate-spin absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                )}
               </div>
-            )}
-            {isLocked && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20">
-                <Lock className="h-3 w-3" /> Paid &amp; locked
-              </span>
-            )}
-            {onDelete && (
-              <button
-                onClick={onDelete}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
-              >
-                <Trash2 className="h-4 w-4" /> Delete
-              </button>
-            )}
-          </div>
+            </div>
+          )}
+          {isLocked && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20 shrink-0">
+              <Lock className="h-3 w-3" /> Locked
+            </span>
+          )}
 
-          {/* RIGHT: action buttons */}
-          <div className="flex items-center gap-2">
-            {canPay && (
-              <button
-                type="button"
-                onClick={handlePayClick}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
-              >
-                <CreditCard className="h-4 w-4" /> Pay Now
-              </button>
-            )}
-            {onDelete && !isLocked && (
-              <button
-                onClick={() => setShowEdit(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
-              >
-                <Pencil className="h-4 w-4" /> Edit Invoice
-              </button>
-            )}
-            {onDelete && currentStatus !== 'Cancelled' && (
-              <button
-                onClick={() => setShowSend(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
-              >
-                <Send className="h-4 w-4" /> Send
-              </button>
-            )}
-            {onDelete && (
-              <button
-                onClick={() => setShowShare(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
-              >
-                <Share2 className="h-4 w-4" /> Share
-              </button>
-            )}
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Actions — primary ones keep text, secondary ones are icon+tooltip */}
+          {canPay && (
             <button
-              onClick={() => window.print()}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
+              type="button"
+              onClick={handlePayClick}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all shrink-0"
             >
-              <Printer className="h-4 w-4" /> Print / PDF
+              <CreditCard className="h-3.5 w-3.5" /> Pay Now
             </button>
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary">
-              <X className="h-4 w-4" />
+          )}
+          {onDelete && !isLocked && (
+            <button
+              onClick={() => setShowEdit(true)}
+              title="Edit Invoice"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-foreground text-xs font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all shrink-0"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit
             </button>
-          </div>
+          )}
+          {onDelete && currentStatus !== 'Cancelled' && (
+            <button
+              onClick={() => setShowSend(true)}
+              title="Send Invoice"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-foreground text-xs font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all shrink-0"
+            >
+              <Send className="h-3.5 w-3.5" /> Send
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => setShowShare(true)}
+              title="Share Invoice"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-foreground text-xs font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all shrink-0"
+            >
+              <Share2 className="h-3.5 w-3.5" /> Share
+            </button>
+          )}
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all shrink-0"
+          >
+            <Printer className="h-3.5 w-3.5" /> Print / PDF
+          </button>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              title="Delete Invoice"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive text-destructive-foreground text-xs font-medium hover:opacity-90 active:scale-[0.97] transition-all shrink-0"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete
+            </button>
+          )}
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary shrink-0" title="Close">
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Invoice document */}
