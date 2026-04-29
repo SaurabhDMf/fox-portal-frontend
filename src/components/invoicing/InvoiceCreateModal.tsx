@@ -92,6 +92,24 @@ export default function InvoiceCreateModal({ onClose, existing }: Props) {
     queryFn: () => api.get('/company').then((r) => r.data?.data ?? r.data ?? {}),
   });
 
+  // Auto-draw company name as default signature for new invoices
+  useEffect(() => {
+    if (!company || isEdit || signatureData) return;
+    const name = company?.name || company?.company_name || '';
+    if (!name) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = 'italic bold 52px cursive, Georgia, serif';
+    ctx.fillStyle = '#1e293b';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, canvas.width / 2, canvas.height / 2 + 4);
+    setSignatureData(canvas.toDataURL('image/png'));
+  }, [company]);
+
   // Defaults from company (skipped in edit mode — existing values win)
   useEffect(() => {
     if (!company || isEdit) return;

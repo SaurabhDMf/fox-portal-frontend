@@ -137,12 +137,12 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static">
       <div className="w-full max-w-4xl max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible">
         {/* Action bar - hidden in print */}
-        <div className="flex gap-2 items-center mb-3 print:hidden flex-wrap">
+        <div className="flex items-center justify-between gap-3 mb-3 print:hidden flex-wrap">
           {/* LEFT: status control + lock indicator */}
-          <div className="flex items-center gap-2 mr-auto">
+          <div className="flex items-center gap-2 flex-wrap">
             {isAdmin && (
               <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground">Status</label>
+                <label className="text-xs text-muted-foreground whitespace-nowrap">Status</label>
                 <div className="relative">
                   <select
                     value={currentStatus}
@@ -167,57 +167,59 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
             )}
           </div>
 
-          {/* RIGHT: actions */}
-          {canPay && (
+          {/* RIGHT: action buttons */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {canPay && (
+              <button
+                type="button"
+                onClick={handlePayClick}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
+              >
+                <CreditCard className="h-4 w-4" /> Pay Now
+              </button>
+            )}
+            {onDelete && !isLocked && (
+              <button
+                onClick={() => setShowEdit(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
+              >
+                <Pencil className="h-4 w-4" /> Edit Invoice
+              </button>
+            )}
+            {onDelete && currentStatus !== 'Cancelled' && (
+              <button
+                onClick={() => setShowSend(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
+              >
+                <Send className="h-4 w-4" /> Send
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => setShowShare(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
+              >
+                <Share2 className="h-4 w-4" /> Share
+              </button>
+            )}
             <button
-              type="button"
-              onClick={handlePayClick}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
+              onClick={() => window.print()}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
             >
-              <CreditCard className="h-4 w-4" /> Pay Now
+              <Printer className="h-4 w-4" /> Print / PDF
             </button>
-          )}
-          {onDelete && !isLocked && (
-            <button
-              onClick={() => setShowEdit(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
-            >
-              <Pencil className="h-4 w-4" /> Edit Invoice
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
+              </button>
+            )}
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary">
+              <X className="h-4 w-4" />
             </button>
-          )}
-          {onDelete && currentStatus !== 'Cancelled' && (
-            <button
-              onClick={() => setShowSend(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
-            >
-              <Send className="h-4 w-4" /> Send
-            </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={() => setShowShare(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 active:scale-[0.97] transition-all"
-            >
-              <Share2 className="h-4 w-4" /> Share
-            </button>
-          )}
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
-          >
-            <Printer className="h-4 w-4" /> Print / PDF
-          </button>
-          {onDelete && (
-            <button
-              onClick={onDelete}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
-            >
-              <Trash2 className="h-4 w-4" /> Delete
-            </button>
-          )}
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary">
-            <X className="h-4 w-4" />
-          </button>
+          </div>
         </div>
 
         {/* Invoice document */}
@@ -479,6 +481,23 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
                     <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">{invoice.notes}</p>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Digital Signature */}
+            {invoice.signature && (
+              <div className="flex justify-end">
+                <div className="text-right space-y-1">
+                  <img
+                    src={invoice.signature}
+                    alt="Authorized Signature"
+                    className="h-16 object-contain ml-auto"
+                  />
+                  <div className="border-t border-slate-300 pt-1 text-[11px] text-slate-500">
+                    <p className="font-medium text-slate-700">{companyName}</p>
+                    <p>Authorized Signatory</p>
+                  </div>
+                </div>
               </div>
             )}
 

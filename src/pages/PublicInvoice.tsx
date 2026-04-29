@@ -533,6 +533,23 @@ export default function PublicInvoice() {
             </div>
           )}
 
+          {/* Digital Signature */}
+          {invoice.signature && (
+            <div className="flex justify-end">
+              <div className="text-right space-y-1">
+                <img
+                  src={invoice.signature}
+                  alt="Authorized Signature"
+                  className="h-16 object-contain ml-auto"
+                />
+                <div className="border-t border-slate-300 pt-1 text-[11px] text-slate-500">
+                  <p className="font-medium text-slate-700">{companyName}</p>
+                  <p>Authorized Signatory</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Thank you */}
           <div className="text-center py-3">
             <p className="text-base font-semibold text-slate-800">Thank you for your business!</p>

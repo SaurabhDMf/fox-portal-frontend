@@ -257,6 +257,19 @@ export default function CPInvoiceDetail() {
             </div>
           </div>
 
+          {/* Digital Signature */}
+          {inv.signature && (
+            <div className="flex justify-end mt-4">
+              <div className="text-right space-y-1">
+                <img src={inv.signature} alt="Authorized Signature" className="h-14 object-contain ml-auto" />
+                <div className="border-t border-border pt-1 text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground">{inv.billing_name || inv.company_name || ''}</p>
+                  <p>Authorized Signatory</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Payment History */}
           {payments.length > 0 && (
             <div>
