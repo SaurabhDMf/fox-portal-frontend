@@ -305,17 +305,21 @@ export default function CPInvoiceDetail() {
           #invoice-print, #invoice-print * { visibility: visible !important; }
           #invoice-print {
             position: absolute !important;
-            left: 0 !important; top: 0 !important; right: 0 !important;
+            inset: 0 !important;
             background: white !important;
             color: #1a1a1a !important;
-            padding: 0 !important;
+            padding: 24px !important;
             border: none !important;
             box-shadow: none !important;
             border-radius: 0 !important;
+            backdrop-filter: none !important;
           }
+          #invoice-print * { background-color: transparent !important; border-color: #d1d5db !important; backdrop-filter: none !important; }
           #invoice-print .text-muted-foreground { color: #555 !important; }
-          #invoice-print .border-border, #invoice-print .border-border\\/50 { border-color: #d1d5db !important; }
+          #invoice-print .text-primary { color: #3b5fe2 !important; }
           #invoice-print table th { color: #666 !important; }
+          #invoice-print span[class*="bg-success"] { background-color: #d1fae5 !important; color: #065f46 !important; }
+          #invoice-print span[class*="bg-warning"] { background-color: #fef3c7 !important; color: #92400e !important; }
         }
       `}</style>
 

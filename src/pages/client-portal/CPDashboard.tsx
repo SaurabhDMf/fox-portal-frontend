@@ -17,32 +17,18 @@ export default function CPDashboard() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: invoicesRaw } = useQuery({
-    queryKey: ['cp-invoices'],
-    queryFn: () => api.get('/client/invoices').then(r => r.data?.data || r.data?.invoices || r.data || []),
-  });
-
   const stats = dashData || {};
   const activeProjects = stats.projects?.count ?? stats.active_projects ?? 0;
   const openTickets = stats.open_tickets?.count ?? stats.open_tickets ?? 0;
 
-  const allInvoices = Array.isArray(invoicesRaw) ? invoicesRaw : [];
-  const recentInvoices = allInvoices.slice(0, 3);
+  // recent_invoices comes directly from the dashboard endpoint
+  const recentInvoices: any[] = Array.isArray(stats.recent_invoices) ? stats.recent_invoices.slice(0, 3) : [];
 
-  // Compute per-currency totals from the actual invoices (not pre-aggregated stats)
-  const currencyTotals = allInvoices.reduce((acc: Record<string, { billed: number; due: number }>, inv: any) => {
-    const cur = inv.currency || 'USD';
-    const total = Number(inv.total_amount ?? inv.total ?? inv.amount ?? 0);
-    const paid  = Number(inv.amount_paid ?? inv.paid_amount ?? 0);
-    if (!acc[cur]) acc[cur] = { billed: 0, due: 0 };
-    acc[cur].billed += total;
-    // amount_due is returned by backend; fall back to status-aware calc
-    const due = inv.status === 'Paid' ? 0 : Number(inv.amount_due ?? Math.max(0, total - paid));
-    acc[cur].due += due;
-    return acc;
-  }, {});
-
-  const currencyEntries = Object.entries(currencyTotals);
+  // Pre-aggregated totals from the dashboard endpoint
+  const invoiceSummary = stats.invoices || {};
+  const totalBilled = Number(invoiceSummary.total_billed ?? 0);
+  const amountDue   = Number(invoiceSummary.amount_due   ?? 0);
+  const primaryCurrency = recentInvoices[0]?.currency;
 
   const fmt = (v: number, currency?: string) =>
     `${currencySymbol(currency)}${Number(Math.abs(v) || 0).toLocaleString()}`;
@@ -62,17 +48,7 @@ export default function CPDashboard() {
             <div className="p-2.5 rounded-xl bg-primary/15"><Receipt className="h-5 w-5 text-primary" /></div>
           </div>
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total Billed</p>
-          {currencyEntries.length === 0 ? (
-            <p className="text-2xl font-bold">—</p>
-          ) : currencyEntries.length === 1 ? (
-            <p className="text-2xl font-bold">{fmt(currencyEntries[0][1].billed, currencyEntries[0][0])}</p>
-          ) : (
-            <div className="space-y-0.5">
-              {currencyEntries.map(([cur, t]) => (
-                <p key={cur} className="text-lg font-bold">{fmt(t.billed, cur)}</p>
-              ))}
-            </div>
-          )}
+          <p className="text-2xl font-bold">{totalBilled > 0 ? fmt(totalBilled, primaryCurrency) : '—'}</p>
         </div>
 
         <div className="glass-card-hover p-5 cursor-pointer" onClick={() => navigate('/client-portal/invoices')}>
@@ -80,17 +56,7 @@ export default function CPDashboard() {
             <div className="p-2.5 rounded-xl bg-warning/15"><DollarSign className="h-5 w-5 text-warning" /></div>
           </div>
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Amount Due</p>
-          {currencyEntries.length === 0 ? (
-            <p className="text-2xl font-bold">—</p>
-          ) : currencyEntries.length === 1 ? (
-            <p className="text-2xl font-bold">{fmt(currencyEntries[0][1].due, currencyEntries[0][0])}</p>
-          ) : (
-            <div className="space-y-0.5">
-              {currencyEntries.map(([cur, t]) => t.due > 0 && (
-                <p key={cur} className="text-lg font-bold">{fmt(t.due, cur)}</p>
-              ))}
-            </div>
-          )}
+          <p className="text-2xl font-bold">{amountDue > 0 ? fmt(amountDue, primaryCurrency) : fmt(0, primaryCurrency)}</p>
         </div>
 
         <div className="glass-card-hover p-5 cursor-pointer" onClick={() => navigate('/client-portal/projects')}>

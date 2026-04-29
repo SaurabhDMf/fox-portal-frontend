@@ -36,7 +36,7 @@ export default function CPInvoices() {
   const { data = [] } = useQuery({
     queryKey: ['cp-invoices'],
     queryFn: () =>
-      api.get('/invoices').then((r) => {
+      api.get('/client/invoices').then((r) => {
         const d = r.data;
         return Array.isArray(d) ? d : d?.data || d?.invoices || [];
       }),
