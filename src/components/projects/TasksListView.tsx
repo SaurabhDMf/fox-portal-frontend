@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useMemo, useState, useCallback, useRef, useEffect, type CSSProperties } from 'react';
-import { Plus, Search, X, Pencil, ChevronDown, ChevronRight, Check, ChevronUp, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
+import { Plus, Search, X, Pencil, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import api from '@/lib/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,9 +38,8 @@ const PRIORITY_COLORS: Record<string, string> = {
   Low: 'bg-green-500/15 text-green-700 dark:text-green-400',
 };
 
-// Status-based row background colors for quick visual identification
 const STATUS_ROW_COLORS: Record<string, string> = {
-  'Open': '', // Default
+  'Open': '',
   'In Progress': 'bg-blue-50/50 dark:bg-blue-950/20',
   'Review': 'bg-amber-50/50 dark:bg-amber-950/20',
   'Done': 'bg-green-50/50 dark:bg-green-950/20',
@@ -66,7 +65,6 @@ const initials = (name?: string) => {
 
 const RESTRICTED_ROLES = ['resource', 'freelancer', 'sales_rep'];
 const REPORTER_FILTER_ROLES = new Set(['admin', 'super_admin', 'project_coordinator', 'sales_manager']);
-// Roles that see the master/admin task status. Everyone else sees their personal status.
 const MASTER_STATUS_ROLES = new Set(['admin', 'super_admin', 'manager', 'sales_manager', 'project_manager', 'project_coordinator', 'supervisor']);
 
 export default function TasksListView({ projectId, onTaskClick, onCreateTask }: Props) {
@@ -77,7 +75,6 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
   const seesMasterStatus = MASTER_STATUS_ROLES.has(userRole || '');
   const { statuses: STATUS_OPTIONS, statusObjects } = useProjectStatuses(projectId);
 
-  // Filter state
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -103,7 +100,6 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
       : <ChevronDown className="h-3 w-3 text-primary ml-1 inline" />;
   };
 
-  // Close status dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node)) {
@@ -118,7 +114,6 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     setStatusFilter(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
 
-  // Build query params — priority is client-side only, status is now client-side too for multi-select
   const queryParams = useMemo(() => {
     const p: Record<string, string> = { project_id: projectId };
     if (typeFilter) p.type = typeFilter;
@@ -131,7 +126,6 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     return p;
   }, [projectId, typeFilter, sprintFilter, moduleFilter, assigneeFilter, reporterFilter, sortBy, sortDir]);
 
-  // Main task query
   const { data: raw, isLoading } = useQuery({
     queryKey: ['project-all-tasks', queryParams],
     queryFn: async () => {
@@ -145,11 +139,8 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   const tasks: ProjectTask[] = raw ?? [];
 
-  // Hierarchical "1", "1.1", "1.1.1" numbering computed from the unfiltered
-  // project task list so numbers stay stable when filters are active.
   const hierarchicalNumbers = useMemo(() => computeHierarchicalNumbers(tasks), [tasks]);
 
-  // Client-side filter predicate (priority + status multi-select + search).
   const matchesFilters = useCallback((t: ProjectTask) => {
     if (statusFilter.length > 0 && !statusFilter.includes(t.status)) return false;
     if (priorityFilter && t.priority !== priorityFilter) return false;
@@ -165,59 +156,8 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     return true;
   }, [statusFilter, priorityFilter, search]);
 
-  // Filter root tasks client-side (priority + status + search).
-  const parentTasks = useMemo(() => tasks.filter(matchesFilters), [tasks, matchesFilters]);
+  const visibleTasks = useMemo(() => tasks.filter(matchesFilters), [tasks, matchesFilters]);
 
-  // Expanded set — clicking chevron adds/removes parent id.
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-
-  // Cache of loaded subtasks per parent id. null = currently loading.
-  const [subtasksCache, setSubtasksCache] = useState<Record<string, ProjectTask[] | null>>({});
-
-  const loadSubtasks = useCallback((id: string) => {
-    setSubtasksCache(c => {
-      if (id in c) return c; // already loading or loaded
-      return { ...c, [id]: null }; // null = loading
-    });
-    api.get('/tasks', { params: { parent_task_id: id, project_id: projectId, sort_by: 'created_at', sort_dir: 'asc' } })
-      .then(r => {
-        const d = r.data?.data ?? r.data;
-        setSubtasksCache(c => ({ ...c, [id]: Array.isArray(d) ? d : [] }));
-      })
-      .catch(() => setSubtasksCache(c => ({ ...c, [id]: [] })));
-  }, [projectId]);
-
-  const toggleExpanded = useCallback((t: ProjectTask) => {
-    const id = t.id;
-    const subtaskCount = (t as any).subtask_count ?? 0;
-    setExpanded(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-        if (subtaskCount > 0) loadSubtasks(id);
-      }
-      return next;
-    });
-  }, [loadSubtasks]);
-
-  const expandAll = useCallback(() => {
-    const ids = new Set<string>();
-    for (const t of tasks) {
-      if ((t as any).subtask_count > 0) {
-        ids.add(t.id);
-        loadSubtasks(t.id);
-      }
-    }
-    setExpanded(ids);
-  }, [tasks, loadSubtasks]);
-
-  const collapseAll = useCallback(() => setExpanded(new Set()), []);
-
-  const anyHaveSubtasks = tasks.some(t => (t as any).subtask_count > 0);
-
-  // Filter option queries
   const { data: sprints } = useQuery({
     queryKey: ['project-sprints-list', projectId],
     queryFn: async () => {
@@ -245,15 +185,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     staleTime: 60_000,
   });
 
-  // "Assigned By" options: only project members whose role qualifies them to assign tasks.
-  // Allowed: clients (linked to project), project lead (project_role === 'lead'),
-  // and users with role: project_manager, supervisor, project_coordinator, sales_manager.
-  const ASSIGNER_ROLES = new Set([
-    'project_manager',
-    'supervisor',
-    'project_coordinator',
-    'sales_manager',
-  ]);
+  const ASSIGNER_ROLES = new Set(['project_manager', 'supervisor', 'project_coordinator', 'sales_manager']);
   const reporterOptions = useMemo(() => {
     const list = Array.isArray(members) ? members : [];
     return list.filter((m: any) => {
@@ -278,8 +210,6 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     setReporterFilter('');
   };
 
-  // Inline status update — updates both master and personal status optimistically.
-  // Backend will sync task_assignees.status for the current user automatically.
   const handleStatusChange = useCallback(async (taskId: string, newStatus: string) => {
     qc.setQueryData(['project-all-tasks', queryParams], (old: ProjectTask[] | undefined) => {
       if (!old) return old;
@@ -293,7 +223,6 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     }
   }, [qc, queryParams]);
 
-  // Inline code repo status update
   const handleCodeRepoChange = useCallback(async (taskId: string, val: string | null) => {
     qc.setQueryData(['project-all-tasks', queryParams], (old: ProjectTask[] | undefined) => {
       if (!old) return old;
@@ -309,115 +238,54 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   const selectCls = "px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[100px]";
 
-  const renderTaskRow = (
-    t: ProjectTask,
-    opts: {
-      isSubtask?: boolean;
-      parentTask?: ProjectTask;
-    } = {}
-  ) => {
-    const subtaskCount = (t as any).subtask_count ?? 0;
-    const hasChildren = subtaskCount > 0;
-    const isOpen = expanded.has(t.id);
-    const isParent = !opts.isSubtask;
-    const { isSubtask, parentTask } = opts;
-    const isContextParent = false;
-    const dimmed = false;
-    const onToggle = isParent ? () => toggleExpanded(t) : undefined;
+  const renderTaskRow = (t: ProjectTask) => {
     const assigneeName = (t as any).assignee_name ?? t.assignees?.[0]?.full_name;
     const assigneeAvatar = (t as any).assignee_avatar ?? t.assignees?.[0]?.avatar_url;
     const visibleStatus = seesMasterStatus ? t.status : (t.my_status || t.status);
     const statusColor = statusObjects.find(s => s.name === visibleStatus)?.color;
+    const subtaskCount = (t as any).subtask_count ?? 0;
 
-    const rowBg = isSubtask
-      ? 'bg-muted/25 dark:bg-muted/10'
-      : (STATUS_ROW_COLORS[visibleStatus] || '');
-    const dimmedCls = dimmed ? 'opacity-50' : '';
-
-    const leftBorderStyle: CSSProperties = isSubtask
-      ? { borderLeft: '3px solid hsl(var(--primary) / 0.25)' }
-      : (statusColor && !STATUS_ROW_COLORS[visibleStatus]
-        ? { borderLeft: `3px solid ${statusColor}` }
-        : {});
+    const rowBg = STATUS_ROW_COLORS[visibleStatus] || '';
+    const leftBorderStyle: CSSProperties = statusColor && !STATUS_ROW_COLORS[visibleStatus]
+      ? { borderLeft: `3px solid ${statusColor}` }
+      : {};
 
     return (
       <TableRow
         key={t.id}
-        className={`cursor-pointer group transition-colors ${rowBg} ${dimmedCls}`}
+        className={`cursor-pointer group transition-colors ${rowBg}`}
         onClick={() => onTaskClick?.(t)}
         style={leftBorderStyle}
       >
-        {/* ── Title cell ── */}
+        {/* Title */}
         <TableCell>
-          <div className={`min-w-[220px] flex items-start gap-1 ${isSubtask ? 'pl-5' : ''}`}>
-            {/* Tree connector (subtasks only) */}
-            {isSubtask && (
-              <div className="shrink-0 self-stretch flex flex-col" aria-hidden>
-                <div className="w-4 h-4 border-l-2 border-b-2 border-border/50 rounded-bl mt-2 mr-1 shrink-0" />
-              </div>
-            )}
-
-            {/* Expand / collapse button (parent rows only) */}
-            {!isSubtask && isParent && hasChildren ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); onToggle?.(); }}
-                className="p-0.5 rounded hover:bg-muted shrink-0 mt-1"
-                aria-label={isOpen ? 'Collapse subtasks' : 'Expand subtasks'}
-              >
-                {isOpen
-                  ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-              </button>
-            ) : !isSubtask ? (
-              <span className="w-5 shrink-0" />
-            ) : null}
-
+          <div className="min-w-[220px] flex items-start gap-2">
             <div className="flex flex-col gap-0.5 min-w-0">
-              {/* Title row */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 {(() => {
                   const hierNum = hierarchicalNumbers.get(t.id);
                   const display = hierNum || t.task_number;
                   if (!display) return null;
                   return (
-                    <span
-                      className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${
-                        isSubtask ? 'bg-primary/10 text-primary/80' : 'bg-muted text-muted-foreground'
-                      }`}
-                      title={hierNum && t.task_number ? t.task_number : undefined}
-                    >
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
                       {display}
                     </span>
                   );
                 })()}
-                <span className={`leading-snug ${isSubtask ? 'text-sm text-foreground/90' : 'font-medium text-foreground'}`}>
-                  {t.title}
-                </span>
-                {isParent && hasChildren && (
+                <span className="font-medium text-foreground leading-snug">{t.title}</span>
+                {subtaskCount > 0 && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">
-                    {subtaskCount} sub
-                  </span>
-                )}
-                {isContextParent && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-medium shrink-0">
-                    ↓ subtask match
+                    {subtaskCount} subtask{subtaskCount !== 1 ? 's' : ''}
                   </span>
                 )}
                 <HandoffBadge handoffInfo={(t as any).handoff_info} />
               </div>
-
-              {/* Parent breadcrumb — always shown on subtask rows so hierarchy is explicit */}
-              {isSubtask && parentTask && (
-                <span className="text-[10px] text-muted-foreground/60 truncate max-w-[200px] leading-tight">
-                  ↑ {parentTask.title}
-                </span>
-              )}
             </div>
           </div>
         </TableCell>
 
         <TableCell>
-          <Badge variant="secondary" className={`text-[10px] ${isSubtask ? 'opacity-80' : ''} ${TYPE_COLORS[t.type] || ''}`}>
+          <Badge variant="secondary" className={`text-[10px] ${TYPE_COLORS[t.type] || ''}`}>
             {t.type || '—'}
           </Badge>
         </TableCell>
@@ -515,35 +383,14 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
             {isRestricted ? 'My Tasks' : 'All Tasks'}
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Showing {tasks.filter(matchesFilters).length} task{tasks.filter(matchesFilters).length !== 1 ? 's' : ''}
+            Showing {visibleTasks.length} task{visibleTasks.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Expand / collapse all — only relevant when tasks with subtasks exist */}
-          {anyHaveSubtasks && (
-            <>
-              <button
-                onClick={expandAll}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-secondary hover:bg-secondary/70 text-muted-foreground transition-colors"
-                title="Expand all"
-              >
-                <ChevronsUpDown className="h-3 w-3" /> Expand All
-              </button>
-              <button
-                onClick={collapseAll}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs bg-secondary hover:bg-secondary/70 text-muted-foreground transition-colors"
-                title="Collapse all"
-              >
-                <ChevronsDownUp className="h-3 w-3" /> Collapse All
-              </button>
-            </>
-          )}
-          {onCreateTask && (
-            <Button size="sm" onClick={onCreateTask} className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" /> New Task
-            </Button>
-          )}
-        </div>
+        {onCreateTask && (
+          <Button size="sm" onClick={onCreateTask} className="gap-1.5">
+            <Plus className="h-3.5 w-3.5" /> New Task
+          </Button>
+        )}
       </div>
 
       {/* Filter bar */}
@@ -665,36 +512,15 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={14} className="py-12 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={13} className="py-12 text-center text-sm text-muted-foreground">
                   Loading tasks…
                 </TableCell>
               </TableRow>
-            ) : parentTasks.length > 0 ? (
-              parentTasks.flatMap(t => {
-                const isOpen = expanded.has(t.id);
-                const rows = [renderTaskRow(t)];
-                if (isOpen) {
-                  const cached = subtasksCache[t.id];
-                  if (cached === null) {
-                    // Loading subtasks
-                    rows.push(
-                      <TableRow key={`${t.id}-loading`}>
-                        <TableCell colSpan={14} className="py-2 pl-12 text-xs text-muted-foreground">
-                          Loading subtasks…
-                        </TableCell>
-                      </TableRow>
-                    );
-                  } else if (cached && cached.length > 0) {
-                    for (const c of cached) {
-                      rows.push(renderTaskRow(c, { isSubtask: true, parentTask: t }));
-                    }
-                  }
-                }
-                return rows;
-              }))
+            ) : visibleTasks.length > 0 ? (
+              visibleTasks.map(t => renderTaskRow(t))
             ) : (
               <TableRow>
-                <TableCell colSpan={14} className="py-12 text-center">
+                <TableCell colSpan={13} className="py-12 text-center">
                   <p className="text-sm text-muted-foreground">
                     {hasActiveFilters ? 'No tasks match your filters.' : 'No tasks found. Create the first one.'}
                   </p>
