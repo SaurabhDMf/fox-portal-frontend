@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect, type CSSProperties } from 'react';
 import { Plus, Search, X, Pencil, ChevronDown, ChevronRight, Check, ChevronUp, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import api from '@/lib/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -165,121 +165,57 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     return true;
   }, [statusFilter, priorityFilter, search]);
 
-  // Group subtasks under their parent tasks for accordion display.
-  //
-  // Rule (per product): subtasks must ALWAYS appear under their parent task,
-  // regardless of active filters. So:
-  //   - Build a map of ALL subtasks by parent_task_id from the unfiltered list.
-  //   - A parent is shown if it matches filters OR any of its descendants match.
-  //   - Once a parent is shown, ALL of its subtasks render underneath
-  //     (matching ones highlighted, non-matching ones dimmed for context).
-  //   - Parents pulled in only because a child matched are themselves dimmed.
-  const { parentTasks, subtasksByParent, contextParentIds, dimmedSubtaskIds, autoExpandIds } = useMemo(() => {
-    const tasksById = new Map(tasks.map(t => [t.id, t]));
+  // Filter root tasks client-side (priority + status + search).
+  const parentTasks = useMemo(() => tasks.filter(matchesFilters), [tasks, matchesFilters]);
 
-    // Build full child map from unfiltered task list so every parent row
-    // can render its complete subtask set.
-    //
-    // Rule: a task is a SUBTASK if either (a) it has a parent_task_id, or
-    // (b) its type is 'Subtask'. Subtasks must NEVER render as a top-level
-    // row. If we can't resolve the parent in the loaded set, the subtask is
-    // skipped from the top-level list entirely (it will still appear when
-    // the user opens its parent task detail view).
-    const allChildrenByParent = new Map<string, ProjectTask[]>();
-    const topLevel: ProjectTask[] = [];
-    const orphanSubtasks: ProjectTask[] = [];
-    for (const t of tasks) {
-      const pid = (t as any).parent_task_id;
-      const isSubtaskType = (t.type || '').toLowerCase() === 'subtask';
-      if (pid && tasksById.has(pid)) {
-        if (!allChildrenByParent.has(pid)) allChildrenByParent.set(pid, []);
-        allChildrenByParent.get(pid)!.push(t);
-      } else if (pid || isSubtaskType) {
-        // Has a parent reference (but parent not loaded) OR is typed as a
-        // subtask without a parent link — do NOT promote to a top-level row.
-        orphanSubtasks.push(t);
-      } else {
-        topLevel.push(t);
-      }
-    }
-
-    // Sort children by created_at to keep ordering stable / aligned with hier numbering.
-    for (const arr of allChildrenByParent.values()) {
-      arr.sort((a, b) => {
-        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return ta - tb;
-      });
-    }
-
-    // Direct matches (post-filter).
-    const matchedIds = new Set(tasks.filter(matchesFilters).map(t => t.id));
-
-    // Helper: does this task or any descendant match?
-    const subtreeMatches = (id: string): boolean => {
-      if (matchedIds.has(id)) return true;
-      const kids = allChildrenByParent.get(id);
-      if (!kids) return false;
-      return kids.some(k => subtreeMatches(k.id));
-    };
-
-    // Pick top-level parents whose subtree has any match.
-    const parents = topLevel.filter(t => subtreeMatches(t.id));
-
-    // Context parents: shown only because a descendant matched (parent itself doesn't match).
-    const contextParents = new Set<string>();
-    for (const p of parents) {
-      if (!matchedIds.has(p.id)) contextParents.add(p.id);
-    }
-
-    // Subtasks pulled in for context (parent is shown but this subtask doesn't match).
-    const dimmedSubs = new Set<string>();
-    for (const p of parents) {
-      const kids = allChildrenByParent.get(p.id) || [];
-      for (const k of kids) {
-        if (!matchedIds.has(k.id)) dimmedSubs.add(k.id);
-      }
-    }
-
-    // Auto-expand any parent that has a matching subtask, so users see them
-    // immediately when a filter is applied.
-    const autoExpand = new Set<string>();
-    for (const p of parents) {
-      const kids = allChildrenByParent.get(p.id) || [];
-      if (kids.some(k => matchedIds.has(k.id))) autoExpand.add(p.id);
-    }
-
-    return {
-      parentTasks: parents,
-      subtasksByParent: allChildrenByParent,
-      contextParentIds: contextParents,
-      dimmedSubtaskIds: dimmedSubs,
-      autoExpandIds: autoExpand,
-    };
-  }, [tasks, matchesFilters]);
-
-  // Expanded set — default empty means all parents are COLLAPSED.
-  // Clicking a chevron adds the parent to this set (expands it).
+  // Expanded set — clicking chevron adds/removes parent id.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const toggleExpanded = useCallback((id: string) => {
+
+  // Cache of loaded subtasks per parent id. null = currently loading.
+  const [subtasksCache, setSubtasksCache] = useState<Record<string, ProjectTask[] | null>>({});
+
+  const loadSubtasks = useCallback((id: string) => {
+    setSubtasksCache(c => {
+      if (id in c) return c; // already loading or loaded
+      return { ...c, [id]: null }; // null = loading
+    });
+    api.get('/tasks', { params: { parent_task_id: id, project_id: projectId, sort_by: 'created_at', sort_dir: 'asc' } })
+      .then(r => {
+        const d = r.data?.data ?? r.data;
+        setSubtasksCache(c => ({ ...c, [id]: Array.isArray(d) ? d : [] }));
+      })
+      .catch(() => setSubtasksCache(c => ({ ...c, [id]: [] })));
+  }, [projectId]);
+
+  const toggleExpanded = useCallback((t: ProjectTask) => {
+    const id = t.id;
+    const subtaskCount = (t as any).subtask_count ?? 0;
     setExpanded(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        if (subtaskCount > 0) loadSubtasks(id);
+      }
       return next;
     });
-  }, []);
+  }, [loadSubtasks]);
 
-  // "Expand all" = put every parent that has subtasks into the expanded set
   const expandAll = useCallback(() => {
     const ids = new Set<string>();
-    for (const [pid, kids] of subtasksByParent.entries()) {
-      if (kids.length > 0) ids.add(pid);
+    for (const t of tasks) {
+      if ((t as any).subtask_count > 0) {
+        ids.add(t.id);
+        loadSubtasks(t.id);
+      }
     }
     setExpanded(ids);
-  }, [subtasksByParent]);
+  }, [tasks, loadSubtasks]);
 
-  // "Collapse all" = clear the expanded set
   const collapseAll = useCallback(() => setExpanded(new Set()), []);
+
+  const anyHaveSubtasks = tasks.some(t => (t as any).subtask_count > 0);
 
   // Filter option queries
   const { data: sprints } = useQuery({
@@ -373,25 +309,21 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   const selectCls = "px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[100px]";
 
-  // Renders a single task row.
-  // isSubtask: indented with tree connector + parent breadcrumb
-  // isContextParent: parent pulled in only because a subtask matched — shows amber chip
-  // dimmed: reduces opacity
-  // parentTask: used to show "↑ parent title" under the subtask title
   const renderTaskRow = (
     t: ProjectTask,
     opts: {
-      isParent?: boolean;
-      hasChildren?: boolean;
-      isOpen?: boolean;
-      onToggle?: () => void;
       isSubtask?: boolean;
-      dimmed?: boolean;
-      isContextParent?: boolean;
       parentTask?: ProjectTask;
     } = {}
   ) => {
-    const { isParent, hasChildren, isOpen, onToggle, isSubtask, dimmed, isContextParent, parentTask } = opts;
+    const subtaskCount = (t as any).subtask_count ?? 0;
+    const hasChildren = subtaskCount > 0;
+    const isOpen = expanded.has(t.id);
+    const isParent = !opts.isSubtask;
+    const { isSubtask, parentTask } = opts;
+    const isContextParent = false;
+    const dimmed = false;
+    const onToggle = isParent ? () => toggleExpanded(t) : undefined;
     const assigneeName = (t as any).assignee_name ?? t.assignees?.[0]?.full_name;
     const assigneeAvatar = (t as any).assignee_avatar ?? t.assignees?.[0]?.avatar_url;
     const visibleStatus = seesMasterStatus ? t.status : (t.my_status || t.status);
@@ -402,7 +334,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
       : (STATUS_ROW_COLORS[visibleStatus] || '');
     const dimmedCls = dimmed ? 'opacity-50' : '';
 
-    const leftBorderStyle: React.CSSProperties = isSubtask
+    const leftBorderStyle: CSSProperties = isSubtask
       ? { borderLeft: '3px solid hsl(var(--primary) / 0.25)' }
       : (statusColor && !STATUS_ROW_COLORS[visibleStatus]
         ? { borderLeft: `3px solid ${statusColor}` }
@@ -463,7 +395,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
                 </span>
                 {isParent && hasChildren && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">
-                    {(subtasksByParent.get(t.id) || []).length} sub
+                    {subtaskCount} sub
                   </span>
                 )}
                 {isContextParent && (
@@ -588,7 +520,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
         </div>
         <div className="flex items-center gap-2">
           {/* Expand / collapse all — only relevant when tasks with subtasks exist */}
-          {subtasksByParent.size > 0 && (
+          {anyHaveSubtasks && (
             <>
               <button
                 onClick={expandAll}
@@ -739,30 +671,27 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
               </TableRow>
             ) : parentTasks.length > 0 ? (
               parentTasks.flatMap(t => {
-                const children = subtasksByParent.get(t.id) || [];
-                // Collapsed by default; open when user expanded it or a filter
-                // matched one of its subtasks (auto-expand).
-                const isOpen = expanded.has(t.id) || autoExpandIds.has(t.id);
-                const isContextOnly = contextParentIds.has(t.id);
-                const rows = [renderTaskRow(t, {
-                  isParent: true,
-                  hasChildren: children.length > 0,
-                  isOpen,
-                  onToggle: () => toggleExpanded(t.id),
-                  dimmed: isContextOnly && !isOpen,
-                  isContextParent: isContextOnly,
-                })];
-                if (isOpen && children.length > 0) {
-                  for (const c of children) {
-                    rows.push(renderTaskRow(c, {
-                      isSubtask: true,
-                      dimmed: dimmedSubtaskIds.has(c.id),
-                      parentTask: t,
-                    }));
+                const isOpen = expanded.has(t.id);
+                const rows = [renderTaskRow(t)];
+                if (isOpen) {
+                  const cached = subtasksCache[t.id];
+                  if (cached === null) {
+                    // Loading subtasks
+                    rows.push(
+                      <TableRow key={`${t.id}-loading`}>
+                        <TableCell colSpan={14} className="py-2 pl-12 text-xs text-muted-foreground">
+                          Loading subtasks…
+                        </TableCell>
+                      </TableRow>
+                    );
+                  } else if (cached && cached.length > 0) {
+                    for (const c of cached) {
+                      rows.push(renderTaskRow(c, { isSubtask: true, parentTask: t }));
+                    }
                   }
                 }
                 return rows;
-              })
+              }))
             ) : (
               <TableRow>
                 <TableCell colSpan={14} className="py-12 text-center">
