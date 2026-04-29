@@ -13,6 +13,8 @@ export default function CPDashboard() {
   const { data: dashData } = useQuery({
     queryKey: ['cp-dashboard'],
     queryFn: () => api.get('/client/dashboard').then(r => r.data?.data || r.data || {}),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: invoicesRaw } = useQuery({
@@ -143,11 +145,7 @@ export default function CPDashboard() {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const cls =
-    status === 'Paid' ? 'bg-success/15 text-success' :
-    status === 'Overdue' ? 'bg-destructive/15 text-destructive' :
-    status === 'Sent' || status === 'Viewed' ? 'bg-info/15 text-info' :
-    status === 'Partially Paid' ? 'bg-warning/15 text-warning' :
-    'bg-secondary text-muted-foreground';
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{status}</span>;
+  const isPaid = status === 'Paid';
+  const cls = isPaid ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning';
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{isPaid ? 'Paid' : 'Pending'}</span>;
 }

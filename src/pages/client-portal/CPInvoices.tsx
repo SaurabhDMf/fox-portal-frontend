@@ -6,7 +6,12 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useCompanyCurrency } from '@/hooks/useCompanyCurrency';
 
-const STATUS_FILTERS = ['All', 'Paid', 'Overdue', 'Sent', 'Pending', 'Draft'];
+// Clients only see Paid or Pending
+const STATUS_FILTERS = ['All', 'Paid', 'Pending'];
+
+function clientStatus(inv: any): 'Paid' | 'Pending' {
+  return inv.status === 'Paid' ? 'Paid' : 'Pending';
+}
 
 async function downloadPdf(inv: any) {
   try {
@@ -35,12 +40,14 @@ export default function CPInvoices() {
         const d = r.data;
         return Array.isArray(d) ? d : d?.data || d?.invoices || [];
       }),
-    refetchOnWindowFocus: true,   // re-fetch when tab regains focus (e.g. returning from Stripe)
-    staleTime: 0,                 // always consider data stale so refetch runs on focus
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const invoices = Array.isArray(data) ? data : [];
-  const filtered = filter === 'All' ? invoices : invoices.filter((inv: any) => inv.status === filter);
+  const filtered = filter === 'All'
+    ? invoices
+    : invoices.filter((inv: any) => clientStatus(inv) === filter);
 
   const fmtDate = (d: string) =>
     d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -85,9 +92,9 @@ export default function CPInvoices() {
           </thead>
           <tbody>
             {filtered.map((inv: any) => {
-              const total  = inv.total_amount ?? inv.total ?? inv.amount ?? 0;
+              const total  = Number(inv.total_amount ?? inv.total ?? inv.amount ?? 0);
               const isPaid = inv.status === 'Paid';
-              const paid   = isPaid && !inv.amount_paid ? total : (inv.amount_paid ?? inv.paid_amount ?? 0);
+              const paid   = isPaid && !Number(inv.amount_paid) ? total : Number(inv.amount_paid ?? inv.paid_amount ?? 0);
               return (
                 <tr key={inv.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
                   <td className="p-4 font-medium">{inv.invoice_number || inv.id?.slice(0, 8)}</td>
@@ -96,7 +103,7 @@ export default function CPInvoices() {
                   <td className="p-4 font-semibold">{fmtAmt(total, inv.currency)}</td>
                   <td className="p-4 text-muted-foreground">{fmtAmt(paid, inv.currency)}</td>
                   <td className="p-4">
-                    <StatusBadge status={inv.status} />
+                    <StatusBadge status={clientStatus(inv)} />
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
@@ -141,18 +148,9 @@ export default function CPInvoices() {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const cls =
-    status === 'Paid'
-      ? 'bg-success/15 text-success'
-      : status === 'Overdue'
-      ? 'bg-destructive/15 text-destructive'
-      : status === 'Sent' || status === 'Viewed'
-      ? 'bg-info/15 text-info'
-      : status === 'Partially Paid'
-      ? 'bg-warning/15 text-warning'
-      : status === 'Draft'
-      ? 'bg-secondary text-muted-foreground'
-      : 'bg-secondary text-muted-foreground';
+function StatusBadge({ status }: { status: 'Paid' | 'Pending' }) {
+  const cls = status === 'Paid'
+    ? 'bg-success/15 text-success'
+    : 'bg-warning/15 text-warning';
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{status}</span>;
 }

@@ -364,19 +364,12 @@ export default function CPInvoiceDetail() {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const cls =
-    status === 'Paid'
-      ? 'bg-success/15 text-success'
-      : status === 'Overdue'
-      ? 'bg-destructive/15 text-destructive'
-      : status === 'Sent' || status === 'Viewed'
-      ? 'bg-info/15 text-info'
-      : status === 'Partially Paid'
-      ? 'bg-warning/15 text-warning'
-      : 'bg-secondary text-muted-foreground';
+  const isPaid = status === 'Paid';
+  const label = isPaid ? 'Paid' : 'Pending';
+  const cls = isPaid ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning';
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium h-fit ${cls}`}>
-      {status}
+      {label}
     </span>
   );
 }
