@@ -137,9 +137,9 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 print:p-0 print:bg-white print:static">
       <div className="w-full max-w-4xl max-h-[95vh] overflow-y-auto print:max-h-none print:overflow-visible">
         {/* Action bar - hidden in print */}
-        <div className="flex items-center justify-between gap-3 mb-3 print:hidden flex-wrap">
-          {/* LEFT: status control + lock indicator */}
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center justify-between gap-3 mb-3 print:hidden">
+          {/* LEFT: status control + lock indicator + delete */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             {isAdmin && (
               <div className="flex items-center gap-2">
                 <label className="text-xs text-muted-foreground whitespace-nowrap">Status</label>
@@ -162,13 +162,21 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
             )}
             {isLocked && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-medium ring-1 ring-emerald-500/20">
-                <Lock className="h-3 w-3" /> Invoice is paid and locked
+                <Lock className="h-3 w-3" /> Paid &amp; locked
               </span>
+            )}
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
+              </button>
             )}
           </div>
 
           {/* RIGHT: action buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
             {canPay && (
               <button
                 type="button"
@@ -208,14 +216,6 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
             >
               <Printer className="h-4 w-4" /> Print / PDF
             </button>
-            {onDelete && (
-              <button
-                onClick={onDelete}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all"
-              >
-                <Trash2 className="h-4 w-4" /> Delete
-              </button>
-            )}
             <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary">
               <X className="h-4 w-4" />
             </button>
@@ -508,51 +508,6 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
                 If you have any questions about this invoice, please contact us.
               </p>
             </div>
-
-            {/* Company contact details footer (inside card) */}
-            {(company?.address_line1 ||
-              company?.address_line2 ||
-              company?.city ||
-              company?.phone ||
-              company?.email ||
-              company?.website ||
-              company?.gst_number ||
-              company?.tax_id ||
-              company?.pan_number) && (
-              <div className="border-t border-slate-200 pt-4 mt-2">
-                <div className="space-y-1 text-center text-[11px] text-slate-500 leading-relaxed">
-                  {(() => {
-                    const addressLine = [
-                      company.address_line1,
-                      company.address_line2,
-                      company.city,
-                      company.state,
-                      company.postal_code,
-                      company.country,
-                    ]
-                      .filter(Boolean)
-                      .join(', ');
-                    const taxParts = [
-                      company.gst_number && `GST: ${company.gst_number}`,
-                      company.tax_id && `Tax ID: ${company.tax_id}`,
-                      company.pan_number && `PAN: ${company.pan_number}`,
-                    ].filter(Boolean);
-                    const contactParts = [
-                      company.phone && `📞 ${company.phone}`,
-                      company.email && `✉ ${company.email}`,
-                      company.website && `🌐 ${company.website}`,
-                    ].filter(Boolean);
-                    return [
-                      addressLine,
-                      contactParts.join(' · '),
-                      taxParts.join(' · '),
-                    ]
-                      .filter(Boolean)
-                      .map((line, i) => <p key={i}>{line as string}</p>);
-                  })()}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Footer */}
