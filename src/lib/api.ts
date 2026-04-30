@@ -133,6 +133,7 @@ export const emailApi = {
   // Accounts
   getAccounts:   ()              => api.get('/email/accounts'),
   addAccount:    (data: any)     => api.post('/email/accounts', data),
+  updateAccount: (id: string, data: any) => api.put(`/email/accounts/${id}`, data),
   deleteAccount: (id: string)    => api.delete(`/email/accounts/${id}`),
   testAccount:   (id: string)    => api.post(`/email/accounts/${id}/test`),
   syncAccount:   (id: string, folder = 'INBOX') =>

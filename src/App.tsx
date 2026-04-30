@@ -36,6 +36,7 @@ import EmailPage from "./pages/admin/Email";
 import Expenses from "./pages/admin/Expenses";
 import BalanceSheet from "./pages/admin/BalanceSheet";
 import Subscriptions from "./pages/admin/Subscriptions";
+import Notifications from "./pages/admin/Notifications";
 
 // Employee
 import EmpDashboard from "./pages/emp/EmpDashboard";
@@ -128,6 +129,7 @@ const App = () => (
           <Route path="permissions" element={<Permissions />} />
           <Route path="roles" element={<RolesPermissions />} />
           <Route path="subscriptions" element={<Subscriptions />} />
+          <Route path="notifications" element={<Notifications />} />
         </Route>
 
         {/* Employee Portal */}
@@ -148,6 +150,7 @@ const App = () => (
           <Route path="payroll" element={<Payroll />} />
           <Route path="expenses" element={<Expenses />} />
           <Route path="profile" element={<EmpProfile />} />
+          <Route path="notifications" element={<Notifications />} />
         </Route>
 
         {/* Legacy Client Portal (redirect) */}
@@ -171,6 +174,7 @@ const App = () => (
           <Route path="support/:id" element={<CPTicketDetail />} />
           <Route path="profile" element={<CPProfile />} />
           <Route path="subscriptions" element={<CPSubscriptions />} />
+          <Route path="notifications" element={<Notifications />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

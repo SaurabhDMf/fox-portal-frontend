@@ -1,5 +1,6 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { useUnreadStore } from '@/stores/unreadStore';
 import { Bell, Menu } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 
@@ -11,6 +12,7 @@ const routeLabels: Record<string, string> = {
   '/client-portal/vault': 'Vault',
   '/client-portal/support': 'Support',
   '/client-portal/profile': 'Profile',
+  '/client-portal/notifications': 'Notifications',
 };
 
 interface Props {
@@ -20,7 +22,10 @@ interface Props {
 export default function ClientPortalHeader({ onMobileMenuOpen }: Props) {
   const user = useAuthStore(s => s.user);
   const location = useLocation();
+  const navigate = useNavigate();
   const pageTitle = routeLabels[location.pathname] || 'Client Portal';
+  const notifCount = useUnreadStore((s) => s.counts.notifications || 0);
+  const clearNotif = useUnreadStore((s) => s.clear);
 
   return (
     <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
@@ -38,8 +43,20 @@ export default function ClientPortalHeader({ onMobileMenuOpen }: Props) {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <button className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative">
-            <Bell className="h-4 w-4" />
+          <button
+            onClick={() => {
+              clearNotif('notifications');
+              navigate('/client-portal/notifications');
+            }}
+            className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative"
+            title="Notifications"
+          >
+            <Bell className={`h-4 w-4 ${notifCount > 0 ? 'text-orange-500' : ''}`} />
+            {notifCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                {notifCount > 99 ? '99+' : notifCount}
+              </span>
+            )}
           </button>
           <div className="hidden sm:flex items-center gap-2 ml-1 pl-3 border-l border-border">
             <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">

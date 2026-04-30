@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -81,7 +81,7 @@ export default function EmailPage() {
     }
   }, [accounts, activeAccountId]);
 
-  // ----- messages list -----
+  // ----- messages list (auto-refresh every 30s for live inbox) -----
   const {
     data: msgData,
     isLoading,
@@ -98,10 +98,12 @@ export default function EmailPage() {
         })
         .then((r) => r.data),
     enabled: accounts.length > 0,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
   const messages: any[] = msgData?.data || msgData || [];
 
-  // ----- unread inbox count -----
+  // ----- unread inbox count (auto-refresh every 30s) -----
   const { data: unreadData } = useQuery({
     queryKey: ['email-unread', activeAccountId],
     queryFn: () =>
@@ -114,7 +116,7 @@ export default function EmailPage() {
         })
         .then((r) => r.data),
     enabled: !!activeAccountId,
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   });
   const unreadCount: number = (() => {
     if (!unreadData) return 0;
@@ -196,6 +198,22 @@ export default function EmailPage() {
     if (activeAccountId) composeForm.setValue('account_id', activeAccountId);
   }, [activeAccountId]); // eslint-disable-line
 
+  // When opening compose, prefill body with the active account's signature
+  // (only if body is empty so we don't clobber a reply quote)
+  const activeAccount = useMemo(
+    () => accounts.find((a: any) => a.id === activeAccountId) || null,
+    [accounts, activeAccountId]
+  );
+  useEffect(() => {
+    if (showCompose) {
+      const current = composeForm.getValues('body_html') || '';
+      const sig = activeAccount?.signature || '';
+      if (!current.trim() && sig) {
+        composeForm.setValue('body_html', `\n\n--\n${sig}`);
+      }
+    }
+  }, [showCompose, activeAccount?.id]); // eslint-disable-line
+
   const sendMutation = useMutation({
     mutationFn: (d: any) => emailApi.send({ ...d, body_text: d.body_html }),
     onSuccess: () => {
@@ -235,6 +253,7 @@ export default function EmailPage() {
       imap_user: '',
       imap_password: '',
       is_default: false,
+      signature: '',
     },
   });
   const addMutation = useMutation({
@@ -488,10 +507,7 @@ export default function EmailPage() {
 
             <div className="flex-1 overflow-y-auto px-6 py-5">
               {email.body_html && String(email.body_html).trim() ? (
-                <div
-                  className="prose prose-sm max-w-none text-foreground"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(email.body_html) }}
-                />
+                <EmailBodyFrame html={sanitizeHtml(email.body_html)} />
               ) : email.body_text && String(email.body_text).trim() ? (
                 <pre className="text-sm text-foreground whitespace-pre-wrap font-sans">
                   {email.body_text}
@@ -627,6 +643,77 @@ export default function EmailPage() {
         />
       )}
     </div>
+  );
+}
+
+// ────────────────────────────────────────
+// Email body iframe — always renders with white bg + dark text so inbound
+// HTML emails (which have their own inline styling assuming a light client)
+// stay readable when the app is in dark mode. Auto-resizes to content height.
+// ────────────────────────────────────────
+function EmailBodyFrame({ html }: { html: string }) {
+  const ref = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(400);
+
+  const srcDoc = useMemo(() => `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<base target="_blank" />
+<style>
+  html, body {
+    margin: 0;
+    padding: 16px;
+    background: #ffffff !important;
+    color: #1f2937 !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  body * { max-width: 100%; }
+  img, video { max-width: 100%; height: auto; }
+  a { color: #2563eb; }
+  table { border-collapse: collapse; }
+  blockquote {
+    border-left: 3px solid #e5e7eb;
+    margin: 0;
+    padding-left: 12px;
+    color: #4b5563;
+  }
+  pre, code {
+    background: #f3f4f6;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+  }
+</style>
+</head>
+<body>${html}</body>
+</html>`, [html]);
+
+  // Auto-size to content
+  const handleLoad = () => {
+    try {
+      const doc = ref.current?.contentDocument;
+      if (!doc) return;
+      const h = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight, 200);
+      setHeight(h + 24);
+    } catch {
+      // Cross-origin or other access error — keep default height
+    }
+  };
+
+  return (
+    <iframe
+      ref={ref}
+      title="Email body"
+      sandbox="allow-same-origin allow-popups"
+      srcDoc={srcDoc}
+      onLoad={handleLoad}
+      style={{ width: '100%', height: `${height}px`, border: 0, background: '#ffffff', borderRadius: 8 }}
+    />
   );
 }
 
@@ -778,6 +865,18 @@ function AddAccountModal({
               Use SSL/TLS (port 993)
             </label>
 
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-3">
+              Signature (optional)
+            </p>
+            <div>
+              <label className={labelCls}>Auto-appended to new messages</label>
+              <textarea
+                {...register('signature')}
+                className={inputCls + ' min-h-[80px] resize-y'}
+                placeholder={`Best regards,\nYour Name\nCompany`}
+              />
+            </div>
+
             <label className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t border-border mt-3">
               <input type="checkbox" {...register('is_default')} />
               Set as default sending account
@@ -823,6 +922,20 @@ function AccountRow({
   const [result, setResult] = useState<
     { ok: boolean; message: string } | null
   >(null);
+  const [showSig, setShowSig] = useState(false);
+  const [sigDraft, setSigDraft] = useState<string>(acc.signature || '');
+
+  useEffect(() => { setSigDraft(acc.signature || ''); }, [acc.signature]);
+
+  const sigMut = useMutation({
+    mutationFn: () => emailApi.updateAccount(acc.id, { signature: sigDraft }),
+    onSuccess: () => {
+      toast.success('Signature saved');
+      qc.invalidateQueries({ queryKey: ['email-accounts'] });
+      setShowSig(false);
+    },
+    onError: (e: any) => toast.error(errMsg(e) || 'Failed to save signature'),
+  });
 
   const testMut = useMutation({
     mutationFn: () => emailApi.testAccount(acc.id),
@@ -906,24 +1019,64 @@ function AccountRow({
         </button>
       </div>
 
-      <div className="px-2 pb-2">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setResult(null);
-            testMut.mutate();
-          }}
-          disabled={testMut.isPending}
-          className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
-        >
-          {testMut.isPending ? (
-            <Loader2 size={11} className="animate-spin" />
-          ) : (
-            <PlugZap size={11} />
-          )}
-          {testMut.isPending ? 'Testing…' : 'Test Connection'}
-        </button>
+      <div className="px-2 pb-2 space-y-1.5">
+        <div className="flex gap-1.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setResult(null);
+              testMut.mutate();
+            }}
+            disabled={testMut.isPending}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
+          >
+            {testMut.isPending ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : (
+              <PlugZap size={11} />
+            )}
+            {testMut.isPending ? 'Testing…' : 'Test'}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowSig((s) => !s);
+            }}
+            title="Edit signature"
+            className="inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ✍︎ Signature
+          </button>
+        </div>
+
+        {showSig && (
+          <div onClick={(e) => e.stopPropagation()} className="rounded-md border border-border bg-card p-1.5 space-y-1.5">
+            <textarea
+              value={sigDraft}
+              onChange={(e) => setSigDraft(e.target.value)}
+              rows={4}
+              placeholder={`Best regards,\nYour Name\nCompany`}
+              className="w-full text-[11px] px-2 py-1.5 rounded bg-secondary border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-y font-sans"
+            />
+            <div className="flex justify-end gap-1">
+              <button
+                onClick={() => { setSigDraft(acc.signature || ''); setShowSig(false); }}
+                className="px-2 py-0.5 rounded text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => sigMut.mutate()}
+                disabled={sigMut.isPending}
+                className="px-2 py-0.5 rounded text-[10px] bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {sigMut.isPending ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {result && (
           <div
