@@ -146,6 +146,15 @@ export const emailApi = {
   deleteMessage: (id: string)    => api.delete(`/email/messages/${id}`),
   // Send
   send:          (data: any)     => api.post('/email/send', data),
+  // Custom folders (user-defined categories — distinct from getFolders which lists IMAP folders)
+  getCustomFolders: () => api.get('/email/folders'),
+  createCustomFolder: (data: { name: string; color?: string | null }) =>
+    api.post('/email/folders', data),
+  updateCustomFolder: (id: string, data: { name?: string; color?: string | null; position?: number }) =>
+    api.put(`/email/folders/${id}`, data),
+  deleteCustomFolder: (id: string) => api.delete(`/email/folders/${id}`),
+  moveMessage: (id: string, custom_folder_id: string | null) =>
+    api.patch(`/email/messages/${id}`, { custom_folder_id }),
 };
 
 export default api;

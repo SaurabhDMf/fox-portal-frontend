@@ -6,6 +6,7 @@ import {
   Inbox, Send, FileText, Star, Archive, Trash2,
   Plus, RefreshCw, Search, Reply, MailOpen, Paperclip,
   Minus, X, PlugZap, CheckCircle2, XCircle, Loader2,
+  Folder, FolderPlus, MoreVertical, Pencil, FolderInput, Check,
 } from 'lucide-react';
 import { emailApi } from '@/lib/api';
 
@@ -61,11 +62,21 @@ const errMsg = (e: any) => e?.response?.data?.error || e?.response?.data?.messag
 export default function EmailPage() {
   const qc = useQueryClient();
   const [activeFolder, setActiveFolder] = useState('INBOX');
+  const [activeCustomFolderId, setActiveCustomFolderId] = useState<string | null>(null);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [showCompose, setShowCompose] = useState(false);
   const [showAddAccount, setShowAddAccount] = useState(false);
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // ----- custom folders (user-defined categories) -----
+  const { data: customFoldersData } = useQuery({
+    queryKey: ['email-custom-folders'],
+    queryFn: () => emailApi.getCustomFolders().then((r) => r.data?.data ?? r.data ?? []),
+    refetchInterval: 60_000,
+  });
+  const customFolders: any[] = Array.isArray(customFoldersData) ? customFoldersData : [];
 
   // ----- accounts -----
   const { data: accountsData } = useQuery({
@@ -87,11 +98,12 @@ export default function EmailPage() {
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ['emails', activeFolder, activeAccountId, search],
+    queryKey: ['emails', activeFolder, activeCustomFolderId, activeAccountId, search],
     queryFn: () =>
       emailApi
         .getMessages({
-          folder: activeFolder,
+          folder: activeCustomFolderId ? undefined : activeFolder,
+          custom_folder_id: activeCustomFolderId || undefined,
           account_id: activeAccountId || undefined,
           search: search || undefined,
           limit: 50,
@@ -285,12 +297,13 @@ export default function EmailPage() {
         <nav className="px-2 space-y-0.5">
           {filteredFolders.map((f) => {
             const Icon = f.icon;
-            const active = activeFolder === f.key;
+            const active = !activeCustomFolderId && activeFolder === f.key;
             return (
               <button
                 key={f.key}
                 onClick={() => {
                   setActiveFolder(f.key);
+                  setActiveCustomFolderId(null);
                   setSelectedId(null);
                 }}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
@@ -312,6 +325,53 @@ export default function EmailPage() {
             );
           })}
         </nav>
+
+        {/* ───────── CUSTOM FOLDERS (user categories) ───────── */}
+        <div className="mt-4 px-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Folders
+            </span>
+            <button
+              onClick={() => setShowCreateFolder(true)}
+              className="text-muted-foreground hover:text-foreground"
+              title="Create folder"
+            >
+              <FolderPlus size={14} />
+            </button>
+          </div>
+          <div className="space-y-0.5">
+            {customFolders.map((cf: any) => (
+              <CustomFolderRow
+                key={cf.id}
+                folder={cf}
+                active={activeCustomFolderId === cf.id}
+                onSelect={() => {
+                  setActiveCustomFolderId(cf.id);
+                  setActiveFolder('');
+                  setSelectedId(null);
+                }}
+                onChanged={() => {
+                  qc.invalidateQueries({ queryKey: ['email-custom-folders'] });
+                  qc.invalidateQueries({ queryKey: ['emails'] });
+                }}
+                onDeleted={(deletedId: string) => {
+                  if (activeCustomFolderId === deletedId) {
+                    setActiveCustomFolderId(null);
+                    setActiveFolder('INBOX');
+                  }
+                  qc.invalidateQueries({ queryKey: ['email-custom-folders'] });
+                  qc.invalidateQueries({ queryKey: ['emails'] });
+                }}
+              />
+            ))}
+            {customFolders.length === 0 && (
+              <p className="text-[11px] text-muted-foreground/70 px-2 py-1.5 italic">
+                No folders yet. Click + to create one.
+              </p>
+            )}
+          </div>
+        </div>
 
         <div className="mt-6 px-3 flex-1 overflow-y-auto">
           <div className="flex items-center justify-between mb-2">
@@ -460,6 +520,16 @@ export default function EmailPage() {
                 >
                   <MailOpen size={15} />
                 </button>
+                <MoveToButton
+                  emailId={email.id}
+                  currentFolderId={email.custom_folder_id}
+                  folders={customFolders}
+                  onMoved={() => {
+                    qc.invalidateQueries({ queryKey: ['emails'] });
+                    qc.invalidateQueries({ queryKey: ['email-custom-folders'] });
+                    setSelectedId(null);
+                  }}
+                />
                 <button
                   onClick={() => archive.mutate()}
                   className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
@@ -640,6 +710,17 @@ export default function EmailPage() {
           onClose={() => setShowAddAccount(false)}
           onSubmit={(d) => addMutation.mutate(d)}
           submitting={addMutation.isPending}
+        />
+      )}
+
+      {/* ───────── CREATE FOLDER MODAL ───────── */}
+      {showCreateFolder && (
+        <CreateFolderModal
+          onClose={() => setShowCreateFolder(false)}
+          onCreated={() => {
+            qc.invalidateQueries({ queryKey: ['email-custom-folders'] });
+            setShowCreateFolder(false);
+          }}
         />
       )}
     </div>
@@ -1094,6 +1175,291 @@ function AccountRow({
             <span className="break-words">{result.message}</span>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────
+// Custom folder row in sidebar (with rename + delete on hover)
+// ────────────────────────────────────────
+function CustomFolderRow({
+  folder,
+  active,
+  onSelect,
+  onChanged,
+  onDeleted,
+}: {
+  folder: any;
+  active: boolean;
+  onSelect: () => void;
+  onChanged: () => void;
+  onDeleted: (id: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(folder.name);
+
+  useEffect(() => { setDraft(folder.name); }, [folder.name]);
+
+  const renameMut = useMutation({
+    mutationFn: () => emailApi.updateCustomFolder(folder.id, { name: draft.trim() }),
+    onSuccess: () => { toast.success('Folder renamed'); setEditing(false); onChanged(); },
+    onError: (e: any) => toast.error(errMsg(e)),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: () => emailApi.deleteCustomFolder(folder.id),
+    onSuccess: () => { toast.success('Folder deleted; emails returned to inbox'); onDeleted(folder.id); },
+    onError: (e: any) => toast.error(errMsg(e)),
+  });
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-muted">
+        <Folder size={14} className="text-muted-foreground shrink-0" />
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && draft.trim()) renameMut.mutate();
+            if (e.key === 'Escape') { setEditing(false); setDraft(folder.name); }
+          }}
+          className="flex-1 min-w-0 bg-transparent text-sm text-foreground focus:outline-none"
+        />
+        <button
+          onClick={() => draft.trim() && renameMut.mutate()}
+          disabled={renameMut.isPending || !draft.trim()}
+          className="text-success hover:text-success/80 disabled:opacity-40"
+          title="Save"
+        >
+          <Check size={13} />
+        </button>
+        <button
+          onClick={() => { setEditing(false); setDraft(folder.name); }}
+          className="text-muted-foreground hover:text-foreground"
+          title="Cancel"
+        >
+          <X size={13} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`group flex items-center gap-1 rounded-lg ${
+      active ? 'bg-primary/10' : 'hover:bg-muted'
+    }`}>
+      <button
+        onClick={onSelect}
+        className={`flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-sm text-left ${
+          active ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        <Folder size={14} style={folder.color ? { color: folder.color } : undefined} className="shrink-0" />
+        <span className="truncate flex-1">{folder.name}</span>
+        {folder.unread_count > 0 && (
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+            active ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary'
+          }`}>
+            {folder.unread_count > 99 ? '99+' : folder.unread_count}
+          </span>
+        )}
+      </button>
+      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 pr-1 transition-opacity">
+        <button
+          onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+          className="p-1 text-muted-foreground hover:text-foreground"
+          title="Rename"
+        >
+          <Pencil size={11} />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.confirm(`Delete "${folder.name}"? Emails inside will return to Inbox.`)) {
+              deleteMut.mutate();
+            }
+          }}
+          className="p-1 text-muted-foreground hover:text-destructive"
+          title="Delete"
+        >
+          <Trash2 size={11} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────
+// Move-to-folder dropdown for the email detail toolbar
+// ────────────────────────────────────────
+function MoveToButton({
+  emailId,
+  currentFolderId,
+  folders,
+  onMoved,
+}: {
+  emailId: string;
+  currentFolderId: string | null;
+  folders: any[];
+  onMoved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const moveMut = useMutation({
+    mutationFn: (target: string | null) => emailApi.moveMessage(emailId, target),
+    onSuccess: () => { toast.success('Email moved'); setOpen(false); onMoved(); },
+    onError: (e: any) => toast.error(errMsg(e)),
+  });
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
+        title="Move to folder"
+      >
+        <FolderInput size={15} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-30 w-56 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+          <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border">
+            Move to folder
+          </div>
+          <div className="max-h-64 overflow-y-auto">
+            {currentFolderId && (
+              <button
+                onClick={() => moveMut.mutate(null)}
+                disabled={moveMut.isPending}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted text-left"
+              >
+                <Inbox size={14} className="text-muted-foreground" />
+                <span>Move back to Inbox</span>
+              </button>
+            )}
+            {folders.length === 0 ? (
+              <p className="px-3 py-3 text-xs text-muted-foreground italic">
+                No folders yet — create one in the sidebar.
+              </p>
+            ) : (
+              folders.map((f) => {
+                const isCurrent = f.id === currentFolderId;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => !isCurrent && moveMut.mutate(f.id)}
+                    disabled={moveMut.isPending || isCurrent}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left ${
+                      isCurrent ? 'bg-primary/10 text-primary cursor-default' : 'text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <Folder size={14} style={f.color ? { color: f.color } : undefined} />
+                    <span className="flex-1 truncate">{f.name}</span>
+                    {isCurrent && <Check size={12} className="text-primary" />}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────
+// Create-folder modal
+// ────────────────────────────────────────
+function CreateFolderModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [name, setName] = useState('');
+  const [color, setColor] = useState<string>('#6c63fa');
+
+  const PRESET_COLORS = ['#6c63fa', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899', '#8b5cf6', '#64748b'];
+
+  const mut = useMutation({
+    mutationFn: () => emailApi.createCustomFolder({ name: name.trim(), color }),
+    onSuccess: () => { toast.success('Folder created'); onCreated(); },
+    onError: (e: any) => toast.error(errMsg(e)),
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-background/70 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+            <FolderPlus size={16} className="text-primary" />
+            New Folder
+          </h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Folder name</label>
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && name.trim()) mut.mutate();
+              }}
+              maxLength={100}
+              placeholder="Clients, Newsletters, Receipts…"
+              className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Color</label>
+            <div className="flex flex-wrap gap-2">
+              {PRESET_COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={`w-7 h-7 rounded-full border-2 transition-transform ${
+                    color === c ? 'border-foreground scale-110' : 'border-transparent hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: c }}
+                  title={c}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-border">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => mut.mutate()}
+            disabled={!name.trim() || mut.isPending}
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
+          >
+            {mut.isPending ? 'Creating…' : 'Create Folder'}
+          </button>
+        </div>
       </div>
     </div>
   );
