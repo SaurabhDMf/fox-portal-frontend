@@ -490,13 +490,16 @@ export default function EmailPage() {
                     checked ? 'bg-primary/8' : sel ? 'bg-primary/5 border-l-2 border-l-primary' : 'hover:bg-muted/50'
                   } ${!msg.is_read ? 'font-semibold' : ''}`}
                 >
-                  {/* Checkbox: appears on hover, stays visible when checked */}
+                  {/* Checkbox: appears on hover, stays visible when checked.
+                      Border uses muted-foreground at 60% so it's visible in
+                      both light and dark mode (dark in light theme, near-white
+                      in dark theme). */}
                   <label
                     onClick={(e) => e.stopPropagation()}
-                    className={`shrink-0 w-5 h-5 mt-1 flex items-center justify-center rounded border cursor-pointer transition-opacity ${
+                    className={`shrink-0 w-5 h-5 mt-1 flex items-center justify-center rounded border-2 cursor-pointer transition-opacity ${
                       checked
                         ? 'bg-primary border-primary opacity-100'
-                        : 'border-border hover:border-primary opacity-0 group-hover:opacity-100'
+                        : 'border-muted-foreground/60 hover:border-primary opacity-0 group-hover:opacity-100'
                     }`}
                     title={checked ? 'Deselect' : 'Select'}
                   >
