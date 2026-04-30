@@ -17,8 +17,10 @@ type TempAttachment = { id: string; file_name: string; file_size: number; mime_t
 
 export default function SubtaskCreateModal({ parentTask, projectId, onClose, onCreated }: Props) {
   const qc = useQueryClient();
+  const today = new Date().toISOString().split('T')[0];
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [dueDate, setDueDate] = useState(today);
   // Pre-populate Sprint/Module/Epic from parent task; allow override
   const [sprintId, setSprintId] = useState<string>(parentTask.sprint_id || '');
   const [moduleId, setModuleId] = useState<string>(parentTask.epic_id || '');
@@ -74,6 +76,7 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
         sprint_id: sprintId || null,
         epic_id: moduleId || null,
         project_epic_id: projectEpicId || null,
+        due_date: dueDate || null,
       };
       if (attachments.length > 0) payload.attachment_ids = attachments.map(a => a.id);
       const res = await api.post('/tasks', payload);
@@ -135,7 +138,14 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div className="glass-card w-full max-w-lg p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Add Subtask</h2>
+          <div>
+            <h2 className="text-lg font-semibold">Add Subtask</h2>
+            {parentTask.task_number && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Under <span className="font-mono font-medium text-foreground">#{parentTask.task_number}</span> · will be numbered {parentTask.task_number}.1, .2…
+              </p>
+            )}
+          </div>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
         </div>
 
@@ -208,6 +218,16 @@ export default function SubtaskCreateModal({ parentTask, projectId, onClose, onC
               <option key={ep.id} value={ep.id}>{ep.title}</option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="text-xs text-muted-foreground">Due Date</label>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={e => setDueDate(e.target.value)}
+            className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
         </div>
 
         <div>

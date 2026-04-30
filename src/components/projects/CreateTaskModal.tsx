@@ -49,7 +49,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
     project_epic_id: defaultProjectEpicId || '',           // New Epic layer
     sprint_id: defaultSprintId || '',
     parent_task_id: '',
-    due_date: '',
+    due_date: new Date().toISOString().split('T')[0],
   });
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
@@ -326,7 +326,7 @@ export default function CreateTaskModal({ projectId, defaultStatus, defaultSprin
             </select>
           </div>
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Due Date (optional)</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Due Date</label>
             <input type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none" />
           </div>

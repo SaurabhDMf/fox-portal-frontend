@@ -114,6 +114,12 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     setStatusFilter(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
 
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const queryParams = useMemo(() => {
     const p: Record<string, string> = { project_id: projectId };
     if (typeFilter) p.type = typeFilter;
@@ -121,10 +127,11 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
     if (moduleFilter) p.module_id = moduleFilter;
     if (assigneeFilter) p.assignee_id = assigneeFilter;
     if (reporterFilter) p.reporter_id = reporterFilter;
+    if (debouncedSearch) p.search = debouncedSearch;
     p.sort_by = sortBy;
     p.sort_dir = sortDir;
     return p;
-  }, [projectId, typeFilter, sprintFilter, moduleFilter, assigneeFilter, reporterFilter, sortBy, sortDir]);
+  }, [projectId, typeFilter, sprintFilter, moduleFilter, assigneeFilter, reporterFilter, debouncedSearch, sortBy, sortDir]);
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ['project-all-tasks', queryParams],
@@ -144,17 +151,8 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
   const matchesFilters = useCallback((t: ProjectTask) => {
     if (statusFilter.length > 0 && !statusFilter.includes(t.status)) return false;
     if (priorityFilter && t.priority !== priorityFilter) return false;
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      const hit =
-        t.title?.toLowerCase().includes(q) ||
-        t.task_number?.toLowerCase().includes(q) ||
-        (t as any).assignee_name?.toLowerCase().includes(q) ||
-        t.assignees?.[0]?.full_name?.toLowerCase().includes(q);
-      if (!hit) return false;
-    }
     return true;
-  }, [statusFilter, priorityFilter, search]);
+  }, [statusFilter, priorityFilter]);
 
   const visibleTasks = useMemo(() => tasks.filter(matchesFilters), [tasks, matchesFilters]);
 
@@ -278,13 +276,19 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
             <div className="flex flex-col gap-0.5 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {(() => {
-                  const hierNum = hierarchicalNumbers.get(t.id);
-                  const display = hierNum || t.task_number;
+                  const display = t.task_number || hierarchicalNumbers.get(t.id);
                   if (!display) return null;
                   return (
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
-                      {display}
-                    </span>
+                    <>
+                      {(t as any).parent_task_number && (
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">
+                          ↳ #{(t as any).parent_task_number}
+                        </span>
+                      )}
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                        #{display}
+                      </span>
+                    </>
                   );
                 })()}
                 <span className="font-medium text-foreground leading-snug">{t.title}</span>
