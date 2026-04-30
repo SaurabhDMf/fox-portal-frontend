@@ -69,6 +69,15 @@ export default function EmailPage() {
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Multi-selection: tracks which messages are checked. Distinct from selectedId
+  // (which is the single email open in the detail pane).
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Clear selection when folder/account/search changes — a fresh list shouldn't
+  // carry over checkboxes from the previous list.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [activeFolder, activeCustomFolderId, activeAccountId, search]);
 
   // ----- custom folders (user-defined categories) -----
   const { data: customFoldersData } = useQuery({
@@ -407,25 +416,42 @@ export default function EmailPage() {
 
       {/* ───────── COL 2 — MESSAGE LIST ───────── */}
       <section className="w-[380px] shrink-0 border-r border-border bg-card flex flex-col">
-        <div className="px-3 py-3 border-b border-border flex items-center gap-2">
-          <div className="flex-1 relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search messages…"
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            />
+        {selectedIds.size > 0 ? (
+          <SelectionBar
+            count={selectedIds.size}
+            allOnPage={messages.length}
+            folders={customFolders}
+            onSelectAll={() => setSelectedIds(new Set(messages.map((m: any) => m.id)))}
+            onClear={() => setSelectedIds(new Set())}
+            onMoved={() => {
+              qc.invalidateQueries({ queryKey: ['emails'] });
+              qc.invalidateQueries({ queryKey: ['email-custom-folders'] });
+              qc.invalidateQueries({ queryKey: ['email-unread'] });
+              setSelectedIds(new Set());
+            }}
+            ids={Array.from(selectedIds)}
+          />
+        ) : (
+          <div className="px-3 py-3 border-b border-border flex items-center gap-2">
+            <div className="flex-1 relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search messages…"
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+            <button
+              onClick={() => syncMutation.mutate()}
+              disabled={!activeAccountId || syncMutation.isPending}
+              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+              title="Sync"
+            >
+              <RefreshCw size={14} className={syncMutation.isPending ? 'animate-spin' : ''} />
+            </button>
           </div>
-          <button
-            onClick={() => syncMutation.mutate()}
-            disabled={!activeAccountId || syncMutation.isPending}
-            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
-            title="Sync"
-          >
-            <RefreshCw size={14} className={syncMutation.isPending ? 'animate-spin' : ''} />
-          </button>
-        </div>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
@@ -445,15 +471,44 @@ export default function EmailPage() {
           ) : (
             messages.map((msg: any) => {
               const sel = selectedId === msg.id;
+              const checked = selectedIds.has(msg.id);
               const fromLabel = msg.from_name || msg.from_address || '?';
+              const toggleChecked = (e: React.MouseEvent | React.ChangeEvent) => {
+                e.stopPropagation();
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(msg.id)) next.delete(msg.id);
+                  else next.add(msg.id);
+                  return next;
+                });
+              };
               return (
                 <div
                   key={msg.id}
                   onClick={() => setSelectedId(msg.id)}
-                  className={`flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-border transition-colors ${
-                    sel ? 'bg-primary/5 border-l-2 border-l-primary' : 'hover:bg-muted/50'
+                  className={`group flex items-start gap-2 px-3 py-3 cursor-pointer border-b border-border transition-colors ${
+                    checked ? 'bg-primary/8' : sel ? 'bg-primary/5 border-l-2 border-l-primary' : 'hover:bg-muted/50'
                   } ${!msg.is_read ? 'font-semibold' : ''}`}
                 >
+                  {/* Checkbox: appears on hover, stays visible when checked */}
+                  <label
+                    onClick={(e) => e.stopPropagation()}
+                    className={`shrink-0 w-5 h-5 mt-1 flex items-center justify-center rounded border cursor-pointer transition-opacity ${
+                      checked
+                        ? 'bg-primary border-primary opacity-100'
+                        : 'border-border hover:border-primary opacity-0 group-hover:opacity-100'
+                    }`}
+                    title={checked ? 'Deselect' : 'Select'}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={toggleChecked}
+                      className="sr-only"
+                    />
+                    {checked && <Check size={12} className="text-primary-foreground" strokeWidth={3} />}
+                  </label>
+
                   <div className="w-8 h-8 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold uppercase">
                     {fromLabel[0]}
                   </div>
@@ -1286,6 +1341,136 @@ function CustomFolderRow({
         >
           <Trash2 size={11} />
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────
+// Selection bar — replaces the search/sync row when 1+ emails are checked.
+// Shows count, "Select all on page", "Move to ▼" dropdown, and Clear button.
+// ────────────────────────────────────────
+function SelectionBar({
+  count,
+  allOnPage,
+  folders,
+  ids,
+  onSelectAll,
+  onClear,
+  onMoved,
+}: {
+  count: number;
+  allOnPage: number;
+  folders: any[];
+  ids: string[];
+  onSelectAll: () => void;
+  onClear: () => void;
+  onMoved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const moveMut = useMutation({
+    mutationFn: (target: string | null) => emailApi.bulkMoveMessages(ids, target),
+    onSuccess: (r: any) => {
+      const moved = r?.data?.moved ?? count;
+      toast.success(`${moved} email${moved === 1 ? '' : 's'} moved`);
+      setOpen(false);
+      onMoved();
+    },
+    onError: (e: any) => toast.error(errMsg(e) || 'Failed to move emails'),
+  });
+
+  const allSelected = count >= allOnPage && allOnPage > 0;
+
+  return (
+    <div className="px-3 py-3 border-b border-border bg-primary/5 flex items-center gap-2">
+      <button
+        onClick={onClear}
+        className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        title="Clear selection"
+      >
+        <X size={15} />
+      </button>
+
+      <span className="text-sm font-semibold text-foreground">
+        {count} selected
+      </span>
+
+      {!allSelected && (
+        <button
+          onClick={onSelectAll}
+          className="text-xs text-primary hover:underline"
+        >
+          Select all {allOnPage}
+        </button>
+      )}
+
+      <div className="flex-1" />
+
+      <div ref={ref} className="relative">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          disabled={moveMut.isPending}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+        >
+          {moveMut.isPending ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <FolderInput size={12} />
+          )}
+          {moveMut.isPending ? 'Moving…' : 'Move to'}
+        </button>
+
+        {open && (
+          <div className="absolute right-0 top-full mt-1 z-30 w-56 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+            <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border">
+              Move {count} email{count === 1 ? '' : 's'} to
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+              <button
+                onClick={() => moveMut.mutate(null)}
+                disabled={moveMut.isPending}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted text-left"
+              >
+                <Inbox size={14} className="text-muted-foreground" />
+                <span>Inbox</span>
+              </button>
+              {folders.length === 0 ? (
+                <p className="px-3 py-3 text-xs text-muted-foreground italic border-t border-border">
+                  No folders yet — create one in the sidebar.
+                </p>
+              ) : (
+                <>
+                  <div className="border-t border-border" />
+                  {folders.map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => moveMut.mutate(f.id)}
+                      disabled={moveMut.isPending}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted text-left"
+                    >
+                      <Folder
+                        size={14}
+                        style={f.color ? { color: f.color } : undefined}
+                      />
+                      <span className="truncate">{f.name}</span>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

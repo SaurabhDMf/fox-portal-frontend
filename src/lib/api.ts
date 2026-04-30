@@ -155,6 +155,8 @@ export const emailApi = {
   deleteCustomFolder: (id: string) => api.delete(`/email/folders/${id}`),
   moveMessage: (id: string, custom_folder_id: string | null) =>
     api.patch(`/email/messages/${id}`, { custom_folder_id }),
+  bulkMoveMessages: (ids: string[], custom_folder_id: string | null) =>
+    api.post('/email/messages/bulk-move', { ids, custom_folder_id }),
 };
 
 export default api;
