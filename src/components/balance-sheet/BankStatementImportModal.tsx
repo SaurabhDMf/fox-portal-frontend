@@ -233,13 +233,43 @@ function parseDateCell(v: any): string {
     if (d) return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
   }
   const s = String(v).trim();
-  // Try common formats: dd/mm/yyyy, dd-mm-yyyy, yyyy-mm-dd
-  const m1 = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
-  if (m1) {
-    let [_, d, mo, y] = m1;
-    if (y.length === 2) y = '20' + y;
+
+  // Strip any time component first ("01/04/2026 18:57:29" → "01/04/2026")
+  // so the date-only regex matches even when timestamps are appended.
+  const datePart = s.split(/[\sT]/)[0];
+
+  // ISO format: yyyy-mm-dd (recognise this BEFORE the dd/mm/yyyy branch
+  // since both share the same separators)
+  const iso = datePart.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) {
+    const [, y, mo, d] = iso;
     return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
+
+  // Day-first: dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy (Indian/UK/AU convention).
+  // This is the format Razorpay uses ("13/04/2026 11:16:10") and ICICI uses
+  // ("01/Apr/2026"). We treat the first segment as DAY because most of our
+  // imports come from Indian banks/gateways.
+  const dmy = datePart.match(/^(\d{1,2})[\/\-.](\d{1,2}|[A-Za-z]{3,9})[\/\-.](\d{2,4})$/);
+  if (dmy) {
+    let [, d, mo, y] = dmy;
+    if (y.length === 2) y = '20' + y;
+    let monthNum: string;
+    if (/^\d+$/.test(mo)) {
+      monthNum = mo.padStart(2, '0');
+    } else {
+      // Month abbreviation like "Apr" → 04
+      const monthIdx = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
+        .indexOf(mo.slice(0, 3).toLowerCase());
+      if (monthIdx < 0) return '';
+      monthNum = String(monthIdx + 1).padStart(2, '0');
+    }
+    return `${y}-${monthNum}-${d.padStart(2, '0')}`;
+  }
+
+  // Fallback: let JS try (handles "Apr 13, 2026" etc.). Note: JS interprets
+  // "01/04/2026" as Jan 4 (US format) — we deliberately matched dd/mm above
+  // first so this fallback is safe for unusual inputs only.
   const d = new Date(s);
   if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
   return '';
