@@ -1793,6 +1793,22 @@ function SelectionBar({
     onError: (e: any) => toast.error(errMsg(e) || 'Failed to move emails'),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: () => emailApi.bulkDeleteMessages(ids, false),
+    onSuccess: (r: any) => {
+      const n = r?.data?.affected ?? count;
+      toast.success(`${n} email${n === 1 ? '' : 's'} moved to trash`);
+      onMoved(); // re-uses the same invalidation/clear-selection callback
+    },
+    onError: (e: any) => toast.error(errMsg(e) || 'Failed to delete emails'),
+  });
+
+  const handleBulkDelete = () => {
+    if (!window.confirm(`Move ${count} email${count === 1 ? '' : 's'} to trash?`)) return;
+    deleteMut.mutate();
+  };
+
+  const busy = moveMut.isPending || deleteMut.isPending;
   const allSelected = count >= allOnPage && allOnPage > 0;
 
   return (
@@ -1820,10 +1836,24 @@ function SelectionBar({
 
       <div className="flex-1" />
 
+      <button
+        onClick={handleBulkDelete}
+        disabled={busy}
+        title={`Delete ${count} email${count === 1 ? '' : 's'}`}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive/10 text-destructive text-xs font-medium hover:bg-destructive/20 disabled:opacity-50 transition-colors"
+      >
+        {deleteMut.isPending ? (
+          <Loader2 size={12} className="animate-spin" />
+        ) : (
+          <Trash2 size={12} />
+        )}
+        {deleteMut.isPending ? 'Deleting…' : 'Delete'}
+      </button>
+
       <div ref={ref} className="relative">
         <button
           onClick={() => setOpen((o) => !o)}
-          disabled={moveMut.isPending}
+          disabled={busy}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
         >
           {moveMut.isPending ? (
