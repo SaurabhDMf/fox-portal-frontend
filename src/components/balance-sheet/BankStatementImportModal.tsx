@@ -78,33 +78,65 @@ type GatewayFormat = 'auto' | 'bank' | 'stripe' | 'razorpay';
 function detectGatewayFormat(headers: string[]): GatewayFormat {
   const norm = (s: string) => s.toLowerCase().trim();
   const nh = headers.map(norm);
-  // Stripe balance transaction export has "net", "fee", "available_on"
+
+  // Stripe — two known shapes:
+  //   1. Balance transactions export: has "net" + "fee" + "available_on"
+  //   2. Payments export (your file): has "captured" + "converted amount" + "customer email"
   if (nh.some(h => h === 'available_on' || h === 'available on') && nh.some(h => h === 'net' || h === 'fee')) return 'stripe';
-  // Razorpay has "payment id", "settlement amount", "method"
+  if (nh.some(h => h === 'captured') && nh.some(h => h.includes('converted amount'))) return 'stripe';
+  if (nh.some(h => h.startsWith('created date')) && nh.some(h => h === 'customer email')) return 'stripe';
+
+  // Razorpay — two known shapes:
+  //   1. Settlements export: has "payment id" + "settlement amount"
+  //   2. Payments export (your file): has "id" + "auth_code" / "payments_arn" / "payments_rrn"
   if (nh.some(h => h.includes('payment id') || h === 'payment_id') && nh.some(h => h.includes('settlement'))) return 'razorpay';
+  if (nh.includes('auth_code') || nh.includes('payments_arn') || nh.includes('payments_rrn')) return 'razorpay';
+
   return 'bank';
 }
 
 function parseStripeRows(rows: Record<string, any>[], fileName: string): ParsedRow[] {
   return rows
     .filter(r => {
+      // Skip declined/failed payments, refunds, etc.
+      const status = String(r['Status'] ?? r['status'] ?? '').toLowerCase();
+      const captured = String(r['Captured'] ?? r['captured'] ?? '').toLowerCase();
+      if (status && status !== 'paid' && status !== 'succeeded' && status !== 'available') return false;
+      if (captured === 'false') return false;
       const type = String(r['type'] || r['Type'] || '').toLowerCase();
-      // Include charges/payments; exclude refunds, payouts, fees
       return !type || type === 'charge' || type === 'payment' || type === 'transfer';
     })
     .map((r, idx) => {
-      // Stripe exports amount in cents (integer) or as decimal — net is after fees
-      const netRaw = r['net'] ?? r['Net'] ?? r['amount'] ?? r['Amount'];
-      const net = parseAmount(netRaw);
-      if (net <= 0) return null; // skip refunds / negative entries
+      // Prefer Converted Amount (in INR for Indian Stripe accounts) since the
+      // user's balance sheet is in INR. Fall back to Amount + Currency,
+      // then Net (balance-transactions export).
+      const convertedRaw = r['Converted Amount'] ?? r['converted amount'] ?? r['converted_amount'];
+      const amountRaw    = r['Amount'] ?? r['amount'];
+      const netRaw       = r['net'] ?? r['Net'];
 
-      const createdRaw = r['created'] ?? r['Created'] ?? r['available_on'] ?? r['Available On'] ?? '';
+      let amount = 0;
+      let isCents = false;
+      if (convertedRaw !== undefined && convertedRaw !== '') {
+        amount = parseAmount(convertedRaw);
+      } else if (amountRaw !== undefined && amountRaw !== '') {
+        amount = parseAmount(amountRaw);
+      } else if (netRaw !== undefined && netRaw !== '') {
+        amount = parseAmount(netRaw);
+        isCents = true; // Balance-transactions export uses cents
+      }
+      if (amount <= 0) return null;
+      if (isCents) amount = amount / 100;
+
+      const createdRaw =
+        r['Created date (UTC)'] ?? r['Created Date (UTC)'] ?? r['Created'] ??
+        r['created'] ?? r['available_on'] ?? r['Available On'] ?? '';
       const date = parseDateCell(createdRaw);
       if (!date) return null;
 
-      const desc =
-        r['description'] ?? r['Description'] ?? r['statement_descriptor'] ??
-        r['customer_email'] ?? r['Customer Email'] ?? 'Stripe payment';
+      const customerEmail = r['Customer Email'] ?? r['customer_email'] ?? '';
+      const description   = r['Description'] ?? r['description'] ?? r['statement_descriptor'] ?? '';
+      const invoiceId     = r['Invoice ID'] ?? r['invoice_id'] ?? '';
+      const desc = [description, customerEmail].filter(Boolean).join(' — ') || invoiceId || 'Stripe payment';
 
       const ref = r['id'] ?? r['Id'] ?? r['source'] ?? r['Source'] ?? '';
 
@@ -112,8 +144,8 @@ function parseStripeRows(rows: Record<string, any>[], fileName: string): ParsedR
         _id: `stripe-${idx}`,
         raw: r,
         date,
-        description: String(desc || 'Stripe payment').trim().slice(0, 120),
-        amount: net / 100, // Stripe amounts are in cents
+        description: String(desc).trim().slice(0, 120),
+        amount,
         type: 'income' as const,
         reference: String(ref).trim(),
         include: true,
@@ -125,37 +157,51 @@ function parseStripeRows(rows: Record<string, any>[], fileName: string): ParsedR
 function parseRazorpayRows(rows: Record<string, any>[], fileName: string): ParsedRow[] {
   return rows
     .filter(r => {
-      const status = String(r['Status'] ?? r['status'] ?? r['Payment Status'] ?? '').toLowerCase();
-      return !status || status === 'captured' || status === 'settled' || status === 'success';
+      const status = String(r['status'] ?? r['Status'] ?? r['Payment Status'] ?? '').toLowerCase();
+      // Only include successful payments. Razorpay 'captured' = payment completed.
+      return !status || status === 'captured' || status === 'settled' || status === 'success' || status === 'authorized';
     })
     .map((r, idx) => {
-      // Try settlement amount first (after fees), then amount
-      const amtRaw =
-        r['Settlement Amount'] ?? r['settlement_amount'] ??
-        r['Amount'] ?? r['amount'] ?? 0;
-      const amt = parseAmount(amtRaw);
-      if (amt <= 0) return null;
+      // Razorpay Payments export amounts are decimal (e.g. 300.00), not paise.
+      // Settlements export uses paise. Detect by checking for very large
+      // integer values (> 100,000) without decimals — those are paise.
+      const settlementRaw = r['Settlement Amount'] ?? r['settlement_amount'];
+      const amountRaw     = r['Amount'] ?? r['amount'];
+
+      let amount = 0;
+      if (settlementRaw !== undefined && settlementRaw !== '') {
+        // Settlements export — paise
+        amount = parseAmount(settlementRaw) / 100;
+      } else if (amountRaw !== undefined && amountRaw !== '') {
+        // Payments export — already decimal in selected currency
+        amount = parseAmount(amountRaw);
+      }
+      if (amount <= 0) return null;
 
       const dateRaw =
-        r['Created At'] ?? r['created_at'] ?? r['Settled At'] ??
+        r['created_at'] ?? r['Created At'] ?? r['Settled At'] ??
         r['settled_at'] ?? r['Date'] ?? '';
       const date = parseDateCell(dateRaw);
       if (!date) return null;
 
-      const contact = r['Contact'] ?? r['contact'] ?? r['Email'] ?? r['email'] ?? '';
-      const method  = r['Method'] ?? r['method'] ?? '';
-      const desc = contact
-        ? `Razorpay payment${method ? ` (${method})` : ''} — ${contact}`
-        : `Razorpay payment${method ? ` (${method})` : ''}`;
+      const email   = r['email'] ?? r['Email'] ?? r['contact'] ?? r['Contact'] ?? '';
+      const method  = r['method'] ?? r['Method'] ?? '';
+      const description = r['description'] ?? r['Description'] ?? '';
+      const currency    = r['currency'] ?? r['Currency'] ?? '';
 
-      const ref = r['Payment ID'] ?? r['payment_id'] ?? r['Order ID'] ?? r['order_id'] ?? '';
+      const parts = [description || `Razorpay${method ? ` (${method})` : ''}`];
+      if (email) parts.push(email);
+      if (currency && currency !== 'INR') parts.push(currency);
+      const desc = parts.filter(Boolean).join(' — ');
+
+      const ref = r['id'] ?? r['Id'] ?? r['Payment ID'] ?? r['payment_id'] ?? r['Order ID'] ?? r['order_id'] ?? '';
 
       return {
         _id: `rzp-${idx}`,
         raw: r,
         date,
         description: desc.slice(0, 120),
-        amount: amt / 100, // Razorpay amounts are in paise
+        amount,
         type: 'income' as const,
         reference: String(ref).trim(),
         include: true,
