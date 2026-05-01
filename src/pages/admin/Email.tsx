@@ -5,7 +5,7 @@ import RichTextEditor from '@/components/RichTextEditor';
 import toast from 'react-hot-toast';
 import {
   Inbox, Send, FileText, Star, Archive, Trash2,
-  Plus, RefreshCw, Search, Reply, MailOpen, Paperclip,
+  Plus, RefreshCw, Search, Reply, Forward, MailOpen, Paperclip,
   Minus, X, PlugZap, CheckCircle2, XCircle, Loader2,
   Folder, FolderPlus, MoreVertical, Pencil, FolderInput, Check,
 } from 'lucide-react';
@@ -255,16 +255,28 @@ export default function EmailPage() {
     () => accounts.find((a: any) => a.id === activeAccountId) || null,
     [accounts, activeAccountId]
   );
+
+  // Convert plain-text signature into HTML paragraphs. Returns empty string
+  // if no signature is set. Used by new-compose, reply, and forward.
+  const buildSignatureHtml = (sig: string | undefined | null): string => {
+    if (!sig || !sig.trim()) return '';
+    const sigHtml = sig
+      .split('\n')
+      .map((line: string) => {
+        const safe = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<p>${safe || '<br>'}</p>`;
+      })
+      .join('');
+    // Two blank lines + "--" separator + signature paragraphs.
+    return `<p><br></p><p>--</p>${sigHtml}`;
+  };
+
   useEffect(() => {
     if (showCompose) {
       const current = composeForm.getValues('body_html') || '';
-      const sig = activeAccount?.signature || '';
-      if (!current.trim() && sig) {
-        const sigHtml = sig
-          .split('\n')
-          .map((line: string) => `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') || '<br>'}</p>`)
-          .join('');
-        composeForm.setValue('body_html', `<p><br></p><p>--</p>${sigHtml}`);
+      const sigHtml = buildSignatureHtml(activeAccount?.signature);
+      if (!current.trim() && sigHtml) {
+        composeForm.setValue('body_html', sigHtml);
       }
     }
   }, [showCompose, activeAccount?.id]); // eslint-disable-line
@@ -290,23 +302,53 @@ export default function EmailPage() {
     onError: (e: any) => toast.error(errMsg(e)),
   });
 
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
   const replyTo = () => {
     if (!email) return;
-    // Build HTML quote block so the rich editor renders it nicely (not raw text)
-    const escape = (s: string) =>
-      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Body layout: blank lines for typing → signature → blockquote of original
+    const sigHtml = buildSignatureHtml(activeAccount?.signature);
     const quoteLines = (email.body_text || '')
       .split('\n')
-      .map((l: string) => escape(l) || '<br>')
+      .map((l: string) => escapeHtml(l) || '<br>')
       .join('<br>');
-    const quoteHeader = `On ${fmtDateTime(email.received_at || email.sent_at)}, ${escape(email.from_name || email.from_address || 'sender')} wrote:`;
-    const replyBody = `<p><br></p><p><br></p><blockquote>${quoteHeader}<br>${quoteLines}</blockquote>`;
+    const quoteHeader = `On ${fmtDateTime(email.received_at || email.sent_at)}, ${escapeHtml(email.from_name || email.from_address || 'sender')} wrote:`;
+
+    const replyBody = `<p><br></p><p><br></p>${sigHtml}<blockquote>${quoteHeader}<br>${quoteLines}</blockquote>`;
 
     composeForm.reset({
       to: email.from_address || '',
       cc: '',
       subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
       body_html: replyBody,
+      account_id: activeAccountId || '',
+    });
+    setShowCompose(true);
+  };
+
+  const forwardEmail = () => {
+    if (!email) return;
+    // Forwarded message header (Outlook/Gmail style) + original email body
+    const sigHtml = buildSignatureHtml(activeAccount?.signature);
+    const quoteLines = (email.body_text || '')
+      .split('\n')
+      .map((l: string) => escapeHtml(l) || '<br>')
+      .join('<br>');
+    const fwdHeader =
+      `<p><strong>---------- Forwarded message ----------</strong></p>` +
+      `<p><strong>From:</strong> ${escapeHtml(email.from_name || '')} &lt;${escapeHtml(email.from_address || '')}&gt;</p>` +
+      `<p><strong>Date:</strong> ${escapeHtml(fmtDateTime(email.received_at || email.sent_at))}</p>` +
+      `<p><strong>Subject:</strong> ${escapeHtml(email.subject || '')}</p>` +
+      (email.to_addresses ? `<p><strong>To:</strong> ${escapeHtml(formatAddresses(email.to_addresses))}</p>` : '');
+
+    const forwardBody = `<p><br></p><p><br></p>${sigHtml}<blockquote>${fwdHeader}<p><br></p>${quoteLines}</blockquote>`;
+
+    composeForm.reset({
+      to: '',
+      cc: '',
+      subject: email.subject?.toLowerCase().startsWith('fwd:') ? email.subject : `Fwd: ${email.subject || ''}`,
+      body_html: forwardBody,
       account_id: activeAccountId || '',
     });
     setShowCompose(true);
@@ -633,6 +675,13 @@ export default function EmailPage() {
                   title="Reply"
                 >
                   <Reply size={15} />
+                </button>
+                <button
+                  onClick={forwardEmail}
+                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
+                  title="Forward"
+                >
+                  <Forward size={15} />
                 </button>
                 <button
                   onClick={() => unread.mutate()}
