@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
+import RichTextEditor from '@/components/RichTextEditor';
 import toast from 'react-hot-toast';
 import {
   Inbox, Send, FileText, Star, Archive, Trash2,
@@ -248,7 +249,8 @@ export default function EmailPage() {
   }, [activeAccountId]); // eslint-disable-line
 
   // When opening compose, prefill body with the active account's signature
-  // (only if body is empty so we don't clobber a reply quote)
+  // (only if body is empty so we don't clobber a reply quote). Wrap in <p>
+  // tags so the rich editor renders it as paragraphs, not a literal text blob.
   const activeAccount = useMemo(
     () => accounts.find((a: any) => a.id === activeAccountId) || null,
     [accounts, activeAccountId]
@@ -258,13 +260,27 @@ export default function EmailPage() {
       const current = composeForm.getValues('body_html') || '';
       const sig = activeAccount?.signature || '';
       if (!current.trim() && sig) {
-        composeForm.setValue('body_html', `\n\n--\n${sig}`);
+        const sigHtml = sig
+          .split('\n')
+          .map((line: string) => `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') || '<br>'}</p>`)
+          .join('');
+        composeForm.setValue('body_html', `<p><br></p><p>--</p>${sigHtml}`);
       }
     }
   }, [showCompose, activeAccount?.id]); // eslint-disable-line
 
   const sendMutation = useMutation({
-    mutationFn: (d: any) => emailApi.send({ ...d, body_text: d.body_html }),
+    mutationFn: (d: any) => {
+      // Derive a plain-text version from the rich HTML so recipients without
+      // HTML support still see something readable.
+      const stripHtml = (html: string) => {
+        if (!html) return '';
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        return (div.textContent || div.innerText || '').trim();
+      };
+      return emailApi.send({ ...d, body_text: stripHtml(d.body_html || '') });
+    },
     onSuccess: () => {
       toast.success('Email sent!');
       composeForm.reset({ to: '', cc: '', subject: '', body_html: '', account_id: activeAccountId || '' });
@@ -276,11 +292,21 @@ export default function EmailPage() {
 
   const replyTo = () => {
     if (!email) return;
+    // Build HTML quote block so the rich editor renders it nicely (not raw text)
+    const escape = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const quoteLines = (email.body_text || '')
+      .split('\n')
+      .map((l: string) => escape(l) || '<br>')
+      .join('<br>');
+    const quoteHeader = `On ${fmtDateTime(email.received_at || email.sent_at)}, ${escape(email.from_name || email.from_address || 'sender')} wrote:`;
+    const replyBody = `<p><br></p><p><br></p><blockquote>${quoteHeader}<br>${quoteLines}</blockquote>`;
+
     composeForm.reset({
       to: email.from_address || '',
       cc: '',
       subject: email.subject?.startsWith('Re:') ? email.subject : `Re: ${email.subject || ''}`,
-      body_html: `\n\n---\nOn ${fmtDateTime(email.received_at || email.sent_at)}, ${email.from_name || email.from_address} wrote:\n${email.body_text || ''}`,
+      body_html: replyBody,
       account_id: activeAccountId || '',
     });
     setShowCompose(true);
@@ -777,12 +803,20 @@ export default function EmailPage() {
                 placeholder="Subject"
               />
             </div>
-            <textarea
-              {...composeForm.register('body_html')}
-              rows={12}
-              className="flex-1 px-4 py-3 text-sm bg-transparent border-0 focus:outline-none resize-none text-foreground"
-              placeholder="Write your message…"
-            />
+            <div className="flex-1 px-3 py-2 overflow-y-auto">
+              <Controller
+                control={composeForm.control}
+                name="body_html"
+                render={({ field }) => (
+                  <RichTextEditor
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    placeholder="Write your message… (paste an image to embed it)"
+                    minHeight={240}
+                  />
+                )}
+              />
+            </div>
           </div>
 
           <div className="flex items-center justify-between px-4 py-3 border-t border-border shrink-0">
