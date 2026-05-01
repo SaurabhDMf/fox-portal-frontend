@@ -9,7 +9,21 @@ import {
   Plus, RefreshCw, Search, Reply, Forward, MailOpen, Paperclip,
   Minus, X, PlugZap, CheckCircle2, XCircle, Loader2,
   Folder, FolderPlus, MoreVertical, Pencil, FolderInput, Check,
+  Menu, ArrowLeft,
 } from 'lucide-react';
+
+// Tracks whether the viewport is mobile-sized. Updates on resize.
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' && window.innerWidth < breakpoint
+  );
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, [breakpoint]);
+  return isMobile;
+}
 import { emailApi } from '@/lib/api';
 
 // ---------- helpers ----------
@@ -86,6 +100,14 @@ export default function EmailPage() {
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Auto-close the mobile sidebar drawer whenever an email opens, a folder
+  // is picked, etc. — anything that changes context.
+  useEffect(() => {
+    if (isMobile) setMobileSidebarOpen(false);
+  }, [selectedId, activeFolder, activeCustomFolderId, activeAccountId, isMobile]);
   // Multi-selection: tracks which messages are checked. Distinct from selectedId
   // (which is the single email open in the detail pane).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -421,13 +443,11 @@ export default function EmailPage() {
 
   const filteredFolders = useMemo(() => FOLDERS, []);
 
-  return (
-    <div className="h-[calc(100vh-4rem)] bg-background flex flex-col overflow-hidden">
-      <PanelGroup direction="horizontal" autoSaveId="email-3col-layout" className="flex-1 min-h-0">
-
-      {/* ───────── COL 1 — SIDEBAR ───────── */}
-      <Panel defaultSize={18} minSize={12} maxSize={32} order={1}>
-      <aside className="h-full border-r border-border bg-card flex flex-col">
+  // Sidebar inner content — used by both the desktop Panel and the mobile
+  // slide-in drawer. Only ONE of those is mounted at a time (conditional
+  // rendering below), so this expression renders in a single tree at runtime.
+  const sidebarInner = (
+    <>
         <div className="p-3">
           <button
             onClick={() => setShowCompose(true)}
@@ -546,13 +566,25 @@ export default function EmailPage() {
             )}
           </div>
         </div>
+    </>
+  );
+
+  return (
+    <div className="h-[calc(100vh-4rem)] bg-background flex flex-col overflow-hidden">
+      {!isMobile && (
+      <PanelGroup direction="horizontal" autoSaveId="email-3col-layout" className="flex-1 min-h-0">
+
+      {/* ───────── COL 1 — SIDEBAR ───────── */}
+      <Panel defaultSize={18} minSize={12} maxSize={32} order={1} id="sidebar">
+      <aside className="h-full border-r border-border bg-card flex flex-col">
+        {sidebarInner}
       </aside>
       </Panel>
 
       <PanelResizeHandle className="w-px bg-border data-[resize-handle-state=hover]:w-1 data-[resize-handle-state=hover]:bg-primary/40 data-[resize-handle-state=drag]:w-1 data-[resize-handle-state=drag]:bg-primary transition-all" />
 
       {/* ───────── COL 2 — MESSAGE LIST ───────── */}
-      <Panel defaultSize={28} minSize={20} maxSize={55} order={2}>
+      <Panel defaultSize={28} minSize={20} maxSize={55} order={2} id="list">
       <section className="h-full border-r border-border bg-card flex flex-col">
         {selectedIds.size > 0 ? (
           <SelectionBar
@@ -866,12 +898,264 @@ export default function EmailPage() {
       </Panel>
 
       </PanelGroup>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════
+           MOBILE LAYOUT — single pane at a time + slide-out sidebar drawer
+           ═════════════════════════════════════════════════════════ */}
+      {isMobile && (
+        <div className="flex-1 min-h-0 flex flex-col bg-background">
+          {/* Mobile sidebar drawer (slides in from left) */}
+          {mobileSidebarOpen && (
+            <div className="fixed inset-0 z-40 flex">
+              <aside className="w-72 max-w-[85vw] h-full bg-card overflow-y-auto border-r border-border flex flex-col shadow-xl">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+                  <span className="text-sm font-semibold">Folders & Accounts</span>
+                  <button
+                    onClick={() => setMobileSidebarOpen(false)}
+                    className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                    aria-label="Close menu"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                {sidebarInner}
+              </aside>
+              {/* Backdrop */}
+              <div
+                className="flex-1 bg-black/50"
+                onClick={() => setMobileSidebarOpen(false)}
+              />
+            </div>
+          )}
+
+          {/* List view (when no email selected) OR Detail view */}
+          {!selectedId ? (
+            <section className="flex-1 min-h-0 flex flex-col bg-card">
+              {/* Mobile toolbar — hamburger + folder name */}
+              <div className="px-3 py-2.5 border-b border-border flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setMobileSidebarOpen(true)}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                  aria-label="Open menu"
+                >
+                  <Menu size={18} />
+                </button>
+                <span className="text-sm font-semibold flex-1 truncate">
+                  {activeCustomFolderId
+                    ? customFolders.find((f: any) => f.id === activeCustomFolderId)?.name || 'Folder'
+                    : (FOLDERS.find((f) => f.key === activeFolder)?.label || activeFolder)}
+                </span>
+                <button
+                  onClick={() => setShowCompose(true)}
+                  className="p-1.5 rounded-md bg-primary text-primary-foreground"
+                  aria-label="Compose"
+                  title="Compose"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+
+              {/* Search/sync OR selection bar */}
+              {selectedIds.size > 0 ? (
+                <SelectionBar
+                  count={selectedIds.size}
+                  allOnPage={messages.length}
+                  folders={customFolders}
+                  onSelectAll={() => setSelectedIds(new Set(messages.map((m: any) => m.id)))}
+                  onClear={() => setSelectedIds(new Set())}
+                  onMoved={() => {
+                    qc.invalidateQueries({ queryKey: ['emails'] });
+                    qc.invalidateQueries({ queryKey: ['email-custom-folders'] });
+                    qc.invalidateQueries({ queryKey: ['email-unread'] });
+                    setSelectedIds(new Set());
+                  }}
+                  ids={Array.from(selectedIds)}
+                />
+              ) : (
+                <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+                  <div className="flex-1 relative">
+                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Escape') setSearch(''); }}
+                      placeholder="Search messages…"
+                      className="w-full pl-8 pr-8 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    {search && (
+                      <button
+                        onClick={() => setSearch('')}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => syncMutation.mutate()}
+                    disabled={!activeAccountId || syncMutation.isPending}
+                    className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+                    title="Sync"
+                  >
+                    <RefreshCw size={14} className={syncMutation.isPending ? 'animate-spin' : ''} />
+                  </button>
+                </div>
+              )}
+
+              {/* Message list (mobile) — same body as desktop, just full-width */}
+              <div className="flex-1 overflow-y-auto">
+                {isLoading ? (
+                  <div className="p-6 text-center text-sm text-muted-foreground">Loading…</div>
+                ) : messages.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <p className="text-sm text-muted-foreground">No messages in {activeFolder}</p>
+                  </div>
+                ) : (
+                  messages.map((msg: any) => {
+                    const checked = selectedIds.has(msg.id);
+                    const fromLabel = msg.from_name || msg.from_address || '?';
+                    const toggleChecked = (e: React.MouseEvent | React.ChangeEvent) => {
+                      e.stopPropagation();
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id);
+                        return next;
+                      });
+                    };
+                    return (
+                      <div
+                        key={msg.id}
+                        onClick={() => setSelectedId(msg.id)}
+                        className={`flex items-start gap-2 px-3 py-3 cursor-pointer border-b border-border transition-colors ${
+                          checked ? 'bg-primary/10' : 'hover:bg-muted/50'
+                        } ${!msg.is_read ? 'font-semibold' : ''}`}
+                      >
+                        <label
+                          onClick={(e) => e.stopPropagation()}
+                          className={`shrink-0 w-5 h-5 mt-1 flex items-center justify-center rounded border-2 cursor-pointer transition-colors ${
+                            checked ? 'bg-primary border-primary' : 'border-muted-foreground/60'
+                          }`}
+                        >
+                          <input type="checkbox" checked={checked} onChange={toggleChecked} className="sr-only" />
+                          {checked && <Check size={12} className="text-primary-foreground" strokeWidth={3} />}
+                        </label>
+                        <div className="w-8 h-8 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold uppercase">
+                          {fromLabel[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm text-foreground truncate">{fromLabel}</span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">
+                              {fmtRelative(msg.received_at || msg.sent_at)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-foreground truncate">{msg.subject || '(no subject)'}</p>
+                          <p className="text-xs text-muted-foreground truncate font-normal">
+                            {(() => {
+                              const p = msg.preview;
+                              if (!p || typeof p !== 'string' || !p.trim()) return '';
+                              return p.length > 80 ? `${p.slice(0, 80)}...` : p;
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                {messages.length > 0 && (
+                  <InfiniteScrollSentinel
+                    hasNextPage={hasNextPage}
+                    isFetchingNextPage={isFetchingNextPage}
+                    fetchNextPage={fetchNextPage}
+                    loaded={messages.length}
+                    total={totalMessages}
+                    activeAccountId={activeAccountId}
+                    activeFolder={activeFolder}
+                    onResynced={() => refetch()}
+                  />
+                )}
+              </div>
+            </section>
+          ) : (
+            <section className="flex-1 min-h-0 flex flex-col bg-background">
+              {/* Mobile detail toolbar — back + actions */}
+              <div className="px-2 py-2 border-b border-border flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => setSelectedId(null)}
+                  className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted inline-flex items-center gap-1"
+                  aria-label="Back to list"
+                >
+                  <ArrowLeft size={18} />
+                  <span className="text-xs hidden xs:inline">Back</span>
+                </button>
+                <span className="text-sm font-medium flex-1 truncate px-1">
+                  {email?.subject || '(no subject)'}
+                </span>
+                {email && (
+                  <>
+                    <button onClick={() => star.mutate()} className="p-2 rounded-md hover:bg-muted text-muted-foreground" title="Star">
+                      <Star size={16} className={email.is_starred ? 'fill-primary text-primary' : ''} />
+                    </button>
+                    <button onClick={replyTo} className="p-2 rounded-md hover:bg-muted text-muted-foreground" title="Reply">
+                      <Reply size={16} />
+                    </button>
+                    <button onClick={forwardEmail} className="p-2 rounded-md hover:bg-muted text-muted-foreground" title="Forward">
+                      <Forward size={16} />
+                    </button>
+                    <button onClick={() => trash.mutate()} className="p-2 rounded-md hover:bg-destructive/10 text-destructive" title="Delete">
+                      <Trash2 size={16} />
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Email body — same iframe component */}
+              {!email ? (
+                <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+                  Loading email…
+                </div>
+              ) : (
+                <>
+                  <div className="px-4 py-3 border-b border-border shrink-0">
+                    <p className="text-xs text-muted-foreground">From</p>
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {email.from_name ? `${email.from_name} ` : ''}
+                      <span className="text-muted-foreground font-normal">&lt;{email.from_address}&gt;</span>
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      {fmtDateTime(email.received_at || email.sent_at)}
+                    </p>
+                  </div>
+                  <div className="flex-1 px-3 py-3 flex flex-col min-h-0 overflow-hidden">
+                    {email.body_html && String(email.body_html).trim() ? (
+                      <div className="flex-1 min-h-0">
+                        <EmailBodyFrame html={sanitizeHtml(email.body_html)} />
+                      </div>
+                    ) : email.body_text && String(email.body_text).trim() ? (
+                      <div className="flex-1 min-h-0 overflow-y-auto rounded-lg bg-white">
+                        <pre className="text-sm text-gray-900 whitespace-pre-wrap font-sans p-4">
+                          {email.body_text}
+                        </pre>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">This email has no content</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </section>
+          )}
+        </div>
+      )}
 
       {/* ───────── COMPOSE MODAL ───────── */}
       {showCompose && (
         <div
-          className="fixed bottom-4 right-4 z-50 w-[560px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col"
-          style={{ maxHeight: '80vh' }}
+          className="fixed z-50 bg-card border border-border shadow-2xl flex flex-col
+                     inset-2 rounded-xl
+                     md:inset-auto md:bottom-4 md:right-4 md:w-[560px] md:rounded-2xl"
+          style={{ maxHeight: isMobile ? 'calc(100vh - 1rem)' : '80vh' }}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
             <h3 className="text-sm font-semibold text-foreground">New Message</h3>
