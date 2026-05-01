@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import RichTextEditor from '@/components/RichTextEditor';
@@ -103,28 +103,47 @@ export default function EmailPage() {
     }
   }, [accounts, activeAccountId]);
 
-  // ----- messages list (auto-refresh every 30s for live inbox) -----
+  // ----- messages list (paginated 50 at a time, auto-refresh every 30s) -----
+  const PAGE_SIZE = 50;
   const {
     data: msgData,
     isLoading,
     refetch,
-  } = useQuery({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['emails', activeFolder, activeCustomFolderId, activeAccountId, search],
-    queryFn: () =>
-      emailApi
-        .getMessages({
-          folder: activeCustomFolderId ? undefined : activeFolder,
-          custom_folder_id: activeCustomFolderId || undefined,
-          account_id: activeAccountId || undefined,
-          search: search || undefined,
-          limit: 50,
-        })
-        .then((r) => r.data),
+    queryFn: async ({ pageParam = 0 }) => {
+      const r = await emailApi.getMessages({
+        folder: activeCustomFolderId ? undefined : activeFolder,
+        custom_folder_id: activeCustomFolderId || undefined,
+        account_id: activeAccountId || undefined,
+        search: search || undefined,
+        limit: PAGE_SIZE,
+        offset: pageParam,
+      });
+      return r.data;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: any, allPages: any[]) => {
+      // Backend returns { data, total, has_more }. Stop if has_more=false or
+      // if we've already fetched everything.
+      if (!lastPage?.has_more) return undefined;
+      const fetched = allPages.reduce((sum, p: any) => sum + (p?.data?.length || 0), 0);
+      return fetched;
+    },
     enabled: accounts.length > 0,
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
   });
-  const messages: any[] = msgData?.data || msgData || [];
+  // Flatten pages into a single array. Older queries may return data in
+  // different shapes (data array directly, or {data: []}) — handle both.
+  const messages: any[] = useMemo(() => {
+    if (!msgData?.pages) return [];
+    return msgData.pages.flatMap((p: any) => p?.data || (Array.isArray(p) ? p : []));
+  }, [msgData]);
+  const totalMessages: number = (msgData?.pages?.[0] as any)?.total ?? messages.length;
 
   // ----- unread inbox count (auto-refresh every 30s) -----
   const { data: unreadData } = useQuery({
@@ -388,7 +407,7 @@ export default function EmailPage() {
   const filteredFolders = useMemo(() => FOLDERS, []);
 
   return (
-    <div className="h-[calc(100vh-4rem)] bg-background flex flex-col">
+    <div className="h-[calc(100vh-4rem)] bg-background flex flex-col overflow-hidden">
       <PanelGroup direction="horizontal" autoSaveId="email-3col-layout" className="flex-1 min-h-0">
 
       {/* ───────── COL 1 — SIDEBAR ───────── */}
@@ -664,6 +683,16 @@ export default function EmailPage() {
                 </div>
               );
             })
+          )}
+          {/* Infinite-scroll sentinel + load-more button */}
+          {messages.length > 0 && (
+            <InfiniteScrollSentinel
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              fetchNextPage={fetchNextPage}
+              loaded={messages.length}
+              total={totalMessages}
+            />
           )}
         </div>
       </section>
@@ -1492,6 +1521,64 @@ function CustomFolderRow({
           <Trash2 size={11} />
         </button>
       </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────
+// Infinite-scroll sentinel — auto-fetches next page when scrolled into view.
+// Shows a "Load more" button as fallback if user prefers not to scroll, plus
+// a status line ("Showing 50 of 200" or "All caught up").
+// ────────────────────────────────────────
+function InfiniteScrollSentinel({
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
+  loaded,
+  total,
+}: {
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
+  fetchNextPage: () => void;
+  loaded: number;
+  total: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // IntersectionObserver — when sentinel becomes 100px visible, fetch next page
+  useEffect(() => {
+    if (!hasNextPage || isFetchingNextPage) return;
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) fetchNextPage();
+      },
+      { rootMargin: '100px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  return (
+    <div ref={ref} className="px-4 py-4 text-center">
+      {isFetchingNextPage ? (
+        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          <Loader2 size={12} className="animate-spin" />
+          Loading older emails…
+        </div>
+      ) : hasNextPage ? (
+        <button
+          onClick={fetchNextPage}
+          className="text-xs text-primary hover:underline"
+        >
+          Load more ({loaded} of {total})
+        </button>
+      ) : (
+        <p className="text-[11px] text-muted-foreground/70 italic">
+          {total > 0 ? `All ${total} loaded` : 'No more messages'}
+        </p>
+      )}
     </div>
   );
 }
