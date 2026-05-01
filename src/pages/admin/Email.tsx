@@ -699,7 +699,7 @@ export default function EmailPage() {
               );
             })
           )}
-          {/* Infinite-scroll sentinel + load-more button */}
+          {/* Infinite-scroll sentinel + "Load more" + "Pull older from server" */}
           {messages.length > 0 && (
             <InfiniteScrollSentinel
               hasNextPage={hasNextPage}
@@ -707,6 +707,9 @@ export default function EmailPage() {
               fetchNextPage={fetchNextPage}
               loaded={messages.length}
               total={totalMessages}
+              activeAccountId={activeAccountId}
+              activeFolder={activeFolder}
+              onResynced={() => refetch()}
             />
           )}
         </div>
@@ -1647,14 +1650,41 @@ function InfiniteScrollSentinel({
   fetchNextPage,
   loaded,
   total,
+  activeAccountId,
+  activeFolder,
+  onResynced,
 }: {
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   fetchNextPage: () => void;
   loaded: number;
   total: number;
+  activeAccountId: string | null;
+  activeFolder: string;
+  onResynced: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const qc = useQueryClient();
+
+  // Hard-resync mutation — pulls 200 latest emails directly from the IMAP
+  // server (vs the local DB pagination which only sees what was previously
+  // synced). Use this to load OLDER emails that haven't been synced yet.
+  const hardResyncMut = useMutation({
+    mutationFn: () => emailApi.hardResyncAccount(activeAccountId!, activeFolder, 200),
+    onSuccess: (r: any) => {
+      const log = r?.data?.log || [];
+      const lastLine = Array.isArray(log) ? log[log.length - 1] : '';
+      toast.success(lastLine || 'Older emails synced from server');
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
+      onResynced();
+    },
+    onError: (e: any) =>
+      toast.error(
+        e?.response?.data?.error ||
+        e?.message ||
+        'Could not pull from mail server — check IMAP settings'
+      ),
+  });
 
   // IntersectionObserver — when sentinel becomes 100px visible, fetch next page
   useEffect(() => {
@@ -1672,7 +1702,8 @@ function InfiniteScrollSentinel({
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
-    <div ref={ref} className="px-4 py-4 text-center">
+    <div ref={ref} className="px-4 py-4 text-center space-y-2 border-t border-border bg-card/50">
+      {/* Local DB pagination (fast — already synced) */}
       {isFetchingNextPage ? (
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <Loader2 size={12} className="animate-spin" />
@@ -1681,15 +1712,39 @@ function InfiniteScrollSentinel({
       ) : hasNextPage ? (
         <button
           onClick={fetchNextPage}
-          className="text-xs text-primary hover:underline"
+          className="block w-full px-3 py-2 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/15 transition-colors"
         >
-          Load more ({loaded} of {total})
+          Load more — showing {loaded} of {total}
         </button>
       ) : (
-        <p className="text-[11px] text-muted-foreground/70 italic">
-          {total > 0 ? `All ${total} loaded` : 'No more messages'}
+        <p className="text-[11px] text-muted-foreground/70">
+          {total > 0 ? `All ${total} loaded from local cache` : 'No more in cache'}
         </p>
       )}
+
+      {/* IMAP resync (slower — pulls older emails from mail server) */}
+      {activeAccountId && (
+        <button
+          onClick={() => hardResyncMut.mutate()}
+          disabled={hardResyncMut.isPending}
+          className="block w-full px-3 py-2 rounded-lg border border-border bg-secondary/40 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+        >
+          {hardResyncMut.isPending ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 size={12} className="animate-spin" />
+              Pulling 200 latest from mail server…
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-2 justify-center">
+              <RefreshCw size={12} />
+              Pull older emails from mail server
+            </span>
+          )}
+        </button>
+      )}
+      <p className="text-[10px] text-muted-foreground/60 italic">
+        Local pagination is instant. Pulling from server takes a few seconds and may overwrite the local cache.
+      </p>
     </div>
   );
 }

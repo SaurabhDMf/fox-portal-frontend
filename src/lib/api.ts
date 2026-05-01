@@ -138,6 +138,8 @@ export const emailApi = {
   testAccount:   (id: string)    => api.post(`/email/accounts/${id}/test`),
   syncAccount:   (id: string, folder = 'INBOX') =>
     api.post(`/email/accounts/${id}/sync`, { folder }),
+  hardResyncAccount: (id: string, folder = 'INBOX', limit = 200) =>
+    api.post(`/email/accounts/${id}/hard-resync`, { folder, limit }),
   getFolders:    (id: string)    => api.get(`/email/accounts/${id}/folders`),
   // Messages
   getMessages:   (params: any)   => api.get('/email/messages', { params }),
