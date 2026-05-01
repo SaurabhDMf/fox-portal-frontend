@@ -63,6 +63,21 @@ const errMsg = (e: any) => e?.response?.data?.error || e?.response?.data?.messag
 
 export default function EmailPage() {
   const qc = useQueryClient();
+
+  // Lock body scroll while on the email page so the page itself can never
+  // overflow past the viewport (the email layout is fixed-viewport-height
+  // with internal-only scrolling).
+  useEffect(() => {
+    const prevHtml = document.documentElement.style.overflow;
+    const prevBody = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.documentElement.style.overflow = prevHtml;
+      document.body.style.overflow = prevBody;
+    };
+  }, []);
+
   const [activeFolder, setActiveFolder] = useState('INBOX');
   const [activeCustomFolderId, setActiveCustomFolderId] = useState<string | null>(null);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
@@ -1238,12 +1253,9 @@ function AccountRow({
     { ok: boolean; message: string } | null
   >(null);
   const [showSig, setShowSig] = useState(false);
-  const [sigDraft, setSigDraft] = useState<string>(acc.signature || '');
-
-  useEffect(() => { setSigDraft(acc.signature || ''); }, [acc.signature]);
 
   const sigMut = useMutation({
-    mutationFn: () => emailApi.updateAccount(acc.id, { signature: sigDraft }),
+    mutationFn: (value: string) => emailApi.updateAccount(acc.id, { signature: value }),
     onSuccess: () => {
       toast.success('Signature saved');
       qc.invalidateQueries({ queryKey: ['email-accounts'] });
@@ -1367,30 +1379,13 @@ function AccountRow({
         </div>
 
         {showSig && (
-          <div onClick={(e) => e.stopPropagation()} className="rounded-md border border-border bg-card p-1.5 space-y-1.5">
-            <textarea
-              value={sigDraft}
-              onChange={(e) => setSigDraft(e.target.value)}
-              rows={4}
-              placeholder={`Best regards,\nYour Name\nCompany`}
-              className="w-full text-[11px] px-2 py-1.5 rounded bg-secondary border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-y font-sans"
-            />
-            <div className="flex justify-end gap-1">
-              <button
-                onClick={() => { setSigDraft(acc.signature || ''); setShowSig(false); }}
-                className="px-2 py-0.5 rounded text-[10px] text-muted-foreground hover:text-foreground"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => sigMut.mutate()}
-                disabled={sigMut.isPending}
-                className="px-2 py-0.5 rounded text-[10px] bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
-              >
-                {sigMut.isPending ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          </div>
+          <SignatureEditModal
+            email={acc.email_address || acc.email}
+            initial={acc.signature || ''}
+            saving={sigMut.isPending}
+            onCancel={() => setShowSig(false)}
+            onSave={(value) => sigMut.mutate(value)}
+          />
         )}
 
         {result && (
@@ -1520,6 +1515,122 @@ function CustomFolderRow({
         >
           <Trash2 size={11} />
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────
+// Signature edit modal — large textarea + live preview. Replaces the cramped
+// inline signature editor that used to live inside the AccountRow sidebar.
+// ────────────────────────────────────────
+function SignatureEditModal({
+  email,
+  initial,
+  saving,
+  onCancel,
+  onSave,
+}: {
+  email: string;
+  initial: string;
+  saving: boolean;
+  onCancel: () => void;
+  onSave: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(initial);
+
+  // Convert the plain-text draft into preview HTML so the user can see what
+  // the signature will actually look like in their sent emails.
+  const previewHtml = useMemo(() => {
+    if (!draft.trim()) return '';
+    return draft
+      .split('\n')
+      .map((line) => {
+        const safe = line
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+        return `<p style="margin:0">${safe || '<br>'}</p>`;
+      })
+      .join('');
+  }, [draft]);
+
+  return (
+    <div
+      onClick={onCancel}
+      className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
+          <div>
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              ✍︎ Edit Signature
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">{email}</p>
+          </div>
+          <button
+            onClick={onCancel}
+            className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
+            aria-label="Close"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Body — split into editor (top) + preview (bottom) */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+              Signature text
+            </label>
+            <textarea
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={`Best regards,\nYour Name\nCompany Name\n+91 XXXXX XXXXX\nwww.example.com`}
+              className="w-full min-h-[200px] resize-y px-3 py-2.5 rounded-lg bg-secondary/40 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 font-sans leading-relaxed"
+            />
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Tip: each line becomes a paragraph in your sent email. The signature is
+              auto-included on new compose, replies, and forwards.
+            </p>
+          </div>
+
+          {previewHtml && (
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 block">
+                Preview (how it appears in sent emails)
+              </label>
+              <div className="rounded-lg border border-border bg-white text-gray-900 px-4 py-3 text-sm">
+                <p className="text-xs text-gray-500 mb-2">— signature separator below —</p>
+                <p className="text-gray-500 mb-1">--</p>
+                <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 px-6 py-3 border-t border-border shrink-0">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSave(draft)}
+            disabled={saving}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            {saving ? 'Saving…' : 'Save signature'}
+          </button>
+        </div>
       </div>
     </div>
   );
