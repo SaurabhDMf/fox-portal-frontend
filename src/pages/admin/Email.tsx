@@ -602,7 +602,7 @@ export default function EmailPage() {
                   key={msg.id}
                   onClick={() => setSelectedId(msg.id)}
                   className={`group flex items-start gap-2 px-3 py-3 cursor-pointer border-b border-border transition-colors ${
-                    checked ? 'bg-primary/8' : sel ? 'bg-primary/5 border-l-2 border-l-primary' : 'hover:bg-muted/50'
+                    checked ? 'bg-primary/10' : sel ? 'bg-primary/5 border-l-2 border-l-primary' : 'hover:bg-muted/50'
                   } ${!msg.is_read ? 'font-semibold' : ''}`}
                 >
                   {/* Checkbox: always visible (was hover-only — confusing). Border
