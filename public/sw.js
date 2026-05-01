@@ -21,8 +21,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon:  '/favicon.png',
-      badge: '/favicon.png',
+      icon:  '/icons/icon-192.png',
+      badge: '/icons/favicon-32.png',
       tag:   data.type || 'general',   // collapse same-type notifications
       renotify: true,
       data: data.data || data,

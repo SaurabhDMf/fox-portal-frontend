@@ -3,14 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="/favicon.png" type="image/png" />
+    <!-- Favicon: ico for legacy browsers + properly-sized PNG variants for modern -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/icons/icon-192.png"   type="image/png" sizes="192x192" />
+
+    <!-- iOS home-screen icon (180×180, no transparency) -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180" />
+
+    <!-- PWA manifest (manifest.json points to icon-192/512 + maskable variants) -->
     <link rel="manifest" href="/manifest.json" />
+
     <meta name="theme-color" content="#6c63fa" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Fox Portal" />
-    <link rel="apple-touch-icon" href="/favicon.png" />
     <title>Fox Portal - Professional SaaS CRM Platform</title>
     <meta name="description" content="Fox Portal - Professional SaaS CRM Platform for managing clients, projects, invoicing, and team collaboration." />
     <meta name="author" content="Fox Portal" />
