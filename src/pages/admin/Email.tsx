@@ -179,6 +179,34 @@ export default function EmailPage() {
     onError: () => toast.error('Could not reach mail server — check your IMAP settings'),
   });
 
+  // Background IMAP poll — every 60s, silently fetch new emails from the mail
+  // server into our local DB so the 30s message-list refetch can pick them up.
+  // No toasts on success/failure — runs invisibly. Skips if already syncing.
+  useEffect(() => {
+    if (!activeAccountId) return;
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled || syncMutation.isPending) return;
+      try {
+        await emailApi.syncAccount(activeAccountId, activeFolder);
+        if (cancelled) return;
+        qc.invalidateQueries({ queryKey: ['email-unread'] });
+        qc.invalidateQueries({ queryKey: ['emails'] });
+      } catch {
+        // Silent — IMAP outages shouldn't bug the user with a toast every minute
+      }
+    };
+    // First tick after 5s so we don't double-fire on initial mount (the initial
+    // page render already loads the list)
+    const initial = window.setTimeout(tick, 5_000);
+    const interval = window.setInterval(tick, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(initial);
+      window.clearInterval(interval);
+    };
+  }, [activeAccountId, activeFolder]); // eslint-disable-line
+
   const star = useMutation({
     mutationFn: () => emailApi.patchMessage(email!.id, { is_starred: !email!.is_starred }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['email-message', selectedId] }),
@@ -642,13 +670,20 @@ export default function EmailPage() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-5">
+            {/* Email body area — flex column so the iframe can fill remaining
+                height (no more dark blank area below short emails). The iframe
+                handles its own internal scrolling for long content. */}
+            <div className="flex-1 px-6 py-5 flex flex-col min-h-0 overflow-hidden">
               {email.body_html && String(email.body_html).trim() ? (
-                <EmailBodyFrame html={sanitizeHtml(email.body_html)} />
+                <div className="flex-1 min-h-0">
+                  <EmailBodyFrame html={sanitizeHtml(email.body_html)} />
+                </div>
               ) : email.body_text && String(email.body_text).trim() ? (
-                <pre className="text-sm text-foreground whitespace-pre-wrap font-sans">
-                  {email.body_text}
-                </pre>
+                <div className="flex-1 min-h-0 overflow-y-auto rounded-lg bg-white">
+                  <pre className="text-sm text-gray-900 whitespace-pre-wrap font-sans p-4">
+                    {email.body_text}
+                  </pre>
+                </div>
               ) : (
                 <p className="text-sm text-muted-foreground italic">
                   This email has no content
@@ -656,7 +691,7 @@ export default function EmailPage() {
               )}
 
               {email.attachments?.length > 0 && (
-                <div className="mt-6 pt-4 border-t border-border">
+                <div className="mt-4 pt-4 border-t border-border shrink-0">
                   <p className="text-xs font-semibold text-muted-foreground mb-2">
                     ATTACHMENTS ({email.attachments.length})
                   </p>
@@ -800,9 +835,9 @@ export default function EmailPage() {
 // stay readable when the app is in dark mode. Auto-resizes to content height.
 // ────────────────────────────────────────
 function EmailBodyFrame({ html }: { html: string }) {
-  const ref = useRef<HTMLIFrameElement>(null);
-  const [height, setHeight] = useState(400);
-
+  // Iframe fills its parent's height and scrolls internally. The parent gives
+  // it height via `flex: 1` + `min-h-0`. This avoids the "dark blank area
+  // below short emails" issue caused by the previous auto-resize approach.
   const srcDoc = useMemo(() => `<!DOCTYPE html>
 <html>
 <head>
@@ -820,6 +855,7 @@ function EmailBodyFrame({ html }: { html: string }) {
     word-wrap: break-word;
     overflow-wrap: break-word;
   }
+  html, body { height: 100%; }
   body * { max-width: 100%; }
   img, video { max-width: 100%; height: auto; }
   a { color: #2563eb; }
@@ -841,26 +877,19 @@ function EmailBodyFrame({ html }: { html: string }) {
 <body>${html}</body>
 </html>`, [html]);
 
-  // Auto-size to content
-  const handleLoad = () => {
-    try {
-      const doc = ref.current?.contentDocument;
-      if (!doc) return;
-      const h = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight, 200);
-      setHeight(h + 24);
-    } catch {
-      // Cross-origin or other access error — keep default height
-    }
-  };
-
   return (
     <iframe
-      ref={ref}
       title="Email body"
       sandbox="allow-same-origin allow-popups"
       srcDoc={srcDoc}
-      onLoad={handleLoad}
-      style={{ width: '100%', height: `${height}px`, border: 0, background: '#ffffff', borderRadius: 8 }}
+      style={{
+        width: '100%',
+        height: '100%',
+        border: 0,
+        background: '#ffffff',
+        borderRadius: 8,
+        display: 'block',
+      }}
     />
   );
 }

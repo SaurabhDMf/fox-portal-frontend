@@ -45,8 +45,13 @@ export default function ClientPortalHeader({ onMobileMenuOpen }: Props) {
           <ThemeToggle />
           <button
             onClick={() => {
-              clearNotif('notifications');
-              navigate('/client-portal/notifications');
+              const onNotifs = location.pathname.endsWith('/notifications');
+              if (onNotifs) {
+                navigate(-1);
+              } else {
+                clearNotif('notifications');
+                navigate('/client-portal/notifications');
+              }
             }}
             className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative"
             title="Notifications"

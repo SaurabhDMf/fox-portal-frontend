@@ -151,12 +151,19 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
           {/* Theme toggle */}
           <ThemeToggle />
 
-          {/* Notifications bell — shows live unread count */}
+          {/* Notifications bell — toggle behavior:
+              - First click: navigate to /notifications page (clear unread badge)
+              - Second click (when already on /notifications): go back to previous page */}
           <button
             onClick={() => {
               const base = location.pathname.startsWith('/emp') ? '/emp' : '/admin';
-              clearNotif('notifications');
-              navigate(`${base}/notifications`);
+              const onNotifs = location.pathname.endsWith('/notifications');
+              if (onNotifs) {
+                navigate(-1);  // go back to previous page
+              } else {
+                clearNotif('notifications');
+                navigate(`${base}/notifications`);
+              }
             }}
             className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative"
             title="Notifications"
