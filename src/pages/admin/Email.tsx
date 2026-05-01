@@ -433,6 +433,17 @@ export default function EmailPage() {
           />
         ) : (
           <div className="px-3 py-3 border-b border-border flex items-center gap-2">
+            {/* Master "Select all" checkbox — visible whenever there are messages.
+                Click → check all visible emails → opens the SelectionBar */}
+            {messages.length > 0 && (
+              <button
+                onClick={() => setSelectedIds(new Set(messages.map((m: any) => m.id)))}
+                title={`Select all ${messages.length} on this page`}
+                className="shrink-0 w-5 h-5 flex items-center justify-center rounded border-2 border-muted-foreground/60 hover:border-primary hover:bg-primary/10 cursor-pointer transition-colors"
+              >
+                <span className="sr-only">Select all</span>
+              </button>
+            )}
             <div className="flex-1 relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -490,16 +501,14 @@ export default function EmailPage() {
                     checked ? 'bg-primary/8' : sel ? 'bg-primary/5 border-l-2 border-l-primary' : 'hover:bg-muted/50'
                   } ${!msg.is_read ? 'font-semibold' : ''}`}
                 >
-                  {/* Checkbox: appears on hover, stays visible when checked.
-                      Border uses muted-foreground at 60% so it's visible in
-                      both light and dark mode (dark in light theme, near-white
-                      in dark theme). */}
+                  {/* Checkbox: always visible (was hover-only — confusing). Border
+                      uses muted-foreground/60 for both-theme contrast. */}
                   <label
                     onClick={(e) => e.stopPropagation()}
-                    className={`shrink-0 w-5 h-5 mt-1 flex items-center justify-center rounded border-2 cursor-pointer transition-opacity ${
+                    className={`shrink-0 w-5 h-5 mt-1 flex items-center justify-center rounded border-2 cursor-pointer transition-colors ${
                       checked
-                        ? 'bg-primary border-primary opacity-100'
-                        : 'border-muted-foreground/60 hover:border-primary opacity-0 group-hover:opacity-100'
+                        ? 'bg-primary border-primary'
+                        : 'border-muted-foreground/60 hover:border-primary hover:bg-primary/10'
                     }`}
                     title={checked ? 'Deselect' : 'Select'}
                   >
