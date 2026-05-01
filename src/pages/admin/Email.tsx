@@ -549,13 +549,24 @@ export default function EmailPage() {
               </button>
             )}
             <div className="flex-1 relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') setSearch(''); }}
                 placeholder="Search messages…"
-                className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="w-full pl-8 pr-8 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  title="Clear search (Esc)"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              )}
             </div>
             <button
               onClick={() => syncMutation.mutate()}
