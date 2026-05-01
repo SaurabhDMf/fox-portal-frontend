@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import RichTextEditor from '@/components/RichTextEditor';
 import toast from 'react-hot-toast';
 import {
@@ -387,9 +388,12 @@ export default function EmailPage() {
   const filteredFolders = useMemo(() => FOLDERS, []);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-background">
+    <div className="h-[calc(100vh-4rem)] bg-background flex flex-col">
+      <PanelGroup direction="horizontal" autoSaveId="email-3col-layout" className="flex-1 min-h-0">
+
       {/* ───────── COL 1 — SIDEBAR ───────── */}
-      <aside className="w-[240px] shrink-0 border-r border-border bg-card flex flex-col">
+      <Panel defaultSize={18} minSize={12} maxSize={32} order={1}>
+      <aside className="h-full border-r border-border bg-card flex flex-col">
         <div className="p-3">
           <button
             onClick={() => setShowCompose(true)}
@@ -509,9 +513,13 @@ export default function EmailPage() {
           </div>
         </div>
       </aside>
+      </Panel>
+
+      <PanelResizeHandle className="w-px bg-border data-[resize-handle-state=hover]:w-1 data-[resize-handle-state=hover]:bg-primary/40 data-[resize-handle-state=drag]:w-1 data-[resize-handle-state=drag]:bg-primary transition-all" />
 
       {/* ───────── COL 2 — MESSAGE LIST ───────── */}
-      <section className="w-[380px] shrink-0 border-r border-border bg-card flex flex-col">
+      <Panel defaultSize={28} minSize={20} maxSize={55} order={2}>
+      <section className="h-full border-r border-border bg-card flex flex-col">
         {selectedIds.size > 0 ? (
           <SelectionBar
             count={selectedIds.size}
@@ -648,9 +656,13 @@ export default function EmailPage() {
           )}
         </div>
       </section>
+      </Panel>
+
+      <PanelResizeHandle className="w-px bg-border data-[resize-handle-state=hover]:w-1 data-[resize-handle-state=hover]:bg-primary/40 data-[resize-handle-state=drag]:w-1 data-[resize-handle-state=drag]:bg-primary transition-all" />
 
       {/* ───────── COL 3 — DETAIL ───────── */}
-      <section className="flex-1 bg-background flex flex-col overflow-hidden">
+      <Panel minSize={30} order={3}>
+      <section className="h-full bg-background flex flex-col overflow-hidden">
         {!selectedId || !email ? (
           <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
             Select a message to read
@@ -793,6 +805,9 @@ export default function EmailPage() {
           </div>
         )}
       </section>
+      </Panel>
+
+      </PanelGroup>
 
       {/* ───────── COMPOSE MODAL ───────── */}
       {showCompose && (
