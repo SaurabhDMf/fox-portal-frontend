@@ -37,6 +37,8 @@ import Expenses from "./pages/admin/Expenses";
 import BalanceSheet from "./pages/admin/BalanceSheet";
 import Subscriptions from "./pages/admin/Subscriptions";
 import Notifications from "./pages/admin/Notifications";
+import InputSheet from "./pages/admin/InputSheet";
+import ExpenseSheet from "./pages/admin/ExpenseSheet";
 
 // Employee
 import EmpDashboard from "./pages/emp/EmpDashboard";
@@ -123,6 +125,8 @@ const App = () => (
           <Route path="payroll" element={<Payroll />} />
           <Route path="expenses" element={<Expenses />} />
           <Route path="balance-sheet" element={<BalanceSheet />} />
+          <Route path="input-sheet"   element={<InputSheet />} />
+          <Route path="expense-sheet" element={<ExpenseSheet />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<AdminSettings />} />

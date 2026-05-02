@@ -36,8 +36,8 @@ const adminNav: NavItem[] = [
   {
     label: 'Balance Sheet', path: '/admin/balance-sheet', icon: Scale,
     children: [
-      { label: 'Expenses', path: '/admin/expenses', icon: Receipt, module: 'expenses' },
-      { label: 'Input Sheet', path: '/admin/balance-sheet', icon: ListChecks },
+      { label: 'Input Sheet',   path: '/admin/input-sheet',   icon: ListChecks },
+      { label: 'Expense Sheet', path: '/admin/expense-sheet', icon: Receipt },
     ],
   },
   { label: 'Subscriptions', path: '/admin/subscriptions', icon: RefreshCw },
