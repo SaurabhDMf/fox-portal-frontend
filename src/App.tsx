@@ -90,9 +90,10 @@ function ClientPortalChildRedirect() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <Toaster
-      position="top-center"
+      position="top-right"
       toastOptions={{
-        className: '!bg-card !text-foreground !border !border-border !text-sm',
+        style: { background: 'transparent', boxShadow: 'none', padding: 0, maxWidth: '100%' },
+        className: '',
       }}
     />
     <ConfirmDialogHost />
