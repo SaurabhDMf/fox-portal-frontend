@@ -79,7 +79,9 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
   const user = useAuthStore(s => s.user);
   const navigate = useNavigate();
   const location = useLocation();
-  const notifCount = useUnreadStore((s) => s.counts.notifications || 0);
+  const notifCount  = useUnreadStore((s) => s.counts.notifications || 0);
+  const chatCount   = useUnreadStore((s) => s.counts.chat || 0);
+  const totalCount  = notifCount + chatCount;
   const clearNotif  = useUnreadStore((s) => s.clear);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -168,10 +170,10 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
             className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative"
             title="Notifications"
           >
-            <Bell className={`h-4 w-4 ${notifCount > 0 ? 'text-orange-500' : ''}`} />
-            {notifCount > 0 ? (
+            <Bell className={`h-4 w-4 ${totalCount > 0 ? 'text-orange-500' : ''}`} />
+            {totalCount > 0 ? (
               <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
-                {notifCount > 99 ? '99+' : notifCount}
+                {totalCount > 99 ? '99+' : totalCount}
               </span>
             ) : (
               <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-muted-foreground/30" />

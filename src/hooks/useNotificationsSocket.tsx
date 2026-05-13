@@ -193,13 +193,15 @@ export function useNotificationsSocket() {
 
     const handleNewMessage = (msg: any) => {
       const currentPath = window.location.pathname;
-      const isInRoom = currentPath.includes('/chat') &&
+      const isInCurrentRoom = currentPath.includes('/chat') &&
         new URLSearchParams(window.location.search).get('room') === msg?.room_id;
 
-      // Always play sound — even when the chat room is open
+      // Always play sound for every incoming message
       playNotificationSound();
 
-      if (!isInRoom) {
+      // Show toast for any message NOT in the currently active room
+      // (if you're already watching the room the messages appear live — no extra toast needed)
+      if (!isInCurrentRoom) {
         bump('chat');
         const senderName = msg?.sender_name || msg?.from_name || 'New message';
         const preview    = (msg?.content || msg?.body || '').slice(0, 140);

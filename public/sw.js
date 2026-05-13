@@ -1,9 +1,10 @@
 /* Service Worker — Push Notifications + PWA caching */
 
 // Map notification type → deep-link path
+// Backend always sends data.link now; this is a fallback for legacy payloads
 function linkForType(data) {
-  if (data.link)    return data.link;
-  if (data.roomId)  return `/admin/chat?room=${data.roomId}`;
+  if (data.link)   return data.link;
+  if (data.roomId) return `/admin/chat?room=${data.roomId}`;
   const type = data.type || '';
   if (type === 'mention' || type === 'message') return '/admin/chat';
   if (type === 'task')    return '/admin/projects';
