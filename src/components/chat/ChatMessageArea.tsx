@@ -345,11 +345,13 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     mutationFn: (file: File) => {
       const form = new FormData();
       form.append('file', file);
-      return api.post(`/chat/rooms/${roomId}/upload`, form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // Do NOT set Content-Type manually — axios auto-sets multipart/form-data with boundary
+      return api.post(`/chat/rooms/${roomId}/upload`, form);
     },
-    onError: () => toast.error('Upload failed'),
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error || 'Upload failed';
+      toast.error(msg);
+    },
   });
 
   const handleFiles = async (files: File[]) => {

@@ -1,4 +1,4 @@
-/* Service Worker — Push Notifications + PWA caching */
+/* Service Worker — Push Notifications + PWA caching — v4 */
 
 // Map notification type → deep-link path
 // Backend always sends data.link now; this is a fallback for legacy payloads
