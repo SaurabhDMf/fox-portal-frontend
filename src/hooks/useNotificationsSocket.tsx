@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -159,6 +159,48 @@ export function useNotificationsSocket() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const userId          = useAuthStore((s) => s.user?.id);
   const { bump }        = useUnreadStore();
+
+  // ── Idle / away detection ────────────────────────────────────────────────
+  // After 5 min with no mouse/keyboard/scroll activity → set status to 'away'
+  // Any activity while away → restore to 'online'
+  const autoAwayRef = useRef(false);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    if (!isAuthenticated || !accessToken) return;
+
+    const IDLE_MS = 5 * 60 * 1000;
+    const EVENTS  = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'wheel'];
+
+    const emitStatus = (status: string) => {
+      try {
+        api.patch('/users/me/status', { status, status_text: null, status_emoji: null }).catch(() => {});
+        getSocket(accessToken).emit('set_status', { status, status_text: null, status_emoji: null });
+      } catch {}
+    };
+
+    const goAway = () => {
+      autoAwayRef.current = true;
+      emitStatus('away');
+    };
+
+    const resetTimer = () => {
+      clearTimeout(idleTimerRef.current);
+      if (autoAwayRef.current) {
+        autoAwayRef.current = false;
+        emitStatus('online');
+      }
+      idleTimerRef.current = setTimeout(goAway, IDLE_MS);
+    };
+
+    EVENTS.forEach(ev => window.addEventListener(ev, resetTimer, { passive: true }));
+    idleTimerRef.current = setTimeout(goAway, IDLE_MS);
+
+    return () => {
+      clearTimeout(idleTimerRef.current);
+      EVENTS.forEach(ev => window.removeEventListener(ev, resetTimer));
+    };
+  }, [isAuthenticated, accessToken]);
 
   // Seed counts from backend on first auth
   useEffect(() => {
