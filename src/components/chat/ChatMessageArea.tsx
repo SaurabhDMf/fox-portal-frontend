@@ -339,6 +339,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   });
 
   const [uploadingCount, setUploadingCount] = useState(0);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const uploadMut = useMutation({
     mutationFn: (file: File) => {
@@ -350,6 +351,14 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     },
     onError: () => toast.error('Upload failed'),
   });
+
+  const handleFiles = async (files: File[]) => {
+    if (!files.length) return;
+    setUploadingCount(files.length);
+    await Promise.allSettled(files.map(f => uploadMut.mutateAsync(f)));
+    setUploadingCount(0);
+    scrollToBottom(true);
+  };
 
   const handleSend = () => {
     if (editingMsg) {
@@ -463,8 +472,23 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-1"
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-1 relative"
+        onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
+        onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false); }}
+        onDrop={e => {
+          e.preventDefault();
+          setIsDragOver(false);
+          const files = Array.from(e.dataTransfer.files);
+          handleFiles(files);
+        }}
       >
+        {isDragOver && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg pointer-events-none">
+            <Paperclip className="h-10 w-10 text-primary mb-2" />
+            <p className="text-sm font-medium text-primary">Drop files to upload</p>
+            <p className="text-xs text-muted-foreground mt-1">PDF, ZIP, Excel, images and more</p>
+          </div>
+        )}
         {loadingMessages && fetchedMessages.length === 0 && <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading...</div>}
         {!loadingMessages && allMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -689,12 +713,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             accept="*/*"
             onChange={async e => {
               const files = Array.from(e.target.files || []);
-              if (!files.length) return;
               e.target.value = '';
-              setUploadingCount(files.length);
-              await Promise.allSettled(files.map(f => uploadMut.mutateAsync(f)));
-              setUploadingCount(0);
-              scrollToBottom(true);
+              handleFiles(files);
             }}
           />
           <button
