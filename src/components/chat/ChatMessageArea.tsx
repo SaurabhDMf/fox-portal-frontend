@@ -57,6 +57,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const [hoveredMsg, setHoveredMsg] = useState<string | null>(null);
   const [profileUser, setProfileUser] = useState<any>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
   const userRole = user?.role || '';
   const isAdminRole = userRole === 'admin' || userRole === 'super_admin';
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -377,6 +379,23 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     scrollToBottom(true);
   };
 
+  // Auto-grow textarea
+  const autoGrow = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 128) + 'px';
+  };
+
+  // Clipboard paste — upload images/files pasted into the textarea
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData.items);
+    const fileItems = items.filter(i => i.kind === 'file');
+    if (!fileItems.length) return;
+    e.preventDefault();
+    const files = fileItems.map(i => i.getAsFile()).filter(Boolean) as File[];
+    if (files.length) handleFiles(files);
+  };
+
   const handleSend = () => {
     if (editingMsg) {
       if (editText.trim()) editMut.mutate({ id: editingMsg.id, content: editText });
@@ -584,7 +603,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                     </a>
                   )}
                   {msg.type === 'image' && msg.file_url && (
-                    <img src={msg.file_url} alt="" className="max-w-full rounded-lg mb-1 max-h-64 object-contain" />
+                    <img
+                      src={msg.file_url} alt=""
+                      className="max-w-full rounded-lg mb-1 max-h-64 object-contain cursor-zoom-in"
+                      onClick={() => setLightboxUrl(msg.file_url)}
+                    />
                   )}
                   <p className="text-sm break-words whitespace-pre-wrap">
                     {msg.content}
@@ -610,11 +633,28 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
               {/* Hover actions */}
               {hoveredMsg === msg.id && (
                 <div className={`absolute -top-8 ${isOwn ? 'right-0' : 'left-0'} flex items-center gap-0.5 bg-card border border-border rounded-lg shadow-lg p-0.5 z-10`}>
-                  <button onClick={() => {
-                    api.post(`/chat/messages/${msg.id}/reaction`, { emoji: '👍' }).catch(() => {});
-                  }} className="p-1.5 rounded hover:bg-secondary text-muted-foreground" title="React">
-                    <Smile className="h-3.5 w-3.5" />
-                  </button>
+                  {/* Emoji reaction picker */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
+                      className="p-1.5 rounded hover:bg-secondary text-muted-foreground" title="React"
+                    >
+                      <Smile className="h-3.5 w-3.5" />
+                    </button>
+                    {emojiPickerMsgId === msg.id && (
+                      <div className={`absolute -top-10 ${isOwn ? 'right-0' : 'left-0'} bg-card border border-border rounded-xl shadow-xl p-1.5 flex gap-0.5 z-20`}
+                        onMouseLeave={() => setEmojiPickerMsgId(null)}>
+                        {['👍','❤️','😂','😮','😢','🔥','✅','👏'].map(emoji => (
+                          <button key={emoji} onClick={() => {
+                            api.post(`/chat/messages/${msg.id}/reaction`, { emoji }).catch(() => {});
+                            setEmojiPickerMsgId(null);
+                          }} className="w-7 h-7 flex items-center justify-center rounded hover:bg-secondary text-base leading-none">
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button onClick={() => setReplyTo(msg)} className="p-1.5 rounded hover:bg-secondary text-muted-foreground" title="Reply">
                     <Reply className="h-3.5 w-3.5" />
                   </button>
@@ -750,12 +790,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           <textarea
             ref={textareaRef}
             value={editingMsg ? editText : message}
-            onChange={e => editingMsg ? setEditText(e.target.value) : setMessage(e.target.value)}
+            onChange={e => {
+              editingMsg ? setEditText(e.target.value) : setMessage(e.target.value);
+              autoGrow(e.target);
+            }}
             onKeyDown={handleKeyDown}
-            placeholder={editingMsg ? 'Edit message...' : 'Type a message...'}
+            onPaste={handlePaste}
+            placeholder={editingMsg ? 'Edit message...' : 'Type a message... (Ctrl+V to paste image)'}
             rows={1}
-            className="flex-1 px-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none max-h-32"
-            style={{ minHeight: '40px' }}
+            className="flex-1 px-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+            style={{ minHeight: '40px', maxHeight: '128px', overflowY: 'auto' }}
           />
           <button
             onClick={handleSend}
@@ -774,6 +818,23 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" onClick={e => e.stopPropagation()}>
             <UserProfileCard user={profileUser} onClose={() => setProfileUser(null)} />
           </div>
+        </div>
+      )}
+
+      {/* Image lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button className="absolute top-4 right-4 text-white/80 hover:text-white p-2">
+            <X className="h-6 w-6" />
+          </button>
+          <img
+            src={lightboxUrl} alt=""
+            className="max-w-[90vw] max-h-[90vh] rounded-lg object-contain"
+            onClick={e => e.stopPropagation()}
+          />
         </div>
       )}
     </div>
