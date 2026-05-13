@@ -338,18 +338,14 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     },
   });
 
+  const [uploadingCount, setUploadingCount] = useState(0);
+
   const uploadMut = useMutation({
     mutationFn: (file: File) => {
       const form = new FormData();
       form.append('file', file);
       return api.post(`/chat/rooms/${roomId}/upload`, form, {
         headers: { 'Content-Type': 'multipart/form-data' },
-      });
-    },
-    onSuccess: () => {
-      api.get(`/chat/rooms/${roomId}/messages?limit=50`).then(r => {
-        const d = r.data;
-        setFetchedMessages(Array.isArray(d) ? d : d?.data || d?.messages || []);
       });
     },
     onError: () => toast.error('Upload failed'),
@@ -685,12 +681,34 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       {/* Input bar — fixed at bottom */}
       <div className="flex-none px-4 py-3 border-t border-border">
         <div className="flex gap-2 items-end">
-          <input type="file" ref={fileInputRef} className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) uploadMut.mutate(f); e.target.value = ''; }}
-            accept="*/*" />
-          <button onClick={() => fileInputRef.current?.click()}
-            className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors flex-shrink-0">
+          <input
+            type="file"
+            multiple
+            ref={fileInputRef}
+            className="hidden"
+            accept="*/*"
+            onChange={async e => {
+              const files = Array.from(e.target.files || []);
+              if (!files.length) return;
+              e.target.value = '';
+              setUploadingCount(files.length);
+              await Promise.allSettled(files.map(f => uploadMut.mutateAsync(f)));
+              setUploadingCount(0);
+              scrollToBottom(true);
+            }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingCount > 0}
+            className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors flex-shrink-0 disabled:opacity-50 relative"
+            title={uploadingCount > 0 ? `Uploading ${uploadingCount} file${uploadingCount > 1 ? 's' : ''}…` : 'Attach files'}
+          >
             <Paperclip className="h-4 w-4" />
+            {uploadingCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {uploadingCount}
+              </span>
+            )}
           </button>
           <textarea
             ref={textareaRef}
