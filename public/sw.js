@@ -21,10 +21,12 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon:  '/icons/icon-192.png',
-      badge: '/icons/favicon-32.png',
-      tag:   data.type || 'general',   // collapse same-type notifications
+      icon:     '/icons/icon-192.png',
+      badge:    '/icons/favicon-32.png',
+      tag:      data.type || 'general',
       renotify: true,
+      silent:   false,   // ensure device makes sound/vibration
+      vibrate:  [200, 100, 200],
       data: data.data || data,
     })
   );

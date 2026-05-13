@@ -10,21 +10,47 @@ import { useUnreadStore, typeToModule } from '@/stores/unreadStore';
 import { getSocket } from '@/hooks/useSocket';
 import api from '@/lib/api';
 
+// Singleton AudioContext — created once, unlocked on first user gesture
+let _audioCtx: AudioContext | null = null;
+
+function getAudioCtx(): AudioContext {
+  if (!_audioCtx || _audioCtx.state === 'closed') {
+    _audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  return _audioCtx;
+}
+
+// Call on any user interaction so the context is pre-unlocked for future sounds
+export function unlockAudioContext() {
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  } catch {}
+}
+
+function playBeep(ctx: AudioContext) {
+  const osc  = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.type = 'sine';
+  // Two-tone ping: high → low
+  osc.frequency.setValueAtTime(940, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(520, ctx.currentTime + 0.12);
+  gain.gain.setValueAtTime(0.35, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.3);
+}
+
 function playNotificationSound() {
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.25, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.25);
-    setTimeout(() => ctx.close().catch(() => {}), 600);
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => playBeep(ctx)).catch(() => {});
+    } else {
+      playBeep(ctx);
+    }
   } catch {}
 }
 
@@ -166,13 +192,15 @@ export function useNotificationsSocket() {
     };
 
     const handleNewMessage = (msg: any) => {
-      // Only show if we're not already in the chat room that sent the message
       const currentPath = window.location.pathname;
       const isInRoom = currentPath.includes('/chat') &&
         new URLSearchParams(window.location.search).get('room') === msg?.room_id;
+
+      // Always play sound — even when the chat room is open
+      playNotificationSound();
+
       if (!isInRoom) {
         bump('chat');
-        playNotificationSound();
         const senderName = msg?.sender_name || msg?.from_name || 'New message';
         const preview    = (msg?.content || msg?.body || '').slice(0, 140);
         const role       = useAuthStore.getState().user?.role;
