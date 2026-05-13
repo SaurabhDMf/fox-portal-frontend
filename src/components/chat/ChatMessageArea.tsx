@@ -193,13 +193,25 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         })
       );
       if (msg.room_id === roomId) {
-        api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+        // Only mark as read if the user is actually looking at the tab
+        if (document.visibilityState === 'visible') {
+          api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+        }
         // Refresh room detail for read receipts after delay
         setTimeout(() => {
           qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
         }, 3000);
       }
     });
+
+    // When user returns to the tab while in this room, mark messages as read
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+        qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     socket.on('message_updated', (msg) => {
       setRealtimeMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
@@ -272,6 +284,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       socket.off('added_to_room');
       socket.off('user_status_changed');
       socket.off('room_deleted');
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       setRealtimeMessages([]);
       setTypingUsers([]);
     };
