@@ -342,16 +342,31 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const [isDragOver, setIsDragOver] = useState(false);
 
   const uploadMut = useMutation({
-    mutationFn: (file: File) => {
+    mutationFn: async (file: File) => {
+      // Use fetch instead of axios — the api instance has a default
+      // Content-Type: application/json that overrides FormData auto-detection
+      // even when no header is explicitly passed. fetch() never touches
+      // Content-Type when given a FormData body, so the browser sets the
+      // correct multipart/form-data; boundary=... automatically.
+      const BASE = import.meta.env.VITE_API_URL || 'https://ubp-backend-production.up.railway.app/api/v1';
+      const token = (() => {
+        try { return JSON.parse(localStorage.getItem('ubp-auth') || '{}')?.state?.accessToken || ''; }
+        catch { return ''; }
+      })();
       const form = new FormData();
       form.append('file', file);
-      // Do NOT set Content-Type manually — axios auto-sets multipart/form-data with boundary
-      return api.post(`/chat/rooms/${roomId}/upload`, form);
+      const res = await fetch(`${BASE}/chat/rooms/${roomId}/upload`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Upload failed (${res.status})`);
+      }
+      return res.json();
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error || 'Upload failed';
-      toast.error(msg);
-    },
+    onError: (err: any) => toast.error(err?.message || 'Upload failed'),
   });
 
   const handleFiles = async (files: File[]) => {
