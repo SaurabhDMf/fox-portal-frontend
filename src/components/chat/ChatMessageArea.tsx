@@ -4,7 +4,8 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import {
   Send, Paperclip, Search, Pin, Info, ArrowLeft, MessageSquare,
-  Smile, Reply, Pencil, Trash2, X, Check, CheckCheck, MoreVertical
+  Smile, Reply, Pencil, Trash2, X, Check, CheckCheck, MoreVertical,
+  Image as ImageIcon,
 } from 'lucide-react';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusBadge from '@/components/chat/StatusBadge';
@@ -12,6 +13,16 @@ import { Socket } from 'socket.io-client';
 import { getSocket } from '@/hooks/useSocket';
 import UserProfileCard from '@/components/chat/UserProfileCard';
 import toast from 'react-hot-toast';
+
+function Avatar({ name, avatarUrl, size = 8 }: { name?: string; avatarUrl?: string; size?: number }) {
+  const initials = (name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const colors = ['bg-violet-500','bg-blue-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-amber-500','bg-rose-500'];
+  const color = colors[(name?.charCodeAt(0) || 0) % colors.length];
+  return avatarUrl
+    ? <img src={avatarUrl} alt={name} className={`w-${size} h-${size} rounded-full object-cover shrink-0`} />
+    : <div className={`w-${size} h-${size} rounded-full ${color} flex items-center justify-center text-white font-semibold shrink-0`}
+        style={{ fontSize: size <= 7 ? 11 : 13 }}>{initials}</div>;
+}
 
 const formatDateLabel = (dateStr: string): string => {
   const date = new Date(dateStr);
@@ -193,13 +204,25 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         })
       );
       if (msg.room_id === roomId) {
-        api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+        // Only mark as read if the user is actually looking at the tab
+        if (document.visibilityState === 'visible') {
+          api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+        }
         // Refresh room detail for read receipts after delay
         setTimeout(() => {
           qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
         }, 3000);
       }
     });
+
+    // When user returns to the tab while in this room, mark messages as read
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+        qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     socket.on('message_updated', (msg) => {
       setRealtimeMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
@@ -272,6 +295,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       socket.off('added_to_room');
       socket.off('user_status_changed');
       socket.off('room_deleted');
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       setRealtimeMessages([]);
       setTypingUsers([]);
     };
@@ -418,40 +442,56 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     }
   };
 
+  const [showEmojiToolbar, setShowEmojiToolbar] = useState(false);
+
   const allMessages = [...fetchedMessages, ...realtimeMessages]
     .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header — fixed, never scrolls */}
-      <div className="flex-none px-4 py-3 border-b border-border flex items-center gap-3">
-        <button onClick={onBack} className="md:hidden p-1 rounded-md hover:bg-secondary text-muted-foreground">
+    <div className="flex flex-col h-full overflow-hidden bg-background">
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <div className="flex-none px-4 py-2.5 border-b border-border flex items-center gap-3 bg-card/50 backdrop-blur-sm">
+        <button onClick={onBack} className="md:hidden p-1.5 rounded-md hover:bg-secondary text-muted-foreground">
           <ArrowLeft className="h-4 w-4" />
         </button>
+
+        {/* Avatar in header */}
+        {isDM
+          ? <div className="relative shrink-0">
+              <Avatar name={headerTitle} avatarUrl={roomDetail?.dm_other_user_avatar} size={9} />
+              <span className="absolute bottom-0 right-0">
+                <StatusDot status={roomDetail?.dm_other_user_status} />
+              </span>
+            </div>
+          : <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+              <MessageSquare className="h-4 w-4 text-primary" />
+            </div>
+        }
+
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <h3 className="font-semibold text-sm truncate">{headerTitle}</h3>
-            {isDM && <StatusDot status={roomDetail?.dm_other_user_status} />}
-          </div>
-          {isDM && (
+          <h3 className="font-semibold text-sm truncate leading-tight">{headerTitle}</h3>
+          {isDM ? (
             <StatusBadge
               status={roomDetail?.dm_other_user_status ?? 'offline'}
               statusText={roomDetail?.dm_other_user_status_text}
               showLabel={true}
               size="xs"
             />
+          ) : (
+            headerSubtitle && <p className="text-xs text-muted-foreground">{headerSubtitle}</p>
           )}
-          {!isDM && headerSubtitle ? <p className="text-xs text-muted-foreground">{headerSubtitle}</p> : null}
         </div>
-        <div className="flex items-center gap-1">
+
+        <div className="flex items-center gap-0.5">
           <button onClick={() => setShowSearch(!showSearch)}
-            className={`p-2 rounded-md hover:bg-secondary transition-colors ${showSearch ? 'bg-secondary text-primary' : 'text-muted-foreground'}`}>
+            className={`p-2 rounded-md hover:bg-secondary transition-colors ${showSearch ? 'bg-secondary text-primary' : 'text-muted-foreground'}`}
+            title="Search">
             <Search className="h-4 w-4" />
           </button>
-          <button onClick={onTogglePinned} className="p-2 rounded-md hover:bg-secondary text-muted-foreground transition-colors">
+          <button onClick={onTogglePinned} className="p-2 rounded-md hover:bg-secondary text-muted-foreground transition-colors" title="Pinned messages">
             <Pin className="h-4 w-4" />
           </button>
-          <button onClick={onToggleInfo} className="p-2 rounded-md hover:bg-secondary text-muted-foreground transition-colors">
+          <button onClick={onToggleInfo} className="p-2 rounded-md hover:bg-secondary text-muted-foreground transition-colors" title="Info">
             <Info className="h-4 w-4" />
           </button>
           {isAdminRole && (
@@ -472,7 +512,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         </div>
       </div>
 
-      {/* Search bar */}
+      {/* ── Search bar ─────────────────────────────────────────── */}
       {showSearch && (
         <div className="flex-none px-4 py-2 border-b border-border bg-secondary/30 flex items-center gap-2">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
@@ -487,35 +527,31 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             className="p-1 rounded hover:bg-secondary"><X className="h-3.5 w-3.5" /></button>
         </div>
       )}
-
-      {/* Search results */}
       {showSearch && searchQuery.length >= 2 && searchResults && (
         <div className="flex-none border-b border-border max-h-48 overflow-y-auto bg-card">
-          {(searchResults as any[]).length === 0 ? (
-            <p className="text-xs text-muted-foreground p-3">No results found</p>
-          ) : (
-            (searchResults as any[]).map((r: any) => (
+          {(searchResults as any[]).length === 0
+            ? <p className="text-xs text-muted-foreground p-3">No results found</p>
+            : (searchResults as any[]).map((r: any) => (
               <div key={r.id} className="px-4 py-2 hover:bg-secondary/50 cursor-pointer text-sm border-b border-border/50">
                 <span className="text-xs text-muted-foreground">{r.sender_name}</span>
                 <p className="truncate">{r.content}</p>
               </div>
             ))
-          )}
+          }
         </div>
       )}
 
-      {/* Message list — only this scrolls */}
+      {/* ── Message list ───────────────────────────────────────── */}
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-3 space-y-1 relative"
+        className="flex-1 overflow-y-auto py-4 relative"
         onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false); }}
         onDrop={e => {
           e.preventDefault();
           setIsDragOver(false);
-          const files = Array.from(e.dataTransfer.files);
-          handleFiles(files);
+          handleFiles(Array.from(e.dataTransfer.files));
         }}
       >
         {isDragOver && (
@@ -525,268 +561,276 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             <p className="text-xs text-muted-foreground mt-1">PDF, ZIP, Excel, images and more</p>
           </div>
         )}
-        {loadingMessages && fetchedMessages.length === 0 && <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading...</div>}
+
+        {loadingMessages && fetchedMessages.length === 0 && (
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading…</div>
+        )}
         {!loadingMessages && allMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <MessageSquare className="h-10 w-10 mb-2 opacity-20" />
             <p className="text-sm">No messages yet. Start the conversation!</p>
           </div>
         )}
+
         {allMessages.map((msg, i) => {
           const isOwn = msg.sender_id === user?.id;
           const isDeleted = Boolean(msg.deleted_at) || Boolean(msg.is_deleted);
           const msgDate = new Date(msg.created_at).toDateString();
           const prevDate = i > 0 ? new Date(allMessages[i - 1].created_at).toDateString() : null;
           const showDateSeparator = msgDate !== prevDate;
-          const showSender = !isOwn && (i === 0 || allMessages[i - 1]?.sender_id !== msg.sender_id || showDateSeparator);
-          const isLastMessage = i === allMessages.length - 1;
+          const nextMsg = allMessages[i + 1];
+          const prevMsg = allMessages[i - 1];
+          const isFirstInGroup = !prevMsg || prevMsg.sender_id !== msg.sender_id || showDateSeparator;
+          const isLastInGroup  = !nextMsg || nextMsg.sender_id !== msg.sender_id ||
+            new Date(nextMsg.created_at).toDateString() !== msgDate;
+          const timeStr = msg.created_at
+            ? new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+            : '';
 
-          // Read receipt logic
           const otherMember = isDM ? roomMembers.find((m: any) => m.user_id !== user?.id) : null;
-          const isSeen = isDM && otherMember?.last_read_at && new Date(otherMember.last_read_at) >= new Date(msg.created_at);
-          const seenByGroup = !isDM && isLastMessage ? roomMembers.filter((m: any) =>
-            m.user_id !== user?.id && m.last_read_at && new Date(m.last_read_at) >= new Date(msg.created_at)
-          ) : [];
+          const isSeen = isDM && otherMember?.last_read_at &&
+            new Date(otherMember.last_read_at) >= new Date(msg.created_at);
+          const isLastMessage = i === allMessages.length - 1;
+          const seenByGroup = !isDM && isLastMessage
+            ? roomMembers.filter((m: any) =>
+                m.user_id !== user?.id && m.last_read_at &&
+                new Date(m.last_read_at) >= new Date(msg.created_at))
+            : [];
 
           return (
             <div key={msg.id || i}>
+              {/* Date separator */}
               {showDateSeparator && (
-                <div className="flex items-center gap-3 my-4 px-2">
+                <div className="flex items-center gap-3 my-5 px-6">
                   <div className="flex-1 h-px bg-border" />
-                  <span className="text-xs text-muted-foreground font-medium px-2 whitespace-nowrap">
+                  <span className="text-xs text-muted-foreground font-medium px-3 py-0.5 bg-secondary rounded-full whitespace-nowrap">
                     {formatDateLabel(msg.created_at)}
                   </span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
               )}
 
-          {isDeleted ? (
-              <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                <div className="max-w-[85%] md:max-w-[70%] px-3 py-2 rounded-xl bg-secondary/50 italic text-muted-foreground text-sm">
-                  This message was deleted
+              {isDeleted ? (
+                <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} px-4 mb-0.5`}>
+                  <span className="text-xs italic text-muted-foreground/60 px-3 py-1">This message was deleted</span>
                 </div>
-              </div>
-          ) : (
-            <div
-              className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group relative`}
-              onMouseEnter={() => setHoveredMsg(msg.id)}
-              onMouseLeave={() => setHoveredMsg(null)}
-            >
-              <div className="max-w-[85%] md:max-w-[70%]">
-                {/* Reply snippet */}
-                {msg.reply_to_id && msg.reply_to_content && (
-                  <div className={`text-xs px-2 py-1 mb-0.5 rounded-t-lg border-l-2 border-primary/50 bg-secondary/50 text-muted-foreground truncate ${isOwn ? 'ml-auto' : ''}`}>
-                    ↩ {msg.reply_to_sender || 'User'}: {msg.reply_to_content.slice(0, 60)}
-                  </div>
-                )}
-                <div className={`rounded-xl px-3 py-2 ${isOwn ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}>
-                  {showSender && !isOwn && (
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-xs font-medium text-muted-foreground cursor-pointer hover:underline"
-                        onClick={() => setProfileUser({ id: msg.sender_id, full_name: msg.sender_name, avatar_url: msg.sender_avatar })}>{msg.sender_name}</span>
-                      <StatusBadge
-                        status={statusMap[msg.sender_id]?.status ?? 'offline'}
-                        statusText={statusMap[msg.sender_id]?.status_text}
-                        showLabel={statusMap[msg.sender_id]?.status !== 'online'}
-                        size="xs"
-                      />
-                      <span className="text-[10px] text-muted-foreground opacity-70">
-                        {msg.created_at ? new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}
-                      </span>
-                    </div>
-                  )}
-                  {/* File attachment */}
-                  {msg.type === 'file' && msg.file_url && (
-                    <a href={msg.file_url} target="_blank" rel="noreferrer"
-                      className="flex items-center gap-1.5 text-xs underline mb-1">
-                      <Paperclip className="h-3 w-3" /> {msg.file_name || 'Download file'}
-                    </a>
-                  )}
-                  {msg.type === 'image' && msg.file_url && (
-                    <img
-                      src={msg.file_url} alt=""
-                      className="max-w-full rounded-lg mb-1 max-h-64 object-contain cursor-zoom-in"
-                      onClick={() => setLightboxUrl(msg.file_url)}
-                    />
-                  )}
-                  <p className="text-sm break-words whitespace-pre-wrap">
-                    {msg.content}
-                    {Boolean(msg.is_edited) && <span className="text-[10px] opacity-60 ml-1">(edited)</span>}
-                  </p>
-                  {/* Reactions */}
-                  {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                    <div className="flex gap-1 mt-1 flex-wrap">
-                      {Object.entries(msg.reactions).map(([emoji, users]: [string, any]) => (
-                        <span key={emoji} className="text-xs bg-background/20 rounded-full px-1.5 py-0.5">
-                          {emoji} {Array.isArray(users) ? users.length : users}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <div className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                    {isOwn && msg.created_at ? new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : ''}
-                    {Boolean(msg.is_pinned) && <Pin className="h-2.5 w-2.5 inline ml-1" />}
-                  </div>
-                </div>
-              </div>
-
-              {/* Hover actions */}
-              {hoveredMsg === msg.id && (
-                <div className={`absolute -top-8 ${isOwn ? 'right-0' : 'left-0'} flex items-center gap-0.5 bg-card border border-border rounded-lg shadow-lg p-0.5 z-10`}>
-                  {/* Emoji reaction picker */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
-                      className="p-1.5 rounded hover:bg-secondary text-muted-foreground" title="React"
-                    >
-                      <Smile className="h-3.5 w-3.5" />
-                    </button>
-                    {emojiPickerMsgId === msg.id && (
-                      <div className={`absolute -top-10 ${isOwn ? 'right-0' : 'left-0'} bg-card border border-border rounded-xl shadow-xl p-1.5 flex gap-0.5 z-20`}
-                        onMouseLeave={() => setEmojiPickerMsgId(null)}>
-                        {['👍','❤️','😂','😮','😢','🔥','✅','👏'].map(emoji => (
-                          <button key={emoji} onClick={() => {
-                            api.post(`/chat/messages/${msg.id}/reaction`, { emoji }).catch(() => {});
-                            setEmojiPickerMsgId(null);
-                          }} className="w-7 h-7 flex items-center justify-center rounded hover:bg-secondary text-base leading-none">
-                            {emoji}
+              ) : (
+                <div
+                  className={`flex items-end gap-2 px-4 ${isOwn ? 'flex-row-reverse' : 'flex-row'} ${isFirstInGroup ? 'mt-3' : 'mt-0.5'} group relative`}
+                  onMouseEnter={() => setHoveredMsg(msg.id)}
+                  onMouseLeave={() => setHoveredMsg(null)}
+                >
+                  {/* Avatar — only for received, only on last in group */}
+                  {!isOwn && (
+                    <div className="w-8 shrink-0 self-end mb-0.5">
+                      {isLastInGroup
+                        ? <button onClick={() => setProfileUser({ id: msg.sender_id, full_name: msg.sender_name, avatar_url: msg.sender_avatar })}>
+                            <Avatar name={msg.sender_name} avatarUrl={msg.sender_avatar} size={8} />
                           </button>
-                        ))}
+                        : <div className="w-8 h-8" />
+                      }
+                    </div>
+                  )}
+
+                  <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[72%] md:max-w-[60%]`}>
+                    {/* Sender name + time for received messages (first in group) */}
+                    {!isOwn && isFirstInGroup && (
+                      <div className="flex items-baseline gap-2 mb-1 px-1">
+                        <button
+                          onClick={() => setProfileUser({ id: msg.sender_id, full_name: msg.sender_name, avatar_url: msg.sender_avatar })}
+                          className="text-xs font-semibold text-foreground hover:underline"
+                        >
+                          {msg.sender_name}
+                        </button>
+                        <StatusBadge
+                          status={statusMap[msg.sender_id]?.status ?? 'offline'}
+                          statusText={statusMap[msg.sender_id]?.status_text}
+                          showLabel={false}
+                          size="xs"
+                        />
+                        <span className="text-[10px] text-muted-foreground">{timeStr}</span>
+                      </div>
+                    )}
+
+                    {/* Reply snippet */}
+                    {msg.reply_to_id && msg.reply_to_content && (
+                      <div className={`text-xs px-3 py-1.5 mb-0.5 rounded-lg border-l-2 border-primary/50 bg-secondary/60 text-muted-foreground max-w-full ${isOwn ? 'text-right border-l-0 border-r-2' : ''}`}>
+                        <span className="font-medium">{msg.reply_to_sender || 'User'}</span>: {msg.reply_to_content.slice(0, 80)}
+                      </div>
+                    )}
+
+                    {/* Bubble */}
+                    <div className={`relative px-3.5 py-2 ${
+                      isOwn
+                        ? 'bg-primary text-primary-foreground rounded-[18px] rounded-br-[4px]'
+                        : 'bg-secondary text-foreground rounded-[18px] rounded-bl-[4px]'
+                    } ${isFirstInGroup && isOwn ? 'rounded-tr-[4px]' : ''} ${isFirstInGroup && !isOwn ? 'rounded-tl-[4px]' : ''}`}
+                    >
+                      {msg.type === 'file' && msg.file_url && (
+                        <a href={msg.file_url} target="_blank" rel="noreferrer"
+                          className={`flex items-center gap-2 text-xs mb-1 ${isOwn ? 'text-primary-foreground/80 hover:text-primary-foreground' : 'text-primary hover:underline'}`}>
+                          <div className={`p-1.5 rounded ${isOwn ? 'bg-primary-foreground/10' : 'bg-primary/10'}`}>
+                            <Paperclip className="h-3.5 w-3.5" />
+                          </div>
+                          <span className="truncate max-w-[200px]">{msg.file_name || 'Download file'}</span>
+                        </a>
+                      )}
+                      {msg.type === 'image' && msg.file_url && (
+                        <img
+                          src={msg.file_url} alt=""
+                          className="max-w-full rounded-xl mb-1 max-h-64 object-contain cursor-zoom-in"
+                          onClick={() => setLightboxUrl(msg.file_url)}
+                        />
+                      )}
+                      {msg.content && (
+                        <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">
+                          {msg.content}
+                          {Boolean(msg.is_edited) && <span className="text-[10px] opacity-50 ml-1.5">(edited)</span>}
+                        </p>
+                      )}
+                      {/* Reactions */}
+                      {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                        <div className="flex gap-1 mt-1.5 flex-wrap -mb-0.5">
+                          {Object.entries(msg.reactions).map(([emoji, users]: [string, any]) => (
+                            <button key={emoji}
+                              onClick={() => api.post(`/chat/messages/${msg.id}/reaction`, { emoji }).catch(() => {})}
+                              className={`text-xs rounded-full px-2 py-0.5 flex items-center gap-0.5 ${isOwn ? 'bg-primary-foreground/15 hover:bg-primary-foreground/25' : 'bg-background/60 hover:bg-background border border-border/50'}`}>
+                              <span>{emoji}</span>
+                              <span className="font-medium">{Array.isArray(users) ? users.length : users}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Timestamp + pin + read receipt — below last bubble in group */}
+                    {isLastInGroup && isOwn && (
+                      <div className="flex items-center gap-1.5 mt-0.5 px-1">
+                        {Boolean(msg.is_pinned) && <Pin className="h-2.5 w-2.5 text-muted-foreground/60" />}
+                        <span className="text-[10px] text-muted-foreground">{timeStr}</span>
+                        {isSeen
+                          ? <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                          : <Check className="w-3.5 h-3.5 text-muted-foreground/60" />
+                        }
+                      </div>
+                    )}
+                    {isLastInGroup && !isOwn && Boolean(msg.is_pinned) && (
+                      <div className="flex items-center gap-1 mt-0.5 px-1">
+                        <Pin className="h-2.5 w-2.5 text-muted-foreground/60" />
+                      </div>
+                    )}
+                    {/* Group seen avatars below last own message */}
+                    {isLastMessage && !isDM && seenByGroup.length > 0 && isOwn && (
+                      <div className="flex items-center gap-1 mt-1 px-1">
+                        <span className="text-[10px] text-muted-foreground">Seen by</span>
+                        <div className="flex -space-x-1">
+                          {seenByGroup.slice(0, 5).map((m: any) => (
+                            <div key={m.user_id} title={m.full_name}
+                              className="w-4 h-4 rounded-full bg-primary/60 ring-1 ring-background flex items-center justify-center text-[8px] text-primary-foreground font-bold">
+                              {m.full_name?.charAt(0)}
+                            </div>
+                          ))}
+                          {seenByGroup.length > 5 && (
+                            <div className="w-4 h-4 rounded-full bg-muted ring-1 ring-background flex items-center justify-center text-[8px] text-muted-foreground">
+                              +{seenByGroup.length - 5}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
-                  <button onClick={() => setReplyTo(msg)} className="p-1.5 rounded hover:bg-secondary text-muted-foreground" title="Reply">
-                    <Reply className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={() => pinMut.mutate({ id: msg.id, pinned: Boolean(msg.is_pinned) })}
-                    className="p-1.5 rounded hover:bg-secondary text-muted-foreground" title={Boolean(msg.is_pinned) ? 'Unpin' : 'Pin'}>
-                    <Pin className="h-3.5 w-3.5" />
-                  </button>
-                  {isOwn && (
-                    <button onClick={() => { setEditingMsg(msg); setEditText(msg.content); }}
-                      className="p-1.5 rounded hover:bg-secondary text-muted-foreground" title="Edit">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {isOwn && (
-                    <button onClick={() => { if (confirm('Delete this message?')) deleteMut.mutate(msg.id); }}
-                      className="p-1.5 rounded hover:bg-secondary text-destructive" title="Delete">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+
+                  {/* Hover action toolbar */}
+                  {hoveredMsg === msg.id && (
+                    <div className={`absolute -top-9 ${isOwn ? 'right-0' : 'left-10'} flex items-center gap-0.5 bg-card border border-border rounded-xl shadow-xl p-1 z-10`}>
+                      <div className="relative">
+                        <button
+                          onClick={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
+                          className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="React"
+                        >
+                          <Smile className="h-3.5 w-3.5" />
+                        </button>
+                        {emojiPickerMsgId === msg.id && (
+                          <div className={`absolute -top-12 ${isOwn ? 'right-0' : 'left-0'} bg-card border border-border rounded-2xl shadow-2xl p-1.5 flex gap-0.5 z-20`}
+                            onMouseLeave={() => setEmojiPickerMsgId(null)}>
+                            {['👍','❤️','😂','😮','😢','🔥','✅','👏'].map(emoji => (
+                              <button key={emoji} onClick={() => {
+                                api.post(`/chat/messages/${msg.id}/reaction`, { emoji }).catch(() => {});
+                                setEmojiPickerMsgId(null);
+                              }} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-secondary text-lg leading-none transition-transform hover:scale-125">
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={() => setReplyTo(msg)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Reply">
+                        <Reply className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => pinMut.mutate({ id: msg.id, pinned: Boolean(msg.is_pinned) })}
+                        className={`p-1.5 rounded-lg hover:bg-secondary transition-colors ${Boolean(msg.is_pinned) ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} title={Boolean(msg.is_pinned) ? 'Unpin' : 'Pin'}>
+                        <Pin className="h-3.5 w-3.5" />
+                      </button>
+                      {isOwn && <>
+                        <button onClick={() => { setEditingMsg(msg); setEditText(msg.content); }}
+                          className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit">
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => { if (confirm('Delete this message?')) deleteMut.mutate(msg.id); }}
+                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>}
+                    </div>
                   )}
                 </div>
               )}
-
-            </div>
-          )}
             </div>
           );
         })}
-
-        {/* Read receipt for last own message — rendered outside message loop */}
-        {(() => {
-          const lastOwnIdx = allMessages.map((m, i) => m.sender_id === user?.id ? i : -1).filter(i => i >= 0).pop();
-          if (lastOwnIdx === undefined) return null;
-          const lastOwnMsg = allMessages[lastOwnIdx];
-          if (!lastOwnMsg || Boolean(lastOwnMsg.deleted_at) || Boolean(lastOwnMsg.is_deleted)) return null;
-          const otherMember = isDM ? roomMembers.find((m: any) => m.user_id !== user?.id) : null;
-          const isSeen = isDM && otherMember?.last_read_at && new Date(otherMember.last_read_at) >= new Date(lastOwnMsg.created_at);
-          const seenByGroup = !isDM ? roomMembers.filter((m: any) =>
-            m.user_id !== user?.id && m.last_read_at && new Date(m.last_read_at) >= new Date(lastOwnMsg.created_at)
-          ) : [];
-
-          return (
-            <>
-              {isDM && (
-                <div className="flex items-center justify-end gap-1 -mt-0.5 mr-1 text-[10px] text-muted-foreground">
-                  {isSeen
-                    ? <><CheckCheck className="w-3 h-3 text-blue-400" /> Seen</>
-                    : <><Check className="w-3 h-3" /> Sent</>
-                  }
-                </div>
-              )}
-              {!isDM && seenByGroup.length > 0 && (
-                <div className="flex items-center justify-end gap-1 -mt-0.5 mr-1">
-                  <span className="text-[10px] text-muted-foreground">Seen by</span>
-                  <div className="flex -space-x-1">
-                    {seenByGroup.slice(0, 5).map((m: any) => (
-                      <div key={m.user_id} title={m.full_name}
-                        className="w-4 h-4 rounded-full bg-primary/60 ring-1 ring-background flex items-center justify-center text-[8px] text-primary-foreground font-bold">
-                        {m.full_name?.charAt(0)}
-                      </div>
-                    ))}
-                    {seenByGroup.length > 5 && (
-                      <div className="w-4 h-4 rounded-full bg-muted ring-1 ring-background flex items-center justify-center text-[8px] text-muted-foreground">
-                        +{seenByGroup.length - 5}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </>
-          );
-        })()}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Typing indicator — fixed above input */}
+      {/* ── Typing indicator ───────────────────────────────────── */}
       {typingUsers.length > 0 && (
-        <div className="flex-none px-4 pb-1 text-xs text-muted-foreground italic">
-          {typingUsers.length === 1
-            ? `${typingUsers[0]} is typing...`
-            : `${typingUsers.length} people are typing...`}
-        </div>
-      )}
-
-      {/* Reply bar */}
-      {replyTo && (
-        <div className="flex-none px-4 py-2 border-t border-border bg-secondary/30 flex items-center gap-2">
-          <Reply className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs truncate flex-1">
-            Replying to <strong>{replyTo.sender_name}</strong>: {replyTo.content?.slice(0, 50)}
+        <div className="flex-none px-6 pb-1 flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex gap-0.5 items-center">
+            <span className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+          <span className="italic">
+            {typingUsers.length === 1 ? `${typingUsers[0]} is typing…` : `${typingUsers.length} people are typing…`}
           </span>
-          <button onClick={() => setReplyTo(null)} className="p-1 rounded hover:bg-secondary"><X className="h-3 w-3" /></button>
         </div>
       )}
 
-      {/* Edit bar */}
-      {editingMsg && (
-        <div className="flex-none px-4 py-2 border-t border-border bg-primary/5 flex items-center gap-2">
-          <Pencil className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs flex-1">Editing message</span>
-          <button onClick={() => { setEditingMsg(null); setEditText(''); }}
-            className="p-1 rounded hover:bg-secondary"><X className="h-3 w-3" /></button>
-        </div>
-      )}
-
-      {/* Input bar — fixed at bottom */}
-      <div className="flex-none px-4 py-3 border-t border-border">
-        <div className="flex gap-2 items-end">
-          <input
-            type="file"
-            multiple
-            ref={fileInputRef}
-            className="hidden"
-            accept="*/*"
-            onChange={async e => {
-              const files = Array.from(e.target.files || []);
-              e.target.value = '';
-              handleFiles(files);
-            }}
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingCount > 0}
-            className="p-2.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors flex-shrink-0 disabled:opacity-50 relative"
-            title={uploadingCount > 0 ? `Uploading ${uploadingCount} file${uploadingCount > 1 ? 's' : ''}…` : 'Attach files'}
-          >
-            <Paperclip className="h-4 w-4" />
-            {uploadingCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                {uploadingCount}
-              </span>
-            )}
+      {/* ── Reply / Edit context bar ───────────────────────────── */}
+      {(replyTo || editingMsg) && (
+        <div className={`flex-none mx-4 mb-1 px-3 py-2 rounded-xl border flex items-center gap-2 ${editingMsg ? 'bg-primary/5 border-primary/20' : 'bg-secondary/50 border-border'}`}>
+          {editingMsg
+            ? <Pencil className="h-3.5 w-3.5 text-primary shrink-0" />
+            : <Reply className="h-3.5 w-3.5 text-primary shrink-0" />
+          }
+          <span className="text-xs truncate flex-1 text-muted-foreground">
+            {editingMsg
+              ? 'Editing message'
+              : <>Replying to <strong className="text-foreground">{replyTo.sender_name}</strong>: {replyTo.content?.slice(0, 60)}</>
+            }
+          </span>
+          <button onClick={() => { setReplyTo(null); setEditingMsg(null); setEditText(''); }}
+            className="p-1 rounded-lg hover:bg-secondary text-muted-foreground shrink-0">
+            <X className="h-3 w-3" />
           </button>
+        </div>
+      )}
+
+      {/* ── Input area (Teams-style) ───────────────────────────── */}
+      <div className="flex-none px-4 pb-4">
+        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
+          <input type="file" multiple ref={fileInputRef} className="hidden" accept="*/*"
+            onChange={e => { const f = Array.from(e.target.files || []); e.target.value = ''; handleFiles(f); }} />
+
           <textarea
             ref={textareaRef}
             value={editingMsg ? editText : message}
@@ -796,18 +840,92 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             }}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={editingMsg ? 'Edit message...' : 'Type a message... (Ctrl+V to paste image)'}
+            placeholder={editingMsg ? 'Edit message…' : 'Type a message…'}
             rows={1}
-            className="flex-1 px-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-            style={{ minHeight: '40px', maxHeight: '128px', overflowY: 'auto' }}
+            className="w-full px-4 pt-3 pb-1 bg-transparent text-sm focus:outline-none resize-none text-foreground placeholder:text-muted-foreground/60"
+            style={{ minHeight: '44px', maxHeight: '128px', overflowY: 'auto' }}
           />
-          <button
-            onClick={handleSend}
-            disabled={editingMsg ? !editText.trim() : !message.trim()}
-            className="p-2.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 flex-shrink-0"
-          >
-            {editingMsg ? <Check className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-          </button>
+
+          {/* Toolbar row */}
+          <div className="flex items-center gap-0.5 px-2 py-1.5 border-t border-border/50">
+            {/* Emoji panel toggle */}
+            <div className="relative">
+              <button
+                onClick={() => setShowEmojiToolbar(!showEmojiToolbar)}
+                className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                title="Emoji"
+              >
+                <Smile className="h-4.5 w-4.5" style={{ width: 18, height: 18 }} />
+              </button>
+              {showEmojiToolbar && (
+                <div className="absolute bottom-full mb-2 left-0 bg-card border border-border rounded-2xl shadow-2xl p-2 flex flex-wrap gap-0.5 w-56 z-30"
+                  onMouseLeave={() => setShowEmojiToolbar(false)}>
+                  {['😀','😂','😍','🥰','😎','🤔','😅','😭','😡','🥹','👍','❤️','🔥','✅','👏','🎉','💯','🙏','😊','🤝'].map(emoji => (
+                    <button key={emoji} onClick={() => {
+                      setMessage(m => m + emoji);
+                      setShowEmojiToolbar(false);
+                      textareaRef.current?.focus();
+                    }} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-secondary text-xl transition-transform hover:scale-125">
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Attach file */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingCount > 0}
+              className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 relative"
+              title={uploadingCount > 0 ? `Uploading ${uploadingCount}…` : 'Attach file'}
+            >
+              <Paperclip style={{ width: 18, height: 18 }} />
+              {uploadingCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                  {uploadingCount}
+                </span>
+              )}
+            </button>
+
+            {/* Attach image */}
+            <button
+              onClick={() => {
+                const inp = document.createElement('input');
+                inp.type = 'file';
+                inp.accept = 'image/*';
+                inp.multiple = true;
+                inp.onchange = () => handleFiles(Array.from(inp.files || []));
+                inp.click();
+              }}
+              disabled={uploadingCount > 0}
+              className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+              title="Send image"
+            >
+              <ImageIcon style={{ width: 18, height: 18 }} />
+            </button>
+
+            {/* Reply shortcut */}
+            <button
+              onClick={() => textareaRef.current?.focus()}
+              className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              title="Reply"
+            >
+              <Reply style={{ width: 18, height: 18 }} />
+            </button>
+
+            <div className="flex-1" />
+
+            {/* Send */}
+            <button
+              onClick={handleSend}
+              disabled={editingMsg ? !editText.trim() : !message.trim()}
+              className="p-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Send"
+            >
+              {editingMsg ? <Check style={{ width: 18, height: 18 }} /> : <Send style={{ width: 18, height: 18 }} />}
+            </button>
+          </div>
         </div>
       </div>
 
