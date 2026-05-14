@@ -29,18 +29,18 @@ export function unlockAudioContext() {
 }
 
 function playBeep(ctx: AudioContext) {
+  // Short, crisp two-tone ping (0.12 s total — fast like WhatsApp/Teams)
   const osc  = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.connect(gain);
   gain.connect(ctx.destination);
   osc.type = 'sine';
-  // Two-tone ping: high → low
-  osc.frequency.setValueAtTime(940, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(520, ctx.currentTime + 0.12);
-  gain.gain.setValueAtTime(0.35, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+  osc.frequency.setValueAtTime(880, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.06);
+  gain.gain.setValueAtTime(0.5, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
   osc.start(ctx.currentTime);
-  osc.stop(ctx.currentTime + 0.3);
+  osc.stop(ctx.currentTime + 0.12);
 }
 
 function playNotificationSound() {
@@ -148,17 +148,21 @@ function UnifiedToast({ t, opts, target }: { t: any; opts: any; target: string }
           <Bell className="h-2.5 w-2.5 text-white" />
         </div>
         <span className="text-xs font-medium text-white/70 flex-1">Fox Portal · {moduleLabel(opts.type)}</span>
-        <button onClick={() => { toast.dismiss(t.id); if (target) window.location.assign(target); }}
+        <button
+          onClick={(e) => { e.stopPropagation(); toast.remove(t.id); if (target) window.location.assign(target); }}
           className="text-white/40 hover:text-white/80 text-[11px] px-1 transition-colors">···</button>
-        <button onClick={() => toast.dismiss(t.id)}
-          className="text-white/40 hover:text-white/80 p-0.5 rounded transition-colors" aria-label="Dismiss">
+        <button
+          onClick={(e) => { e.stopPropagation(); toast.remove(t.id); }}
+          className="text-white/40 hover:text-white/80 p-1 rounded transition-colors"
+          aria-label="Dismiss"
+        >
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {/* Body — avatar + title + preview */}
       <div className="flex items-start gap-3 px-3 pt-3 pb-2.5 cursor-pointer"
-        onClick={() => { toast.dismiss(t.id); if (target) window.location.assign(target); }}>
+        onClick={() => { toast.remove(t.id); if (target) window.location.assign(target); }}>
         <ToastAvatar name={opts.title} type={opts.type} />
         <div className="flex-1 min-w-0 pt-0.5">
           <div className="text-sm font-bold text-white truncate leading-snug">{opts.title}</div>
@@ -188,7 +192,7 @@ function UnifiedToast({ t, opts, target }: { t: any; opts: any; target: string }
       ) : (
         <div className="flex items-center justify-end px-3 pb-3">
           <button
-            onClick={() => { toast.dismiss(t.id); if (target) window.location.assign(target); }}
+            onClick={(e) => { e.stopPropagation(); toast.remove(t.id); if (target) window.location.assign(target); }}
             className="text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors text-white/80 hover:text-white"
             style={{ background: 'hsl(225 20% 26%)' }}>
             Open
@@ -221,35 +225,45 @@ export function useNotificationsSocket() {
   const userId          = useAuthStore((s) => s.user?.id);
   const { bump }        = useUnreadStore();
 
+  // Dedup guard — backend now emits new_message to BOTH the room channel
+  // (for live UI update) and the member's personal user channel (for
+  // notification). Users who have the room open receive it twice; we process
+  // it only once by tracking recent message IDs.
+  const seenMsgIds = useRef(new Set<string>());
+
   // ── Idle / away detection ────────────────────────────────────────────────
-  // After 5 min with no mouse/keyboard/scroll activity → set status to 'away'
-  // Any activity while away → restore to 'online'
-  const autoAwayRef = useRef(false);
+  // After 10 min with no activity → set status to 'away'.
+  // Any activity while away → restore to 'online'.
+  // Only the status field is changed — status_text / status_emoji are left
+  // untouched so custom statuses aren't accidentally cleared.
+  const autoAwayRef  = useRef(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     if (!isAuthenticated || !accessToken) return;
 
-    const IDLE_MS = 5 * 60 * 1000;
+    const IDLE_MS = 10 * 60 * 1000; // 10 minutes
     const EVENTS  = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'wheel'];
 
-    const emitStatus = (status: string) => {
+    const emitStatusOnly = (status: string) => {
       try {
-        api.patch('/users/me/status', { status, status_text: null, status_emoji: null }).catch(() => {});
-        getSocket(accessToken).emit('set_status', { status, status_text: null, status_emoji: null });
+        // PATCH only the status field — do NOT send status_text/emoji so we
+        // don't accidentally clear a custom status the user set manually.
+        api.patch('/users/me/status', { status }).catch(() => {});
+        getSocket(accessToken).emit('set_status', { status });
       } catch {}
     };
 
     const goAway = () => {
       autoAwayRef.current = true;
-      emitStatus('away');
+      emitStatusOnly('away');
     };
 
     const resetTimer = () => {
       clearTimeout(idleTimerRef.current);
       if (autoAwayRef.current) {
         autoAwayRef.current = false;
-        emitStatus('online');
+        emitStatusOnly('online');
       }
       idleTimerRef.current = setTimeout(goAway, IDLE_MS);
     };
@@ -279,13 +293,10 @@ export function useNotificationsSocket() {
       qc.invalidateQueries({ queryKey: ['notifications'] });
       qc.invalidateQueries({ queryKey: ['email-unread'] });
       qc.invalidateQueries({ queryKey: ['emails'] });
-      // Bump the bell count
       bump('notifications');
-      // Bump the module-specific count
       const mod = typeToModule[notif?.type] || '';
       if (mod) bump(mod);
       playNotificationSound();
-      // Floating toast at top — clickable, navigates to deep link
       showNotificationToast({
         title: notif?.title || 'New notification',
         body:  notif?.body  || '',
@@ -295,15 +306,25 @@ export function useNotificationsSocket() {
     };
 
     const handleNewMessage = (msg: any) => {
-      const currentPath = window.location.pathname;
+      // Never process your own messages — you sent it, you don't need an alert
+      if (msg?.sender_id === userId) return;
+
+      // Dedup: backend emits to room channel + user channel; process only once
+      const msgId = msg?.id;
+      if (msgId) {
+        if (seenMsgIds.current.has(msgId)) return;
+        seenMsgIds.current.add(msgId);
+        setTimeout(() => seenMsgIds.current.delete(msgId), 15_000);
+      }
+
+      const currentPath     = window.location.pathname;
       const isInCurrentRoom = currentPath.includes('/chat') &&
         new URLSearchParams(window.location.search).get('room') === msg?.room_id;
 
-      // Always play sound for every incoming message
+      // Always play sound — even when the room is open (audible confirmation)
       playNotificationSound();
 
-      // Show toast for any message NOT in the currently active room
-      // (if you're already watching the room the messages appear live — no extra toast needed)
+      // Show toast only when NOT already looking at that room
       if (!isInCurrentRoom) {
         bump('chat');
         const senderName = msg?.sender_name || msg?.from_name || 'New message';
@@ -313,7 +334,7 @@ export function useNotificationsSocket() {
         const base       = role === 'client'
           ? '/client-portal'
           : adminRoles.includes(role || '') ? '/admin' : '/emp';
-        const link       = msg?.room_id ? `${base}/chat?room=${msg.room_id}` : `${base}/chat`;
+        const link = msg?.room_id ? `${base}/chat?room=${msg.room_id}` : `${base}/chat`;
         showNotificationToast({
           title:  senderName,
           body:   preview,
@@ -322,6 +343,7 @@ export function useNotificationsSocket() {
           roomId: msg?.room_id,
         });
       }
+
       qc.invalidateQueries({ queryKey: ['chat-rooms'] });
     };
 
