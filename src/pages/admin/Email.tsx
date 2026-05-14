@@ -25,6 +25,7 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 import { emailApi } from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
 
 // ---------- helpers ----------
 const fmtRelative = (iso?: string) => {
@@ -77,6 +78,8 @@ const errMsg = (e: any) => e?.response?.data?.error || e?.response?.data?.messag
 
 export default function EmailPage() {
   const qc = useQueryClient();
+  const currentUser = useAuthStore((s) => s.user);
+  const isEmailAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
 
   // Lock body scroll while on the email page so the page itself can never
   // overflow past the viewport (the email layout is fixed-viewport-height
@@ -541,13 +544,15 @@ export default function EmailPage() {
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Accounts
             </span>
-            <button
-              onClick={() => setShowAddAccount(true)}
-              className="text-muted-foreground hover:text-foreground"
-              title="Add account"
-            >
-              <Plus size={14} />
-            </button>
+            {isEmailAdmin && (
+              <button
+                onClick={() => setShowAddAccount(true)}
+                className="text-muted-foreground hover:text-foreground"
+                title="Add account"
+              >
+                <Plus size={14} />
+              </button>
+            )}
           </div>
           <div className="space-y-1">
             {accounts.map((acc: any) => (
@@ -555,6 +560,7 @@ export default function EmailPage() {
                 key={acc.id}
                 acc={acc}
                 active={activeAccountId === acc.id}
+                isEmailAdmin={isEmailAdmin}
                 onSelect={() => setActiveAccountId(acc.id)}
                 onDeleted={(deletedId: string) => {
                   if (activeAccountId === deletedId) setActiveAccountId(null);
@@ -562,7 +568,9 @@ export default function EmailPage() {
               />
             ))}
             {accounts.length === 0 && (
-              <p className="text-xs text-muted-foreground px-2 py-2">No accounts yet</p>
+              <p className="text-xs text-muted-foreground px-2 py-2">
+                {isEmailAdmin ? 'No accounts yet' : 'No email accounts configured'}
+              </p>
             )}
           </div>
         </div>
@@ -1245,8 +1253,8 @@ export default function EmailPage() {
         </div>
       )}
 
-      {/* ───────── ADD ACCOUNT MODAL ───────── */}
-      {showAddAccount && (
+      {/* ───────── ADD ACCOUNT MODAL — admin only ───────── */}
+      {showAddAccount && isEmailAdmin && (
         <AddAccountModal
           form={accountForm}
           onClose={() => setShowAddAccount(false)}
@@ -1527,11 +1535,13 @@ function AddAccountModal({
 function AccountRow({
   acc,
   active,
+  isEmailAdmin,
   onSelect,
   onDeleted,
 }: {
   acc: any;
   active: boolean;
+  isEmailAdmin: boolean;
   onSelect: () => void;
   onDeleted?: (id: string) => void;
 }) {
@@ -1617,41 +1627,45 @@ function AccountRow({
             </span>
           )}
         </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={deleteMut.isPending}
-          title="Remove account"
-          aria-label={`Remove ${acc.email_address || acc.email || 'account'}`}
-          className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
-        >
-          {deleteMut.isPending ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <Trash2 size={12} />
-          )}
-        </button>
+        {isEmailAdmin && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleteMut.isPending}
+            title="Remove account"
+            aria-label={`Remove ${acc.email_address || acc.email || 'account'}`}
+            className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+          >
+            {deleteMut.isPending ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Trash2 size={12} />
+            )}
+          </button>
+        )}
       </div>
 
       <div className="px-2 pb-2 space-y-1.5">
         <div className="flex gap-1.5">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setResult(null);
-              testMut.mutate();
-            }}
-            disabled={testMut.isPending}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
-          >
-            {testMut.isPending ? (
-              <Loader2 size={11} className="animate-spin" />
-            ) : (
-              <PlugZap size={11} />
-            )}
-            {testMut.isPending ? 'Testing…' : 'Test'}
-          </button>
+          {isEmailAdmin && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setResult(null);
+                testMut.mutate();
+              }}
+              disabled={testMut.isPending}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
+            >
+              {testMut.isPending ? (
+                <Loader2 size={11} className="animate-spin" />
+              ) : (
+                <PlugZap size={11} />
+              )}
+              {testMut.isPending ? 'Testing…' : 'Test'}
+            </button>
+          )}
           <button
             type="button"
             onClick={(e) => {
@@ -1659,7 +1673,7 @@ function AccountRow({
               setShowSig((s) => !s);
             }}
             title="Edit signature"
-            className="inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground transition-colors"
           >
             ✍︎ Signature
           </button>
