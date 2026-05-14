@@ -410,7 +410,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     el.style.height = Math.min(el.scrollHeight, 128) + 'px';
   };
 
-  // Clipboard paste — upload images/files pasted into the textarea
+  // Clipboard paste — works from textarea (React) and window-level (captures
+  // paste even when focus is not on the textarea, e.g. after clicking a message)
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = Array.from(e.clipboardData.items);
     const fileItems = items.filter(i => i.kind === 'file');
@@ -419,6 +420,25 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     const files = fileItems.map(i => i.getAsFile()).filter(Boolean) as File[];
     if (files.length) handleFiles(files);
   };
+
+  useEffect(() => {
+    const onWindowPaste = (e: ClipboardEvent) => {
+      // Only intercept if a text input is NOT currently focused (prevent double-firing)
+      const active = document.activeElement;
+      const isInputFocused = active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        (active instanceof HTMLElement && active.isContentEditable);
+      if (isInputFocused) return; // textarea's own onPaste handles it
+      const items = Array.from(e.clipboardData?.items || []);
+      const fileItems = items.filter(i => i.kind === 'file');
+      if (!fileItems.length) return;
+      e.preventDefault();
+      const files = fileItems.map(i => i.getAsFile()).filter(Boolean) as File[];
+      if (files.length) handleFiles(files);
+    };
+    window.addEventListener('paste', onWindowPaste);
+    return () => window.removeEventListener('paste', onWindowPaste);
+  }, [roomId]); // eslint-disable-line
 
   const handleSend = () => {
     if (editingMsg) {
@@ -448,7 +468,22 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-background">
+    <div
+      className="flex flex-col h-full overflow-hidden bg-background relative"
+      onDragOver={e => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
+      onDragEnter={e => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
+      onDragLeave={e => {
+        // Only clear when leaving the entire chat container, not a child element
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false);
+      }}
+      onDrop={e => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length) handleFiles(files);
+      }}
+    >
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex-none px-4 py-2.5 border-b border-border flex items-center gap-3 bg-card/50 backdrop-blur-sm">
         <button onClick={onBack} className="md:hidden p-1.5 rounded-md hover:bg-secondary text-muted-foreground">
@@ -541,26 +576,21 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         </div>
       )}
 
+      {/* Drag-over overlay — covers full chat area (moved to outer container) */}
+      {isDragOver && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg pointer-events-none">
+          <Paperclip className="h-12 w-12 text-primary mb-3" />
+          <p className="text-base font-semibold text-primary">Drop files to send</p>
+          <p className="text-xs text-muted-foreground mt-1">Images, PDF, ZIP, Excel and more</p>
+        </div>
+      )}
+
       {/* ── Message list ───────────────────────────────────────── */}
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto py-4 relative"
-        onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
-        onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false); }}
-        onDrop={e => {
-          e.preventDefault();
-          setIsDragOver(false);
-          handleFiles(Array.from(e.dataTransfer.files));
-        }}
       >
-        {isDragOver && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg pointer-events-none">
-            <Paperclip className="h-10 w-10 text-primary mb-2" />
-            <p className="text-sm font-medium text-primary">Drop files to upload</p>
-            <p className="text-xs text-muted-foreground mt-1">PDF, ZIP, Excel, images and more</p>
-          </div>
-        )}
 
         {loadingMessages && fetchedMessages.length === 0 && (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading…</div>
