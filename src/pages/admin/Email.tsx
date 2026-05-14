@@ -9,7 +9,7 @@ import {
   Plus, RefreshCw, Search, Reply, Forward, MailOpen, Paperclip,
   Minus, X, PlugZap, CheckCircle2, XCircle, Loader2,
   Folder, FolderPlus, MoreVertical, Pencil, FolderInput, Check,
-  Menu, ArrowLeft,
+  Menu, ArrowLeft, PanelLeftOpen, PanelLeftClose,
 } from 'lucide-react';
 
 // Tracks whether the viewport is mobile-sized. Updates on resize.
@@ -105,6 +105,7 @@ export default function EmailPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
   // Auto-close the mobile sidebar drawer whenever an email opens, a folder
   // is picked, etc. — anything that changes context.
@@ -518,16 +519,27 @@ export default function EmailPage() {
       {!isMobile && (
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
-      {/* ───────── COL 1 — ICON STRIP SIDEBAR ───────── */}
-      <aside className="w-[60px] flex-none border-r border-border bg-card flex flex-col items-center py-3 gap-1 overflow-y-auto">
-        {/* Compose FAB */}
-        <button
-          onClick={() => setShowCompose(true)}
-          title="Compose"
-          className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition mb-2 shadow-sm"
-        >
-          <Plus size={18} />
-        </button>
+      {/* ───────── COL 1 — SIDEBAR (collapsible) ───────── */}
+      <aside className={`flex-none border-r border-border bg-card flex flex-col py-3 overflow-y-auto overflow-x-hidden transition-all duration-200 ${sidebarExpanded ? 'w-[220px] items-stretch px-2' : 'w-[60px] items-center'}`}>
+
+        {/* Toggle + Compose row */}
+        <div className={`flex items-center mb-2 ${sidebarExpanded ? 'gap-2 px-1' : 'flex-col gap-2'}`}>
+          <button
+            onClick={() => setSidebarExpanded(v => !v)}
+            title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+          >
+            {sidebarExpanded ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+          </button>
+          <button
+            onClick={() => setShowCompose(true)}
+            title="Compose"
+            className={`h-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition shadow-sm shrink-0 ${sidebarExpanded ? 'flex-1 gap-2 px-3 text-sm font-semibold' : 'w-10'}`}
+          >
+            <Plus size={16} />
+            {sidebarExpanded && <span>Compose</span>}
+          </button>
+        </div>
 
         {/* System folders */}
         {filteredFolders.map((f) => {
@@ -536,62 +548,90 @@ export default function EmailPage() {
           return (
             <button
               key={f.key}
-              title={f.label + (f.key === 'INBOX' && unreadCount > 0 ? ` (${unreadCount})` : '')}
+              title={sidebarExpanded ? undefined : f.label + (f.key === 'INBOX' && unreadCount > 0 ? ` (${unreadCount})` : '')}
               onClick={() => { setActiveFolder(f.key); setActiveCustomFolderId(null); setSelectedId(null); }}
-              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              }`}
+              className={`relative flex items-center gap-3 rounded-xl transition-colors ${
+                sidebarExpanded ? 'w-full px-3 py-2' : 'w-10 h-10 justify-center'
+              } ${active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
             >
-              <Icon size={18} />
+              <Icon size={17} className="shrink-0" />
+              {sidebarExpanded && <span className="flex-1 text-left text-sm font-medium">{f.label}</span>}
               {f.key === 'INBOX' && unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-[9px] text-primary-foreground flex items-center justify-center font-bold">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
+                sidebarExpanded
+                  ? <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${active ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary'}`}>{unreadCount > 99 ? '99+' : unreadCount}</span>
+                  : <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-[9px] text-primary-foreground flex items-center justify-center font-bold">{unreadCount > 9 ? '9+' : unreadCount}</span>
               )}
             </button>
           );
         })}
 
         {/* Divider */}
-        <div className="w-6 h-px bg-border my-1" />
+        <div className={`bg-border my-2 ${sidebarExpanded ? 'h-px mx-1' : 'w-6 h-px'}`} />
+
+        {/* Custom folders header */}
+        {sidebarExpanded && (
+          <div className="flex items-center justify-between px-2 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Folders</span>
+            <button onClick={() => setShowCreateFolder(true)} className="text-muted-foreground hover:text-foreground" title="New folder"><FolderPlus size={13} /></button>
+          </div>
+        )}
 
         {/* Custom folders */}
         {customFolders.map((cf: any) => (
           <button
             key={cf.id}
-            title={cf.name}
+            title={sidebarExpanded ? undefined : cf.name}
             onClick={() => { setActiveCustomFolderId(cf.id); setActiveFolder(''); setSelectedId(null); }}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-              activeCustomFolderId === cf.id ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
+            className={`relative flex items-center gap-3 rounded-xl transition-colors ${
+              sidebarExpanded ? 'w-full px-3 py-2' : 'w-10 h-10 justify-center'
+            } ${activeCustomFolderId === cf.id ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
           >
-            <Folder size={18} />
+            <Folder size={17} className="shrink-0" />
+            {sidebarExpanded && <span className="flex-1 text-left text-sm truncate">{cf.name}</span>}
           </button>
         ))}
-        <button onClick={() => setShowCreateFolder(true)} title="New folder" className="w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-          <FolderPlus size={16} />
-        </button>
+        {!sidebarExpanded && (
+          <button onClick={() => setShowCreateFolder(true)} title="New folder" className="w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+            <FolderPlus size={16} />
+          </button>
+        )}
 
         {/* Divider + accounts */}
-        <div className="w-6 h-px bg-border my-1" />
+        <div className={`bg-border my-2 ${sidebarExpanded ? 'h-px mx-1' : 'w-6 h-px'}`} />
+
+        {/* Accounts header */}
+        {sidebarExpanded && (
+          <div className="flex items-center justify-between px-2 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Accounts</span>
+            {isEmailAdmin && <button onClick={() => setShowAddAccount(true)} className="text-muted-foreground hover:text-foreground" title="Add account"><Plus size={13} /></button>}
+          </div>
+        )}
+
         {accounts.map((acc: any) => {
           const initial = (acc.email_address || acc.email || '?')[0].toUpperCase();
+          const isActive = activeAccountId === acc.id;
           return (
             <button
               key={acc.id}
-              title={acc.email_address || acc.email}
+              title={sidebarExpanded ? undefined : (acc.email_address || acc.email)}
               onClick={() => setActiveAccountId(acc.id)}
-              className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                activeAccountId === acc.id
-                  ? 'bg-primary text-primary-foreground ring-2 ring-primary/40'
-                  : 'bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary'
-              }`}
+              className={`flex items-center gap-3 rounded-xl transition-all ${
+                sidebarExpanded ? 'w-full px-2 py-1.5' : 'w-10 h-10 justify-center'
+              } ${isActive ? 'bg-primary/10' : 'hover:bg-muted'}`}
             >
-              {initial}
+              <span className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
+                isActive ? 'bg-primary text-primary-foreground ring-2 ring-primary/40' : 'bg-muted text-muted-foreground'
+              }`}>{initial}</span>
+              {sidebarExpanded && (
+                <span className="flex-1 min-w-0 text-left">
+                  <span className="block text-xs font-medium text-foreground truncate">{acc.email_address || acc.email}</span>
+                  {acc.is_default && <span className="text-[9px] text-primary font-semibold">Default</span>}
+                </span>
+              )}
             </button>
           );
         })}
-        {isEmailAdmin && (
+        {!sidebarExpanded && isEmailAdmin && (
           <button onClick={() => setShowAddAccount(true)} title="Add email account" className="w-10 h-10 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors border-2 border-dashed border-muted-foreground/30 hover:border-primary/40">
             <Plus size={14} />
           </button>
