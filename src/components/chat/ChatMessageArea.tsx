@@ -72,6 +72,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
   const userRole = user?.role || '';
   const isAdminRole = userRole === 'admin' || userRole === 'super_admin';
+  const isRoomAdmin = !!roomDetail?.current_user_is_admin;
+  const canDeleteRoom = isAdminRole || isRoomAdmin;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -529,18 +531,34 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           <button onClick={onToggleInfo} className="p-2 rounded-md hover:bg-secondary text-muted-foreground transition-colors" title="Info">
             <Info className="h-4 w-4" />
           </button>
-          {isAdminRole && (
+          {canDeleteRoom && (
             <div className="relative">
-              <button onClick={() => setShowHeaderMenu(!showHeaderMenu)} className="p-2 rounded-md hover:bg-secondary text-muted-foreground transition-colors">
+              <button
+                onClick={() => setShowHeaderMenu(v => !v)}
+                className="p-2 rounded-md hover:bg-secondary text-muted-foreground transition-colors"
+                title="More options"
+              >
                 <MoreVertical className="h-4 w-4" />
               </button>
               {showHeaderMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-xl z-20 min-w-[160px]">
-                  <button onClick={() => { setShowHeaderMenu(false); if (confirm('Delete this conversation? This cannot be undone.')) onDeleteRoom?.(); }}
-                    className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg flex items-center gap-2">
-                    <Trash2 className="h-3.5 w-3.5" /> Delete Conversation
-                  </button>
-                </div>
+                <>
+                  {/* Backdrop to close on outside click */}
+                  <div className="fixed inset-0 z-10" onClick={() => setShowHeaderMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-xl z-20 min-w-[180px] py-1 overflow-hidden">
+                    <button
+                      onClick={() => {
+                        setShowHeaderMenu(false);
+                        if (window.confirm('Delete this conversation? This cannot be undone.')) {
+                          onDeleteRoom?.();
+                        }
+                      }}
+                      className="w-full text-left px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 flex items-center gap-2.5 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4 shrink-0" />
+                      <span>Delete Conversation</span>
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           )}
