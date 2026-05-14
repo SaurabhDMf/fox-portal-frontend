@@ -4,7 +4,7 @@ import api from '@/lib/api';
 import { dependencyDelete } from '@/lib/dependencyDelete';
 import { useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
-import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2, IndianRupee } from 'lucide-react';
+import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2, IndianRupee, FolderOpen } from 'lucide-react';
 import { extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectTask } from '@/lib/projectTypes';
 import TasksListView from '@/components/projects/TasksListView';
@@ -16,6 +16,7 @@ import TaskDetailDrawer from '@/components/projects/TaskDetailDrawer';
 import CreateTaskModal from '@/components/projects/CreateTaskModal';
 import ProjectSettingsModal from '@/components/projects/ProjectSettingsModal';
 import FinancialsView from '@/components/projects/FinancialsView';
+import DocumentsView from '@/components/projects/DocumentsView';
 import toast from 'react-hot-toast';
 
 const ALL_TABS = [
@@ -24,6 +25,7 @@ const ALL_TABS = [
   { id: 'epics', label: 'Modules', icon: Zap },
   { id: 'sprints', label: 'Sprints', icon: Timer },
   { id: 'members', label: 'Members', icon: Users },
+  { id: 'documents', label: 'Documents', icon: FolderOpen },
   { id: 'financials', label: 'Financials', icon: IndianRupee },
 ] as const;
 
@@ -242,6 +244,7 @@ export default function ProjectDetail() {
         <BacklogView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />
       )}
       {activeTab === 'members' && <MembersView projectId={id!} />}
+      {activeTab === 'documents' && <DocumentsView projectId={id!} />}
       {activeTab === 'financials' && canViewFinancials && <FinancialsView projectId={id!} />}
 
       {selectedTask && (

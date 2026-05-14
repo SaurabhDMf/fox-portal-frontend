@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import api from '@/lib/api';
-import { ArrowLeft, Calendar, Users, X, ChevronDown, Paperclip, Plus, Send } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, X, ChevronDown, Paperclip, Plus, Send, FolderOpen } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
+import DocumentsView from '@/components/projects/DocumentsView';
 
 const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const initials = (n?: string) => n ? n.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?';
@@ -151,6 +152,9 @@ export default function CPProjectDetail() {
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="sprints">Sprints</TabsTrigger>
           <TabsTrigger value="modules">Modules</TabsTrigger>
+          <TabsTrigger value="documents">
+            <span className="flex items-center gap-1.5"><FolderOpen className="h-3.5 w-3.5" />Documents</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -164,6 +168,9 @@ export default function CPProjectDetail() {
         </TabsContent>
         <TabsContent value="modules">
           <ModulesTab projectId={id!} />
+        </TabsContent>
+        <TabsContent value="documents">
+          <DocumentsView projectId={id!} />
         </TabsContent>
       </Tabs>
 

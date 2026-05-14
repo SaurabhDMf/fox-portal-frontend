@@ -25,6 +25,7 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 import { emailApi } from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
 
 // ---------- helpers ----------
 const fmtRelative = (iso?: string) => {
@@ -77,6 +78,8 @@ const errMsg = (e: any) => e?.response?.data?.error || e?.response?.data?.messag
 
 export default function EmailPage() {
   const qc = useQueryClient();
+  const currentUser = useAuthStore((s) => s.user);
+  const isEmailAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
 
   // Lock body scroll while on the email page so the page itself can never
   // overflow past the viewport (the email layout is fixed-viewport-height
@@ -443,205 +446,214 @@ export default function EmailPage() {
 
   const filteredFolders = useMemo(() => FOLDERS, []);
 
-  // Sidebar inner content — used by both the desktop Panel and the mobile
-  // slide-in drawer. Only ONE of those is mounted at a time (conditional
-  // rendering below), so this expression renders in a single tree at runtime.
-  const sidebarInner = (
+  // Mobile drawer sidebar (full expanded with labels)
+  const mobileSidebarContent = (
     <>
-        <div className="p-3">
-          <button
-            onClick={() => setShowCompose(true)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm hover:opacity-90 transition"
-          >
-            <Plus size={16} /> Compose
-          </button>
-        </div>
-
-        <nav className="px-2 space-y-0.5">
-          {filteredFolders.map((f) => {
-            const Icon = f.icon;
-            const active = !activeCustomFolderId && activeFolder === f.key;
-            return (
-              <button
-                key={f.key}
-                onClick={() => {
-                  setActiveFolder(f.key);
-                  setActiveCustomFolderId(null);
-                  setSelectedId(null);
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  active
-                    ? 'bg-primary/10 text-primary font-semibold'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-              >
-                <Icon size={16} />
-                <span className="flex-1 text-left">{f.label}</span>
-                {f.key === 'INBOX' && unreadCount > 0 && (
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                    active ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary'
-                  }`}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* ───────── CUSTOM FOLDERS (user categories) ───────── */}
-        <div className="mt-4 px-3">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Folders
-            </span>
-            <button
-              onClick={() => setShowCreateFolder(true)}
-              className="text-muted-foreground hover:text-foreground"
-              title="Create folder"
-            >
-              <FolderPlus size={14} />
+      <div className="p-3">
+        <button
+          onClick={() => { setShowCompose(true); setMobileSidebarOpen(false); }}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm hover:opacity-90 transition"
+        >
+          <Plus size={16} /> Compose
+        </button>
+      </div>
+      <nav className="px-2 space-y-0.5">
+        {filteredFolders.map((f) => {
+          const Icon = f.icon;
+          const active = !activeCustomFolderId && activeFolder === f.key;
+          return (
+            <button key={f.key} onClick={() => { setActiveFolder(f.key); setActiveCustomFolderId(null); setSelectedId(null); setMobileSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${active ? 'bg-primary/10 text-primary font-semibold' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+              <Icon size={16} />
+              <span className="flex-1 text-left">{f.label}</span>
+              {f.key === 'INBOX' && unreadCount > 0 && (
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${active ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary'}`}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </button>
-          </div>
-          <div className="space-y-0.5">
-            {customFolders.map((cf: any) => (
-              <CustomFolderRow
-                key={cf.id}
-                folder={cf}
-                active={activeCustomFolderId === cf.id}
-                onSelect={() => {
-                  setActiveCustomFolderId(cf.id);
-                  setActiveFolder('');
-                  setSelectedId(null);
-                }}
-                onChanged={() => {
-                  qc.invalidateQueries({ queryKey: ['email-custom-folders'] });
-                  qc.invalidateQueries({ queryKey: ['emails'] });
-                }}
-                onDeleted={(deletedId: string) => {
-                  if (activeCustomFolderId === deletedId) {
-                    setActiveCustomFolderId(null);
-                    setActiveFolder('INBOX');
-                  }
-                  qc.invalidateQueries({ queryKey: ['email-custom-folders'] });
-                  qc.invalidateQueries({ queryKey: ['emails'] });
-                }}
-              />
-            ))}
-            {customFolders.length === 0 && (
-              <p className="text-[11px] text-muted-foreground/70 px-2 py-1.5 italic">
-                No folders yet. Click + to create one.
-              </p>
-            )}
-          </div>
+          );
+        })}
+      </nav>
+      <div className="mt-4 px-3">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Folders</span>
+          <button onClick={() => setShowCreateFolder(true)} className="text-muted-foreground hover:text-foreground" title="Create folder"><FolderPlus size={14} /></button>
         </div>
-
-        <div className="mt-6 px-3 flex-1 overflow-y-auto">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Accounts
-            </span>
-            <button
-              onClick={() => setShowAddAccount(true)}
-              className="text-muted-foreground hover:text-foreground"
-              title="Add account"
-            >
-              <Plus size={14} />
-            </button>
-          </div>
-          <div className="space-y-1">
-            {accounts.map((acc: any) => (
-              <AccountRow
-                key={acc.id}
-                acc={acc}
-                active={activeAccountId === acc.id}
-                onSelect={() => setActiveAccountId(acc.id)}
-                onDeleted={(deletedId: string) => {
-                  if (activeAccountId === deletedId) setActiveAccountId(null);
-                }}
-              />
-            ))}
-            {accounts.length === 0 && (
-              <p className="text-xs text-muted-foreground px-2 py-2">No accounts yet</p>
-            )}
-          </div>
+        <div className="space-y-0.5">
+          {customFolders.map((cf: any) => (
+            <CustomFolderRow key={cf.id} folder={cf} active={activeCustomFolderId === cf.id}
+              onSelect={() => { setActiveCustomFolderId(cf.id); setActiveFolder(''); setSelectedId(null); setMobileSidebarOpen(false); }}
+              onChanged={() => { qc.invalidateQueries({ queryKey: ['email-custom-folders'] }); qc.invalidateQueries({ queryKey: ['emails'] }); }}
+              onDeleted={(deletedId: string) => { if (activeCustomFolderId === deletedId) { setActiveCustomFolderId(null); setActiveFolder('INBOX'); } qc.invalidateQueries({ queryKey: ['email-custom-folders'] }); qc.invalidateQueries({ queryKey: ['emails'] }); }} />
+          ))}
+          {customFolders.length === 0 && <p className="text-[11px] text-muted-foreground/70 px-2 py-1.5 italic">No folders yet.</p>}
         </div>
+      </div>
+      <div className="mt-4 px-3 flex-1 overflow-y-auto">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Accounts</span>
+          {isEmailAdmin && <button onClick={() => setShowAddAccount(true)} className="text-muted-foreground hover:text-foreground" title="Add account"><Plus size={14} /></button>}
+        </div>
+        <div className="space-y-1">
+          {accounts.map((acc: any) => (
+            <AccountRow key={acc.id} acc={acc} active={activeAccountId === acc.id} isEmailAdmin={isEmailAdmin}
+              onSelect={() => setActiveAccountId(acc.id)}
+              onDeleted={(deletedId: string) => { if (activeAccountId === deletedId) setActiveAccountId(null); }} />
+          ))}
+          {accounts.length === 0 && <p className="text-xs text-muted-foreground px-2 py-2">{isEmailAdmin ? 'No accounts yet' : 'No email accounts configured'}</p>}
+        </div>
+      </div>
     </>
   );
+
+  // Active folder label for display
+  const activeFolderLabel = activeCustomFolderId
+    ? customFolders.find((f: any) => f.id === activeCustomFolderId)?.name || 'Folder'
+    : FOLDERS.find((f) => f.key === activeFolder)?.label || activeFolder;
+  const activeFolderTotal = totalMessages;
 
   return (
     <div className="h-[calc(100vh-4rem)] bg-background flex flex-col overflow-hidden">
       {!isMobile && (
-      <PanelGroup direction="horizontal" autoSaveId="email-3col-layout" className="flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
-      {/* ───────── COL 1 — SIDEBAR ───────── */}
-      <Panel defaultSize={18} minSize={12} maxSize={32} order={1} id="sidebar">
-      <aside className="h-full border-r border-border bg-card flex flex-col">
-        {sidebarInner}
+      {/* ───────── COL 1 — ICON STRIP SIDEBAR ───────── */}
+      <aside className="w-[60px] flex-none border-r border-border bg-card flex flex-col items-center py-3 gap-1 overflow-y-auto">
+        {/* Compose FAB */}
+        <button
+          onClick={() => setShowCompose(true)}
+          title="Compose"
+          className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition mb-2 shadow-sm"
+        >
+          <Plus size={18} />
+        </button>
+
+        {/* System folders */}
+        {filteredFolders.map((f) => {
+          const Icon = f.icon;
+          const active = !activeCustomFolderId && activeFolder === f.key;
+          return (
+            <button
+              key={f.key}
+              title={f.label + (f.key === 'INBOX' && unreadCount > 0 ? ` (${unreadCount})` : '')}
+              onClick={() => { setActiveFolder(f.key); setActiveCustomFolderId(null); setSelectedId(null); }}
+              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <Icon size={18} />
+              {f.key === 'INBOX' && unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-[9px] text-primary-foreground flex items-center justify-center font-bold">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
+
+        {/* Divider */}
+        <div className="w-6 h-px bg-border my-1" />
+
+        {/* Custom folders */}
+        {customFolders.map((cf: any) => (
+          <button
+            key={cf.id}
+            title={cf.name}
+            onClick={() => { setActiveCustomFolderId(cf.id); setActiveFolder(''); setSelectedId(null); }}
+            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+              activeCustomFolderId === cf.id ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }`}
+          >
+            <Folder size={18} />
+          </button>
+        ))}
+        <button onClick={() => setShowCreateFolder(true)} title="New folder" className="w-10 h-10 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+          <FolderPlus size={16} />
+        </button>
+
+        {/* Divider + accounts */}
+        <div className="w-6 h-px bg-border my-1" />
+        {accounts.map((acc: any) => {
+          const initial = (acc.email_address || acc.email || '?')[0].toUpperCase();
+          return (
+            <button
+              key={acc.id}
+              title={acc.email_address || acc.email}
+              onClick={() => setActiveAccountId(acc.id)}
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                activeAccountId === acc.id
+                  ? 'bg-primary text-primary-foreground ring-2 ring-primary/40'
+                  : 'bg-muted text-muted-foreground hover:bg-primary/15 hover:text-primary'
+              }`}
+            >
+              {initial}
+            </button>
+          );
+        })}
+        {isEmailAdmin && (
+          <button onClick={() => setShowAddAccount(true)} title="Add email account" className="w-10 h-10 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors border-2 border-dashed border-muted-foreground/30 hover:border-primary/40">
+            <Plus size={14} />
+          </button>
+        )}
       </aside>
-      </Panel>
 
-      <PanelResizeHandle className="w-px bg-border data-[resize-handle-state=hover]:w-1 data-[resize-handle-state=hover]:bg-primary/40 data-[resize-handle-state=drag]:w-1 data-[resize-handle-state=drag]:bg-primary transition-all" />
-
-      {/* ───────── COL 2 — MESSAGE LIST ───────── */}
-      <Panel defaultSize={28} minSize={20} maxSize={55} order={2} id="list">
+      {/* ───────── COL 2 + 3 — LIST + DETAIL (resizable) ───────── */}
+      <PanelGroup direction="horizontal" autoSaveId="email-list-detail" className="flex-1 min-h-0">
+      <Panel defaultSize={35} minSize={24} maxSize={55} order={2} id="list">
       <section className="h-full border-r border-border bg-card flex flex-col">
-        {selectedIds.size > 0 ? (
+
+        {/* Top search + compose bar */}
+        <div className="px-3 py-2.5 border-b border-border flex items-center gap-2 shrink-0">
+          {messages.length > 0 && selectedIds.size === 0 && (
+            <button
+              onClick={() => setSelectedIds(new Set(messages.map((m: any) => m.id)))}
+              title="Select all"
+              className="shrink-0 w-4 h-4 flex items-center justify-center rounded border border-muted-foreground/50 hover:border-primary hover:bg-primary/10 cursor-pointer transition-colors"
+            >
+              <span className="sr-only">Select all</span>
+            </button>
+          )}
+          <div className="flex-1 relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setSearch(''); }}
+              placeholder="Search messages…"
+              className="w-full pl-8 pr-7 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            {search && (
+              <button type="button" onClick={() => setSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded text-muted-foreground hover:text-foreground">
+                <X size={11} />
+              </button>
+            )}
+          </div>
+          <button onClick={() => syncMutation.mutate()} disabled={!activeAccountId || syncMutation.isPending} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors disabled:opacity-40" title="Sync">
+            <RefreshCw size={13} className={syncMutation.isPending ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {selectedIds.size > 0 && (
           <SelectionBar
             count={selectedIds.size}
             allOnPage={messages.length}
             folders={customFolders}
             onSelectAll={() => setSelectedIds(new Set(messages.map((m: any) => m.id)))}
             onClear={() => setSelectedIds(new Set())}
-            onMoved={() => {
-              qc.invalidateQueries({ queryKey: ['emails'] });
-              qc.invalidateQueries({ queryKey: ['email-custom-folders'] });
-              qc.invalidateQueries({ queryKey: ['email-unread'] });
-              setSelectedIds(new Set());
-            }}
+            onMoved={() => { qc.invalidateQueries({ queryKey: ['emails'] }); qc.invalidateQueries({ queryKey: ['email-custom-folders'] }); qc.invalidateQueries({ queryKey: ['email-unread'] }); setSelectedIds(new Set()); }}
             ids={Array.from(selectedIds)}
           />
-        ) : (
-          <div className="px-3 py-3 border-b border-border flex items-center gap-2">
-            {/* Master "Select all" checkbox — visible whenever there are messages.
-                Click → check all visible emails → opens the SelectionBar */}
-            {messages.length > 0 && (
-              <button
-                onClick={() => setSelectedIds(new Set(messages.map((m: any) => m.id)))}
-                title={`Select all ${messages.length} on this page`}
-                className="shrink-0 w-5 h-5 flex items-center justify-center rounded border-2 border-muted-foreground/60 hover:border-primary hover:bg-primary/10 cursor-pointer transition-colors"
-              >
-                <span className="sr-only">Select all</span>
-              </button>
-            )}
-            <div className="flex-1 relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Escape') setSearch(''); }}
-                placeholder="Search messages…"
-                className="w-full pl-8 pr-8 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  title="Clear search (Esc)"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-            <button
-              onClick={() => syncMutation.mutate()}
-              disabled={!activeAccountId || syncMutation.isPending}
-              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
-              title="Sync"
-            >
-              <RefreshCw size={14} className={syncMutation.isPending ? 'animate-spin' : ''} />
-            </button>
+        )}
+
+        {/* Folder section header */}
+        {selectedIds.size === 0 && (
+          <div className="px-4 pt-3 pb-1 shrink-0">
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+              {(() => { const f = filteredFolders.find(f => f.key === activeFolder); return f ? <f.icon size={16} className="text-muted-foreground" /> : <Folder size={16} className="text-muted-foreground" />; })()}
+              {activeFolderLabel}
+              {activeFolderTotal > 0 && <span className="text-sm font-normal text-muted-foreground">{activeFolderTotal}</span>}
+            </h2>
           </div>
         )}
 
@@ -650,14 +662,9 @@ export default function EmailPage() {
             <div className="p-6 text-center text-sm text-muted-foreground">Loading…</div>
           ) : messages.length === 0 ? (
             <div className="p-6 text-center">
-              <p className="text-sm text-muted-foreground">No messages in {activeFolder}</p>
-              {accounts.length === 0 && (
-                <button
-                  onClick={() => setShowAddAccount(true)}
-                  className="mt-2 text-xs text-primary underline"
-                >
-                  Add an email account to get started
-                </button>
+              <p className="text-sm text-muted-foreground">No messages in {activeFolderLabel}</p>
+              {accounts.length === 0 && isEmailAdmin && (
+                <button onClick={() => setShowAddAccount(true)} className="mt-2 text-xs text-primary underline">Add an email account to get started</button>
               )}
             </div>
           ) : (
@@ -665,73 +672,73 @@ export default function EmailPage() {
               const sel = selectedId === msg.id;
               const checked = selectedIds.has(msg.id);
               const fromLabel = msg.from_name || msg.from_address || '?';
+              const avatarColors = ['bg-violet-500','bg-blue-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-rose-500','bg-amber-500'];
+              const avatarColor = avatarColors[(fromLabel.charCodeAt(0) || 0) % avatarColors.length];
               const toggleChecked = (e: React.MouseEvent | React.ChangeEvent) => {
                 e.stopPropagation();
-                setSelectedIds((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(msg.id)) next.delete(msg.id);
-                  else next.add(msg.id);
-                  return next;
-                });
+                setSelectedIds((prev) => { const next = new Set(prev); if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id); return next; });
               };
+              const preview = (() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 60 ? `${p.slice(0, 60)}…` : p; })();
               return (
                 <div
                   key={msg.id}
                   onClick={() => setSelectedId(msg.id)}
-                  className={`group flex items-start gap-2 px-3 py-3 cursor-pointer border-b border-border transition-colors ${
-                    checked ? 'bg-primary/10' : sel ? 'bg-primary/5 border-l-2 border-l-primary' : 'hover:bg-muted/50'
-                  } ${!msg.is_read ? 'font-semibold' : ''}`}
+                  className={`group flex items-center gap-2.5 px-3 py-2 cursor-pointer border-b border-border/60 transition-colors ${
+                    checked ? 'bg-primary/8' : sel ? 'bg-primary/6 border-l-2 border-l-primary' : 'hover:bg-muted/40'
+                  }`}
                 >
-                  {/* Checkbox: always visible (was hover-only — confusing). Border
-                      uses muted-foreground/60 for both-theme contrast. */}
+                  {/* Unread dot */}
+                  <div className="w-2 shrink-0 flex items-center justify-center">
+                    {!msg.is_read && <span className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                  </div>
+
+                  {/* Checkbox (shows on hover or when checked) */}
                   <label
                     onClick={(e) => e.stopPropagation()}
-                    className={`shrink-0 w-5 h-5 mt-1 flex items-center justify-center rounded border-2 cursor-pointer transition-colors ${
-                      checked
-                        ? 'bg-primary border-primary'
-                        : 'border-muted-foreground/60 hover:border-primary hover:bg-primary/10'
+                    className={`shrink-0 w-5 h-5 flex items-center justify-center rounded border-2 cursor-pointer transition-all ${
+                      checked ? 'bg-primary border-primary opacity-100' : 'border-muted-foreground/40 opacity-0 group-hover:opacity-100'
                     }`}
-                    title={checked ? 'Deselect' : 'Select'}
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={toggleChecked}
-                      className="sr-only"
-                    />
-                    {checked && <Check size={12} className="text-primary-foreground" strokeWidth={3} />}
+                    <input type="checkbox" checked={checked} onChange={toggleChecked} className="sr-only" />
+                    {checked && <Check size={11} className="text-primary-foreground" strokeWidth={3} />}
                   </label>
 
-                  <div className="w-8 h-8 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold uppercase">
+                  {/* Avatar */}
+                  <div className={`w-7 h-7 shrink-0 rounded-full ${avatarColor} flex items-center justify-center text-[11px] font-bold text-white uppercase`}>
                     {fromLabel[0]}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm text-foreground truncate">{fromLabel}</span>
-                      <span className="text-[10px] text-muted-foreground shrink-0">
-                        {fmtRelative(msg.received_at || msg.sent_at)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-foreground truncate">
+
+                  {/* Sender name — fixed width */}
+                  <span className={`w-[130px] shrink-0 text-sm truncate ${!msg.is_read ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                    {fromLabel}
+                  </span>
+
+                  {/* Subject + preview inline */}
+                  <span className="flex-1 min-w-0 text-sm truncate">
+                    <span className={!msg.is_read ? 'font-semibold text-foreground' : 'text-foreground'}>
                       {msg.subject || '(no subject)'}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate font-normal">
-                      {(() => {
-                        const p = msg.preview;
-                        if (p == null || typeof p !== 'string' || !p.trim()) return '';
-                        return p.length > 80 ? `${p.slice(0, 80)}...` : p;
-                      })()}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      {!msg.is_read && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                      {!!msg.is_starred && <Star size={11} className="text-primary fill-primary" />}
-                    </div>
+                    </span>
+                    {preview && (
+                      <span className="text-muted-foreground font-normal"> — {preview}</span>
+                    )}
+                  </span>
+
+                  {/* Attachment + star + date */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {msg.attachment_count > 0 && (
+                      <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
+                        <Paperclip size={11} /> {msg.attachment_count > 1 ? `+${msg.attachment_count}` : ''}
+                      </span>
+                    )}
+                    {!!msg.is_starred && <Star size={11} className="text-amber-400 fill-amber-400" />}
+                    <span className="text-[11px] text-muted-foreground w-[52px] text-right shrink-0">
+                      {fmtRelative(msg.received_at || msg.sent_at)}
+                    </span>
                   </div>
                 </div>
               );
             })
           )}
-          {/* Infinite-scroll sentinel + "Load more" + "Pull older from server" */}
           {messages.length > 0 && (
             <InfiniteScrollSentinel
               hasNextPage={hasNextPage}
@@ -898,6 +905,7 @@ export default function EmailPage() {
       </Panel>
 
       </PanelGroup>
+      </div>
       )}
 
       {/* ═════════════════════════════════════════════════════════
@@ -919,7 +927,7 @@ export default function EmailPage() {
                     <X size={16} />
                   </button>
                 </div>
-                {sidebarInner}
+                {mobileSidebarContent}
               </aside>
               {/* Backdrop */}
               <div
@@ -1245,8 +1253,8 @@ export default function EmailPage() {
         </div>
       )}
 
-      {/* ───────── ADD ACCOUNT MODAL ───────── */}
-      {showAddAccount && (
+      {/* ───────── ADD ACCOUNT MODAL — admin only ───────── */}
+      {showAddAccount && isEmailAdmin && (
         <AddAccountModal
           form={accountForm}
           onClose={() => setShowAddAccount(false)}
@@ -1527,11 +1535,13 @@ function AddAccountModal({
 function AccountRow({
   acc,
   active,
+  isEmailAdmin,
   onSelect,
   onDeleted,
 }: {
   acc: any;
   active: boolean;
+  isEmailAdmin: boolean;
   onSelect: () => void;
   onDeleted?: (id: string) => void;
 }) {
@@ -1617,41 +1627,45 @@ function AccountRow({
             </span>
           )}
         </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={deleteMut.isPending}
-          title="Remove account"
-          aria-label={`Remove ${acc.email_address || acc.email || 'account'}`}
-          className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
-        >
-          {deleteMut.isPending ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <Trash2 size={12} />
-          )}
-        </button>
+        {isEmailAdmin && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleteMut.isPending}
+            title="Remove account"
+            aria-label={`Remove ${acc.email_address || acc.email || 'account'}`}
+            className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+          >
+            {deleteMut.isPending ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Trash2 size={12} />
+            )}
+          </button>
+        )}
       </div>
 
       <div className="px-2 pb-2 space-y-1.5">
         <div className="flex gap-1.5">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setResult(null);
-              testMut.mutate();
-            }}
-            disabled={testMut.isPending}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
-          >
-            {testMut.isPending ? (
-              <Loader2 size={11} className="animate-spin" />
-            ) : (
-              <PlugZap size={11} />
-            )}
-            {testMut.isPending ? 'Testing…' : 'Test'}
-          </button>
+          {isEmailAdmin && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setResult(null);
+                testMut.mutate();
+              }}
+              disabled={testMut.isPending}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
+            >
+              {testMut.isPending ? (
+                <Loader2 size={11} className="animate-spin" />
+              ) : (
+                <PlugZap size={11} />
+              )}
+              {testMut.isPending ? 'Testing…' : 'Test'}
+            </button>
+          )}
           <button
             type="button"
             onClick={(e) => {
@@ -1659,7 +1673,7 @@ function AccountRow({
               setShowSig((s) => !s);
             }}
             title="Edit signature"
-            className="inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-md border border-border bg-card hover:bg-muted text-[11px] text-muted-foreground hover:text-foreground transition-colors"
           >
             ✍︎ Signature
           </button>
