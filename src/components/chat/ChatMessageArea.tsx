@@ -72,8 +72,6 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
   const userRole = user?.role || '';
   const isAdminRole = userRole === 'admin' || userRole === 'super_admin';
-  const isRoomAdmin = !!roomDetail?.current_user_is_admin;
-  const canDeleteRoom = isAdminRole || isRoomAdmin;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -87,6 +85,9 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     queryFn: () => api.get(`/chat/rooms/${roomId}`).then(r => r.data?.data || r.data),
     enabled: !!roomId,
   });
+
+  const isRoomAdmin = !!roomDetail?.current_user_is_admin;
+  const canDeleteRoom = isAdminRole || isRoomAdmin;
 
   const isDM = roomDetail?.type === '1-to-1';
 
