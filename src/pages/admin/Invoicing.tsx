@@ -16,7 +16,7 @@ import ShareInvoiceModal from '@/components/invoicing/ShareInvoiceModal';
 
 const statusTabs = ['All', 'Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled'];
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://ubp-backend-production.up.railway.app/api/v1';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1';
 
 function buildPdfUrl(id: string) {
   return `${API_BASE}/invoices/${id}/pdf`;

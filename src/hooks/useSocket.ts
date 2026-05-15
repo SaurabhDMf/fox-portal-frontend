@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = (import.meta.env.VITE_API_URL || 'https://ubp-backend-production.up.railway.app').replace(/\/api\/v1\/?$/, '');
+const SOCKET_URL = (import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1').replace(/\/api\/v1\/?$/, '');
 
 let socketInstance: Socket | null = null;
 

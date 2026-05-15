@@ -377,7 +377,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       // even when no header is explicitly passed. fetch() never touches
       // Content-Type when given a FormData body, so the browser sets the
       // correct multipart/form-data; boundary=... automatically.
-      const BASE = import.meta.env.VITE_API_URL || 'https://ubp-backend-production.up.railway.app/api/v1';
+      const BASE = import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1';
       const token = (() => {
         try { return JSON.parse(localStorage.getItem('ubp-auth') || '{}')?.state?.accessToken || ''; }
         catch { return ''; }
