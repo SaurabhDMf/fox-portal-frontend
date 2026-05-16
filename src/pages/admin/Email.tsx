@@ -24,7 +24,7 @@ function useIsMobile(breakpoint = 768) {
   }, [breakpoint]);
   return isMobile;
 }
-import { emailApi } from '@/lib/api';
+import api, { emailApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 
 // ---------- helpers ----------
@@ -432,7 +432,19 @@ export default function EmailPage() {
       imap_password: '',
       is_default: false,
       signature: '',
+      for_user_id: '',
     },
+  });
+  const { data: activeUsers = [] } = useQuery({
+    queryKey: ['users-active'],
+    queryFn: () => api.get('/users/active').then(r => {
+      const d = r.data;
+      if (Array.isArray(d)) return d;
+      if (Array.isArray(d?.users)) return d.users;
+      if (Array.isArray(d?.data)) return d.data;
+      return [];
+    }),
+    enabled: isEmailAdmin,
   });
   const addMutation = useMutation({
     mutationFn: (d: any) => emailApi.addAccount(d),
@@ -1297,6 +1309,7 @@ export default function EmailPage() {
       {showAddAccount && isEmailAdmin && (
         <AddAccountModal
           form={accountForm}
+          users={activeUsers}
           onClose={() => setShowAddAccount(false)}
           onSubmit={(d) => addMutation.mutate(d)}
           submitting={addMutation.isPending}
@@ -1387,11 +1400,13 @@ function EmailBodyFrame({ html }: { html: string }) {
 // ────────────────────────────────────────
 function AddAccountModal({
   form,
+  users,
   onClose,
   onSubmit,
   submitting,
 }: {
   form: ReturnType<typeof useForm<any>>;
+  users: Array<{ id: string; name: string; email?: string }>;
   onClose: () => void;
   onSubmit: (d: any) => void;
   submitting: boolean;
@@ -1420,9 +1435,8 @@ function AddAccountModal({
         <div className="px-5 py-4 overflow-y-auto flex-1">
           <div className="mb-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
             <p className="text-xs text-foreground">
-              Connect your <span className="font-semibold">personal work email</span>. This is only
-              for your own inbox — system alerts and invoices use a separate company email
-              configured in Settings.
+              As an admin, you can add an email account for any team member. Leave "For User"
+              blank to add to your own inbox.
             </p>
           </div>
           <p className="text-xs text-muted-foreground mb-4">
@@ -1430,6 +1444,20 @@ function AddAccountModal({
           </p>
 
           <div className="space-y-3">
+            {users.length > 0 && (
+              <div>
+                <label className={labelCls}>For User (optional — leave blank for yourself)</label>
+                <select {...register('for_user_id')} className={inputCls}>
+                  <option value="">— My own account —</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}{u.email ? ` (${u.email})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Account Label</label>
