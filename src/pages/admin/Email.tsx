@@ -9,7 +9,7 @@ import {
   Plus, RefreshCw, Search, Reply, Forward, MailOpen, Paperclip,
   Minus, X, PlugZap, CheckCircle2, XCircle, Loader2,
   Folder, FolderPlus, MoreVertical, Pencil, FolderInput, Check,
-  Menu, ArrowLeft, PanelLeftOpen, PanelLeftClose,
+  Menu, ArrowLeft, PanelLeftOpen, PanelLeftClose, ChevronDown,
 } from 'lucide-react';
 
 // Tracks whether the viewport is mobile-sized. Updates on resize.
@@ -115,11 +115,13 @@ export default function EmailPage() {
   // Multi-selection: tracks which messages are checked. Distinct from selectedId
   // (which is the single email open in the detail pane).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
 
   // Clear selection when folder/account/search changes — a fresh list shouldn't
   // carry over checkboxes from the previous list.
   useEffect(() => {
     setSelectedIds(new Set());
+    setExpandedThreads(new Set());
   }, [activeFolder, activeCustomFolderId, activeAccountId, search]);
 
   // ----- custom folders (user-defined categories) -----
@@ -185,6 +187,32 @@ export default function EmailPage() {
     return msgData.pages.flatMap((p: any) => p?.data || (Array.isArray(p) ? p : []));
   }, [msgData]);
   const totalMessages: number = (msgData?.pages?.[0] as any)?.total ?? messages.length;
+
+  // Group messages into threads: same sender + same normalized subject
+  const normalizeSubject = (s: string) =>
+    (s || '').replace(/^(re:|fwd:|fw:)\s*/gi, '').trim().toLowerCase();
+
+  const threads = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const msg of messages) {
+      const key = `${(msg.from_address || '').toLowerCase()}|${normalizeSubject(msg.subject)}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(msg);
+    }
+    const groups: Array<{ key: string; msgs: any[] }> = [];
+    map.forEach((msgs, key) => {
+      msgs.sort((a, b) =>
+        new Date(b.received_at || b.sent_at || 0).getTime() -
+        new Date(a.received_at || a.sent_at || 0).getTime()
+      );
+      groups.push({ key, msgs });
+    });
+    groups.sort((a, b) =>
+      new Date(b.msgs[0].received_at || b.msgs[0].sent_at || 0).getTime() -
+      new Date(a.msgs[0].received_at || a.msgs[0].sent_at || 0).getTime()
+    );
+    return groups;
+  }, [messages]); // eslint-disable-line
 
   // ----- unread inbox count (auto-refresh every 30s) -----
   const { data: unreadData } = useQuery({
@@ -720,73 +748,133 @@ export default function EmailPage() {
               )}
             </div>
           ) : (
-            messages.map((msg: any) => {
-              const sel = selectedId === msg.id;
-              const checked = selectedIds.has(msg.id);
-              const fromLabel = msg.from_name || msg.from_address || '?';
+            threads.map(({ key, msgs }) => {
+              const latest = msgs[0];
+              const hasThread = msgs.length > 1;
+              const isExpanded = expandedThreads.has(key);
+              const sel = selectedId === latest.id;
+              const anyUnread = msgs.some(m => !m.is_read);
+              const allChecked = msgs.every(m => selectedIds.has(m.id));
+              const someChecked = msgs.some(m => selectedIds.has(m.id));
+              const fromLabel = latest.from_name || latest.from_address || '?';
               const avatarColors = ['bg-violet-500','bg-blue-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-rose-500','bg-amber-500'];
               const avatarColor = avatarColors[(fromLabel.charCodeAt(0) || 0) % avatarColors.length];
-              const toggleChecked = (e: React.MouseEvent | React.ChangeEvent) => {
+              const toggleAllChecked = (e: React.MouseEvent | React.ChangeEvent) => {
                 e.stopPropagation();
-                setSelectedIds((prev) => { const next = new Set(prev); if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id); return next; });
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (allChecked) msgs.forEach(m => next.delete(m.id));
+                  else msgs.forEach(m => next.add(m.id));
+                  return next;
+                });
               };
-              const preview = (() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 60 ? `${p.slice(0, 60)}…` : p; })();
+              const toggleThread = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                setExpandedThreads(prev => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key); else next.add(key);
+                  return next;
+                });
+              };
+              const preview = (() => { const p = latest.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 60 ? `${p.slice(0, 60)}…` : p; })();
               return (
-                <div
-                  key={msg.id}
-                  onClick={() => setSelectedId(msg.id)}
-                  className={`group flex items-center gap-2.5 px-3 py-2 cursor-pointer border-b border-border/60 transition-colors ${
-                    checked ? 'bg-primary/8' : sel ? 'bg-primary/6 border-l-2 border-l-primary' : 'hover:bg-muted/40'
-                  }`}
-                >
-                  {/* Unread dot */}
-                  <div className="w-2 shrink-0 flex items-center justify-center">
-                    {!msg.is_read && <span className="w-2 h-2 rounded-full bg-primary shrink-0" />}
-                  </div>
-
-                  {/* Checkbox (shows on hover or when checked) */}
-                  <label
-                    onClick={(e) => e.stopPropagation()}
-                    className={`shrink-0 w-5 h-5 flex items-center justify-center rounded border-2 cursor-pointer transition-all ${
-                      checked ? 'bg-primary border-primary opacity-100' : 'border-muted-foreground/40 opacity-0 group-hover:opacity-100'
+                <div key={key}>
+                  {/* Thread header row */}
+                  <div
+                    onClick={() => setSelectedId(latest.id)}
+                    className={`group flex items-center gap-2.5 px-3 py-2 cursor-pointer border-b border-border/60 transition-colors ${
+                      someChecked ? 'bg-primary/8' : sel ? 'bg-primary/6 border-l-2 border-l-primary' : 'hover:bg-muted/40'
                     }`}
                   >
-                    <input type="checkbox" checked={checked} onChange={toggleChecked} className="sr-only" />
-                    {checked && <Check size={11} className="text-primary-foreground" strokeWidth={3} />}
-                  </label>
+                    {/* Unread dot */}
+                    <div className="w-2 shrink-0 flex items-center justify-center">
+                      {anyUnread && <span className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                    </div>
 
-                  {/* Avatar */}
-                  <div className={`w-7 h-7 shrink-0 rounded-full ${avatarColor} flex items-center justify-center text-[11px] font-bold text-white uppercase`}>
-                    {fromLabel[0]}
-                  </div>
+                    {/* Checkbox */}
+                    <label
+                      onClick={(e) => e.stopPropagation()}
+                      className={`shrink-0 w-5 h-5 flex items-center justify-center rounded border-2 cursor-pointer transition-all ${
+                        allChecked ? 'bg-primary border-primary opacity-100' : someChecked ? 'bg-primary/50 border-primary opacity-100' : 'border-muted-foreground/40 opacity-0 group-hover:opacity-100'
+                      }`}
+                    >
+                      <input type="checkbox" checked={allChecked} onChange={toggleAllChecked} className="sr-only" />
+                      {(allChecked || someChecked) && <Check size={11} className="text-primary-foreground" strokeWidth={3} />}
+                    </label>
 
-                  {/* Sender name — fixed width */}
-                  <span className={`w-[130px] shrink-0 text-sm truncate ${!msg.is_read ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-                    {fromLabel}
-                  </span>
+                    {/* Avatar */}
+                    <div className={`w-7 h-7 shrink-0 rounded-full ${avatarColor} flex items-center justify-center text-[11px] font-bold text-white uppercase`}>
+                      {fromLabel[0]}
+                    </div>
 
-                  {/* Subject + preview inline */}
-                  <span className="flex-1 min-w-0 text-sm truncate">
-                    <span className={!msg.is_read ? 'font-semibold text-foreground' : 'text-foreground'}>
-                      {msg.subject || '(no subject)'}
+                    {/* Sender name */}
+                    <span className={`w-[120px] shrink-0 text-sm truncate ${anyUnread ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                      {fromLabel}
                     </span>
-                    {preview && (
-                      <span className="text-muted-foreground font-normal"> — {preview}</span>
-                    )}
-                  </span>
 
-                  {/* Attachment + star + date */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    {msg.attachment_count > 0 && (
-                      <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
-                        <Paperclip size={11} /> {msg.attachment_count > 1 ? `+${msg.attachment_count}` : ''}
+                    {/* Subject + count badge + preview */}
+                    <span className="flex-1 min-w-0 text-sm truncate flex items-center gap-1.5">
+                      <span className={anyUnread ? 'font-semibold text-foreground' : 'text-foreground'}>
+                        {latest.subject || '(no subject)'}
                       </span>
-                    )}
-                    {!!msg.is_starred && <Star size={11} className="text-amber-400 fill-amber-400" />}
-                    <span className="text-[11px] text-muted-foreground w-[52px] text-right shrink-0">
-                      {fmtRelative(msg.received_at || msg.sent_at)}
+                      {hasThread && (
+                        <span className="shrink-0 text-[10px] font-bold bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 leading-none">
+                          {msgs.length}
+                        </span>
+                      )}
+                      {preview && <span className="text-muted-foreground font-normal truncate"> — {preview}</span>}
                     </span>
+
+                    {/* Attachment + star + date + thread chevron */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {latest.attachment_count > 0 && (
+                        <span className="flex items-center text-[11px] text-muted-foreground">
+                          <Paperclip size={11} />
+                        </span>
+                      )}
+                      {!!latest.is_starred && <Star size={11} className="text-amber-400 fill-amber-400" />}
+                      <span className="text-[11px] text-muted-foreground w-[52px] text-right shrink-0">
+                        {fmtRelative(latest.received_at || latest.sent_at)}
+                      </span>
+                      {hasThread && (
+                        <button onClick={toggleThread} className="p-0.5 rounded text-muted-foreground hover:text-foreground shrink-0">
+                          <ChevronDown size={13} className={`transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Expanded thread: individual emails */}
+                  {hasThread && isExpanded && msgs.map((msg) => {
+                    const msgSel = selectedId === msg.id;
+                    const msgChecked = selectedIds.has(msg.id);
+                    const msgLabel = msg.from_name || msg.from_address || '?';
+                    const toggleMsg = (e: React.MouseEvent | React.ChangeEvent) => {
+                      e.stopPropagation();
+                      setSelectedIds(prev => { const next = new Set(prev); if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id); return next; });
+                    };
+                    const msgPreview = (() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return msg.subject || ''; return p.length > 55 ? `${p.slice(0, 55)}…` : p; })();
+                    return (
+                      <div
+                        key={msg.id}
+                        onClick={() => setSelectedId(msg.id)}
+                        className={`flex items-center gap-2 pl-12 pr-3 py-1.5 cursor-pointer border-b border-border/30 transition-colors ${
+                          msgChecked ? 'bg-primary/8' : msgSel ? 'bg-primary/6 border-l-2 border-l-primary' : 'bg-muted/20 hover:bg-muted/40'
+                        }`}
+                      >
+                        <div className="w-1.5 shrink-0">
+                          {!msg.is_read && <span className="w-1.5 h-1.5 rounded-full bg-primary block" />}
+                        </div>
+                        <label onClick={(e) => e.stopPropagation()} className={`shrink-0 w-4 h-4 flex items-center justify-center rounded border cursor-pointer transition-all ${msgChecked ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                          <input type="checkbox" checked={msgChecked} onChange={toggleMsg} className="sr-only" />
+                          {msgChecked && <Check size={9} className="text-primary-foreground" strokeWidth={3} />}
+                        </label>
+                        <span className="w-[110px] shrink-0 text-xs text-muted-foreground truncate">{msgLabel}</span>
+                        <span className={`flex-1 text-xs truncate ${!msg.is_read ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{msgPreview}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">{fmtRelative(msg.received_at || msg.sent_at)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })
@@ -1072,53 +1160,109 @@ export default function EmailPage() {
                     <p className="text-sm text-muted-foreground">No messages in {activeFolder}</p>
                   </div>
                 ) : (
-                  messages.map((msg: any) => {
-                    const checked = selectedIds.has(msg.id);
-                    const fromLabel = msg.from_name || msg.from_address || '?';
-                    const toggleChecked = (e: React.MouseEvent | React.ChangeEvent) => {
+                  threads.map(({ key, msgs }) => {
+                    const latest = msgs[0];
+                    const hasThread = msgs.length > 1;
+                    const isExpanded = expandedThreads.has(key);
+                    const anyUnread = msgs.some(m => !m.is_read);
+                    const allChecked = msgs.every(m => selectedIds.has(m.id));
+                    const someChecked = msgs.some(m => selectedIds.has(m.id));
+                    const fromLabel = latest.from_name || latest.from_address || '?';
+                    const toggleAllChecked = (e: React.MouseEvent | React.ChangeEvent) => {
                       e.stopPropagation();
                       setSelectedIds((prev) => {
                         const next = new Set(prev);
-                        if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id);
+                        if (allChecked) msgs.forEach(m => next.delete(m.id));
+                        else msgs.forEach(m => next.add(m.id));
+                        return next;
+                      });
+                    };
+                    const toggleThread = (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      setExpandedThreads(prev => {
+                        const next = new Set(prev);
+                        if (next.has(key)) next.delete(key); else next.add(key);
                         return next;
                       });
                     };
                     return (
-                      <div
-                        key={msg.id}
-                        onClick={() => setSelectedId(msg.id)}
-                        className={`flex items-start gap-2 px-3 py-3 cursor-pointer border-b border-border transition-colors ${
-                          checked ? 'bg-primary/10' : 'hover:bg-muted/50'
-                        } ${!msg.is_read ? 'font-semibold' : ''}`}
-                      >
-                        <label
-                          onClick={(e) => e.stopPropagation()}
-                          className={`shrink-0 w-5 h-5 mt-1 flex items-center justify-center rounded border-2 cursor-pointer transition-colors ${
-                            checked ? 'bg-primary border-primary' : 'border-muted-foreground/60'
-                          }`}
+                      <div key={key}>
+                        <div
+                          onClick={() => setSelectedId(latest.id)}
+                          className={`flex items-start gap-2 px-3 py-3 cursor-pointer border-b border-border transition-colors ${
+                            someChecked ? 'bg-primary/10' : 'hover:bg-muted/50'
+                          } ${anyUnread ? 'font-semibold' : ''}`}
                         >
-                          <input type="checkbox" checked={checked} onChange={toggleChecked} className="sr-only" />
-                          {checked && <Check size={12} className="text-primary-foreground" strokeWidth={3} />}
-                        </label>
-                        <div className="w-8 h-8 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold uppercase">
-                          {fromLabel[0]}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm text-foreground truncate">{fromLabel}</span>
-                            <span className="text-[10px] text-muted-foreground shrink-0">
-                              {fmtRelative(msg.received_at || msg.sent_at)}
-                            </span>
+                          <label
+                            onClick={(e) => e.stopPropagation()}
+                            className={`shrink-0 w-5 h-5 mt-1 flex items-center justify-center rounded border-2 cursor-pointer transition-colors ${
+                              allChecked ? 'bg-primary border-primary' : someChecked ? 'bg-primary/50 border-primary' : 'border-muted-foreground/60'
+                            }`}
+                          >
+                            <input type="checkbox" checked={allChecked} onChange={toggleAllChecked} className="sr-only" />
+                            {(allChecked || someChecked) && <Check size={12} className="text-primary-foreground" strokeWidth={3} />}
+                          </label>
+                          <div className="w-8 h-8 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold uppercase">
+                            {fromLabel[0]}
                           </div>
-                          <p className="text-sm text-foreground truncate">{msg.subject || '(no subject)'}</p>
-                          <p className="text-xs text-muted-foreground truncate font-normal">
-                            {(() => {
-                              const p = msg.preview;
-                              if (!p || typeof p !== 'string' || !p.trim()) return '';
-                              return p.length > 80 ? `${p.slice(0, 80)}...` : p;
-                            })()}
-                          </p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm text-foreground truncate">{fromLabel}</span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {hasThread && (
+                                  <span className="text-[10px] font-bold bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 leading-none">
+                                    {msgs.length}
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-muted-foreground">
+                                  {fmtRelative(latest.received_at || latest.sent_at)}
+                                </span>
+                                {hasThread && (
+                                  <button onClick={toggleThread} className="p-0.5 text-muted-foreground">
+                                    <ChevronDown size={12} className={`transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-sm text-foreground truncate">{latest.subject || '(no subject)'}</p>
+                            <p className="text-xs text-muted-foreground truncate font-normal">
+                              {(() => {
+                                const p = latest.preview;
+                                if (!p || typeof p !== 'string' || !p.trim()) return '';
+                                return p.length > 80 ? `${p.slice(0, 80)}...` : p;
+                              })()}
+                            </p>
+                          </div>
                         </div>
+                        {/* Expanded thread rows */}
+                        {hasThread && isExpanded && msgs.map((msg) => {
+                          const msgSel = selectedId === msg.id;
+                          const msgChecked = selectedIds.has(msg.id);
+                          const msgLabel = msg.from_name || msg.from_address || '?';
+                          const toggleMsg = (e: React.MouseEvent | React.ChangeEvent) => {
+                            e.stopPropagation();
+                            setSelectedIds(prev => { const next = new Set(prev); if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id); return next; });
+                          };
+                          return (
+                            <div
+                              key={msg.id}
+                              onClick={() => setSelectedId(msg.id)}
+                              className={`flex items-start gap-2 pl-10 pr-3 py-2 cursor-pointer border-b border-border/40 transition-colors ${
+                                msgChecked ? 'bg-primary/10' : msgSel ? 'bg-primary/8' : 'bg-muted/20 hover:bg-muted/40'
+                              }`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className={`text-xs truncate ${!msg.is_read ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{msgLabel}</span>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">{fmtRelative(msg.received_at || msg.sent_at)}</span>
+                                </div>
+                                <p className={`text-xs truncate ${!msg.is_read ? 'text-foreground' : 'text-muted-foreground font-normal'}`}>
+                                  {(() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return msg.subject || ''; return p.length > 70 ? `${p.slice(0, 70)}...` : p; })()}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })
