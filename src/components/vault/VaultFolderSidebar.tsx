@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FolderClosed, FolderPlus, MoreVertical, Pencil, Share2, Trash2, Users } from 'lucide-react';
+import { FolderClosed, FolderPlus, MoreVertical, Pencil, Share2, Trash2, Users, Star } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/stores/authStore';
@@ -132,8 +132,15 @@ export default function VaultFolderSidebar({ folders, selectedFolder, onSelect, 
 
   return (
     <div className="w-full md:w-60 space-y-1">
-      <button onClick={() => onSelect(null)} className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors ${!selectedFolder ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>
-        <FolderClosed className="h-4 w-4" /> All Credentials
+      {/* Fixed views */}
+      <button onClick={() => onSelect(null)} className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors ${selectedFolder === null ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>
+        <FolderClosed className="h-4 w-4" /> All Items
+      </button>
+      <button onClick={() => onSelect('__favorites__')} className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors ${selectedFolder === '__favorites__' ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>
+        <Star className="h-4 w-4" /> Favorites
+      </button>
+      <button onClick={() => onSelect('__trash__')} className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors ${selectedFolder === '__trash__' ? 'bg-destructive/15 text-destructive font-medium' : 'text-muted-foreground hover:bg-secondary'}`}>
+        <Trash2 className="h-4 w-4" /> Trash
       </button>
 
       {/* My Folders */}
