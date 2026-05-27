@@ -116,11 +116,31 @@ export default function VaultCredentialCard({ cred, onEdit, onShare, onDelete, c
           {isShared && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[hsl(var(--info))]/15 text-[hsl(var(--info))] font-medium">Shared</span>}
           {cred.category && <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${catColor}`}>{cred.category}</span>}
         </div>
-        <div className="text-xs text-muted-foreground truncate">{cred.username}</div>
+        <div className="flex items-center gap-1 group/user">
+          <span className="text-xs text-muted-foreground truncate">{cred.username}</span>
+          {cred.username && (
+            <button
+              onClick={() => { navigator.clipboard.writeText(cred.username); toast.success('Username copied'); }}
+              className="p-0.5 rounded opacity-0 group-hover/user:opacity-100 hover:bg-secondary text-muted-foreground transition-opacity"
+              title="Copy username"
+            >
+              <Copy className="h-3 w-3" />
+            </button>
+          )}
+        </div>
         {urlHostname && (
-          <a href={cred.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary truncate flex items-center gap-1 hover:underline">
-            {urlHostname} <ExternalLink className="h-3 w-3 inline" />
-          </a>
+          <div className="flex items-center gap-1 group/url">
+            <a href={cred.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary truncate flex items-center gap-1 hover:underline">
+              {urlHostname} <ExternalLink className="h-3 w-3 inline" />
+            </a>
+            <button
+              onClick={() => { navigator.clipboard.writeText(cred.url!); toast.success('URL copied'); }}
+              className="p-0.5 rounded opacity-0 group-hover/url:opacity-100 hover:bg-secondary text-muted-foreground transition-opacity"
+              title="Copy URL"
+            >
+              <Copy className="h-3 w-3" />
+            </button>
+          </div>
         )}
         {(revealedPw || cred.password_strength) && (
           <div className="flex items-center gap-1.5 mt-1">

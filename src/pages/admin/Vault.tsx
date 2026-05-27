@@ -176,7 +176,7 @@ export default function Vault() {
     <div className="page-container flex flex-col md:h-[calc(100vh-3.5rem)] md:overflow-hidden">
       <div className="page-header flex-shrink-0">
         <div>
-          <h1 className="page-title">Password Vault</h1>
+          <h1 className="page-title">Password Manager</h1>
           <p className="page-subtitle">Securely manage and share credentials</p>
         </div>
         {perm.canCreate && (

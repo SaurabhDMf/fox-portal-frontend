@@ -16,7 +16,7 @@ const allNavItems = [
   { label: 'Projects', path: '/client-portal/projects', icon: FolderKanban, permKey: 'can_view_projects' },
   { label: 'Tasks', path: '/client-portal/tasks', icon: ListTodo, permKey: 'can_view_tasks' },
   { label: 'Documents', path: '/client-portal/documents', icon: BookOpen, permKey: 'can_view_documents' },
-  { label: 'Vault', path: '/client-portal/vault', icon: Lock, permKey: 'can_view_vault' },
+  { label: 'Password Manager', path: '/client-portal/vault', icon: Lock, permKey: 'can_view_vault' },
   { label: 'Chat', path: '/client-portal/chat', icon: MessageSquare, permKey: 'can_view_chat' },
   { label: 'Support', path: '/client-portal/support', icon: Ticket, permKey: 'can_view_support' },
   { label: 'Subscriptions', path: '/client-portal/subscriptions', icon: RefreshCw, permKey: null },

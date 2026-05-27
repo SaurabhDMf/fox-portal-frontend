@@ -22,7 +22,7 @@ const routeLabels: Record<string, string> = {
   '/admin/clients': 'Clients',
   '/admin/chat': 'Chat',
   '/admin/projects': 'Projects',
-  '/admin/vault': 'Password Vault',
+  '/admin/vault': 'Password Manager',
   '/admin/tickets': 'Support Tickets',
   '/admin/tracker': 'HR & Tracker',
   '/admin/payroll': 'Payroll',
