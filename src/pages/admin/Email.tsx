@@ -188,14 +188,15 @@ export default function EmailPage() {
   }, [msgData]);
   const totalMessages: number = (msgData?.pages?.[0] as any)?.total ?? messages.length;
 
-  // Group messages into threads: same sender + same normalized subject
+  // Thread key: normalized subject only (strips Re:/Fwd:/Fw:) so back-and-forth
+  // conversations with different senders are correctly grouped together.
   const normalizeSubject = (s: string) =>
-    (s || '').replace(/^(re:|fwd:|fw:)\s*/gi, '').trim().toLowerCase();
+    (s || '').replace(/^((re|fwd?|fw)\s*:\s*)*/gi, '').trim().toLowerCase() || '(no subject)';
 
   const threads = useMemo(() => {
     const map = new Map<string, any[]>();
     for (const msg of messages) {
-      const key = `${(msg.from_address || '').toLowerCase()}|${normalizeSubject(msg.subject)}`;
+      const key = normalizeSubject(msg.subject);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(msg);
     }
@@ -257,21 +258,28 @@ export default function EmailPage() {
   }, [selectedId, threads]); // eslint-disable-line
 
   // Tracks which emails in the conversation have their full body expanded.
-  // selectedId is always expanded; others expand on click.
   const [expandedInThread, setExpandedInThread] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (selectedId) setExpandedInThread(new Set([selectedId]));
   }, [selectedId]);
 
-  // Cache full email bodies for emails expanded in conversation view
+  // Cache full email bodies fetched on-demand in conversation view.
+  // Clear on folder/account change so stale content doesn't linger.
   const [threadEmailCache, setThreadEmailCache] = useState<Record<string, any>>({});
+  useEffect(() => {
+    setThreadEmailCache({});
+  }, [activeFolder, activeCustomFolderId, activeAccountId]);
+
   const fetchThreadEmail = async (id: string) => {
     if (threadEmailCache[id]) return;
     try {
       const r = await emailApi.getMessage(id);
       const data = r.data?.data ?? r.data;
-      setThreadEmailCache(prev => ({ ...prev, [id]: data }));
-    } catch {}
+      if (data?.id) setThreadEmailCache(prev => ({ ...prev, [id]: data }));
+    } catch {
+      // Mark as failed so we don't retry infinitely
+      setThreadEmailCache(prev => ({ ...prev, [id]: { _failed: true } }));
+    }
   };
 
   // When an email is opened, it's auto-marked read server-side — refresh unread count + list
@@ -956,58 +964,53 @@ export default function EmailPage() {
 
             {/* Conversation thread — scrollable, oldest → newest */}
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-              {(selectedThread ? [...selectedThread.msgs].reverse() : [email]).map((msg: any) => {
-                const fullMsg: any = msg.id === email.id ? email : (threadEmailCache[msg.id] || null);
+              {(selectedThread ? [...selectedThread.msgs].reverse() : (email ? [email] : [])).map((msg: any) => {
+                const isCurrentSelected = msg.id === email?.id;
+                const cachedFull = threadEmailCache[msg.id];
+                const fullMsg: any = isCurrentSelected ? email : (cachedFull && !cachedFull._failed ? cachedFull : null);
+                const isFetchFailed = cachedFull?._failed;
+                const isLoading = expandedInThread.has(msg.id) && !fullMsg && !isCurrentSelected && !isFetchFailed;
                 const isExpanded = expandedInThread.has(msg.id);
                 const fromLabel = msg.from_name || msg.from_address || '?';
                 const avatarColors = ['bg-violet-500','bg-rose-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-blue-500','bg-amber-500'];
                 const avatarColor = avatarColors[(fromLabel.charCodeAt(0) || 0) % avatarColors.length];
-                const preview = (() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 90 ? `${p.slice(0, 90)}…` : p; })();
+                const preview = (() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 100 ? `${p.slice(0, 100)}…` : p; })();
 
                 const toggleExpand = () => {
                   setExpandedInThread(prev => {
                     const next = new Set(prev);
-                    if (next.has(msg.id)) { next.delete(msg.id); }
-                    else {
+                    if (next.has(msg.id)) {
+                      next.delete(msg.id);
+                    } else {
                       next.add(msg.id);
-                      if (!fullMsg) fetchThreadEmail(msg.id);
+                      if (!fullMsg && !isCurrentSelected) fetchThreadEmail(msg.id);
                     }
                     return next;
                   });
-                  setSelectedId(msg.id);
                 };
 
                 return (
-                  <div key={msg.id} className={`rounded-xl border transition-colors ${isExpanded ? 'border-border bg-card shadow-sm' : 'border-border/50 bg-card/60 hover:bg-card cursor-pointer'}`}>
-                    {/* Card header — always visible */}
-                    <div
-                      className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
-                      onClick={toggleExpand}
-                    >
-                      {/* Colored avatar */}
+                  <div key={msg.id} className={`rounded-xl border transition-all ${isExpanded ? 'border-border bg-card shadow-sm' : 'border-border/40 bg-card/50 hover:bg-card/80 cursor-pointer'}`}>
+                    {/* Card header */}
+                    <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none" onClick={toggleExpand}>
                       <div className={`w-9 h-9 shrink-0 rounded-full ${avatarColor} flex items-center justify-center text-sm font-bold text-white uppercase`}>
                         {fromLabel[0]}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-sm font-semibold text-foreground truncate">{fromLabel}</span>
+                        <div className="flex items-baseline gap-2 min-w-0">
+                          <span className="text-sm font-semibold text-foreground shrink-0">{fromLabel}</span>
                           {!isExpanded && preview && (
-                            <span className="text-xs text-muted-foreground truncate flex-1">{preview}</span>
+                            <span className="text-xs text-muted-foreground truncate">{preview}</span>
                           )}
                         </div>
-                        {isExpanded && (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {msg.from_address && `<${msg.from_address}>`}
-                            {msg.to_addresses && ` → ${formatAddresses(msg.to_addresses)}`}
-                          </p>
+                        {isExpanded && msg.from_address && (
+                          <p className="text-xs text-muted-foreground truncate">&lt;{msg.from_address}&gt;</p>
                         )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {msg.attachment_count > 0 && <Paperclip size={12} className="text-muted-foreground" />}
                         {!!msg.is_starred && <Star size={12} className="text-amber-400 fill-amber-400" />}
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          {fmtDateTime(msg.received_at || msg.sent_at)}
-                        </span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{fmtDateTime(msg.received_at || msg.sent_at)}</span>
                         <ChevronDown size={14} className={`text-muted-foreground transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
                       </div>
                     </div>
@@ -1015,14 +1018,16 @@ export default function EmailPage() {
                     {/* Expanded body */}
                     {isExpanded && (
                       <div className="border-t border-border">
-                        {fullMsg ? (
-                          <div className="px-4 py-3" style={{ minHeight: 120 }}>
+                        {isLoading ? (
+                          <div className="py-8 flex justify-center"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+                        ) : isFetchFailed ? (
+                          <p className="px-4 py-4 text-sm text-muted-foreground italic">Could not load this message.</p>
+                        ) : fullMsg ? (
+                          <div className="px-4 py-3">
                             {fullMsg.body_html && String(fullMsg.body_html).trim() ? (
-                              <div style={{ height: 400 }}>
-                                <EmailBodyFrame html={sanitizeHtml(fullMsg.body_html)} />
-                              </div>
+                              <div style={{ height: 420 }}><EmailBodyFrame html={sanitizeHtml(fullMsg.body_html)} /></div>
                             ) : fullMsg.body_text && String(fullMsg.body_text).trim() ? (
-                              <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{fullMsg.body_text}</pre>
+                              <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed max-h-[420px] overflow-y-auto">{fullMsg.body_text}</pre>
                             ) : (
                               <p className="text-sm text-muted-foreground italic">No content</p>
                             )}
@@ -1031,19 +1036,14 @@ export default function EmailPage() {
                                 {fullMsg.attachments.map((att: any) => (
                                   <a key={att.id} href={att.file_url} target="_blank" rel="noreferrer"
                                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-secondary text-xs hover:bg-muted transition-colors">
-                                    <Paperclip size={11} />{att.file_name}
+                                    <Paperclip size={11} /> {att.file_name}
                                     <span className="text-muted-foreground">({Math.round((att.file_size || 0) / 1024)}KB)</span>
                                   </a>
                                 ))}
                               </div>
                             )}
                           </div>
-                        ) : (
-                          <div className="px-4 py-6 flex items-center justify-center">
-                            <Loader2 size={16} className="animate-spin text-muted-foreground" />
-                          </div>
-                        )}
-                        {/* Per-email reply / forward */}
+                        ) : null}
                         <div className="flex gap-2 px-4 py-2 border-t border-border/50">
                           <button onClick={replyTo} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted border border-border transition-colors">
                             <Reply size={12} /> Reply
@@ -1328,7 +1328,11 @@ export default function EmailPage() {
               ) : (
                 <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
                   {(selectedThread ? [...selectedThread.msgs].reverse() : [email]).map((msg: any) => {
-                    const fullMsg: any = msg.id === email.id ? email : (threadEmailCache[msg.id] || null);
+                    const isCurrentSelected = msg.id === email?.id;
+                    const cachedFull = threadEmailCache[msg.id];
+                    const fullMsg: any = isCurrentSelected ? email : (cachedFull && !cachedFull._failed ? cachedFull : null);
+                    const isFetchFailed = cachedFull?._failed;
+                    const isLoading = expandedInThread.has(msg.id) && !fullMsg && !isCurrentSelected && !isFetchFailed;
                     const isExpanded = expandedInThread.has(msg.id);
                     const fromLabel = msg.from_name || msg.from_address || '?';
                     const avatarColors = ['bg-violet-500','bg-rose-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-blue-500','bg-amber-500'];
@@ -1338,13 +1342,12 @@ export default function EmailPage() {
                       setExpandedInThread(prev => {
                         const next = new Set(prev);
                         if (next.has(msg.id)) next.delete(msg.id);
-                        else { next.add(msg.id); if (!fullMsg) fetchThreadEmail(msg.id); }
+                        else { next.add(msg.id); if (!fullMsg && !isCurrentSelected) fetchThreadEmail(msg.id); }
                         return next;
                       });
-                      setSelectedId(msg.id);
                     };
                     return (
-                      <div key={msg.id} className={`rounded-xl border ${isExpanded ? 'border-border bg-card' : 'border-border/50 bg-card/60'}`}>
+                      <div key={msg.id} className={`rounded-xl border transition-all ${isExpanded ? 'border-border bg-card' : 'border-border/40 bg-card/50 hover:bg-card/80'}`}>
                         <div className="flex items-center gap-3 px-3 py-3 cursor-pointer" onClick={toggleExpand}>
                           <div className={`w-9 h-9 shrink-0 rounded-full ${avatarColor} flex items-center justify-center text-sm font-bold text-white uppercase`}>
                             {fromLabel[0]}
@@ -1360,19 +1363,21 @@ export default function EmailPage() {
                         </div>
                         {isExpanded && (
                           <div className="border-t border-border">
-                            {fullMsg ? (
+                            {isLoading ? (
+                              <div className="py-6 flex justify-center"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+                            ) : isFetchFailed ? (
+                              <p className="px-3 py-3 text-sm text-muted-foreground italic">Could not load this message.</p>
+                            ) : fullMsg ? (
                               <div className="px-3 py-3">
                                 {fullMsg.body_html && String(fullMsg.body_html).trim() ? (
                                   <div style={{ height: 320 }}><EmailBodyFrame html={sanitizeHtml(fullMsg.body_html)} /></div>
                                 ) : fullMsg.body_text && String(fullMsg.body_text).trim() ? (
-                                  <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{fullMsg.body_text}</pre>
+                                  <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed max-h-80 overflow-y-auto">{fullMsg.body_text}</pre>
                                 ) : (
                                   <p className="text-sm text-muted-foreground italic">No content</p>
                                 )}
                               </div>
-                            ) : (
-                              <div className="py-6 flex justify-center"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
-                            )}
+                            ) : null}
                             <div className="flex gap-2 px-3 py-2 border-t border-border/50">
                               <button onClick={replyTo} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted border border-border"><Reply size={11} /> Reply</button>
                               <button onClick={forwardEmail} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted border border-border"><Forward size={11} /> Forward</button>
