@@ -140,7 +140,7 @@ export default function CPInvoiceDetail() {
             <FileText className="h-4 w-4" /> Uploaded invoice document
           </div>
           <iframe
-            src={`${import.meta.env.VITE_API_URL || 'https://ubp-backend-production.up.railway.app/api/v1'}/invoices/${id}/pdf`}
+            src={`${import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1'}/invoices/${id}/pdf`}
             title="Invoice PDF"
             className="w-full h-[80vh] rounded-lg bg-white"
           />

@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useRef, useMemo } from 'react';
+import { useMentionInput } from '@/hooks/useMentionInput';
+import { MentionDropdown } from '@/components/MentionDropdown';
 import api from '@/lib/api';
 import { ArrowLeft, Calendar, Users, X, ChevronDown, Paperclip, Plus, Send, FolderOpen } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -556,6 +558,21 @@ function ModulesTab({ projectId }: { projectId: string }) {
 function TaskDetailDrawer({ task, projectId, onClose }: { task: any; projectId: string; onClose: () => void }) {
   const qc = useQueryClient();
   const [commentText, setCommentText] = useState('');
+  const commentInputRef = useRef<HTMLInputElement>(null);
+  const mention = useMentionInput(commentText, setCommentText, commentInputRef as any);
+  const { data: mentionUsers = [] } = useQuery({
+    queryKey: ['users-active-mention'],
+    queryFn: () => api.get('/users/active').then(r => {
+      const d = r.data;
+      const arr = Array.isArray(d) ? d : d?.users || d?.data || [];
+      return arr.map((u: any) => ({ id: String(u.id), name: u.name || u.username || u.email }));
+    }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const mentionFiltered = useMemo(
+    () => mentionUsers.filter((u: any) => u.name.toLowerCase().includes(mention.query.toLowerCase())).slice(0, 7),
+    [mentionUsers, mention.query]
+  );
 
   const { data: detail } = useQuery({
     queryKey: ['cp-task-detail', task.id],
@@ -684,12 +701,23 @@ function TaskDetailDrawer({ task, projectId, onClose }: { task: any; projectId: 
             )}
 
             {/* Comment input */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 relative">
+              {mention.active && (
+                <MentionDropdown
+                  users={mentionFiltered}
+                  query={mention.query}
+                  selectedIdx={mention.idx}
+                  onSelect={mention.selectUser}
+                />
+              )}
               <input
+                ref={commentInputRef}
                 value={commentText}
-                onChange={e => setCommentText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && commentText.trim()) commentMut.mutate(commentText); }}
-                placeholder="Add a comment…"
+                onChange={mention.handleChange}
+                onKeyDown={e => mention.handleKeyDown(e, mentionFiltered.length, ke => {
+                  if (ke.key === 'Enter' && commentText.trim()) commentMut.mutate(commentText);
+                })}
+                placeholder="Add a comment… (@mention)"
                 className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
               <button

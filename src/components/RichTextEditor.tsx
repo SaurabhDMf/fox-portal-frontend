@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
@@ -17,6 +17,7 @@ interface Props {
   placeholder?: string;
   minHeight?: number;
   className?: string;
+  mentionUsers?: { id: string; name: string }[];
 }
 
 /**
@@ -38,11 +39,17 @@ export default function RichTextEditor({
   placeholder = 'Compose your message…',
   minHeight = 200,
   className = '',
+  mentionUsers,
 }: Props) {
-  // Track whether we're currently uploading an image so paste/drop can disable
-  // multiple concurrent uploads getting tangled up.
   const uploadingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // @ mention state
+  const [mentionActive, setMentionActive] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionIdx, setMentionIdx] = useState(0);
+  // Stable ref so handleKeyDown inside useEditor can access latest state
+  const mentionRef = useRef({ active: false, filtered: [] as { id: string; name: string }[], idx: 0 });
 
   const editor = useEditor({
     extensions: [
@@ -69,11 +76,41 @@ export default function RichTextEditor({
     content: value || '',
     onUpdate({ editor }) {
       onChange(editor.getHTML());
+      if (mentionUsers?.length) {
+        const { $from } = editor.state.selection;
+        const before = $from.parent.textContent.slice(0, $from.parentOffset);
+        const m = before.match(/@(\w*)$/);
+        if (m) {
+          const q = m[1];
+          const filtered = (mentionUsers || [])
+            .filter(u => u.name.toLowerCase().includes(q.toLowerCase()))
+            .slice(0, 7);
+          setMentionActive(true);
+          setMentionQuery(q);
+          setMentionIdx(0);
+          mentionRef.current = { active: true, filtered, idx: 0 };
+        } else {
+          setMentionActive(false);
+          mentionRef.current.active = false;
+        }
+      }
     },
     editorProps: {
       attributes: {
         class: `rte-content prose prose-sm max-w-none focus:outline-none px-4 py-3 ${className}`,
         style: `min-height: ${minHeight}px;`,
+      },
+      handleKeyDown(_view, event) {
+        const s = mentionRef.current;
+        if (!s.active || !s.filtered.length) return false;
+        if (event.key === 'ArrowDown') { const ni = Math.min(s.idx + 1, s.filtered.length - 1); s.idx = ni; setMentionIdx(ni); return true; }
+        if (event.key === 'ArrowUp') { const ni = Math.max(s.idx - 1, 0); s.idx = ni; setMentionIdx(ni); return true; }
+        if (event.key === 'Escape') { s.active = false; setMentionActive(false); return true; }
+        if (event.key === 'Enter' || event.key === 'Tab') {
+          const user = s.filtered[s.idx];
+          if (user) { insertMentionUser(user); return true; }
+        }
+        return false;
       },
       handlePaste(view, event) {
         const items = Array.from(event.clipboardData?.items || []);
@@ -99,13 +136,22 @@ export default function RichTextEditor({
     },
   });
 
-  // Keep editor synced when `value` is reset externally (e.g. after sending,
-  // or when starting a Reply that prefills the body).
   useEffect(() => {
     if (!editor) return;
     if (editor.getHTML() === value) return;
     editor.commands.setContent(value || '', { emitUpdate: false });
   }, [value, editor]);
+
+  // Keep mention ref in sync with latest filtered list
+  const mentionFiltered = (mentionUsers || [])
+    .filter(u => u.name.toLowerCase().includes(mentionQuery.toLowerCase()))
+    .slice(0, 7);
+
+  useEffect(() => {
+    mentionRef.current.filtered = mentionFiltered;
+    mentionRef.current.idx = mentionIdx;
+    mentionRef.current.active = mentionActive;
+  });
 
   const uploadAndInsertImage = useCallback(
     async (file: File) => {
@@ -133,6 +179,19 @@ export default function RichTextEditor({
     },
     [editor]
   );
+
+  const insertMentionUser = useCallback((user: { id: string; name: string }) => {
+    if (!editor) return;
+    const { $from } = editor.state.selection;
+    const before = $from.parent.textContent.slice(0, $from.parentOffset);
+    const m = before.match(/@(\w*)$/);
+    const deleteLen = m ? m[0].length : 0;
+    const from = $from.pos - deleteLen;
+    const to = $from.pos;
+    editor.chain().focus().deleteRange({ from, to }).insertContent(`@${user.name} `).run();
+    setMentionActive(false);
+    mentionRef.current.active = false;
+  }, [editor]);
 
   const insertLink = useCallback(() => {
     if (!editor) return;
@@ -282,8 +341,32 @@ export default function RichTextEditor({
         </ToolbarBtn>
       </div>
 
-      {/* Editor surface */}
-      <EditorContent editor={editor} />
+      {/* Editor surface + mention dropdown */}
+      <div className="relative">
+        <EditorContent editor={editor} />
+        {mentionActive && mentionFiltered.length > 0 && (
+          <div className="absolute bottom-full left-2 right-2 mb-1 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+            <div className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border bg-secondary/30">
+              Mention
+            </div>
+            {mentionFiltered.map((user, i) => (
+              <button
+                key={user.id}
+                type="button"
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors ${
+                  i === mentionIdx ? 'bg-primary/10 text-primary' : 'hover:bg-secondary text-foreground'
+                }`}
+                onMouseDown={e => { e.preventDefault(); insertMentionUser(user); }}
+              >
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                  {user.name[0]?.toUpperCase()}
+                </div>
+                <span className="font-medium truncate">@{user.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Hidden file input for the toolbar's image button */}
       <input

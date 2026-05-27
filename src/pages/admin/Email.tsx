@@ -9,7 +9,7 @@ import {
   Plus, RefreshCw, Search, Reply, Forward, MailOpen, Paperclip,
   Minus, X, PlugZap, CheckCircle2, XCircle, Loader2,
   Folder, FolderPlus, MoreVertical, Pencil, FolderInput, Check,
-  Menu, ArrowLeft, PanelLeftOpen, PanelLeftClose,
+  Menu, ArrowLeft, PanelLeftOpen, PanelLeftClose, ChevronDown,
 } from 'lucide-react';
 
 // Tracks whether the viewport is mobile-sized. Updates on resize.
@@ -24,7 +24,7 @@ function useIsMobile(breakpoint = 768) {
   }, [breakpoint]);
   return isMobile;
 }
-import { emailApi } from '@/lib/api';
+import api, { emailApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 
 // ---------- helpers ----------
@@ -115,11 +115,13 @@ export default function EmailPage() {
   // Multi-selection: tracks which messages are checked. Distinct from selectedId
   // (which is the single email open in the detail pane).
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
 
   // Clear selection when folder/account/search changes — a fresh list shouldn't
   // carry over checkboxes from the previous list.
   useEffect(() => {
     setSelectedIds(new Set());
+    setExpandedThreads(new Set());
   }, [activeFolder, activeCustomFolderId, activeAccountId, search]);
 
   // ----- custom folders (user-defined categories) -----
@@ -186,6 +188,33 @@ export default function EmailPage() {
   }, [msgData]);
   const totalMessages: number = (msgData?.pages?.[0] as any)?.total ?? messages.length;
 
+  // Thread key: normalized subject only (strips Re:/Fwd:/Fw:) so back-and-forth
+  // conversations with different senders are correctly grouped together.
+  const normalizeSubject = (s: string) =>
+    (s || '').replace(/^((re|fwd?|fw)\s*:\s*)*/gi, '').trim().toLowerCase() || '(no subject)';
+
+  const threads = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const msg of messages) {
+      const key = normalizeSubject(msg.subject);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(msg);
+    }
+    const groups: Array<{ key: string; msgs: any[] }> = [];
+    map.forEach((msgs, key) => {
+      msgs.sort((a, b) =>
+        new Date(b.received_at || b.sent_at || 0).getTime() -
+        new Date(a.received_at || a.sent_at || 0).getTime()
+      );
+      groups.push({ key, msgs });
+    });
+    groups.sort((a, b) =>
+      new Date(b.msgs[0].received_at || b.msgs[0].sent_at || 0).getTime() -
+      new Date(a.msgs[0].received_at || a.msgs[0].sent_at || 0).getTime()
+    );
+    return groups;
+  }, [messages]); // eslint-disable-line
+
   // ----- unread inbox count (auto-refresh every 30s) -----
   const { data: unreadData } = useQuery({
     queryKey: ['email-unread', activeAccountId],
@@ -221,6 +250,37 @@ export default function EmailPage() {
     enabled: !!selectedId,
   });
   const email: any = emailData;
+
+  // The thread the selected email belongs to (for conversation view)
+  const selectedThread = useMemo(() => {
+    if (!selectedId) return null;
+    return threads.find(t => t.msgs.some(m => m.id === selectedId)) || null;
+  }, [selectedId, threads]); // eslint-disable-line
+
+  // Tracks which emails in the conversation have their full body expanded.
+  const [expandedInThread, setExpandedInThread] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (selectedId) setExpandedInThread(new Set([selectedId]));
+  }, [selectedId]);
+
+  // Cache full email bodies fetched on-demand in conversation view.
+  // Clear on folder/account change so stale content doesn't linger.
+  const [threadEmailCache, setThreadEmailCache] = useState<Record<string, any>>({});
+  useEffect(() => {
+    setThreadEmailCache({});
+  }, [activeFolder, activeCustomFolderId, activeAccountId]);
+
+  const fetchThreadEmail = async (id: string) => {
+    if (threadEmailCache[id]) return;
+    try {
+      const r = await emailApi.getMessage(id);
+      const data = r.data?.data ?? r.data;
+      if (data?.id) setThreadEmailCache(prev => ({ ...prev, [id]: data }));
+    } catch {
+      // Mark as failed so we don't retry infinitely
+      setThreadEmailCache(prev => ({ ...prev, [id]: { _failed: true } }));
+    }
+  };
 
   // When an email is opened, it's auto-marked read server-side — refresh unread count + list
   useEffect(() => {
@@ -432,7 +492,19 @@ export default function EmailPage() {
       imap_password: '',
       is_default: false,
       signature: '',
+      for_user_id: '',
     },
+  });
+  const { data: activeUsers = [] } = useQuery({
+    queryKey: ['users-active'],
+    queryFn: () => api.get('/users/active').then(r => {
+      const d = r.data;
+      if (Array.isArray(d)) return d;
+      if (Array.isArray(d?.users)) return d.users;
+      if (Array.isArray(d?.data)) return d.data;
+      return [];
+    }),
+    enabled: isEmailAdmin,
   });
   const addMutation = useMutation({
     mutationFn: (d: any) => emailApi.addAccount(d),
@@ -708,73 +780,133 @@ export default function EmailPage() {
               )}
             </div>
           ) : (
-            messages.map((msg: any) => {
-              const sel = selectedId === msg.id;
-              const checked = selectedIds.has(msg.id);
-              const fromLabel = msg.from_name || msg.from_address || '?';
+            threads.map(({ key, msgs }) => {
+              const latest = msgs[0];
+              const hasThread = msgs.length > 1;
+              const isExpanded = expandedThreads.has(key);
+              const sel = selectedId === latest.id;
+              const anyUnread = msgs.some(m => !m.is_read);
+              const allChecked = msgs.every(m => selectedIds.has(m.id));
+              const someChecked = msgs.some(m => selectedIds.has(m.id));
+              const fromLabel = latest.from_name || latest.from_address || '?';
               const avatarColors = ['bg-violet-500','bg-blue-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-rose-500','bg-amber-500'];
               const avatarColor = avatarColors[(fromLabel.charCodeAt(0) || 0) % avatarColors.length];
-              const toggleChecked = (e: React.MouseEvent | React.ChangeEvent) => {
+              const toggleAllChecked = (e: React.MouseEvent | React.ChangeEvent) => {
                 e.stopPropagation();
-                setSelectedIds((prev) => { const next = new Set(prev); if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id); return next; });
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (allChecked) msgs.forEach(m => next.delete(m.id));
+                  else msgs.forEach(m => next.add(m.id));
+                  return next;
+                });
               };
-              const preview = (() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 60 ? `${p.slice(0, 60)}…` : p; })();
+              const toggleThread = (e: React.MouseEvent) => {
+                e.stopPropagation();
+                setExpandedThreads(prev => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key); else next.add(key);
+                  return next;
+                });
+              };
+              const preview = (() => { const p = latest.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 60 ? `${p.slice(0, 60)}…` : p; })();
               return (
-                <div
-                  key={msg.id}
-                  onClick={() => setSelectedId(msg.id)}
-                  className={`group flex items-center gap-2.5 px-3 py-2 cursor-pointer border-b border-border/60 transition-colors ${
-                    checked ? 'bg-primary/8' : sel ? 'bg-primary/6 border-l-2 border-l-primary' : 'hover:bg-muted/40'
-                  }`}
-                >
-                  {/* Unread dot */}
-                  <div className="w-2 shrink-0 flex items-center justify-center">
-                    {!msg.is_read && <span className="w-2 h-2 rounded-full bg-primary shrink-0" />}
-                  </div>
-
-                  {/* Checkbox (shows on hover or when checked) */}
-                  <label
-                    onClick={(e) => e.stopPropagation()}
-                    className={`shrink-0 w-5 h-5 flex items-center justify-center rounded border-2 cursor-pointer transition-all ${
-                      checked ? 'bg-primary border-primary opacity-100' : 'border-muted-foreground/40 opacity-0 group-hover:opacity-100'
+                <div key={key}>
+                  {/* Thread header row */}
+                  <div
+                    onClick={() => setSelectedId(latest.id)}
+                    className={`group flex items-center gap-2.5 px-3 py-2 cursor-pointer border-b border-border/60 transition-colors ${
+                      someChecked ? 'bg-primary/8' : sel ? 'bg-primary/6 border-l-2 border-l-primary' : 'hover:bg-muted/40'
                     }`}
                   >
-                    <input type="checkbox" checked={checked} onChange={toggleChecked} className="sr-only" />
-                    {checked && <Check size={11} className="text-primary-foreground" strokeWidth={3} />}
-                  </label>
+                    {/* Unread dot */}
+                    <div className="w-2 shrink-0 flex items-center justify-center">
+                      {anyUnread && <span className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                    </div>
 
-                  {/* Avatar */}
-                  <div className={`w-7 h-7 shrink-0 rounded-full ${avatarColor} flex items-center justify-center text-[11px] font-bold text-white uppercase`}>
-                    {fromLabel[0]}
-                  </div>
+                    {/* Checkbox */}
+                    <label
+                      onClick={(e) => e.stopPropagation()}
+                      className={`shrink-0 w-5 h-5 flex items-center justify-center rounded border-2 cursor-pointer transition-all ${
+                        allChecked ? 'bg-primary border-primary opacity-100' : someChecked ? 'bg-primary/50 border-primary opacity-100' : 'border-muted-foreground/40 opacity-0 group-hover:opacity-100'
+                      }`}
+                    >
+                      <input type="checkbox" checked={allChecked} onChange={toggleAllChecked} className="sr-only" />
+                      {(allChecked || someChecked) && <Check size={11} className="text-primary-foreground" strokeWidth={3} />}
+                    </label>
 
-                  {/* Sender name — fixed width */}
-                  <span className={`w-[130px] shrink-0 text-sm truncate ${!msg.is_read ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-                    {fromLabel}
-                  </span>
+                    {/* Avatar */}
+                    <div className={`w-7 h-7 shrink-0 rounded-full ${avatarColor} flex items-center justify-center text-[11px] font-bold text-white uppercase`}>
+                      {fromLabel[0]}
+                    </div>
 
-                  {/* Subject + preview inline */}
-                  <span className="flex-1 min-w-0 text-sm truncate">
-                    <span className={!msg.is_read ? 'font-semibold text-foreground' : 'text-foreground'}>
-                      {msg.subject || '(no subject)'}
+                    {/* Sender name */}
+                    <span className={`w-[120px] shrink-0 text-sm truncate ${anyUnread ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                      {fromLabel}
                     </span>
-                    {preview && (
-                      <span className="text-muted-foreground font-normal"> — {preview}</span>
-                    )}
-                  </span>
 
-                  {/* Attachment + star + date */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    {msg.attachment_count > 0 && (
-                      <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground">
-                        <Paperclip size={11} /> {msg.attachment_count > 1 ? `+${msg.attachment_count}` : ''}
+                    {/* Subject + count badge + preview */}
+                    <span className="flex-1 min-w-0 text-sm truncate flex items-center gap-1.5">
+                      <span className={anyUnread ? 'font-semibold text-foreground' : 'text-foreground'}>
+                        {latest.subject || '(no subject)'}
                       </span>
-                    )}
-                    {!!msg.is_starred && <Star size={11} className="text-amber-400 fill-amber-400" />}
-                    <span className="text-[11px] text-muted-foreground w-[52px] text-right shrink-0">
-                      {fmtRelative(msg.received_at || msg.sent_at)}
+                      {hasThread && (
+                        <span className="shrink-0 text-[10px] font-bold bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 leading-none">
+                          {msgs.length}
+                        </span>
+                      )}
+                      {preview && <span className="text-muted-foreground font-normal truncate"> — {preview}</span>}
                     </span>
+
+                    {/* Attachment + star + date + thread chevron */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {latest.attachment_count > 0 && (
+                        <span className="flex items-center text-[11px] text-muted-foreground">
+                          <Paperclip size={11} />
+                        </span>
+                      )}
+                      {!!latest.is_starred && <Star size={11} className="text-amber-400 fill-amber-400" />}
+                      <span className="text-[11px] text-muted-foreground w-[52px] text-right shrink-0">
+                        {fmtRelative(latest.received_at || latest.sent_at)}
+                      </span>
+                      {hasThread && (
+                        <button onClick={toggleThread} className="p-0.5 rounded text-muted-foreground hover:text-foreground shrink-0">
+                          <ChevronDown size={13} className={`transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Expanded thread: individual emails */}
+                  {hasThread && isExpanded && msgs.map((msg) => {
+                    const msgSel = selectedId === msg.id;
+                    const msgChecked = selectedIds.has(msg.id);
+                    const msgLabel = msg.from_name || msg.from_address || '?';
+                    const toggleMsg = (e: React.MouseEvent | React.ChangeEvent) => {
+                      e.stopPropagation();
+                      setSelectedIds(prev => { const next = new Set(prev); if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id); return next; });
+                    };
+                    const msgPreview = (() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return msg.subject || ''; return p.length > 55 ? `${p.slice(0, 55)}…` : p; })();
+                    return (
+                      <div
+                        key={msg.id}
+                        onClick={() => setSelectedId(msg.id)}
+                        className={`flex items-center gap-2 pl-12 pr-3 py-1.5 cursor-pointer border-b border-border/30 transition-colors ${
+                          msgChecked ? 'bg-primary/8' : msgSel ? 'bg-primary/6 border-l-2 border-l-primary' : 'bg-muted/20 hover:bg-muted/40'
+                        }`}
+                      >
+                        <div className="w-1.5 shrink-0">
+                          {!msg.is_read && <span className="w-1.5 h-1.5 rounded-full bg-primary block" />}
+                        </div>
+                        <label onClick={(e) => e.stopPropagation()} className={`shrink-0 w-4 h-4 flex items-center justify-center rounded border cursor-pointer transition-all ${msgChecked ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                          <input type="checkbox" checked={msgChecked} onChange={toggleMsg} className="sr-only" />
+                          {msgChecked && <Check size={9} className="text-primary-foreground" strokeWidth={3} />}
+                        </label>
+                        <span className="w-[110px] shrink-0 text-xs text-muted-foreground truncate">{msgLabel}</span>
+                        <span className={`flex-1 text-xs truncate ${!msg.is_read ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{msgPreview}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">{fmtRelative(msg.received_at || msg.sent_at)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })
@@ -797,7 +929,7 @@ export default function EmailPage() {
 
       <PanelResizeHandle className="w-px bg-border data-[resize-handle-state=hover]:w-1 data-[resize-handle-state=hover]:bg-primary/40 data-[resize-handle-state=drag]:w-1 data-[resize-handle-state=drag]:bg-primary transition-all" />
 
-      {/* ───────── COL 3 — DETAIL ───────── */}
+      {/* ───────── COL 3 — DETAIL / CONVERSATION ───────── */}
       <Panel minSize={30} order={3}>
       <section className="h-full bg-background flex flex-col overflow-hidden">
         {!selectedId || !email ? (
@@ -806,138 +938,125 @@ export default function EmailPage() {
           </div>
         ) : (
           <div className="flex flex-col h-full">
-            <div className="px-6 py-4 border-b border-border flex items-start justify-between gap-4">
-              <h2 className="text-lg font-semibold text-foreground flex-1">
+            {/* Conversation subject header + actions */}
+            <div className="px-6 py-3 border-b border-border flex items-center justify-between gap-4 shrink-0">
+              <h2 className="text-base font-bold text-foreground flex-1 truncate">
                 {email.subject || '(no subject)'}
-              </h2>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => star.mutate()}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
-                  title={email.is_starred ? 'Unstar' : 'Star'}
-                >
-                  <Star size={15} className={email.is_starred ? 'fill-primary text-primary' : ''} />
-                </button>
-                <button
-                  onClick={replyTo}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
-                  title="Reply"
-                >
-                  <Reply size={15} />
-                </button>
-                <button
-                  onClick={forwardEmail}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
-                  title="Forward"
-                >
-                  <Forward size={15} />
-                </button>
-                <button
-                  onClick={() => unread.mutate()}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
-                  title="Mark unread"
-                >
-                  <MailOpen size={15} />
-                </button>
-                <MoveToButton
-                  emailId={email.id}
-                  currentFolderId={email.custom_folder_id}
-                  folders={customFolders}
-                  onMoved={() => {
-                    qc.invalidateQueries({ queryKey: ['emails'] });
-                    qc.invalidateQueries({ queryKey: ['email-custom-folders'] });
-                    setSelectedId(null);
-                  }}
-                />
-                <button
-                  onClick={() => archive.mutate()}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
-                  title="Archive"
-                >
-                  <Archive size={15} />
-                </button>
-                <button
-                  onClick={() => trash.mutate()}
-                  className="p-2 rounded-lg hover:bg-destructive/10 text-destructive"
-                  title="Delete"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-b border-border flex items-start gap-3">
-              <div className="w-10 h-10 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold uppercase">
-                {(email.from_name || email.from_address || '?')[0]}
-              </div>
-              <div className="flex-1 min-w-0 space-y-1">
-                <p className="text-sm text-foreground">
-                  <span className="text-muted-foreground font-normal">From: </span>
-                  <span className="font-semibold">
-                    {email.from_name ? `${email.from_name} ` : ''}
+                {selectedThread && selectedThread.msgs.length > 1 && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {selectedThread.msgs.length} messages
                   </span>
-                  {email.from_address && (
-                    <span className="text-muted-foreground">&lt;{email.from_address}&gt;</span>
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  <span>To: </span>{formatAddresses(email.to_addresses)}
-                </p>
-                {email.cc_addresses && (formatAddresses(email.cc_addresses)) && (
-                  <p className="text-xs text-muted-foreground">
-                    <span>CC: </span>{formatAddresses(email.cc_addresses)}
-                  </p>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  <span>Date: </span>{fmtDateTime(email.received_at || email.sent_at)}
-                </p>
+              </h2>
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button onClick={() => star.mutate()} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title={email.is_starred ? 'Unstar' : 'Star'}>
+                  <Star size={14} className={email.is_starred ? 'fill-primary text-primary' : ''} />
+                </button>
+                <button onClick={replyTo} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="Reply"><Reply size={14} /></button>
+                <button onClick={forwardEmail} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="Forward"><Forward size={14} /></button>
+                <button onClick={() => unread.mutate()} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="Mark unread"><MailOpen size={14} /></button>
+                <MoveToButton emailId={email.id} currentFolderId={email.custom_folder_id} folders={customFolders}
+                  onMoved={() => { qc.invalidateQueries({ queryKey: ['emails'] }); qc.invalidateQueries({ queryKey: ['email-custom-folders'] }); setSelectedId(null); }} />
+                <button onClick={() => archive.mutate()} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="Archive"><Archive size={14} /></button>
+                <button onClick={() => trash.mutate()} className="p-2 rounded-lg hover:bg-destructive/10 text-destructive" title="Delete"><Trash2 size={14} /></button>
               </div>
             </div>
 
-            {/* Email body area — flex column so the iframe can fill remaining
-                height (no more dark blank area below short emails). The iframe
-                handles its own internal scrolling for long content. */}
-            <div className="flex-1 px-6 py-5 flex flex-col min-h-0 overflow-hidden">
-              {email.body_html && String(email.body_html).trim() ? (
-                <div className="flex-1 min-h-0">
-                  <EmailBodyFrame html={sanitizeHtml(email.body_html)} />
-                </div>
-              ) : email.body_text && String(email.body_text).trim() ? (
-                <div className="flex-1 min-h-0 overflow-y-auto rounded-lg bg-white">
-                  <pre className="text-sm text-gray-900 whitespace-pre-wrap font-sans p-4">
-                    {email.body_text}
-                  </pre>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  This email has no content
-                </p>
-              )}
+            {/* Conversation thread — scrollable, oldest → newest */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {(selectedThread ? [...selectedThread.msgs].reverse() : (email ? [email] : [])).map((msg: any) => {
+                const isCurrentSelected = msg.id === email?.id;
+                const cachedFull = threadEmailCache[msg.id];
+                const fullMsg: any = isCurrentSelected ? email : (cachedFull && !cachedFull._failed ? cachedFull : null);
+                const isFetchFailed = cachedFull?._failed;
+                const isLoading = expandedInThread.has(msg.id) && !fullMsg && !isCurrentSelected && !isFetchFailed;
+                const isExpanded = expandedInThread.has(msg.id);
+                const fromLabel = msg.from_name || msg.from_address || '?';
+                const avatarColors = ['bg-violet-500','bg-rose-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-blue-500','bg-amber-500'];
+                const avatarColor = avatarColors[(fromLabel.charCodeAt(0) || 0) % avatarColors.length];
+                const preview = (() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 100 ? `${p.slice(0, 100)}…` : p; })();
 
-              {email.attachments?.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-border shrink-0">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">
-                    ATTACHMENTS ({email.attachments.length})
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {email.attachments.map((att: any) => (
-                      <a
-                        key={att.id}
-                        href={att.file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-secondary text-xs hover:bg-muted transition-colors"
-                      >
-                        <Paperclip size={12} />
-                        {att.file_name}
-                        <span className="text-muted-foreground">
-                          ({Math.round((att.file_size || 0) / 1024)}KB)
-                        </span>
-                      </a>
-                    ))}
+                const toggleExpand = () => {
+                  setExpandedInThread(prev => {
+                    const next = new Set(prev);
+                    if (next.has(msg.id)) {
+                      next.delete(msg.id);
+                    } else {
+                      next.add(msg.id);
+                      if (!fullMsg && !isCurrentSelected) fetchThreadEmail(msg.id);
+                    }
+                    return next;
+                  });
+                };
+
+                return (
+                  <div key={msg.id} className={`rounded-xl border transition-all ${isExpanded ? 'border-border bg-card shadow-sm' : 'border-border/40 bg-card/50 hover:bg-card/80 cursor-pointer'}`}>
+                    {/* Card header */}
+                    <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none" onClick={toggleExpand}>
+                      <div className={`w-9 h-9 shrink-0 rounded-full ${avatarColor} flex items-center justify-center text-sm font-bold text-white uppercase`}>
+                        {fromLabel[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 min-w-0">
+                          <span className="text-sm font-semibold text-foreground shrink-0">{fromLabel}</span>
+                          {!isExpanded && preview && (
+                            <span className="text-xs text-muted-foreground truncate">{preview}</span>
+                          )}
+                        </div>
+                        {isExpanded && msg.from_address && (
+                          <p className="text-xs text-muted-foreground truncate">&lt;{msg.from_address}&gt;</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {msg.attachment_count > 0 && <Paperclip size={12} className="text-muted-foreground" />}
+                        {!!msg.is_starred && <Star size={12} className="text-amber-400 fill-amber-400" />}
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{fmtDateTime(msg.received_at || msg.sent_at)}</span>
+                        <ChevronDown size={14} className={`text-muted-foreground transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
+                      </div>
+                    </div>
+
+                    {/* Expanded body */}
+                    {isExpanded && (
+                      <div className="border-t border-border">
+                        {isLoading ? (
+                          <div className="py-8 flex justify-center"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+                        ) : isFetchFailed ? (
+                          <p className="px-4 py-4 text-sm text-muted-foreground italic">Could not load this message.</p>
+                        ) : fullMsg ? (
+                          <div className="px-4 py-3">
+                            {fullMsg.body_html && String(fullMsg.body_html).trim() ? (
+                              <div style={{ height: 420 }}><EmailBodyFrame html={sanitizeHtml(fullMsg.body_html)} /></div>
+                            ) : fullMsg.body_text && String(fullMsg.body_text).trim() ? (
+                              <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed max-h-[420px] overflow-y-auto">{fullMsg.body_text}</pre>
+                            ) : (
+                              <p className="text-sm text-muted-foreground italic">No content</p>
+                            )}
+                            {fullMsg.attachments?.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-border flex flex-wrap gap-2">
+                                {fullMsg.attachments.map((att: any) => (
+                                  <a key={att.id} href={att.file_url} target="_blank" rel="noreferrer"
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-secondary text-xs hover:bg-muted transition-colors">
+                                    <Paperclip size={11} /> {att.file_name}
+                                    <span className="text-muted-foreground">({Math.round((att.file_size || 0) / 1024)}KB)</span>
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
+                        <div className="flex gap-2 px-4 py-2 border-t border-border/50">
+                          <button onClick={replyTo} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted border border-border transition-colors">
+                            <Reply size={12} /> Reply
+                          </button>
+                          <button onClick={forwardEmail} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted border border-border transition-colors">
+                            <Forward size={12} /> Forward
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })}
             </div>
           </div>
         )}
@@ -1060,53 +1179,109 @@ export default function EmailPage() {
                     <p className="text-sm text-muted-foreground">No messages in {activeFolder}</p>
                   </div>
                 ) : (
-                  messages.map((msg: any) => {
-                    const checked = selectedIds.has(msg.id);
-                    const fromLabel = msg.from_name || msg.from_address || '?';
-                    const toggleChecked = (e: React.MouseEvent | React.ChangeEvent) => {
+                  threads.map(({ key, msgs }) => {
+                    const latest = msgs[0];
+                    const hasThread = msgs.length > 1;
+                    const isExpanded = expandedThreads.has(key);
+                    const anyUnread = msgs.some(m => !m.is_read);
+                    const allChecked = msgs.every(m => selectedIds.has(m.id));
+                    const someChecked = msgs.some(m => selectedIds.has(m.id));
+                    const fromLabel = latest.from_name || latest.from_address || '?';
+                    const toggleAllChecked = (e: React.MouseEvent | React.ChangeEvent) => {
                       e.stopPropagation();
                       setSelectedIds((prev) => {
                         const next = new Set(prev);
-                        if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id);
+                        if (allChecked) msgs.forEach(m => next.delete(m.id));
+                        else msgs.forEach(m => next.add(m.id));
+                        return next;
+                      });
+                    };
+                    const toggleThread = (e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      setExpandedThreads(prev => {
+                        const next = new Set(prev);
+                        if (next.has(key)) next.delete(key); else next.add(key);
                         return next;
                       });
                     };
                     return (
-                      <div
-                        key={msg.id}
-                        onClick={() => setSelectedId(msg.id)}
-                        className={`flex items-start gap-2 px-3 py-3 cursor-pointer border-b border-border transition-colors ${
-                          checked ? 'bg-primary/10' : 'hover:bg-muted/50'
-                        } ${!msg.is_read ? 'font-semibold' : ''}`}
-                      >
-                        <label
-                          onClick={(e) => e.stopPropagation()}
-                          className={`shrink-0 w-5 h-5 mt-1 flex items-center justify-center rounded border-2 cursor-pointer transition-colors ${
-                            checked ? 'bg-primary border-primary' : 'border-muted-foreground/60'
-                          }`}
+                      <div key={key}>
+                        <div
+                          onClick={() => setSelectedId(latest.id)}
+                          className={`flex items-start gap-2 px-3 py-3 cursor-pointer border-b border-border transition-colors ${
+                            someChecked ? 'bg-primary/10' : 'hover:bg-muted/50'
+                          } ${anyUnread ? 'font-semibold' : ''}`}
                         >
-                          <input type="checkbox" checked={checked} onChange={toggleChecked} className="sr-only" />
-                          {checked && <Check size={12} className="text-primary-foreground" strokeWidth={3} />}
-                        </label>
-                        <div className="w-8 h-8 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold uppercase">
-                          {fromLabel[0]}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm text-foreground truncate">{fromLabel}</span>
-                            <span className="text-[10px] text-muted-foreground shrink-0">
-                              {fmtRelative(msg.received_at || msg.sent_at)}
-                            </span>
+                          <label
+                            onClick={(e) => e.stopPropagation()}
+                            className={`shrink-0 w-5 h-5 mt-1 flex items-center justify-center rounded border-2 cursor-pointer transition-colors ${
+                              allChecked ? 'bg-primary border-primary' : someChecked ? 'bg-primary/50 border-primary' : 'border-muted-foreground/60'
+                            }`}
+                          >
+                            <input type="checkbox" checked={allChecked} onChange={toggleAllChecked} className="sr-only" />
+                            {(allChecked || someChecked) && <Check size={12} className="text-primary-foreground" strokeWidth={3} />}
+                          </label>
+                          <div className="w-8 h-8 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold uppercase">
+                            {fromLabel[0]}
                           </div>
-                          <p className="text-sm text-foreground truncate">{msg.subject || '(no subject)'}</p>
-                          <p className="text-xs text-muted-foreground truncate font-normal">
-                            {(() => {
-                              const p = msg.preview;
-                              if (!p || typeof p !== 'string' || !p.trim()) return '';
-                              return p.length > 80 ? `${p.slice(0, 80)}...` : p;
-                            })()}
-                          </p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm text-foreground truncate">{fromLabel}</span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {hasThread && (
+                                  <span className="text-[10px] font-bold bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 leading-none">
+                                    {msgs.length}
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-muted-foreground">
+                                  {fmtRelative(latest.received_at || latest.sent_at)}
+                                </span>
+                                {hasThread && (
+                                  <button onClick={toggleThread} className="p-0.5 text-muted-foreground">
+                                    <ChevronDown size={12} className={`transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-sm text-foreground truncate">{latest.subject || '(no subject)'}</p>
+                            <p className="text-xs text-muted-foreground truncate font-normal">
+                              {(() => {
+                                const p = latest.preview;
+                                if (!p || typeof p !== 'string' || !p.trim()) return '';
+                                return p.length > 80 ? `${p.slice(0, 80)}...` : p;
+                              })()}
+                            </p>
+                          </div>
                         </div>
+                        {/* Expanded thread rows */}
+                        {hasThread && isExpanded && msgs.map((msg) => {
+                          const msgSel = selectedId === msg.id;
+                          const msgChecked = selectedIds.has(msg.id);
+                          const msgLabel = msg.from_name || msg.from_address || '?';
+                          const toggleMsg = (e: React.MouseEvent | React.ChangeEvent) => {
+                            e.stopPropagation();
+                            setSelectedIds(prev => { const next = new Set(prev); if (next.has(msg.id)) next.delete(msg.id); else next.add(msg.id); return next; });
+                          };
+                          return (
+                            <div
+                              key={msg.id}
+                              onClick={() => setSelectedId(msg.id)}
+                              className={`flex items-start gap-2 pl-10 pr-3 py-2 cursor-pointer border-b border-border/40 transition-colors ${
+                                msgChecked ? 'bg-primary/10' : msgSel ? 'bg-primary/8' : 'bg-muted/20 hover:bg-muted/40'
+                              }`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className={`text-xs truncate ${!msg.is_read ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{msgLabel}</span>
+                                  <span className="text-[10px] text-muted-foreground shrink-0">{fmtRelative(msg.received_at || msg.sent_at)}</span>
+                                </div>
+                                <p className={`text-xs truncate ${!msg.is_read ? 'text-foreground' : 'text-muted-foreground font-normal'}`}>
+                                  {(() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return msg.subject || ''; return p.length > 70 ? `${p.slice(0, 70)}...` : p; })()}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })
@@ -1127,70 +1302,92 @@ export default function EmailPage() {
             </section>
           ) : (
             <section className="flex-1 min-h-0 flex flex-col bg-background">
-              {/* Mobile detail toolbar — back + actions */}
+              {/* Mobile detail toolbar */}
               <div className="px-2 py-2 border-b border-border flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => setSelectedId(null)}
-                  className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted inline-flex items-center gap-1"
-                  aria-label="Back to list"
-                >
+                <button onClick={() => setSelectedId(null)} className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted inline-flex items-center gap-1" aria-label="Back to list">
                   <ArrowLeft size={18} />
-                  <span className="text-xs hidden xs:inline">Back</span>
                 </button>
-                <span className="text-sm font-medium flex-1 truncate px-1">
+                <span className="text-sm font-semibold flex-1 truncate px-1">
                   {email?.subject || '(no subject)'}
+                  {selectedThread && selectedThread.msgs.length > 1 && (
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">{selectedThread.msgs.length}</span>
+                  )}
                 </span>
                 {email && (
                   <>
-                    <button onClick={() => star.mutate()} className="p-2 rounded-md hover:bg-muted text-muted-foreground" title="Star">
-                      <Star size={16} className={email.is_starred ? 'fill-primary text-primary' : ''} />
-                    </button>
-                    <button onClick={replyTo} className="p-2 rounded-md hover:bg-muted text-muted-foreground" title="Reply">
-                      <Reply size={16} />
-                    </button>
-                    <button onClick={forwardEmail} className="p-2 rounded-md hover:bg-muted text-muted-foreground" title="Forward">
-                      <Forward size={16} />
-                    </button>
-                    <button onClick={() => trash.mutate()} className="p-2 rounded-md hover:bg-destructive/10 text-destructive" title="Delete">
-                      <Trash2 size={16} />
-                    </button>
+                    <button onClick={() => star.mutate()} className="p-2 rounded-md hover:bg-muted text-muted-foreground"><Star size={16} className={email.is_starred ? 'fill-primary text-primary' : ''} /></button>
+                    <button onClick={replyTo} className="p-2 rounded-md hover:bg-muted text-muted-foreground"><Reply size={16} /></button>
+                    <button onClick={() => trash.mutate()} className="p-2 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 size={16} /></button>
                   </>
                 )}
               </div>
 
-              {/* Email body — same iframe component */}
+              {/* Conversation thread */}
               {!email ? (
-                <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-                  Loading email…
-                </div>
+                <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Loading…</div>
               ) : (
-                <>
-                  <div className="px-4 py-3 border-b border-border shrink-0">
-                    <p className="text-xs text-muted-foreground">From</p>
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {email.from_name ? `${email.from_name} ` : ''}
-                      <span className="text-muted-foreground font-normal">&lt;{email.from_address}&gt;</span>
-                    </p>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      {fmtDateTime(email.received_at || email.sent_at)}
-                    </p>
-                  </div>
-                  <div className="flex-1 px-3 py-3 flex flex-col min-h-0 overflow-hidden">
-                    {email.body_html && String(email.body_html).trim() ? (
-                      <div className="flex-1 min-h-0">
-                        <EmailBodyFrame html={sanitizeHtml(email.body_html)} />
+                <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+                  {(selectedThread ? [...selectedThread.msgs].reverse() : [email]).map((msg: any) => {
+                    const isCurrentSelected = msg.id === email?.id;
+                    const cachedFull = threadEmailCache[msg.id];
+                    const fullMsg: any = isCurrentSelected ? email : (cachedFull && !cachedFull._failed ? cachedFull : null);
+                    const isFetchFailed = cachedFull?._failed;
+                    const isLoading = expandedInThread.has(msg.id) && !fullMsg && !isCurrentSelected && !isFetchFailed;
+                    const isExpanded = expandedInThread.has(msg.id);
+                    const fromLabel = msg.from_name || msg.from_address || '?';
+                    const avatarColors = ['bg-violet-500','bg-rose-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-blue-500','bg-amber-500'];
+                    const avatarColor = avatarColors[(fromLabel.charCodeAt(0) || 0) % avatarColors.length];
+                    const preview = (() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 70 ? `${p.slice(0, 70)}…` : p; })();
+                    const toggleExpand = () => {
+                      setExpandedInThread(prev => {
+                        const next = new Set(prev);
+                        if (next.has(msg.id)) next.delete(msg.id);
+                        else { next.add(msg.id); if (!fullMsg && !isCurrentSelected) fetchThreadEmail(msg.id); }
+                        return next;
+                      });
+                    };
+                    return (
+                      <div key={msg.id} className={`rounded-xl border transition-all ${isExpanded ? 'border-border bg-card' : 'border-border/40 bg-card/50 hover:bg-card/80'}`}>
+                        <div className="flex items-center gap-3 px-3 py-3 cursor-pointer" onClick={toggleExpand}>
+                          <div className={`w-9 h-9 shrink-0 rounded-full ${avatarColor} flex items-center justify-center text-sm font-bold text-white uppercase`}>
+                            {fromLabel[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-semibold text-foreground block truncate">{fromLabel}</span>
+                            {!isExpanded && <span className="text-xs text-muted-foreground truncate block">{preview}</span>}
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[10px] text-muted-foreground">{fmtRelative(msg.received_at || msg.sent_at)}</span>
+                            <ChevronDown size={13} className={`text-muted-foreground transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <div className="border-t border-border">
+                            {isLoading ? (
+                              <div className="py-6 flex justify-center"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+                            ) : isFetchFailed ? (
+                              <p className="px-3 py-3 text-sm text-muted-foreground italic">Could not load this message.</p>
+                            ) : fullMsg ? (
+                              <div className="px-3 py-3">
+                                {fullMsg.body_html && String(fullMsg.body_html).trim() ? (
+                                  <div style={{ height: 320 }}><EmailBodyFrame html={sanitizeHtml(fullMsg.body_html)} /></div>
+                                ) : fullMsg.body_text && String(fullMsg.body_text).trim() ? (
+                                  <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed max-h-80 overflow-y-auto">{fullMsg.body_text}</pre>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground italic">No content</p>
+                                )}
+                              </div>
+                            ) : null}
+                            <div className="flex gap-2 px-3 py-2 border-t border-border/50">
+                              <button onClick={replyTo} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted border border-border"><Reply size={11} /> Reply</button>
+                              <button onClick={forwardEmail} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted border border-border"><Forward size={11} /> Forward</button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ) : email.body_text && String(email.body_text).trim() ? (
-                      <div className="flex-1 min-h-0 overflow-y-auto rounded-lg bg-white">
-                        <pre className="text-sm text-gray-900 whitespace-pre-wrap font-sans p-4">
-                          {email.body_text}
-                        </pre>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground italic">This email has no content</p>
-                    )}
-                  </div>
-                </>
+                    );
+                  })}
+                </div>
               )}
             </section>
           )}
@@ -1267,6 +1464,7 @@ export default function EmailPage() {
                     onChange={field.onChange}
                     placeholder="Write your message… (paste an image to embed it)"
                     minHeight={240}
+                    mentionUsers={activeUsers.map((u: any) => ({ id: String(u.id), name: u.name || u.username || u.email }))}
                   />
                 )}
               />
@@ -1297,6 +1495,7 @@ export default function EmailPage() {
       {showAddAccount && isEmailAdmin && (
         <AddAccountModal
           form={accountForm}
+          users={activeUsers}
           onClose={() => setShowAddAccount(false)}
           onSubmit={(d) => addMutation.mutate(d)}
           submitting={addMutation.isPending}
@@ -1387,11 +1586,13 @@ function EmailBodyFrame({ html }: { html: string }) {
 // ────────────────────────────────────────
 function AddAccountModal({
   form,
+  users,
   onClose,
   onSubmit,
   submitting,
 }: {
   form: ReturnType<typeof useForm<any>>;
+  users: Array<{ id: string; name: string; email?: string }>;
   onClose: () => void;
   onSubmit: (d: any) => void;
   submitting: boolean;
@@ -1420,9 +1621,8 @@ function AddAccountModal({
         <div className="px-5 py-4 overflow-y-auto flex-1">
           <div className="mb-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
             <p className="text-xs text-foreground">
-              Connect your <span className="font-semibold">personal work email</span>. This is only
-              for your own inbox — system alerts and invoices use a separate company email
-              configured in Settings.
+              As an admin, you can add an email account for any team member. Leave "For User"
+              blank to add to your own inbox.
             </p>
           </div>
           <p className="text-xs text-muted-foreground mb-4">
@@ -1430,6 +1630,20 @@ function AddAccountModal({
           </p>
 
           <div className="space-y-3">
+            {users.length > 0 && (
+              <div>
+                <label className={labelCls}>For User (optional — leave blank for yourself)</label>
+                <select {...register('for_user_id')} className={inputCls}>
+                  <option value="">— My own account —</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}{u.email ? ` (${u.email})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Account Label</label>

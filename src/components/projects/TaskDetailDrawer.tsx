@@ -11,7 +11,9 @@ import UserPicker, { InlineUserPicker } from './UserPicker';
 import HandoffBadge from './HandoffBadge';
 import { useAuthStore } from '@/stores/authStore';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
+import { useMentionInput } from '@/hooks/useMentionInput';
+import { MentionDropdown } from '@/components/MentionDropdown';
 import { X, Eye, EyeOff, Clock, MessageSquare, Activity, Plus, Send, Edit2, Trash2, Paperclip, Image, FileText, Download, UserPlus, ArrowRightLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import AttachmentDropzone, { type Attachment } from './AttachmentDropzone';
@@ -207,6 +209,21 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const { stages, stageObjects, addStage } = useProjectStages(projectId);
   const [activeTab, setActiveTab] = useState<'timelog' | 'handoffs'>('timelog');
   const [commentText, setCommentText] = useState('');
+  const commentInputRef = useRef<HTMLInputElement>(null);
+  const mention = useMentionInput(commentText, setCommentText, commentInputRef as any);
+  const { data: mentionUsers = [] } = useQuery({
+    queryKey: ['users-active-mention'],
+    queryFn: () => api.get('/users/active').then(r => {
+      const d = r.data;
+      const arr = Array.isArray(d) ? d : d?.users || d?.data || [];
+      return arr.map((u: any) => ({ id: String(u.id), name: u.name || u.username || u.email }));
+    }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const mentionFiltered = useMemo(
+    () => mentionUsers.filter((u: any) => u.name.toLowerCase().includes(mention.query.toLowerCase())).slice(0, 7),
+    [mentionUsers, mention.query]
+  );
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(initialTask.title);
   const [showLogTime, setShowLogTime] = useState(false);
@@ -639,8 +656,26 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
           {/* Comments */}
           <div className="border border-border rounded-lg p-4 space-y-3">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><MessageSquare className="h-3.5 w-3.5" /> Comments</h4>
-            <div className="flex gap-2">
-              <input placeholder="Add a comment..." value={commentText} onChange={e => setCommentText(e.target.value)} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" onKeyDown={e => { const c = commentText.trim(); if (e.key === 'Enter' && c) commentMut.mutate(c); }} />
+            <div className="flex gap-2 relative">
+              {mention.active && (
+                <MentionDropdown
+                  users={mentionFiltered}
+                  query={mention.query}
+                  selectedIdx={mention.idx}
+                  onSelect={mention.selectUser}
+                />
+              )}
+              <input
+                ref={commentInputRef}
+                placeholder="Add a comment… (@mention)"
+                value={commentText}
+                onChange={mention.handleChange}
+                className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                onKeyDown={e => mention.handleKeyDown(e, mentionFiltered.length, ke => {
+                  const c = commentText.trim();
+                  if (ke.key === 'Enter' && c) commentMut.mutate(c);
+                })}
+              />
               <button onClick={() => { const c = commentText.trim(); if (c) commentMut.mutate(c); }} disabled={!commentText.trim() || commentMut.isPending} className="p-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"><Send className="h-4 w-4" /></button>
             </div>
             {comments.length > 0 && (

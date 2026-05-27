@@ -1,2 +1,2 @@
-/api/v1/*  https://ubp-backend-production.up.railway.app/api/v1/:splat  200!
+/api/v1/*  https://foxportal.in/api/v1/:splat  200!
 /*  /index.html  200
