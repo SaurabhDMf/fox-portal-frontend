@@ -16,7 +16,7 @@ export default function CPVault() {
 
   return (
     <div className="page-container">
-      <div className="page-header"><div><h1 className="page-title">Vault</h1><p className="page-subtitle">Credentials and folders shared with you</p></div></div>
+      <div className="page-header"><div><h1 className="page-title">Password Manager</h1><p className="page-subtitle">Credentials and folders shared with you</p></div></div>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4">

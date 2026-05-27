@@ -9,7 +9,7 @@ const routeLabels: Record<string, string> = {
   '/client-portal/invoices': 'Invoices',
   '/client-portal/projects': 'Projects',
   '/client-portal/documents': 'Documents',
-  '/client-portal/vault': 'Vault',
+  '/client-portal/vault': 'Password Manager',
   '/client-portal/support': 'Support',
   '/client-portal/profile': 'Profile',
   '/client-portal/notifications': 'Notifications',
