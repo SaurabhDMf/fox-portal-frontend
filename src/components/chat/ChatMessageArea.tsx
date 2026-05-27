@@ -327,7 +327,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       type: 'text',
       ...(replyTo ? { reply_to_id: replyTo.id } : {}),
     }),
-    onSuccess: () => {
+    onSuccess: (res) => {
+      const saved = res.data?.data || res.data;
+      if (saved?.id) {
+        setRealtimeMessages(prev => prev.find(m => m.id === saved.id) ? prev : [...prev, saved]);
+      }
       setMessage('');
       setReplyTo(null);
       scrollToBottom(true);
