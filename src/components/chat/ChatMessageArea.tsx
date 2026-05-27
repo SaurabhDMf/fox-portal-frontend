@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { useMentionInput } from '@/hooks/useMentionInput';
+import { MentionDropdown } from '@/components/MentionDropdown';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -78,6 +80,22 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
+
+  // @ mention
+  const { data: mentionUsers = [] } = useQuery({
+    queryKey: ['users-active-mention'],
+    queryFn: () => api.get('/users/active').then(r => {
+      const d = r.data;
+      const arr = Array.isArray(d) ? d : d?.users || d?.data || [];
+      return arr.map((u: any) => ({ id: String(u.id), name: u.name || u.username || u.email }));
+    }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const mention = useMentionInput(message, setMessage, textareaRef as any);
+  const mentionFiltered = useMemo(
+    () => mentionUsers.filter((u: any) => u.name.toLowerCase().includes(mention.query.toLowerCase())).slice(0, 7),
+    [mentionUsers, mention.query]
+  );
 
   // Fetch room detail for DM header info
   const { data: roomDetail } = useQuery({
@@ -880,7 +898,17 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
       {/* ── Input area (Teams-style) ───────────────────────────── */}
       <div className="flex-none px-4 pb-4">
-        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
+        <div className="relative rounded-2xl border border-border bg-card shadow-sm overflow-visible focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
+          {/* @ mention dropdown */}
+          {!editingMsg && mention.active && (
+            <MentionDropdown
+              users={mentionFiltered}
+              query={mention.query}
+              selectedIdx={mention.idx}
+              onSelect={mention.selectUser}
+            />
+          )}
+
           <input type="file" multiple ref={fileInputRef} className="hidden" accept="*/*"
             onChange={e => { const f = Array.from(e.target.files || []); e.target.value = ''; handleFiles(f); }} />
 
@@ -888,12 +916,12 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             ref={textareaRef}
             value={editingMsg ? editText : message}
             onChange={e => {
-              editingMsg ? setEditText(e.target.value) : setMessage(e.target.value);
+              if (editingMsg) { setEditText(e.target.value); } else { mention.handleChange(e); }
               autoGrow(e.target);
             }}
-            onKeyDown={handleKeyDown}
+            onKeyDown={e => mention.handleKeyDown(e, mentionFiltered.length, handleKeyDown)}
             onPaste={handlePaste}
-            placeholder={editingMsg ? 'Edit message…' : 'Type a message…'}
+            placeholder={editingMsg ? 'Edit message…' : 'Type a message… (@mention)'}
             rows={1}
             className="w-full px-4 pt-3 pb-1 bg-transparent text-sm focus:outline-none resize-none text-foreground placeholder:text-muted-foreground/60"
             style={{ minHeight: '44px', maxHeight: '128px', overflowY: 'auto' }}

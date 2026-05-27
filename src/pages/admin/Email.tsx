@@ -1464,6 +1464,7 @@ export default function EmailPage() {
                     onChange={field.onChange}
                     placeholder="Write your message… (paste an image to embed it)"
                     minHeight={240}
+                    mentionUsers={activeUsers.map((u: any) => ({ id: String(u.id), name: u.name || u.username || u.email }))}
                   />
                 )}
               />
