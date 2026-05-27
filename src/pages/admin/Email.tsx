@@ -250,6 +250,30 @@ export default function EmailPage() {
   });
   const email: any = emailData;
 
+  // The thread the selected email belongs to (for conversation view)
+  const selectedThread = useMemo(() => {
+    if (!selectedId) return null;
+    return threads.find(t => t.msgs.some(m => m.id === selectedId)) || null;
+  }, [selectedId, threads]); // eslint-disable-line
+
+  // Tracks which emails in the conversation have their full body expanded.
+  // selectedId is always expanded; others expand on click.
+  const [expandedInThread, setExpandedInThread] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (selectedId) setExpandedInThread(new Set([selectedId]));
+  }, [selectedId]);
+
+  // Cache full email bodies for emails expanded in conversation view
+  const [threadEmailCache, setThreadEmailCache] = useState<Record<string, any>>({});
+  const fetchThreadEmail = async (id: string) => {
+    if (threadEmailCache[id]) return;
+    try {
+      const r = await emailApi.getMessage(id);
+      const data = r.data?.data ?? r.data;
+      setThreadEmailCache(prev => ({ ...prev, [id]: data }));
+    } catch {}
+  };
+
   // When an email is opened, it's auto-marked read server-side — refresh unread count + list
   useEffect(() => {
     if (email?.id) {
@@ -897,7 +921,7 @@ export default function EmailPage() {
 
       <PanelResizeHandle className="w-px bg-border data-[resize-handle-state=hover]:w-1 data-[resize-handle-state=hover]:bg-primary/40 data-[resize-handle-state=drag]:w-1 data-[resize-handle-state=drag]:bg-primary transition-all" />
 
-      {/* ───────── COL 3 — DETAIL ───────── */}
+      {/* ───────── COL 3 — DETAIL / CONVERSATION ───────── */}
       <Panel minSize={30} order={3}>
       <section className="h-full bg-background flex flex-col overflow-hidden">
         {!selectedId || !email ? (
@@ -906,138 +930,133 @@ export default function EmailPage() {
           </div>
         ) : (
           <div className="flex flex-col h-full">
-            <div className="px-6 py-4 border-b border-border flex items-start justify-between gap-4">
-              <h2 className="text-lg font-semibold text-foreground flex-1">
+            {/* Conversation subject header + actions */}
+            <div className="px-6 py-3 border-b border-border flex items-center justify-between gap-4 shrink-0">
+              <h2 className="text-base font-bold text-foreground flex-1 truncate">
                 {email.subject || '(no subject)'}
-              </h2>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => star.mutate()}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
-                  title={email.is_starred ? 'Unstar' : 'Star'}
-                >
-                  <Star size={15} className={email.is_starred ? 'fill-primary text-primary' : ''} />
-                </button>
-                <button
-                  onClick={replyTo}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
-                  title="Reply"
-                >
-                  <Reply size={15} />
-                </button>
-                <button
-                  onClick={forwardEmail}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
-                  title="Forward"
-                >
-                  <Forward size={15} />
-                </button>
-                <button
-                  onClick={() => unread.mutate()}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
-                  title="Mark unread"
-                >
-                  <MailOpen size={15} />
-                </button>
-                <MoveToButton
-                  emailId={email.id}
-                  currentFolderId={email.custom_folder_id}
-                  folders={customFolders}
-                  onMoved={() => {
-                    qc.invalidateQueries({ queryKey: ['emails'] });
-                    qc.invalidateQueries({ queryKey: ['email-custom-folders'] });
-                    setSelectedId(null);
-                  }}
-                />
-                <button
-                  onClick={() => archive.mutate()}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
-                  title="Archive"
-                >
-                  <Archive size={15} />
-                </button>
-                <button
-                  onClick={() => trash.mutate()}
-                  className="p-2 rounded-lg hover:bg-destructive/10 text-destructive"
-                  title="Delete"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-b border-border flex items-start gap-3">
-              <div className="w-10 h-10 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center text-sm font-bold uppercase">
-                {(email.from_name || email.from_address || '?')[0]}
-              </div>
-              <div className="flex-1 min-w-0 space-y-1">
-                <p className="text-sm text-foreground">
-                  <span className="text-muted-foreground font-normal">From: </span>
-                  <span className="font-semibold">
-                    {email.from_name ? `${email.from_name} ` : ''}
+                {selectedThread && selectedThread.msgs.length > 1 && (
+                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                    {selectedThread.msgs.length} messages
                   </span>
-                  {email.from_address && (
-                    <span className="text-muted-foreground">&lt;{email.from_address}&gt;</span>
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  <span>To: </span>{formatAddresses(email.to_addresses)}
-                </p>
-                {email.cc_addresses && (formatAddresses(email.cc_addresses)) && (
-                  <p className="text-xs text-muted-foreground">
-                    <span>CC: </span>{formatAddresses(email.cc_addresses)}
-                  </p>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  <span>Date: </span>{fmtDateTime(email.received_at || email.sent_at)}
-                </p>
+              </h2>
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button onClick={() => star.mutate()} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title={email.is_starred ? 'Unstar' : 'Star'}>
+                  <Star size={14} className={email.is_starred ? 'fill-primary text-primary' : ''} />
+                </button>
+                <button onClick={replyTo} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="Reply"><Reply size={14} /></button>
+                <button onClick={forwardEmail} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="Forward"><Forward size={14} /></button>
+                <button onClick={() => unread.mutate()} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="Mark unread"><MailOpen size={14} /></button>
+                <MoveToButton emailId={email.id} currentFolderId={email.custom_folder_id} folders={customFolders}
+                  onMoved={() => { qc.invalidateQueries({ queryKey: ['emails'] }); qc.invalidateQueries({ queryKey: ['email-custom-folders'] }); setSelectedId(null); }} />
+                <button onClick={() => archive.mutate()} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="Archive"><Archive size={14} /></button>
+                <button onClick={() => trash.mutate()} className="p-2 rounded-lg hover:bg-destructive/10 text-destructive" title="Delete"><Trash2 size={14} /></button>
               </div>
             </div>
 
-            {/* Email body area — flex column so the iframe can fill remaining
-                height (no more dark blank area below short emails). The iframe
-                handles its own internal scrolling for long content. */}
-            <div className="flex-1 px-6 py-5 flex flex-col min-h-0 overflow-hidden">
-              {email.body_html && String(email.body_html).trim() ? (
-                <div className="flex-1 min-h-0">
-                  <EmailBodyFrame html={sanitizeHtml(email.body_html)} />
-                </div>
-              ) : email.body_text && String(email.body_text).trim() ? (
-                <div className="flex-1 min-h-0 overflow-y-auto rounded-lg bg-white">
-                  <pre className="text-sm text-gray-900 whitespace-pre-wrap font-sans p-4">
-                    {email.body_text}
-                  </pre>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  This email has no content
-                </p>
-              )}
+            {/* Conversation thread — scrollable, oldest → newest */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {(selectedThread ? [...selectedThread.msgs].reverse() : [email]).map((msg: any) => {
+                const fullMsg: any = msg.id === email.id ? email : (threadEmailCache[msg.id] || null);
+                const isExpanded = expandedInThread.has(msg.id);
+                const fromLabel = msg.from_name || msg.from_address || '?';
+                const avatarColors = ['bg-violet-500','bg-rose-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-blue-500','bg-amber-500'];
+                const avatarColor = avatarColors[(fromLabel.charCodeAt(0) || 0) % avatarColors.length];
+                const preview = (() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 90 ? `${p.slice(0, 90)}…` : p; })();
 
-              {email.attachments?.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-border shrink-0">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">
-                    ATTACHMENTS ({email.attachments.length})
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {email.attachments.map((att: any) => (
-                      <a
-                        key={att.id}
-                        href={att.file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-secondary text-xs hover:bg-muted transition-colors"
-                      >
-                        <Paperclip size={12} />
-                        {att.file_name}
-                        <span className="text-muted-foreground">
-                          ({Math.round((att.file_size || 0) / 1024)}KB)
+                const toggleExpand = () => {
+                  setExpandedInThread(prev => {
+                    const next = new Set(prev);
+                    if (next.has(msg.id)) { next.delete(msg.id); }
+                    else {
+                      next.add(msg.id);
+                      if (!fullMsg) fetchThreadEmail(msg.id);
+                    }
+                    return next;
+                  });
+                  setSelectedId(msg.id);
+                };
+
+                return (
+                  <div key={msg.id} className={`rounded-xl border transition-colors ${isExpanded ? 'border-border bg-card shadow-sm' : 'border-border/50 bg-card/60 hover:bg-card cursor-pointer'}`}>
+                    {/* Card header — always visible */}
+                    <div
+                      className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
+                      onClick={toggleExpand}
+                    >
+                      {/* Colored avatar */}
+                      <div className={`w-9 h-9 shrink-0 rounded-full ${avatarColor} flex items-center justify-center text-sm font-bold text-white uppercase`}>
+                        {fromLabel[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-sm font-semibold text-foreground truncate">{fromLabel}</span>
+                          {!isExpanded && preview && (
+                            <span className="text-xs text-muted-foreground truncate flex-1">{preview}</span>
+                          )}
+                        </div>
+                        {isExpanded && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {msg.from_address && `<${msg.from_address}>`}
+                            {msg.to_addresses && ` → ${formatAddresses(msg.to_addresses)}`}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {msg.attachment_count > 0 && <Paperclip size={12} className="text-muted-foreground" />}
+                        {!!msg.is_starred && <Star size={12} className="text-amber-400 fill-amber-400" />}
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {fmtDateTime(msg.received_at || msg.sent_at)}
                         </span>
-                      </a>
-                    ))}
+                        <ChevronDown size={14} className={`text-muted-foreground transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
+                      </div>
+                    </div>
+
+                    {/* Expanded body */}
+                    {isExpanded && (
+                      <div className="border-t border-border">
+                        {fullMsg ? (
+                          <div className="px-4 py-3" style={{ minHeight: 120 }}>
+                            {fullMsg.body_html && String(fullMsg.body_html).trim() ? (
+                              <div style={{ height: 400 }}>
+                                <EmailBodyFrame html={sanitizeHtml(fullMsg.body_html)} />
+                              </div>
+                            ) : fullMsg.body_text && String(fullMsg.body_text).trim() ? (
+                              <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{fullMsg.body_text}</pre>
+                            ) : (
+                              <p className="text-sm text-muted-foreground italic">No content</p>
+                            )}
+                            {fullMsg.attachments?.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-border flex flex-wrap gap-2">
+                                {fullMsg.attachments.map((att: any) => (
+                                  <a key={att.id} href={att.file_url} target="_blank" rel="noreferrer"
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-secondary text-xs hover:bg-muted transition-colors">
+                                    <Paperclip size={11} />{att.file_name}
+                                    <span className="text-muted-foreground">({Math.round((att.file_size || 0) / 1024)}KB)</span>
+                                  </a>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="px-4 py-6 flex items-center justify-center">
+                            <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                          </div>
+                        )}
+                        {/* Per-email reply / forward */}
+                        <div className="flex gap-2 px-4 py-2 border-t border-border/50">
+                          <button onClick={replyTo} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted border border-border transition-colors">
+                            <Reply size={12} /> Reply
+                          </button>
+                          <button onClick={forwardEmail} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted border border-border transition-colors">
+                            <Forward size={12} /> Forward
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })}
             </div>
           </div>
         )}
@@ -1283,70 +1302,87 @@ export default function EmailPage() {
             </section>
           ) : (
             <section className="flex-1 min-h-0 flex flex-col bg-background">
-              {/* Mobile detail toolbar — back + actions */}
+              {/* Mobile detail toolbar */}
               <div className="px-2 py-2 border-b border-border flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => setSelectedId(null)}
-                  className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted inline-flex items-center gap-1"
-                  aria-label="Back to list"
-                >
+                <button onClick={() => setSelectedId(null)} className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted inline-flex items-center gap-1" aria-label="Back to list">
                   <ArrowLeft size={18} />
-                  <span className="text-xs hidden xs:inline">Back</span>
                 </button>
-                <span className="text-sm font-medium flex-1 truncate px-1">
+                <span className="text-sm font-semibold flex-1 truncate px-1">
                   {email?.subject || '(no subject)'}
+                  {selectedThread && selectedThread.msgs.length > 1 && (
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">{selectedThread.msgs.length}</span>
+                  )}
                 </span>
                 {email && (
                   <>
-                    <button onClick={() => star.mutate()} className="p-2 rounded-md hover:bg-muted text-muted-foreground" title="Star">
-                      <Star size={16} className={email.is_starred ? 'fill-primary text-primary' : ''} />
-                    </button>
-                    <button onClick={replyTo} className="p-2 rounded-md hover:bg-muted text-muted-foreground" title="Reply">
-                      <Reply size={16} />
-                    </button>
-                    <button onClick={forwardEmail} className="p-2 rounded-md hover:bg-muted text-muted-foreground" title="Forward">
-                      <Forward size={16} />
-                    </button>
-                    <button onClick={() => trash.mutate()} className="p-2 rounded-md hover:bg-destructive/10 text-destructive" title="Delete">
-                      <Trash2 size={16} />
-                    </button>
+                    <button onClick={() => star.mutate()} className="p-2 rounded-md hover:bg-muted text-muted-foreground"><Star size={16} className={email.is_starred ? 'fill-primary text-primary' : ''} /></button>
+                    <button onClick={replyTo} className="p-2 rounded-md hover:bg-muted text-muted-foreground"><Reply size={16} /></button>
+                    <button onClick={() => trash.mutate()} className="p-2 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 size={16} /></button>
                   </>
                 )}
               </div>
 
-              {/* Email body — same iframe component */}
+              {/* Conversation thread */}
               {!email ? (
-                <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-                  Loading email…
-                </div>
+                <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Loading…</div>
               ) : (
-                <>
-                  <div className="px-4 py-3 border-b border-border shrink-0">
-                    <p className="text-xs text-muted-foreground">From</p>
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {email.from_name ? `${email.from_name} ` : ''}
-                      <span className="text-muted-foreground font-normal">&lt;{email.from_address}&gt;</span>
-                    </p>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      {fmtDateTime(email.received_at || email.sent_at)}
-                    </p>
-                  </div>
-                  <div className="flex-1 px-3 py-3 flex flex-col min-h-0 overflow-hidden">
-                    {email.body_html && String(email.body_html).trim() ? (
-                      <div className="flex-1 min-h-0">
-                        <EmailBodyFrame html={sanitizeHtml(email.body_html)} />
+                <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+                  {(selectedThread ? [...selectedThread.msgs].reverse() : [email]).map((msg: any) => {
+                    const fullMsg: any = msg.id === email.id ? email : (threadEmailCache[msg.id] || null);
+                    const isExpanded = expandedInThread.has(msg.id);
+                    const fromLabel = msg.from_name || msg.from_address || '?';
+                    const avatarColors = ['bg-violet-500','bg-rose-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-blue-500','bg-amber-500'];
+                    const avatarColor = avatarColors[(fromLabel.charCodeAt(0) || 0) % avatarColors.length];
+                    const preview = (() => { const p = msg.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 70 ? `${p.slice(0, 70)}…` : p; })();
+                    const toggleExpand = () => {
+                      setExpandedInThread(prev => {
+                        const next = new Set(prev);
+                        if (next.has(msg.id)) next.delete(msg.id);
+                        else { next.add(msg.id); if (!fullMsg) fetchThreadEmail(msg.id); }
+                        return next;
+                      });
+                      setSelectedId(msg.id);
+                    };
+                    return (
+                      <div key={msg.id} className={`rounded-xl border ${isExpanded ? 'border-border bg-card' : 'border-border/50 bg-card/60'}`}>
+                        <div className="flex items-center gap-3 px-3 py-3 cursor-pointer" onClick={toggleExpand}>
+                          <div className={`w-9 h-9 shrink-0 rounded-full ${avatarColor} flex items-center justify-center text-sm font-bold text-white uppercase`}>
+                            {fromLabel[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-semibold text-foreground block truncate">{fromLabel}</span>
+                            {!isExpanded && <span className="text-xs text-muted-foreground truncate block">{preview}</span>}
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[10px] text-muted-foreground">{fmtRelative(msg.received_at || msg.sent_at)}</span>
+                            <ChevronDown size={13} className={`text-muted-foreground transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <div className="border-t border-border">
+                            {fullMsg ? (
+                              <div className="px-3 py-3">
+                                {fullMsg.body_html && String(fullMsg.body_html).trim() ? (
+                                  <div style={{ height: 320 }}><EmailBodyFrame html={sanitizeHtml(fullMsg.body_html)} /></div>
+                                ) : fullMsg.body_text && String(fullMsg.body_text).trim() ? (
+                                  <pre className="text-sm text-foreground whitespace-pre-wrap font-sans leading-relaxed">{fullMsg.body_text}</pre>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground italic">No content</p>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="py-6 flex justify-center"><Loader2 size={16} className="animate-spin text-muted-foreground" /></div>
+                            )}
+                            <div className="flex gap-2 px-3 py-2 border-t border-border/50">
+                              <button onClick={replyTo} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted border border-border"><Reply size={11} /> Reply</button>
+                              <button onClick={forwardEmail} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted border border-border"><Forward size={11} /> Forward</button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ) : email.body_text && String(email.body_text).trim() ? (
-                      <div className="flex-1 min-h-0 overflow-y-auto rounded-lg bg-white">
-                        <pre className="text-sm text-gray-900 whitespace-pre-wrap font-sans p-4">
-                          {email.body_text}
-                        </pre>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground italic">This email has no content</p>
-                    )}
-                  </div>
-                </>
+                    );
+                  })}
+                </div>
               )}
             </section>
           )}
