@@ -65,7 +65,14 @@ import NotFound from "./pages/NotFound";
 import PublicInvoice from "./pages/PublicInvoice";
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 3 * 60 * 1000,   // data stays fresh 3 min — no re-fetch on every mount
+      gcTime:   15 * 60 * 1000,   // keep unused cache 15 min
+    },
+  },
 });
 
 function RootRedirect() {
