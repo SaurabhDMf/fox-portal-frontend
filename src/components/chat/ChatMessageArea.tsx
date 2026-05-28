@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useMentionInput } from '@/hooks/useMentionInput';
 import { MentionDropdown } from '@/components/MentionDropdown';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -81,6 +81,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const initialScrollDoneRef = useRef(false);
+  const isNearBottomRef = useRef(true);
 
   // @ mention
   const { data: mentionUsers = [] } = useQuery({
@@ -139,13 +141,19 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     setStatusMap(map);
   }, [roomMembers]);
 
+  // When room changes: reset scroll state so layout effect re-fires
+  useEffect(() => {
+    initialScrollDoneRef.current = false;
+    isNearBottomRef.current = true;
+    setIsScrollReady(false);
+  }, [roomId]);
+
   // Fetch messages imperatively whenever roomId changes
   useEffect(() => {
     if (!roomId) return;
     setFetchedMessages([]);
     setRealtimeMessages([]);
     setHasMore(false);
-    setIsScrollReady(false);
     setLoadingMessages(true);
 
     api.get(`/chat/rooms/${roomId}/messages?limit=50`)
@@ -154,12 +162,6 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         const msgs = Array.isArray(payload) ? payload : (payload?.data ?? payload?.messages ?? []);
         setFetchedMessages(msgs);
         setHasMore(payload?.has_more ?? false);
-        // Scroll to bottom instantly while still invisible, then reveal
-        requestAnimationFrame(() => {
-          const el = messagesContainerRef.current;
-          if (el) el.scrollTop = el.scrollHeight;
-          setIsScrollReady(true);
-        });
       })
       .catch(err => console.error('[Chat] Failed to load messages:', err))
       .finally(() => setLoadingMessages(false));
@@ -171,10 +173,27 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     );
   }, [roomId]);
 
-  // Load older messages on scroll to top
+  // Scroll to bottom before browser paints when messages first load for this room.
+  // useLayoutEffect fires synchronously after DOM update but before paint —
+  // the user never sees the list at the top position.
+  useLayoutEffect(() => {
+    if (initialScrollDoneRef.current || fetchedMessages.length === 0) return;
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    initialScrollDoneRef.current = true;
+    setIsScrollReady(true);
+  }, [fetchedMessages]);
+
+  // Load older messages on scroll to top; track near-bottom for auto-scroll decisions
   const handleScroll = () => {
     const el = messagesContainerRef.current;
-    if (!el || !hasMore || loadingMessages) return;
+    if (!el) return;
+
+    // Keep track of whether user is near the bottom
+    isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+
+    if (!hasMore || loadingMessages) return;
     if (el.scrollTop < 50) {
       const oldest = fetchedMessages[0];
       if (!oldest?.created_at) return;
@@ -186,6 +205,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           const older = Array.isArray(d) ? d : d?.data || d?.messages || [];
           setFetchedMessages(prev => [...older, ...prev]);
           setHasMore(d?.has_more ?? false);
+          // Restore scroll position so the view doesn't jump after prepend
           requestAnimationFrame(() => { el.scrollTop = el.scrollHeight - prevHeight; });
         })
         .finally(() => setLoadingMessages(false));
@@ -328,13 +348,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
   const scrollToBottom = (force = false) => {
     const el = messagesContainerRef.current;
-    if (!el) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-    if (force || nearBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!el) return;
+    // Only auto-scroll if user is already near the bottom, or forced (own send/upload)
+    if (force || isNearBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+      isNearBottomRef.current = true;
     }
   };
 
