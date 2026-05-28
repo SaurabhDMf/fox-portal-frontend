@@ -60,6 +60,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const [fetchedMessages, setFetchedMessages] = useState<any[]>([]);
   const [realtimeMessages, setRealtimeMessages] = useState<any[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [isScrollReady, setIsScrollReady] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [showSearch, setShowSearch] = useState(false);
@@ -141,21 +142,24 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   // Fetch messages imperatively whenever roomId changes
   useEffect(() => {
     if (!roomId) return;
-    console.log('[Chat] Fetching messages for room:', roomId);
     setFetchedMessages([]);
     setRealtimeMessages([]);
     setHasMore(false);
+    setIsScrollReady(false);
     setLoadingMessages(true);
 
     api.get(`/chat/rooms/${roomId}/messages?limit=50`)
       .then(res => {
-        console.log('[Chat] Messages API response:', res.data);
         const payload = res.data;
         const msgs = Array.isArray(payload) ? payload : (payload?.data ?? payload?.messages ?? []);
-        console.log('[Chat] Parsed messages count:', msgs.length);
         setFetchedMessages(msgs);
         setHasMore(payload?.has_more ?? false);
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 80);
+        // Scroll to bottom instantly while still invisible, then reveal
+        requestAnimationFrame(() => {
+          const el = messagesContainerRef.current;
+          if (el) el.scrollTop = el.scrollHeight;
+          setIsScrollReady(true);
+        });
       })
       .catch(err => console.error('[Chat] Failed to load messages:', err))
       .finally(() => setLoadingMessages(false));
@@ -334,10 +338,6 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     }
   };
 
-  // Scroll to bottom on initial load only
-  useEffect(() => {
-    scrollToBottom(true);
-  }, [fetchedMessages]);
 
   const sendMut = useMutation({
     mutationFn: (content: string) => api.post(`/chat/rooms/${roomId}/messages`, {
@@ -636,6 +636,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         {loadingMessages && fetchedMessages.length === 0 && (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading…</div>
         )}
+
+        {/* Hidden until initial instant-scroll fires — prevents visible top-to-bottom scroll animation */}
+        <div style={{ visibility: isScrollReady ? 'visible' : 'hidden' }}>
+
         {!loadingMessages && allMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <MessageSquare className="h-10 w-10 mb-2 opacity-20" />
@@ -860,6 +864,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           );
         })}
         <div ref={messagesEndRef} />
+        </div>{/* end visibility wrapper */}
       </div>
 
       {/* ── Typing indicator ───────────────────────────────────── */}
