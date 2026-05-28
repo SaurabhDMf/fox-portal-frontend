@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Lock, Eye, EyeOff, Copy, ExternalLink, Share2, Pencil,
   Trash2, Star, RefreshCw, RotateCcw,
@@ -113,6 +113,23 @@ export default function VaultDetailPanel({
   const [pwVisible, setPwVisible] = useState(false);
   const [loadingReveal, setLoadingReveal] = useState(false);
   const [showGen, setShowGen] = useState(false);
+  const [extraFields, setExtraFields] = useState<Record<string, string>>({});
+
+  // Auto-fetch extra fields for non-login types on mount / credential change
+  useEffect(() => {
+    setRevealedPw('');
+    setPwVisible(false);
+    setExtraFields({});
+    const type = cred.item_type || 'login';
+    if (type !== 'login') {
+      api.get(`/vault/credentials/${cred.id}/reveal`)
+        .then(({ data }) => {
+          const { password: _pw, ...rest } = data;
+          setExtraFields(rest);
+        })
+        .catch(() => {});
+    }
+  }, [cred.id, cred.item_type]);
 
   const isOwner = cred.is_owner === undefined ? true : isEnabled(cred.is_owner);
   const sharedCanEdit = isEnabled(cred.shared_can_edit);
@@ -339,7 +356,7 @@ export default function VaultDetailPanel({
             </div>
             <div className="px-4 py-3">
               <p className="text-sm whitespace-pre-wrap break-words text-foreground leading-relaxed">
-                {cred.note_body || <span className="text-muted-foreground italic">No content</span>}
+                {extraFields.note_body || cred.note_body || <span className="text-muted-foreground italic">No content</span>}
               </p>
             </div>
           </div>
@@ -353,32 +370,32 @@ export default function VaultDetailPanel({
                 Card details
               </span>
             </div>
-            {cred.cardholder_name && (
+            {(extraFields.cardholder_name || cred.cardholder_name) && (
               <FieldRow
                 label="Cardholder name"
-                value={cred.cardholder_name}
-                onCopy={() => copyToClip(cred.cardholder_name!, 'Cardholder name')}
+                value={extraFields.cardholder_name || cred.cardholder_name || ''}
+                onCopy={() => copyToClip(extraFields.cardholder_name || cred.cardholder_name || '', 'Cardholder name')}
               />
             )}
-            {cred.card_number && (
+            {(extraFields.card_number || cred.card_number) && (
               <FieldRow
                 label="Card number"
-                value={`•••• •••• •••• ${cred.card_number.slice(-4)}`}
-                onCopy={() => copyToClip(cred.card_number!, 'Card number')}
+                value={`•••• •••• •••• ${(extraFields.card_number || cred.card_number || '').slice(-4)}`}
+                onCopy={() => copyToClip(extraFields.card_number || cred.card_number || '', 'Card number')}
               />
             )}
-            {cred.expiry && (
+            {(extraFields.expiry || cred.expiry) && (
               <FieldRow
                 label="Expiry"
-                value={cred.expiry}
-                onCopy={() => copyToClip(cred.expiry!, 'Expiry')}
+                value={extraFields.expiry || cred.expiry || ''}
+                onCopy={() => copyToClip(extraFields.expiry || cred.expiry || '', 'Expiry')}
               />
             )}
-            {cred.cvv && (
+            {(extraFields.cvv || cred.cvv) && (
               <FieldRow
                 label="CVV"
                 value="•••"
-                onCopy={() => copyToClip(cred.cvv!, 'CVV')}
+                onCopy={() => copyToClip(extraFields.cvv || cred.cvv || '', 'CVV')}
               />
             )}
           </div>
@@ -392,25 +409,25 @@ export default function VaultDetailPanel({
                 Identity
               </span>
             </div>
-            {cred.full_name && (
+            {(extraFields.full_name || cred.full_name) && (
               <FieldRow
                 label="Full name"
-                value={cred.full_name}
-                onCopy={() => copyToClip(cred.full_name!, 'Full name')}
+                value={extraFields.full_name || cred.full_name || ''}
+                onCopy={() => copyToClip(extraFields.full_name || cred.full_name || '', 'Full name')}
               />
             )}
-            {cred.phone && (
+            {(extraFields.phone || cred.phone) && (
               <FieldRow
                 label="Phone"
-                value={cred.phone}
-                onCopy={() => copyToClip(cred.phone!, 'Phone')}
+                value={extraFields.phone || cred.phone || ''}
+                onCopy={() => copyToClip(extraFields.phone || cred.phone || '', 'Phone')}
               />
             )}
-            {cred.address && (
+            {(extraFields.address || cred.address) && (
               <FieldRow
                 label="Address"
-                value={cred.address}
-                onCopy={() => copyToClip(cred.address!, 'Address')}
+                value={extraFields.address || cred.address || ''}
+                onCopy={() => copyToClip(extraFields.address || cred.address || '', 'Address')}
               />
             )}
           </div>
@@ -472,7 +489,7 @@ export default function VaultDetailPanel({
         {/* Right — edit + close */}
         {showEdit && (
           <button
-            onClick={() => onEdit(cred)}
+            onClick={() => onEdit({ ...cred, ...extraFields })}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary text-sm font-medium hover:bg-secondary/80 transition-colors"
           >
             <Pencil className="h-4 w-4" />
