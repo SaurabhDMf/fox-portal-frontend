@@ -371,7 +371,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       }
       setMessage('');
       setReplyTo(null);
-      scrollToBottom(true);
+      // Defer until after React has flushed the new message into the DOM
+      requestAnimationFrame(() => scrollToBottom(true));
     },
   });
 
@@ -437,7 +438,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       if (msg?.id) {
         setRealtimeMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg]);
       }
-      scrollToBottom(true);
+      requestAnimationFrame(() => scrollToBottom(true));
     },
     onError: (err: any) => toast.error(err?.message || 'Upload failed'),
   });

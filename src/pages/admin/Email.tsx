@@ -179,8 +179,9 @@ export default function EmailPage() {
       return fetched;
     },
     enabled: accounts.length > 0,
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   // Flatten pages into a single array. Older queries may return data in
   // different shapes (data array directly, or {data: []}) — handle both.
@@ -230,7 +231,8 @@ export default function EmailPage() {
         })
         .then((r) => r.data),
     enabled: !!activeAccountId,
-    refetchInterval: 30_000,
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
   const unreadCount: number = (() => {
     if (!unreadData) return 0;
@@ -320,10 +322,9 @@ export default function EmailPage() {
         // Silent — IMAP outages shouldn't bug the user with a toast every minute
       }
     };
-    // First tick after 5s so we don't double-fire on initial mount (the initial
-    // page render already loads the list)
-    const initial = window.setTimeout(tick, 5_000);
-    const interval = window.setInterval(tick, 60_000);
+    // First tick after 90s — page load already has fresh data, no need to hit IMAP immediately
+    const initial = window.setTimeout(tick, 90_000);
+    const interval = window.setInterval(tick, 3 * 60_000);
     return () => {
       cancelled = true;
       window.clearTimeout(initial);
