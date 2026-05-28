@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
 import { useModulePermission } from '@/hooks/usePermission';
 import { useAuthStore } from '@/stores/authStore';
+import { useCompanyCurrency } from '@/hooks/useCompanyCurrency';
 import { confirmAction } from '@/lib/confirmDialog';
 
 import InvoiceCreateModal from '@/components/invoicing/InvoiceCreateModal';
@@ -15,6 +16,18 @@ import SendInvoiceModal from '@/components/invoicing/SendInvoiceModal';
 import ShareInvoiceModal from '@/components/invoicing/ShareInvoiceModal';
 
 const statusTabs = ['All', 'Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled'];
+
+const fmtAmount = (amount: number, currency?: string) => {
+  const cur = (currency || 'USD').toUpperCase();
+  try {
+    return new Intl.NumberFormat('en', {
+      style: 'currency', currency: cur,
+      minimumFractionDigits: 0, maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${cur} ${Number(amount).toLocaleString()}`;
+  }
+};
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1';
 
@@ -40,6 +53,7 @@ async function downloadPdf(inv: any) {
 export default function Invoicing() {
   const perm = useModulePermission('invoicing');
   const role = useAuthStore(s => s.user?.role);
+  const { currencySymbol, companyCurrency } = useCompanyCurrency();
   const isAdmin = role === 'admin' || role === 'super_admin';
   const canDelete = (inv: any) =>
     isAdmin || (inv.status !== 'Paid' && inv.status !== 'Partially Paid');
@@ -119,10 +133,10 @@ export default function Invoicing() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Billed" value={`$${Number(stats.total_billed || 0).toLocaleString()}`} icon={DollarSign} />
-        <StatCard label="Collected" value={`$${Number(stats.collected || 0).toLocaleString()}`} icon={CheckCircle} iconColor="text-success" />
-        <StatCard label="Outstanding" value={`$${Number(stats.outstanding || 0).toLocaleString()}`} icon={Clock} iconColor="text-warning" />
-        <StatCard label="Overdue" value={`$${Number(stats.overdue || 0).toLocaleString()}`} icon={AlertTriangle} iconColor="text-destructive" />
+        <StatCard label="Total Billed" value={fmtAmount(Number(stats.total_billed || 0), companyCurrency)} icon={DollarSign} />
+        <StatCard label="Collected" value={fmtAmount(Number(stats.collected || 0), companyCurrency)} icon={CheckCircle} iconColor="text-success" />
+        <StatCard label="Outstanding" value={fmtAmount(Number(stats.outstanding || 0), companyCurrency)} icon={Clock} iconColor="text-warning" />
+        <StatCard label="Overdue" value={fmtAmount(Number(stats.overdue || 0), companyCurrency)} icon={AlertTriangle} iconColor="text-destructive" />
       </div>
 
       <div className="flex gap-1 overflow-x-auto">
@@ -144,7 +158,7 @@ export default function Invoicing() {
               <tr key={inv.id} className="border-b border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer" onClick={() => viewDetail(inv)}>
                 <td className="p-4 font-medium">{inv.invoice_number || `INV-${inv.id?.slice(0, 6)}`}</td>
                 <td className="p-4">{inv.client_name || inv.company_name || '—'}</td>
-                <td className="p-4 font-medium">${Number(inv.total || inv.total_amount || inv.amount || 0).toLocaleString()}</td>
+                <td className="p-4 font-medium">{fmtAmount(Number(inv.total || inv.total_amount || inv.amount || 0), inv.currency)}</td>
                 <td className="p-4 text-muted-foreground">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '—'}</td>
                 <td className="p-4">
                   {inv.source === 'uploaded' ? (
