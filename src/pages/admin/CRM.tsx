@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useModulePermission } from '@/hooks/usePermission';
-import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, ChevronUp, Check, Pencil, ArrowUpDown, UserCheck } from 'lucide-react';
+import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, ChevronUp, Check, Pencil, ArrowUpDown, UserCheck, Settings } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ConvertLeadModal from '@/components/crm/ConvertLeadModal';
 
@@ -148,7 +148,17 @@ function useCustomFields(userId: string | undefined) {
     } catch {}
   };
 
-  return { allStatuses, allPurposes, addStatus, addPurpose };
+  const removeStatus = async (value: string) => {
+    if (defaultStatuses.includes(value)) return;
+    const updated = { ...local, statuses: (local.statuses || []).filter(s => s !== value) };
+    setLocal(updated);
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+    try {
+      await api.delete('/leads/custom-fields', { data: { field_type: 'status', value } });
+    } catch {}
+  };
+
+  return { allStatuses, allPurposes, addStatus, addPurpose, removeStatus };
 }
 
 export default function CRM() {
@@ -173,9 +183,10 @@ export default function CRM() {
   const [newPurposeInput, setNewPurposeInput] = useState('');
   const [showAddStatus, setShowAddStatus] = useState(false);
   const [showAddPurpose, setShowAddPurpose] = useState(false);
+  const [showManageStatuses, setShowManageStatuses] = useState(false);
   const qc = useQueryClient();
 
-  const { allStatuses, allPurposes, addStatus, addPurpose } = useCustomFields(user?.id);
+  const { allStatuses, allPurposes, addStatus, addPurpose, removeStatus } = useCustomFields(user?.id);
 
   const [form, setForm] = useState({
     full_name: '', email: '', phone: '', country: '', purpose: '',
@@ -279,11 +290,12 @@ export default function CRM() {
   const inputCls = "px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
   const handleAddStatus = () => {
-    if (newStatusInput.trim()) {
-      addStatus(newStatusInput.trim());
+    const val = newStatusInput.trim();
+    if (val) {
+      addStatus(val);
       setNewStatusInput('');
       setShowAddStatus(false);
-      toast.success(`Status "${newStatusInput.trim()}" added`);
+      toast.success(`Status "${val}" added`);
     }
   };
 
@@ -305,6 +317,9 @@ export default function CRM() {
             <button onClick={() => setView('list')} className={`p-2 ${view === 'list' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`} title="List View"><List className="h-4 w-4" /></button>
             <button onClick={() => setView('kanban')} className={`p-2 ${view === 'kanban' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`} title="Kanban View"><LayoutGrid className="h-4 w-4" /></button>
           </div>
+          <button onClick={() => setShowManageStatuses(true)} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-muted-foreground text-sm hover:bg-secondary transition-all" title="Manage Statuses">
+            <Settings className="h-4 w-4" /> Statuses
+          </button>
           {perm.canCreate && (
             <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all">
               <Plus className="h-4 w-4" /> New Lead
@@ -576,6 +591,57 @@ export default function CRM() {
 
       {showConvert && (
         <ConvertLeadModal lead={showConvert} onClose={() => setShowConvert(null)} />
+      )}
+
+      {/* Manage Statuses Modal */}
+      {showManageStatuses && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Manage Statuses</h2>
+              <button onClick={() => setShowManageStatuses(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="space-y-1 max-h-72 overflow-y-auto">
+              {allStatuses.map(s => {
+                const isDefault = defaultStatuses.includes(s);
+                return (
+                  <div key={s} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-secondary/50 group">
+                    <span className={`text-sm ${isDefault ? 'text-muted-foreground' : ''}`}>{s}</span>
+                    {isDefault
+                      ? <span className="text-[10px] text-muted-foreground/50">default</span>
+                      : <button
+                          onClick={async () => { await removeStatus(s); toast.success(`Status "${s}" removed`); }}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/10 text-destructive transition-all"
+                          title="Delete status"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                    }
+                  </div>
+                );
+              })}
+            </div>
+            <div className="border-t border-border pt-3 space-y-2">
+              <p className="text-xs text-muted-foreground font-medium">Add new status</p>
+              <div className="flex gap-2">
+                <input
+                  placeholder="e.g. Follow Up, On Hold..."
+                  value={newStatusInput}
+                  onChange={e => setNewStatusInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { handleAddStatus(); } }}
+                  className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <button
+                  onClick={() => { handleAddStatus(); }}
+                  disabled={!newStatusInput.trim()}
+                  className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-all"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
