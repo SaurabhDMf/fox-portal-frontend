@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useMentionInput } from '@/hooks/useMentionInput';
 import { MentionDropdown } from '@/components/MentionDropdown';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -76,6 +76,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const isAdminRole = userRole === 'admin' || userRole === 'super_admin';
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const initialScrollDoneRef = useRef(false);
+  const isNearBottomRef = useRef(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -138,10 +140,15 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     setStatusMap(map);
   }, [roomMembers]);
 
+  // Reset scroll state when room changes
+  useEffect(() => {
+    initialScrollDoneRef.current = false;
+    isNearBottomRef.current = true;
+  }, [roomId]);
+
   // Fetch messages imperatively whenever roomId changes
   useEffect(() => {
     if (!roomId) return;
-    console.log('[Chat] Fetching messages for room:', roomId);
     setFetchedMessages([]);
     setRealtimeMessages([]);
     setHasMore(false);
@@ -149,13 +156,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
     api.get(`/chat/rooms/${roomId}/messages?limit=50`)
       .then(res => {
-        console.log('[Chat] Messages API response:', res.data);
         const payload = res.data;
         const msgs = Array.isArray(payload) ? payload : (payload?.data ?? payload?.messages ?? []);
-        console.log('[Chat] Parsed messages count:', msgs.length);
         setFetchedMessages(msgs);
         setHasMore(payload?.has_more ?? false);
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'auto' }), 80);
       })
       .catch(err => console.error('[Chat] Failed to load messages:', err))
       .finally(() => setLoadingMessages(false));
@@ -167,10 +171,23 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     );
   }, [roomId]);
 
-  // Load older messages on scroll to top
+  // Scroll to bottom before first paint when messages load for this room.
+  // useLayoutEffect fires synchronously after DOM update, before the browser paints —
+  // the user never sees the list at the wrong scroll position.
+  useLayoutEffect(() => {
+    if (initialScrollDoneRef.current || fetchedMessages.length === 0) return;
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    initialScrollDoneRef.current = true;
+  }, [fetchedMessages]);
+
+  // Track near-bottom position; load older messages when scrolled to top
   const handleScroll = () => {
     const el = messagesContainerRef.current;
-    if (!el || !hasMore || loadingMessages) return;
+    if (!el) return;
+    isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    if (!hasMore || loadingMessages) return;
     if (el.scrollTop < 50) {
       const oldest = fetchedMessages[0];
       if (!oldest?.created_at) return;
@@ -324,20 +341,13 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
   const scrollToBottom = (force = false) => {
     const el = messagesContainerRef.current;
-    if (!el) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-    if (force || nearBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!el) return;
+    if (force || isNearBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+      isNearBottomRef.current = true;
     }
   };
 
-  // Scroll to bottom on initial load only
-  useEffect(() => {
-    scrollToBottom(true);
-  }, [fetchedMessages]);
 
   const sendMut = useMutation({
     mutationFn: (content: string) => api.post(`/chat/rooms/${roomId}/messages`, {
