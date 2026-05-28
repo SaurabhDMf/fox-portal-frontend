@@ -575,13 +575,16 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
               Select how you'd like to pay {fmt(amountDue)}.
             </p>
             <div className="grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => { setShowPayChoice(false); payWithStripe(invoice.id); }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
-              >
-                <CreditCard className="h-4 w-4" /> Pay with Card (Stripe)
-              </button>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => { setShowPayChoice(false); payWithStripe(invoice.id, 4); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
+                >
+                  <CreditCard className="h-4 w-4" /> Pay with Card (Stripe)
+                </button>
+                <p className="text-[10px] text-muted-foreground text-center mt-1">4% transaction fee will be added if you choose Stripe</p>
+              </div>
               <button
                 type="button"
                 onClick={() => { setShowPayChoice(false); payWithRazorpay(invoice.id, onPaidSuccess); }}

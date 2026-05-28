@@ -4,9 +4,11 @@ import toast from 'react-hot-toast';
 /**
  * Stripe — opens hosted checkout in same tab.
  */
-export async function payWithStripe(invoiceId: string) {
+export async function payWithStripe(invoiceId: string, surchargePct?: number) {
   try {
-    const { data } = await api.post(`/invoices/${invoiceId}/pay/stripe`);
+    const { data } = await api.post(`/invoices/${invoiceId}/pay/stripe`,
+      surchargePct ? { surcharge_pct: surchargePct } : undefined
+    );
     if (data?.checkout_url) {
       window.location.href = data.checkout_url;
     } else {

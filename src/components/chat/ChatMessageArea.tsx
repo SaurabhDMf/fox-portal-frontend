@@ -60,6 +60,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const [fetchedMessages, setFetchedMessages] = useState<any[]>([]);
   const [realtimeMessages, setRealtimeMessages] = useState<any[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [isScrollReady, setIsScrollReady] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [showSearch, setShowSearch] = useState(false);
@@ -76,12 +77,12 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const isAdminRole = userRole === 'admin' || userRole === 'super_admin';
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const initialScrollDoneRef = useRef(false);
-  const isNearBottomRef = useRef(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const socketRef = useRef<Socket | null>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const initialScrollDoneRef = useRef(false);
+  const isNearBottomRef = useRef(true);
 
   // @ mention
   const { data: mentionUsers = [] } = useQuery({
@@ -140,10 +141,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     setStatusMap(map);
   }, [roomMembers]);
 
-  // Reset scroll state when room changes
+  // When room changes: reset scroll state so layout effect re-fires
   useEffect(() => {
     initialScrollDoneRef.current = false;
     isNearBottomRef.current = true;
+    setIsScrollReady(false);
   }, [roomId]);
 
   // Fetch messages imperatively whenever roomId changes
@@ -171,22 +173,26 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     );
   }, [roomId]);
 
-  // Scroll to bottom before first paint when messages load for this room.
-  // useLayoutEffect fires synchronously after DOM update, before the browser paints —
-  // the user never sees the list at the wrong scroll position.
+  // Scroll to bottom before browser paints when messages first load for this room.
+  // useLayoutEffect fires synchronously after DOM update but before paint —
+  // the user never sees the list at the top position.
   useLayoutEffect(() => {
     if (initialScrollDoneRef.current || fetchedMessages.length === 0) return;
     const el = messagesContainerRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
     initialScrollDoneRef.current = true;
+    setIsScrollReady(true);
   }, [fetchedMessages]);
 
-  // Track near-bottom position; load older messages when scrolled to top
+  // Load older messages on scroll to top; track near-bottom for auto-scroll decisions
   const handleScroll = () => {
     const el = messagesContainerRef.current;
     if (!el) return;
+
+    // Keep track of whether user is near the bottom
     isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+
     if (!hasMore || loadingMessages) return;
     if (el.scrollTop < 50) {
       const oldest = fetchedMessages[0];
@@ -199,6 +205,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           const older = Array.isArray(d) ? d : d?.data || d?.messages || [];
           setFetchedMessages(prev => [...older, ...prev]);
           setHasMore(d?.has_more ?? false);
+          // Restore scroll position so the view doesn't jump after prepend
           requestAnimationFrame(() => { el.scrollTop = el.scrollHeight - prevHeight; });
         })
         .finally(() => setLoadingMessages(false));
@@ -342,6 +349,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const scrollToBottom = (force = false) => {
     const el = messagesContainerRef.current;
     if (!el) return;
+    // Only auto-scroll if user is already near the bottom, or forced (own send/upload)
     if (force || isNearBottomRef.current) {
       el.scrollTop = el.scrollHeight;
       isNearBottomRef.current = true;
@@ -646,6 +654,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         {loadingMessages && fetchedMessages.length === 0 && (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading…</div>
         )}
+
+        {/* Hidden until initial instant-scroll fires — prevents visible top-to-bottom scroll animation */}
+        <div style={{ visibility: isScrollReady ? 'visible' : 'hidden' }}>
+
         {!loadingMessages && allMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <MessageSquare className="h-10 w-10 mb-2 opacity-20" />
@@ -870,6 +882,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           );
         })}
         <div ref={messagesEndRef} />
+        </div>{/* end visibility wrapper */}
       </div>
 
       {/* ── Typing indicator ───────────────────────────────────── */}

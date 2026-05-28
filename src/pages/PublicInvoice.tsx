@@ -121,7 +121,7 @@ export default function PublicInvoice() {
   const payWithStripe = async () => {
     setPaying(true);
     try {
-      const { data } = await publicApi.post(`/invoices/public/${token}/pay/stripe`);
+      const { data } = await publicApi.post(`/invoices/public/${token}/pay/stripe`, { surcharge_pct: 4 });
       if (data?.checkout_url) {
         window.location.href = data.checkout_url;
       } else {
@@ -619,13 +619,16 @@ export default function PublicInvoice() {
             <h3 className="text-base font-semibold text-slate-900 mb-1">Choose payment method</h3>
             <p className="text-xs text-slate-500 mb-4">Select how you'd like to pay {fmt(amountDue)}.</p>
             <div className="grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => { setShowPayChoice(false); payWithStripe(); }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:opacity-90 transition"
-              >
-                <CreditCard className="h-4 w-4" /> Pay with Card (Stripe)
-              </button>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => { setShowPayChoice(false); payWithStripe(); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:opacity-90 transition"
+                >
+                  <CreditCard className="h-4 w-4" /> Pay with Card (Stripe)
+                </button>
+                <p className="text-[10px] text-slate-400 text-center mt-1">4% transaction fee will be added if you choose Stripe</p>
+              </div>
               <button
                 type="button"
                 onClick={() => { setShowPayChoice(false); payWithRazorpay(); }}
