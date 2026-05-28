@@ -338,6 +338,7 @@ function TasksTab({ projectId, onTaskClick }: { projectId: string; onTaskClick: 
               <TableHead>Priority</TableHead>
               <TableHead>Assignee</TableHead>
               <TableHead>Sprint</TableHead>
+              <TableHead>Created</TableHead>
               <TableHead>Due Date</TableHead>
             </TableRow>
           </TableHeader>
@@ -368,6 +369,7 @@ function TasksTab({ projectId, onTaskClick }: { projectId: string; onTaskClick: 
                   ) : <span className="text-xs text-muted-foreground">Unassigned</span>}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">{t.sprint_name || '—'}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{fmtDate(t.created_at)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">{fmtDate(t.due_date)}</TableCell>
               </TableRow>
             )) : (
@@ -635,6 +637,7 @@ function TaskDetailDrawer({ task, projectId, onClose }: { task: any; projectId: 
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div><span className="text-muted-foreground">Assignee</span><div className="mt-1 font-medium">{t.assignee_name || 'Unassigned'}</div></div>
             <div><span className="text-muted-foreground">Sprint</span><div className="mt-1 font-medium">{t.sprint_name || '—'}</div></div>
+            <div><span className="text-muted-foreground">Created</span><div className="mt-1 font-medium">{fmtDate(t.created_at)}</div></div>
             <div><span className="text-muted-foreground">Due Date</span><div className="mt-1 font-medium">{fmtDate(t.due_date)}</div></div>
             <div><span className="text-muted-foreground">Module</span><div className="mt-1 font-medium">{t.epic_title || t.epic_name || '—'}</div></div>
           </div>
