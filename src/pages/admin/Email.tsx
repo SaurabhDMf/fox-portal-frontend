@@ -6,7 +6,7 @@ import RichTextEditor from '@/components/RichTextEditor';
 import toast from 'react-hot-toast';
 import {
   Inbox, Send, FileText, Star, Archive, Trash2,
-  Plus, RefreshCw, Search, Reply, Forward, MailOpen, Paperclip,
+  Plus, RefreshCw, Search, Reply, Forward, MailOpen, Paperclip, Download,
   Minus, X, PlugZap, CheckCircle2, XCircle, Loader2,
   Folder, FolderPlus, MoreVertical, Pencil, FolderInput, Check,
   Menu, ArrowLeft, PanelLeftOpen, PanelLeftClose, ChevronDown,
@@ -48,12 +48,14 @@ const fmtDateTime = (iso?: string) => {
   return `${date}, ${time}`;
 };
 
-// Basic HTML sanitization — strip script/style tags and inline event handlers
+// Sanitize email HTML — strip scripts and event handlers only.
+// <style> tags are intentionally kept: email clients (Gmail, Outlook) rely on
+// them for layout, and stripping them breaks visual ordering of elements.
+// Safe because this content is rendered inside a sandboxed iframe.
 const sanitizeHtml = (html: string): string => {
   if (!html) return '';
   return html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
     .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
     .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
     .replace(/javascript:/gi, '');
@@ -1034,10 +1036,11 @@ export default function EmailPage() {
                             {fullMsg.attachments?.length > 0 && (
                               <div className="mt-3 pt-3 border-t border-border flex flex-wrap gap-2">
                                 {fullMsg.attachments.map((att: any) => (
-                                  <a key={att.id} href={att.file_url} target="_blank" rel="noreferrer"
+                                  <a key={att.id} href={att.file_url} download={att.file_name} target="_blank" rel="noreferrer"
                                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-secondary text-xs hover:bg-muted transition-colors">
                                     <Paperclip size={11} /> {att.file_name}
                                     <span className="text-muted-foreground">({Math.round((att.file_size || 0) / 1024)}KB)</span>
+                                    <Download size={11} className="text-muted-foreground" />
                                   </a>
                                 ))}
                               </div>
