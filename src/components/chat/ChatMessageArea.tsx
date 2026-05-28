@@ -141,11 +141,12 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     setStatusMap(map);
   }, [roomMembers]);
 
-  // When room changes: reset scroll state so layout effect re-fires
+  // When room changes: reset scroll state and clear any staged files
   useEffect(() => {
     initialScrollDoneRef.current = false;
     isNearBottomRef.current = true;
     setIsScrollReady(false);
+    setPendingFiles([]);
   }, [roomId]);
 
   // Fetch messages imperatively whenever roomId changes
@@ -409,14 +410,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
   const [uploadingCount, setUploadingCount] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const uploadMut = useMutation({
     mutationFn: async (file: File) => {
-      // Use fetch instead of axios — the api instance has a default
-      // Content-Type: application/json that overrides FormData auto-detection
-      // even when no header is explicitly passed. fetch() never touches
-      // Content-Type when given a FormData body, so the browser sets the
-      // correct multipart/form-data; boundary=... automatically.
       const BASE = import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1';
       const token = (() => {
         try { return JSON.parse(localStorage.getItem('ubp-auth') || '{}')?.state?.accessToken || ''; }
@@ -435,6 +432,13 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       }
       return res.json();
     },
+    onSuccess: (data) => {
+      const msg = data?.data || data;
+      if (msg?.id) {
+        setRealtimeMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg]);
+      }
+      scrollToBottom(true);
+    },
     onError: (err: any) => toast.error(err?.message || 'Upload failed'),
   });
 
@@ -443,7 +447,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     setUploadingCount(files.length);
     await Promise.allSettled(files.map(f => uploadMut.mutateAsync(f)));
     setUploadingCount(0);
-    scrollToBottom(true);
+  };
+
+  const stageFiles = (files: File[]) => {
+    if (!files.length) return;
+    setPendingFiles(prev => [...prev, ...files]);
   };
 
   // Auto-grow textarea
@@ -483,10 +491,15 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     return () => window.removeEventListener('paste', onWindowPaste);
   }, [roomId]); // eslint-disable-line
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (editingMsg) {
       if (editText.trim()) editMut.mutate({ id: editingMsg.id, content: editText });
       return;
+    }
+    if (pendingFiles.length > 0) {
+      const toUpload = pendingFiles;
+      setPendingFiles([]);
+      await handleFiles(toUpload);
     }
     if (message.trim()) sendMut.mutate(message);
   };
@@ -524,7 +537,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         e.stopPropagation();
         setIsDragOver(false);
         const files = Array.from(e.dataTransfer.files);
-        if (files.length) handleFiles(files);
+        if (files.length) stageFiles(files);
       }}
     >
       {/* ── Header ─────────────────────────────────────────────── */}
@@ -933,7 +946,24 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           )}
 
           <input type="file" multiple ref={fileInputRef} className="hidden" accept="*/*"
-            onChange={e => { const f = Array.from(e.target.files || []); e.target.value = ''; handleFiles(f); }} />
+            onChange={e => { const f = Array.from(e.target.files || []); e.target.value = ''; stageFiles(f); }} />
+
+          {pendingFiles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
+              {pendingFiles.map((f, i) => (
+                <div key={i} className="flex items-center gap-1 bg-secondary rounded-lg px-2 py-1 text-xs text-foreground max-w-[200px]">
+                  <Paperclip style={{ width: 11, height: 11 }} className="shrink-0 text-muted-foreground" />
+                  <span className="truncate">{f.name}</span>
+                  <button
+                    onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))}
+                    className="ml-0.5 text-muted-foreground hover:text-foreground shrink-0"
+                  >
+                    <X style={{ width: 11, height: 11 }} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           <textarea
             ref={textareaRef}
@@ -999,12 +1029,12 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                 inp.type = 'file';
                 inp.accept = 'image/*';
                 inp.multiple = true;
-                inp.onchange = () => handleFiles(Array.from(inp.files || []));
+                inp.onchange = () => stageFiles(Array.from(inp.files || []));
                 inp.click();
               }}
               disabled={uploadingCount > 0}
               className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
-              title="Send image"
+              title="Attach image"
             >
               <ImageIcon style={{ width: 18, height: 18 }} />
             </button>
@@ -1023,7 +1053,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             {/* Send */}
             <button
               onClick={handleSend}
-              disabled={editingMsg ? !editText.trim() : !message.trim()}
+              disabled={editingMsg ? !editText.trim() : (!message.trim() && pendingFiles.length === 0)}
               className="p-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               title="Send"
             >
