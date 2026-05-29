@@ -789,7 +789,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                           onClick={() => setLightboxUrl(msg.file_url)}
                         />
                       )}
-                      {msg.content && (
+                      {msg.content && !(msg.type === 'file' && msg.file_url) && (
                         <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">
                           {msg.content}
                           {Boolean(msg.is_edited) && <span className="text-[10px] opacity-50 ml-1.5">(edited)</span>}

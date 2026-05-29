@@ -69,7 +69,7 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
 
 
   const members = room?.members || [];
-  const isAdmin = Number(members.find((m: any) => m.id === user?.id)?.is_admin) === 1
+  const isAdmin = Number(members.find((m: any) => m.user_id === user?.id)?.is_admin) === 1
     || room?.created_by === user?.id
     || user?.role === 'admin'
     || user?.role === 'super_admin';
