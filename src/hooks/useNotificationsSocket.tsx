@@ -28,19 +28,25 @@ export function unlockAudioContext() {
   } catch {}
 }
 
-function playBeep(ctx: AudioContext) {
-  // Short, crisp two-tone ping (0.12 s total — fast like WhatsApp/Teams)
+function ping(ctx: AudioContext, freq: number, startAt: number) {
   const osc  = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.connect(gain);
   gain.connect(ctx.destination);
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(880, ctx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.06);
-  gain.gain.setValueAtTime(0.5, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-  osc.start(ctx.currentTime);
-  osc.stop(ctx.currentTime + 0.12);
+  osc.frequency.setValueAtTime(freq, startAt);
+  // tiny linear attack so there's no click, then fast exponential decay
+  gain.gain.setValueAtTime(0.001, startAt);
+  gain.gain.linearRampToValueAtTime(0.9, startAt + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, startAt + 0.25);
+  osc.start(startAt);
+  osc.stop(startAt + 0.26);
+}
+
+function playBeep(ctx: AudioContext) {
+  // Two ascending pings (WhatsApp-style): low then high, 180ms apart
+  ping(ctx, 880,  ctx.currentTime);
+  ping(ctx, 1100, ctx.currentTime + 0.18);
 }
 
 function playNotificationSound() {
