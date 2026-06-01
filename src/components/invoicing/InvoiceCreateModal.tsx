@@ -508,7 +508,7 @@ export default function InvoiceCreateModal({ onClose, existing }: Props) {
                     <option value="">— No project —</option>
                     {clientProjects.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name}{p.status ? ` (${p.status})` : ''}
+                        {p.name}
                       </option>
                     ))}
                   </select>
