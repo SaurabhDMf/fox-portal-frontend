@@ -142,8 +142,8 @@ export const emailApi = {
     api.post(`/email/accounts/${id}/hard-resync`, { folder, limit }),
   getFolders:    (id: string)    => api.get(`/email/accounts/${id}/folders`),
   // Messages
-  getMessages:   (params: any)   => api.get('/email/messages', { params }),
-  getMessage:    (id: string)    => api.get(`/email/messages/${id}`),
+  getMessages:   (params: any)   => api.get('/email/messages', { params: { ...params, _t: Date.now() } }),
+  getMessage:    (id: string)    => api.get(`/email/messages/${id}`, { params: { _t: Date.now() } }),
   patchMessage:  (id: string, data: any) => api.patch(`/email/messages/${id}`, data),
   deleteMessage: (id: string)    => api.delete(`/email/messages/${id}`),
   // Send
