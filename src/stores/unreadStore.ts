@@ -10,6 +10,7 @@ export const typeToModule: Record<string, string> = {
   payroll: 'payroll',
   leave:   'payroll',
   ticket:  'tickets',
+  email:   'email',
 };
 
 interface UnreadState {
