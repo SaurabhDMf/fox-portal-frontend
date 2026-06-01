@@ -347,12 +347,22 @@ export function useNotificationsSocket() {
       qc.invalidateQueries({ queryKey: ['chat-rooms'] });
     };
 
+    // new_email fires when IMAP sync saves fresh emails.
+    // new_notification (type:'email') is emitted at the same time and already
+    // handles sound + toast + badge bump — so here we only refresh query data.
+    const handleNewEmail = () => {
+      qc.invalidateQueries({ queryKey: ['emails'] });
+      qc.invalidateQueries({ queryKey: ['email-unread'] });
+    };
+
     socket.on('new_notification', handleNewNotification);
     socket.on('new_message',      handleNewMessage);
+    socket.on('new_email',        handleNewEmail);
 
     return () => {
       socket.off('new_notification', handleNewNotification);
       socket.off('new_message',      handleNewMessage);
+      socket.off('new_email',        handleNewEmail);
     };
   }, [qc, accessToken, isAuthenticated, userId, bump]);
 }
