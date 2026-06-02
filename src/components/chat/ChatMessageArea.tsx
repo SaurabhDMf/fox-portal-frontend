@@ -229,15 +229,18 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     const socket = getSocket(accessToken);
     socketRef.current = socket;
 
-    socket.emit('join_room', roomId);
+    const joinRoom = () => socket.emit('join_room', roomId);
+    joinRoom();
 
-    socket.on('new_message', (msg) => {
+    // Re-join room after any reconnect — server drops room membership on disconnect
+    socket.on('connect', joinRoom);
+
+    const handleNewMessage = (msg: any) => {
       setRealtimeMessages(prev => {
         if (prev.find(m => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
       scrollToBottom();
-      // Update room list: mark current room read, increment others
       qc.setQueryData(['chat-rooms'], (old: any[]) =>
         old?.map((r: any) => {
           if (r.id === msg.room_id && msg.room_id === roomId) {
@@ -250,67 +253,51 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         })
       );
       if (msg.room_id === roomId) {
-        // Only mark as read if the user is actually looking at the tab
         if (document.visibilityState === 'visible') {
           api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
         }
-        // Refresh room detail for read receipts after delay
         setTimeout(() => {
           qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
         }, 3000);
       }
-    });
-
-    // When user returns to the tab while in this room, mark messages as read
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
-        qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
-      }
     };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    socket.on('message_updated', (msg) => {
+    const handleMessageUpdated = (msg: any) => {
       setRealtimeMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
       setFetchedMessages(prev => prev.map(m => m.id === msg.id ? msg : m));
-    });
+    };
 
-    socket.on('message_deleted', (data) => {
+    const handleMessageDeleted = (data: any) => {
       const deletedId = data?.id || data?.message_id;
       if (!deletedId) return;
       const patch = { deleted_at: data.deleted_at || new Date().toISOString(), is_deleted: true, content: '' };
       setRealtimeMessages(prev => prev.map(m => m.id === deletedId ? { ...m, ...patch } : m));
       setFetchedMessages(prev => prev.map(m => m.id === deletedId ? { ...m, ...patch } : m));
-    });
+    };
 
-    socket.on('message_pinned', (msg) => {
+    const handleMessagePinned = (msg: any) => {
       setFetchedMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_pinned: msg.is_pinned } : m));
       setRealtimeMessages(prev => prev.map(m => m.id === msg.id ? { ...m, is_pinned: msg.is_pinned } : m));
       qc.invalidateQueries({ queryKey: ['chat-pinned', roomId] });
-    });
+    };
 
-    socket.on('message_reaction', (data) => {
+    const handleMessageReaction = (data: any) => {
       setFetchedMessages(prev => prev.map(m => m.id === data.message_id ? { ...m, reactions: data.reactions } : m));
       setRealtimeMessages(prev => prev.map(m => m.id === data.message_id ? { ...m, reactions: data.reactions } : m));
-    });
+    };
 
-    socket.on('user_typing', (data) => {
+    const handleUserTyping = (data: any) => {
       const typingName = data.user_name || data.userId;
       if (data.user_id === user?.id || data.userId === user?.id) return;
-
       if (data.isTyping === false) {
         setTypingUsers(prev => prev.filter(n => n !== typingName));
       } else {
-        setTypingUsers(prev => {
-          if (prev.includes(typingName)) return prev;
-          return [...prev, typingName];
-        });
+        setTypingUsers(prev => prev.includes(typingName) ? prev : [...prev, typingName]);
         setTimeout(() => setTypingUsers(prev => prev.filter(n => n !== typingName)), 3000);
       }
-    });
+    };
 
-    // Real-time status updates
-    socket.on('user_status_changed', (data: any) => {
+    const handleStatusChanged = (data: any) => {
       setStatusMap(prev => ({ ...prev, [data.user_id]: { status: data.status, status_text: data.status_text } }));
       qc.setQueryData(['chat-rooms'], (old: any[]) =>
         old?.map((r: any) =>
@@ -320,27 +307,44 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         )
       );
       qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
-    });
+    };
 
-    socket.on('room_deleted', (data: any) => {
+    const handleRoomDeleted = (data: any) => {
       if (data?.room_id === roomId || data?.id === roomId) {
         qc.invalidateQueries({ queryKey: ['chat-rooms'] });
         onBack();
         toast('This conversation was deleted');
       }
-    });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+        qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
+      }
+    };
+
+    socket.on('new_message',       handleNewMessage);
+    socket.on('message_updated',   handleMessageUpdated);
+    socket.on('message_deleted',   handleMessageDeleted);
+    socket.on('message_pinned',    handleMessagePinned);
+    socket.on('message_reaction',  handleMessageReaction);
+    socket.on('user_typing',       handleUserTyping);
+    socket.on('user_status_changed', handleStatusChanged);
+    socket.on('room_deleted',      handleRoomDeleted);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       socket.emit('leave_room', roomId);
-      socket.off('new_message');
-      socket.off('message_updated');
-      socket.off('message_deleted');
-      socket.off('message_pinned');
-      socket.off('message_reaction');
-      socket.off('user_typing');
-      socket.off('added_to_room');
-      socket.off('user_status_changed');
-      socket.off('room_deleted');
+      socket.off('connect',            joinRoom);
+      socket.off('new_message',        handleNewMessage);
+      socket.off('message_updated',    handleMessageUpdated);
+      socket.off('message_deleted',    handleMessageDeleted);
+      socket.off('message_pinned',     handleMessagePinned);
+      socket.off('message_reaction',   handleMessageReaction);
+      socket.off('user_typing',        handleUserTyping);
+      socket.off('user_status_changed', handleStatusChanged);
+      socket.off('room_deleted',       handleRoomDeleted);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       setRealtimeMessages([]);
       setTypingUsers([]);
