@@ -144,10 +144,10 @@ export default function Invoicing() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Billed" value={fmtAmount(Number(stats.total_billed || 0), companyCurrency)} icon={FileText} />
-        <StatCard label="Collected" value={fmtAmount(Number(stats.collected || 0), companyCurrency)} icon={CheckCircle} iconColor="text-success" />
-        <StatCard label="Outstanding" value={fmtAmount(Number(stats.outstanding || 0), companyCurrency)} icon={Clock} iconColor="text-warning" />
-        <StatCard label="Overdue" value={fmtAmount(Number(stats.overdue || 0), companyCurrency)} icon={AlertTriangle} iconColor="text-destructive" />
+        <StatCard label="Total Billed" value={Number(stats.total_billed || 0).toLocaleString()} icon={FileText} />
+        <StatCard label="Collected" value={Number(stats.collected || 0).toLocaleString()} icon={CheckCircle} iconColor="text-success" />
+        <StatCard label="Outstanding" value={Number(stats.outstanding || 0).toLocaleString()} icon={Clock} iconColor="text-warning" />
+        <StatCard label="Overdue" value={Number(stats.overdue || 0).toLocaleString()} icon={AlertTriangle} iconColor="text-destructive" />
       </div>
 
       <div className="flex gap-1 overflow-x-auto">
