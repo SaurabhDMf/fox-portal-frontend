@@ -98,7 +98,7 @@ function ClientPortalChildRedirect() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <Toaster
-      position="top-right"
+      position="top-center"
       toastOptions={{
         style: { background: 'transparent', boxShadow: 'none', padding: 0, maxWidth: '100%' },
         className: '',
