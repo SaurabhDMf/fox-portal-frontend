@@ -33,6 +33,7 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import Permissions from "./pages/admin/Permissions";
 import RolesPermissions from "./pages/admin/RolesPermissions";
 import EmailPage from "./pages/admin/Email";
+import SharedInbox from "./pages/admin/SharedInbox";
 import Expenses from "./pages/admin/Expenses";
 import BalanceSheet from "./pages/admin/BalanceSheet";
 import Subscriptions from "./pages/admin/Subscriptions";
@@ -127,6 +128,7 @@ const App = () => (
           <Route path="projects/:id" element={<ProjectDetail />} />
           <Route path="vault" element={<Vault />} />
           <Route path="email" element={<EmailPage />} />
+          <Route path="inbox" element={<SharedInbox />} />
           <Route path="tickets" element={<Tickets />} />
           <Route path="tickets/:id" element={<TicketDetail />} />
           <Route path="tracker" element={<Tracker />} />
@@ -156,6 +158,7 @@ const App = () => (
           <Route path="chat" element={<Chat />} />
           <Route path="vault" element={<Vault />} />
           <Route path="email" element={<EmailPage />} />
+          <Route path="inbox" element={<SharedInbox />} />
           <Route path="tickets" element={<Tickets />} />
           <Route path="tickets/:id" element={<TicketDetail />} />
           <Route path="tracker" element={<Tracker />} />

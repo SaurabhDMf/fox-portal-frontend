@@ -6,7 +6,7 @@ import { useSidebarCollapsed } from './PortalLayout';
 import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
-  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale, RefreshCw
+  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale, RefreshCw, Inbox
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -30,6 +30,7 @@ const adminNav: NavItem[] = [
   { label: 'Projects', path: '/admin/projects', icon: FolderKanban, module: 'projects' },
   { label: 'Password Manager', path: '/admin/vault', icon: Lock, module: 'vault' },
   { label: 'Email', path: '/admin/email', icon: Mail },
+  { label: 'Shared Inbox', path: '/admin/inbox', icon: Inbox },
   { label: 'Tickets', path: '/admin/tickets', icon: Ticket, module: 'tickets' },
   { label: 'Tracker', path: '/admin/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/admin/payroll', icon: Wallet, module: 'payroll' },
@@ -54,6 +55,7 @@ const empNav: NavItem[] = [
   { label: 'Chat', path: '/emp/chat', icon: MessageSquare, module: 'chat' },
   { label: 'Password Manager', path: '/emp/vault', icon: Lock, module: 'vault' },
   { label: 'Email', path: '/emp/email', icon: Mail },
+  { label: 'Shared Inbox', path: '/emp/inbox', icon: Inbox },
   { label: 'Tickets', path: '/emp/tickets', icon: Ticket, module: 'tickets' },
   { label: 'Tracker', path: '/emp/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/emp/payroll', icon: Wallet, module: 'payroll' },

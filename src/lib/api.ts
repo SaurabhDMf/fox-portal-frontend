@@ -163,4 +163,30 @@ export const emailApi = {
     api.post('/email/messages/bulk-delete', { ids, permanent }),
 };
 
+export const inboxApi = {
+  // Inboxes
+  getInboxes:    ()                => api.get('/inbox'),
+  createInbox:   (data: any)       => api.post('/inbox', data),
+  updateInbox:   (id: string, data: any) => api.put(`/inbox/${id}`, data),
+  deleteInbox:   (id: string)      => api.delete(`/inbox/${id}`),
+  syncInbox:     (id: string)      => api.post(`/inbox/${id}/sync`),
+  // Senders
+  getSenders:    (id: string)      => api.get(`/inbox/${id}/senders`),
+  addSender:     (id: string, data: any) => api.post(`/inbox/${id}/senders`, data),
+  updateSender:  (id: string, sid: string, data: any) => api.put(`/inbox/${id}/senders/${sid}`, data),
+  deleteSender:  (id: string, sid: string) => api.delete(`/inbox/${id}/senders/${sid}`),
+  // Members
+  getMembers:    (id: string)      => api.get(`/inbox/${id}/members`),
+  addMember:     (id: string, data: any) => api.post(`/inbox/${id}/members`, data),
+  removeMember:  (id: string, uid: string) => api.delete(`/inbox/${id}/members/${uid}`),
+  // Threads
+  getThreads:    (id: string, params?: any) => api.get(`/inbox/${id}/threads`, { params }),
+  getThread:     (id: string, tid: string) => api.get(`/inbox/${id}/threads/${tid}`),
+  assignThread:  (id: string, tid: string, user_id: string | null) =>
+    api.post(`/inbox/${id}/threads/${tid}/assign`, { user_id }),
+  patchThread:   (id: string, tid: string, data: any) => api.patch(`/inbox/${id}/threads/${tid}`, data),
+  replyThread:   (id: string, tid: string, data: any) => api.post(`/inbox/${id}/threads/${tid}/reply`, data),
+  newThread:     (id: string, data: any) => api.post(`/inbox/${id}/threads`, data),
+};
+
 export default api;
