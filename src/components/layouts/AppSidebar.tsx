@@ -129,7 +129,7 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
   const role = user?.role || '';
   const navItems = getNavItems(role);
 
-  const isAdmin = ['super_admin', 'admin'].includes(role);
+  const isAdmin = ['super_admin', 'admin', 'sales_manager', 'sales_rep'].includes(role);
 
   const isModuleAllowed = (mod?: string) => {
     if (!mod) return true;
