@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Plus, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Loader2, Pencil, X, Check } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
 
 const INP = 'w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-colors';
@@ -61,6 +61,9 @@ export default function InboxMembersPage() {
   // ── Sender actions ──
   const [newSender, setNewSender] = useState({ email_address: '', display_name: '' });
   const [addingSender, setAddingSender] = useState(false);
+  const [editingSenderId, setEditingSenderId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<any>({});
+  const [savingSender, setSavingSender] = useState(false);
 
   const addSender = async () => {
     if (!newSender.email_address.trim()) return;
@@ -73,6 +76,32 @@ export default function InboxMembersPage() {
       toast.success('Sender added');
     } catch (e: any) { toast.error(errMsg(e)); }
     finally { setAddingSender(false); }
+  };
+
+  const startEdit = (s: any) => {
+    setEditingSenderId(s.id);
+    setEditForm({
+      email_address: s.email_address,
+      display_name: s.display_name || '',
+      smtp_host: s.smtp_host || '',
+      smtp_port: s.smtp_port || '',
+      smtp_user: s.smtp_user || '',
+      smtp_password: '',
+    });
+  };
+
+  const saveEdit = async (sid: string) => {
+    setSavingSender(true);
+    try {
+      const payload: any = { ...editForm };
+      if (!payload.smtp_password) delete payload.smtp_password;
+      await inboxApi.updateSender(inboxId!, sid, payload);
+      setEditingSenderId(null);
+      refetchSenders();
+      qc.invalidateQueries({ queryKey: ['inbox-senders', inboxId] });
+      toast.success('Sender updated');
+    } catch (e: any) { toast.error(errMsg(e)); }
+    finally { setSavingSender(false); }
   };
 
   const removeSender = async (sid: string) => {
@@ -190,15 +219,74 @@ export default function InboxMembersPage() {
               ) : (
                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                   {senders.map((s: any) => (
-                    <div key={s.id} className="flex items-center justify-between px-5 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{s.email_address}</p>
-                        {s.display_name && <p className="text-xs text-gray-400">{s.display_name}</p>}
-                      </div>
-                      <button onClick={() => removeSender(s.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                        <Trash2 size={14} />
-                      </button>
+                    <div key={s.id}>
+                      {editingSenderId === s.id ? (
+                        <div className="px-5 py-4 space-y-3 bg-violet-50/40 dark:bg-violet-900/10">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className={LBL}>Email address</label>
+                              <input value={editForm.email_address}
+                                onChange={e => setEditForm((f: any) => ({ ...f, email_address: e.target.value }))}
+                                className={INP} />
+                            </div>
+                            <div>
+                              <label className={LBL}>Display name</label>
+                              <input value={editForm.display_name}
+                                onChange={e => setEditForm((f: any) => ({ ...f, display_name: e.target.value }))}
+                                placeholder="Optional" className={INP} />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className={LBL}>SMTP host (optional)</label>
+                              <input value={editForm.smtp_host}
+                                onChange={e => setEditForm((f: any) => ({ ...f, smtp_host: e.target.value }))}
+                                placeholder="smtp.gmail.com" className={INP} />
+                            </div>
+                            <div>
+                              <label className={LBL}>SMTP user (optional)</label>
+                              <input value={editForm.smtp_user}
+                                onChange={e => setEditForm((f: any) => ({ ...f, smtp_user: e.target.value }))}
+                                placeholder="email@domain.com" className={INP} />
+                            </div>
+                          </div>
+                          <div>
+                            <label className={LBL}>New SMTP password (leave blank to keep current)</label>
+                            <input type="password" value={editForm.smtp_password}
+                              onChange={e => setEditForm((f: any) => ({ ...f, smtp_password: e.target.value }))}
+                              placeholder="••••••••••••••••" className={INP} />
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <button onClick={() => setEditingSenderId(null)}
+                              className="px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg flex items-center gap-1.5">
+                              <X size={13} /> Cancel
+                            </button>
+                            <button onClick={() => saveEdit(s.id)} disabled={savingSender}
+                              className="px-3 py-1.5 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-1.5">
+                              {savingSender ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between px-5 py-3">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{s.email_address}</p>
+                            {s.display_name && <p className="text-xs text-gray-400">{s.display_name}</p>}
+                            {s.smtp_host && <p className="text-xs text-gray-400">SMTP: {s.smtp_host}</p>}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => startEdit(s)}
+                              className="p-1.5 text-gray-400 hover:text-violet-600 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors">
+                              <Pencil size={14} />
+                            </button>
+                            <button onClick={() => removeSender(s.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
