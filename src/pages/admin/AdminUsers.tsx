@@ -159,7 +159,7 @@ export default function AdminUsers() {
     },
     onError: (e: any) => {
       if (e?.message === 'cancelled') return;
-      toast.error(e?.response?.data?.message || 'Error deleting user');
+      toast.error(e?.response?.data?.message || 'Error deactivating user');
     },
   });
 

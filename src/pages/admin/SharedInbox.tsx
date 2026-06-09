@@ -154,6 +154,7 @@ export default function SharedInbox() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQ, setSearchQ] = useState('');
   const [showUnassigned, setShowUnassigned] = useState(false);
+  const [showAssignedToMe, setShowAssignedToMe] = useState(false);
   const [selectedFolderId, setSelectedFolderIdRaw] = useState<string | null>(null);
   const [showMoveFolder, setShowMoveFolder] = useState(false);
   const [moveFolderThreadId, setMoveFolderThreadId] = useState<string | null>(null);
@@ -218,11 +219,12 @@ export default function SharedInbox() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['inbox-threads', selectedInboxId, filterStatus, searchQ, showUnassigned, dateFrom, dateTo, selectedFolderId, sortOrder],
+    queryKey: ['inbox-threads', selectedInboxId, filterStatus, searchQ, showUnassigned, showAssignedToMe, dateFrom, dateTo, selectedFolderId, sortOrder],
     queryFn: ({ pageParam = 1 }) => inboxApi.getThreads(selectedInboxId!, {
       status: filterStatus === 'all' ? undefined : filterStatus,
       search: searchQ || undefined,
       unassigned: showUnassigned ? '1' : undefined,
+      assigned_to_me: showAssignedToMe ? '1' : undefined,
       from_date: dateFrom || undefined,
       to_date:   dateTo   || undefined,
       folder_id: selectedFolderId || undefined,
@@ -561,10 +563,16 @@ export default function SharedInbox() {
                 </button>
               ))}
               {isAdmin && (
-                <button onClick={() => setShowUnassigned(!showUnassigned)}
-                  className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${showUnassigned ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-                  Unassigned
-                </button>
+                <>
+                  <button onClick={() => { setShowUnassigned(!showUnassigned); setShowAssignedToMe(false); }}
+                    className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${showUnassigned ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                    Unassigned
+                  </button>
+                  <button onClick={() => { setShowAssignedToMe(!showAssignedToMe); setShowUnassigned(false); }}
+                    className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${showAssignedToMe ? 'bg-teal-500 text-white border-teal-500' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                    Mine
+                  </button>
+                </>
               )}
               <button onClick={() => setShowDateFilter(v => !v)}
                 className={`px-2 py-0.5 text-xs rounded-full border transition-colors flex items-center gap-1 ${(dateFrom || dateTo) ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
