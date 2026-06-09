@@ -442,67 +442,67 @@ export default function SharedInbox() {
             <div className="px-3 py-4 text-center">
               <p className="text-xs text-gray-400">No inboxes yet.</p>
             </div>
-          ) : inboxes.map(inbox => (
-            <button
-              key={inbox.id}
-              onClick={() => { setSelectedInboxId(inbox.id); setSelectedThreadId(null); }}
-              className={`w-full text-left px-3 py-2.5 flex items-start gap-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${selectedInboxId === inbox.id ? 'bg-violet-50 dark:bg-violet-900/20 border-r-2 border-violet-500' : ''}`}
-            >
-              <Inbox size={15} className={`mt-0.5 flex-shrink-0 ${selectedInboxId === inbox.id ? 'text-violet-600' : 'text-gray-400'}`} />
-              <div className="min-w-0">
-                <p className={`text-xs font-medium truncate ${selectedInboxId === inbox.id ? 'text-violet-700 dark:text-violet-400' : 'text-gray-700 dark:text-gray-300'}`}>{inbox.name}</p>
-                <p className="text-xs text-gray-400 truncate">{inbox.email_address}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-        {selectedInboxId && (
-          <div className="border-t border-gray-100 dark:border-gray-700">
-            <div className="px-3 py-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Folders</span>
-              {isAdmin && (
-                <button onClick={() => setShowNewFolder(v => !v)}
-                  className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400">
-                  <FolderPlus size={13} />
+          ) : inboxes.map(inbox => {
+            const isSelected = selectedInboxId === inbox.id;
+            return (
+              <div key={inbox.id}>
+                <button
+                  onClick={() => { setSelectedInboxId(inbox.id); setSelectedThreadId(null); }}
+                  className={`w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${isSelected ? 'bg-violet-50 dark:bg-violet-900/20 border-r-2 border-violet-500' : ''}`}
+                >
+                  <Inbox size={15} className={`flex-shrink-0 ${isSelected ? 'text-violet-600' : 'text-gray-400'}`} />
+                  <p className={`text-xs font-medium truncate ${isSelected ? 'text-violet-700 dark:text-violet-400' : 'text-gray-700 dark:text-gray-300'}`}>{inbox.name}</p>
+                  {isAdmin && <p className="text-xs text-gray-400 truncate ml-auto hidden">{inbox.email_address}</p>}
                 </button>
-              )}
-            </div>
-            {showNewFolder && (
-              <div className="px-2 pb-2 flex gap-1">
-                <input autoFocus value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && newFolderName.trim()) createFolderMut.mutate(newFolderName.trim()); if (e.key === 'Escape') setShowNewFolder(false); }}
-                  placeholder="Folder name…"
-                  className="flex-1 text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400" />
-                <button onClick={() => newFolderName.trim() && createFolderMut.mutate(newFolderName.trim())}
-                  disabled={createFolderMut.isPending || !newFolderName.trim()}
-                  className="px-2 py-1 bg-violet-600 text-white text-xs rounded hover:bg-violet-700 disabled:opacity-50">
-                  Add
-                </button>
-              </div>
-            )}
-            <div className="pb-1">
-              <button onClick={() => setSelectedFolderId(null)}
-                className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${!selectedFolderId ? 'text-violet-600 dark:text-violet-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
-                <FolderOpen size={12} />All threads
-              </button>
-              {folders.map(f => (
-                <div key={f.id} className={`group flex items-center hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${selectedFolderId === f.id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
-                  <button onClick={() => setSelectedFolderId(f.id)}
-                    className="flex-1 text-left px-3 py-1.5 flex items-center gap-2 text-xs min-w-0">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: f.color }} />
-                    <span className={`truncate ${selectedFolderId === f.id ? 'text-violet-700 dark:text-violet-300 font-medium' : 'text-gray-600 dark:text-gray-300'}`}>{f.name}</span>
-                  </button>
-                  {isAdmin && (
-                    <button onClick={() => deleteFolderMut.mutate(f.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 mr-1 rounded text-gray-400 hover:text-red-500 transition-all">
-                      <Trash2 size={11} />
+
+                {/* Folders inline under selected inbox */}
+                {isSelected && (
+                  <div className="pl-5 pb-1">
+                    <button onClick={() => setSelectedFolderId(null)}
+                      className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded ${!selectedFolderId ? 'text-violet-600 dark:text-violet-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+                      <FolderOpen size={12} />All threads
                     </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+                    {folders.map(f => (
+                      <div key={f.id} className={`group flex items-center rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${selectedFolderId === f.id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
+                        <button onClick={() => setSelectedFolderId(f.id)}
+                          className="flex-1 text-left px-3 py-1.5 flex items-center gap-2 text-xs min-w-0">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: f.color }} />
+                          <span className={`truncate ${selectedFolderId === f.id ? 'text-violet-700 dark:text-violet-300 font-medium' : 'text-gray-600 dark:text-gray-300'}`}>{f.name}</span>
+                        </button>
+                        {isAdmin && (
+                          <button onClick={() => deleteFolderMut.mutate(f.id)}
+                            className="opacity-0 group-hover:opacity-100 p-1 mr-1 rounded text-gray-400 hover:text-red-500 transition-all">
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {isAdmin && (
+                      <div className="px-2 pt-1">
+                        {showNewFolder ? (
+                          <div className="flex gap-1">
+                            <input autoFocus value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter' && newFolderName.trim()) createFolderMut.mutate(newFolderName.trim()); if (e.key === 'Escape') setShowNewFolder(false); }}
+                              placeholder="Folder name…"
+                              className="flex-1 text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                            <button onClick={() => newFolderName.trim() && createFolderMut.mutate(newFolderName.trim())}
+                              disabled={createFolderMut.isPending || !newFolderName.trim()}
+                              className="px-2 py-1 bg-violet-600 text-white text-xs rounded hover:bg-violet-700 disabled:opacity-50">Add</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setShowNewFolder(true)}
+                            className="flex items-center gap-1 text-xs text-gray-400 hover:text-violet-600 transition-colors py-0.5">
+                            <FolderPlus size={11} /> New folder
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* ── Middle: thread list ───────────────────────────────── */}
@@ -669,13 +669,24 @@ export default function SharedInbox() {
               <div className="min-w-0">
                 <h2 className="font-semibold text-gray-800 dark:text-gray-100 truncate">{threadDetail.thread.subject}</h2>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <span className="text-xs text-gray-500">{threadDetail.thread.client_email}</span>
                   <ThreadStatusBadge thread={threadDetail.thread} />
                   {threadDetail.thread.ai_sent_at && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
                       <Bot size={10} /> AI sent
                     </span>
                   )}
+                </div>
+                <div className="mt-1 space-y-0.5">
+                  <p className="text-xs text-gray-500">
+                    <span className="font-medium text-gray-400 mr-1">From:</span>
+                    {threadDetail.thread.client_name
+                      ? <>{threadDetail.thread.client_name} &lt;{threadDetail.thread.client_email}&gt;</>
+                      : threadDetail.thread.client_email}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    <span className="font-medium text-gray-400 mr-1">To:</span>
+                    {threadDetail.thread.received_on}
+                  </p>
                 </div>
               </div>
             </div>
