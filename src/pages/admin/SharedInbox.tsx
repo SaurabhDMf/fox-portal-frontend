@@ -199,7 +199,12 @@ export default function SharedInbox() {
       to_date:   dateTo   || undefined,
       page:  pageParam,
       limit: 50,
-    }).then(r => r.data),
+    }).then(r => {
+      const d = r.data;
+      // normalise: old backend returns a plain array, new returns { threads, hasMore, page }
+      if (Array.isArray(d)) return { threads: d as Thread[], hasMore: false, page: 1 };
+      return d;
+    }),
     getNextPageParam: (last) => last.hasMore ? last.page + 1 : undefined,
     initialPageParam: 1,
     enabled: !!selectedInboxId,
@@ -207,7 +212,7 @@ export default function SharedInbox() {
     refetchInterval: anyOverlayOpen ? false : 30_000,
   });
 
-  const threads = threadPages?.pages.flatMap(p => p.threads) ?? [];
+  const threads = threadPages?.pages.flatMap(p => p.threads ?? []) ?? [];
 
   const { data: threadDetail, isLoading: loadingThread } = useQuery<{ thread: Thread; messages: Message[]; senders: Sender[] }>({
     queryKey: ['inbox-thread', selectedInboxId, selectedThreadId],
