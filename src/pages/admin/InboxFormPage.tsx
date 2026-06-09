@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, Trash2 } from 'lucide-react';
 import { inboxApi } from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
 
 const INP = 'w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-colors';
 const LBL = 'block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1';
@@ -26,6 +27,10 @@ export default function InboxFormPage() {
   const isEdit = !!inboxId;
   const basePath = pathname.startsWith('/emp') ? '/emp/inbox' : '/admin/inbox';
   const qc = useQueryClient();
+  const userRole = useAuthStore(s => s.user?.role);
+  const canDelete = ['super_admin', 'admin'].includes(userRole || '');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // No refetchInterval — this is a form page, no background polling
   const { data: inboxes = [], isLoading } = useQuery<any[]>({
@@ -99,6 +104,21 @@ export default function InboxFormPage() {
       toast.error(errMsg(e));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const removeInbox = async () => {
+    setDeleting(true);
+    try {
+      await inboxApi.deleteInbox(inboxId!);
+      qc.invalidateQueries({ queryKey: ['shared-inboxes'] });
+      toast.success('Inbox removed');
+      navigate(basePath);
+    } catch (e: any) {
+      toast.error(errMsg(e));
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -308,7 +328,51 @@ export default function InboxFormPage() {
             Cancel
           </button>
         </div>
+
+        {/* ── Danger Zone (edit only, admin/super_admin only) ── */}
+        {isEdit && canDelete && (
+          <div className="glass-card border border-red-200 dark:border-red-800/50 p-6 mb-8">
+            <h3 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1">Danger Zone</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Removing this inbox will permanently delete all its threads, messages, senders and members. This cannot be undone.
+            </p>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-700 rounded-lg text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+              <Trash2 size={14} /> Remove this inbox
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* ── Confirm delete dialog ── */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+          onClick={() => !deleting && setShowDeleteConfirm(false)}>
+          <div className="glass-card w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                <Trash2 size={18} />
+              </div>
+              <h2 className="text-base font-semibold">Remove inbox?</h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              This will permanently delete <strong>{inbox?.name}</strong> and all its threads, messages, senders and members. There is no way to undo this.
+            </p>
+            <div className="flex gap-2 justify-end pt-1">
+              <button onClick={() => setShowDeleteConfirm(false)} disabled={deleting}
+                className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={removeInbox} disabled={deleting}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-destructive text-destructive-foreground hover:opacity-90 disabled:opacity-50 transition-all">
+                {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                Yes, remove inbox
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
