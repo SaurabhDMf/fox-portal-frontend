@@ -895,11 +895,12 @@ function MessageBubble({ msg }: { msg: Message }) {
   if (hasHtml) {
     return (
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-2 px-1">
+        <div className="flex items-center gap-2 px-1 flex-wrap">
           <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-semibold text-gray-600 dark:text-gray-300 flex-shrink-0">
             {(msg.from_name || msg.from_address || '?')[0].toUpperCase()}
           </div>
           <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{msg.from_name || msg.from_address}</span>
+          {msg.from_name && <span className="text-xs text-gray-400">&lt;{msg.from_address}&gt;</span>}
           <span className="text-xs text-gray-400">{fmtDateTime(msg.sent_at || msg.created_at)}</span>
         </div>
         <div className="rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-white">
@@ -917,10 +918,12 @@ function MessageBubble({ msg }: { msg: Message }) {
         {isOut ? (msg.is_ai_generated ? <Bot size={14} /> : <Send size={12} />) : (msg.from_name || msg.from_address || '?')[0].toUpperCase()}
       </div>
       <div className={`max-w-[75%] flex flex-col gap-1 ${isOut ? 'items-end' : 'items-start'}`}>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
             {isOut ? (msg.is_ai_generated ? 'AI Auto-reply' : 'You') : (msg.from_name || msg.from_address)}
           </span>
+          {!isOut && msg.from_name && <span className="text-xs text-gray-400">&lt;{msg.from_address}&gt;</span>}
+          {isOut && <span className="text-xs text-gray-400">&lt;{msg.from_address}&gt;</span>}
           <span className="text-xs text-gray-400">{fmtDateTime(msg.sent_at || msg.created_at)}</span>
           {isScheduled && (
             <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
