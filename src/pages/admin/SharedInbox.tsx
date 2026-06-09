@@ -796,7 +796,7 @@ function ThreadRow({ thread, selected, isAdmin, members, folders, onSelect, onSt
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
           <span className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">{thread.client_name || thread.client_email}</span>
-          <span className="text-xs text-gray-400 flex-shrink-0">{fmtRelative(thread.updated_at)}</span>
+          <span className="text-xs text-gray-400 flex-shrink-0">{fmtRelative(thread.last_inbound_at || thread.updated_at)}</span>
         </div>
         <p className="text-xs text-gray-600 dark:text-gray-300 truncate mt-0.5">{thread.subject}</p>
         <p className="text-xs text-gray-400 truncate mt-0.5">{thread.last_body?.slice(0, 80)}</p>
