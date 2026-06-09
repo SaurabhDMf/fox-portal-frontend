@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -73,8 +74,6 @@ interface Message {
 
 interface Sender { id: string; email_address: string; display_name?: string; }
 
-type RightPanel = null | 'new-inbox' | 'inbox-settings' | 'thread';
-
 // ── StatusBadge ────────────────────────────────────────────────────────────
 
 function ThreadStatusBadge({ thread }: { thread: Thread }) {
@@ -96,403 +95,15 @@ function AvatarFallback({ name, size = 8 }: { name?: string; size?: number }) {
   );
 }
 
-// ── InboxForm (inline, shared between create and edit) ─────────────────────
-
-function InboxForm({ inbox, onSaved, onCancel }: {
-  inbox?: SharedInbox;
-  onSaved: (id: string) => void;
-  onCancel: () => void;
-}) {
-  const isEdit = !!inbox;
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    name:               inbox?.name               ?? '',
-    email_address:      inbox?.email_address      ?? '',
-    imap_host:          inbox?.imap_host          ?? 'imap.gmail.com',
-    imap_port:          inbox?.imap_port          ?? 993,
-    imap_secure:        inbox?.imap_secure        ?? 1,
-    imap_user:          inbox?.imap_user          ?? '',
-    imap_password:      '',
-    smtp_host:          inbox?.smtp_host          ?? 'smtp.gmail.com',
-    smtp_port:          inbox?.smtp_port          ?? 587,
-    smtp_secure:        inbox?.smtp_secure        ?? 0,
-    smtp_user:          inbox?.smtp_user          ?? '',
-    smtp_password:      '',
-    ai_followup_enabled:  inbox?.ai_followup_enabled  ?? 1,
-    ai_followup_delay_hr: inbox?.ai_followup_delay_hr ?? 2,
-    ai_followup_tone:     inbox?.ai_followup_tone     ?? 'professional',
-  });
-  const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
-
-  const submit = async () => {
-    if (!form.name.trim() || (!isEdit && !form.email_address.trim())) {
-      toast.error('Name and collection email are required');
-      return;
-    }
-    setSaving(true);
-    try {
-      let id: string;
-      if (isEdit) {
-        const payload: any = { ...form };
-        if (!payload.imap_password) delete payload.imap_password;
-        if (!payload.smtp_password) delete payload.smtp_password;
-        await inboxApi.updateInbox(inbox!.id, payload);
-        id = inbox!.id;
-        toast.success('Inbox updated');
-      } else {
-        const r = await inboxApi.createInbox(form);
-        id = r.data.id;
-        toast.success('Inbox created');
-      }
-      onSaved(id);
-    } catch (e: any) {
-      toast.error(errMsg(e));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-800">
-      {/* sticky header */}
-      <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-        <div>
-          <h2 className="font-semibold text-gray-800 dark:text-gray-100 text-base">
-            {isEdit ? `Settings — ${inbox!.name}` : 'New Shared Inbox'}
-          </h2>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {isEdit ? 'Update connection settings and AI behaviour' : 'Connect a Gmail / Google Workspace inbox for your team'}
-          </p>
-        </div>
-        <button onClick={onCancel} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400">
-          <X size={18} />
-        </button>
-      </div>
-
-      <div className="px-6 py-6 space-y-8 max-w-2xl">
-
-        {/* ── Basic info ── */}
-        <section>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">Basic Info</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={LBL}>Inbox name *</label>
-              <input value={form.name} onChange={e => set('name', e.target.value)}
-                placeholder="e.g. Sales Inbox" className={INP} />
-            </div>
-            <div>
-              <label className={LBL}>Collection email address {!isEdit && '*'}</label>
-              <input value={form.email_address} onChange={e => set('email_address', e.target.value)}
-                placeholder="inbox@yourdomain.com" disabled={isEdit}
-                className={`${INP} ${isEdit ? 'opacity-50 cursor-not-allowed' : ''}`} />
-              {!isEdit && <p className="text-xs text-gray-400 mt-1">This is the Gmail inbox where all 25+ sender addresses forward their mail.</p>}
-            </div>
-          </div>
-        </section>
-
-        {/* ── IMAP ── */}
-        <section>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">IMAP — Incoming Mail</h3>
-          <p className="text-xs text-gray-400 mb-4">Used to pull new emails from your Gmail inbox. Use an <strong>App Password</strong> (not your account password).</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-2">
-              <label className={LBL}>Host</label>
-              <input value={form.imap_host} onChange={e => set('imap_host', e.target.value)} className={INP} />
-            </div>
-            <div>
-              <label className={LBL}>Port</label>
-              <input type="number" value={form.imap_port} onChange={e => set('imap_port', +e.target.value)} className={INP} />
-            </div>
-            <div>
-              <label className={LBL}>Gmail / IMAP username</label>
-              <input value={form.imap_user} onChange={e => set('imap_user', e.target.value)}
-                placeholder="inbox@yourdomain.com" className={INP} />
-            </div>
-            <div>
-              <label className={LBL}>{isEdit ? 'App Password (leave blank to keep)' : 'App Password'}</label>
-              <input type="password" value={form.imap_password} onChange={e => set('imap_password', e.target.value)}
-                placeholder={isEdit ? '••••••••' : 'xxxx xxxx xxxx xxxx'} className={INP} />
-            </div>
-            <div className="flex items-end pb-2">
-              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
-                <input type="checkbox" checked={!!form.imap_secure} onChange={e => set('imap_secure', e.target.checked ? 1 : 0)}
-                  className="rounded border-gray-300 text-violet-600" />
-                SSL / TLS
-              </label>
-            </div>
-          </div>
-        </section>
-
-        {/* ── SMTP ── */}
-        <section>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">SMTP — Outgoing Mail</h3>
-          <p className="text-xs text-gray-400 mb-4">Used to send replies. This is the <em>default</em> SMTP — individual sender addresses can override it later.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-2">
-              <label className={LBL}>Host</label>
-              <input value={form.smtp_host} onChange={e => set('smtp_host', e.target.value)} className={INP} />
-            </div>
-            <div>
-              <label className={LBL}>Port</label>
-              <input type="number" value={form.smtp_port} onChange={e => set('smtp_port', +e.target.value)} className={INP} />
-            </div>
-            <div>
-              <label className={LBL}>Gmail / SMTP username</label>
-              <input value={form.smtp_user} onChange={e => set('smtp_user', e.target.value)}
-                placeholder="inbox@yourdomain.com" className={INP} />
-            </div>
-            <div>
-              <label className={LBL}>{isEdit ? 'App Password (leave blank to keep)' : 'App Password'}</label>
-              <input type="password" value={form.smtp_password} onChange={e => set('smtp_password', e.target.value)}
-                placeholder={isEdit ? '••••••••' : 'xxxx xxxx xxxx xxxx'} className={INP} />
-            </div>
-            <div className="flex items-end pb-2">
-              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
-                <input type="checkbox" checked={!!form.smtp_secure} onChange={e => set('smtp_secure', e.target.checked ? 1 : 0)}
-                  className="rounded border-gray-300 text-violet-600" />
-                SSL / TLS
-              </label>
-            </div>
-          </div>
-        </section>
-
-        {/* ── AI Follow-up ── */}
-        <section>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">AI Auto Follow-up</h3>
-          <p className="text-xs text-gray-400 mb-4">If an assigned employee doesn't reply within the delay window, Claude writes and sends a follow-up on their behalf.</p>
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 cursor-pointer select-none">
-              <input type="checkbox" checked={!!form.ai_followup_enabled}
-                onChange={e => set('ai_followup_enabled', e.target.checked ? 1 : 0)}
-                className="w-4 h-4 rounded border-gray-300 text-violet-600" />
-              <span className="text-sm text-gray-700 dark:text-gray-200">Enable AI auto follow-up</span>
-            </label>
-            {!!form.ai_followup_enabled && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-7">
-                <div>
-                  <label className={LBL}>Send follow-up after (hours)</label>
-                  <input type="number" min={1} max={72} value={form.ai_followup_delay_hr}
-                    onChange={e => set('ai_followup_delay_hr', +e.target.value)} className={INP} />
-                </div>
-                <div>
-                  <label className={LBL}>Email tone</label>
-                  <select value={form.ai_followup_tone} onChange={e => set('ai_followup_tone', e.target.value)} className={INP}>
-                    <option value="professional">Professional</option>
-                    <option value="friendly">Friendly &amp; warm</option>
-                    <option value="casual">Casual</option>
-                  </select>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ── Actions ── */}
-        <div className="flex items-center gap-3 pt-2 pb-8">
-          <button onClick={submit} disabled={saving}
-            className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 transition-colors">
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-            {isEdit ? 'Save Changes' : 'Create Inbox'}
-          </button>
-          <button onClick={onCancel} className="px-4 py-2.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── InboxSettingsPanel (senders + members tabs, inline) ────────────────────
-
-function InboxSettingsPanel({ inbox, onClose }: { inbox: SharedInbox; onClose: () => void }) {
-  const qc = useQueryClient();
-  const [tab, setTab] = useState<'general' | 'senders' | 'members'>('general');
-
-  const { data: senders = [], refetch: refetchSenders } = useQuery<any[]>({
-    queryKey: ['inbox-senders-settings', inbox.id],
-    queryFn: () => inboxApi.getSenders(inbox.id).then(r => r.data),
-    staleTime: 60_000, refetchOnWindowFocus: false,
-  });
-
-  const { data: members = [], refetch: refetchMembers } = useQuery<any[]>({
-    queryKey: ['inbox-members-settings', inbox.id],
-    queryFn: () => inboxApi.getMembers(inbox.id).then(r => r.data),
-    staleTime: 60_000, refetchOnWindowFocus: false,
-  });
-
-  const { data: allUsers = [] } = useQuery<any[]>({
-    queryKey: ['users-active'],
-    queryFn: () => api.get('/users/active').then(r => r.data),
-    staleTime: 120_000, refetchOnWindowFocus: false,
-  });
-
-  const [newSender, setNewSender] = useState({ email_address: '', display_name: '' });
-  const [addingSender, setAddingSender] = useState(false);
-  const addSender = async () => {
-    if (!newSender.email_address.trim()) return;
-    setAddingSender(true);
-    try {
-      await inboxApi.addSender(inbox.id, newSender);
-      setNewSender({ email_address: '', display_name: '' });
-      refetchSenders();
-      qc.invalidateQueries({ queryKey: ['inbox-senders', inbox.id] });
-      toast.success('Sender added');
-    } catch (e: any) { toast.error(errMsg(e)); }
-    finally { setAddingSender(false); }
-  };
-
-  const removeSender = async (sid: string) => {
-    try {
-      await inboxApi.deleteSender(inbox.id, sid);
-      refetchSenders();
-      qc.invalidateQueries({ queryKey: ['inbox-senders', inbox.id] });
-      toast.success('Removed');
-    } catch (e: any) { toast.error(errMsg(e)); }
-  };
-
-  const [selectedUser, setSelectedUser] = useState('');
-  const [addingMember, setAddingMember] = useState(false);
-  const addMember = async () => {
-    if (!selectedUser) return;
-    setAddingMember(true);
-    try {
-      await inboxApi.addMember(inbox.id, { user_id: selectedUser, role: 'member' });
-      setSelectedUser('');
-      refetchMembers();
-      qc.invalidateQueries({ queryKey: ['inbox-members', inbox.id] });
-      toast.success('Member added');
-    } catch (e: any) { toast.error(errMsg(e)); }
-    finally { setAddingMember(false); }
-  };
-
-  const removeMember = async (uid: string) => {
-    try {
-      await inboxApi.removeMember(inbox.id, uid);
-      refetchMembers();
-      qc.invalidateQueries({ queryKey: ['inbox-members', inbox.id] });
-    } catch (e: any) { toast.error(errMsg(e)); }
-  };
-
-  const existingMemberIds = new Set(members.map((m: any) => m.user_id));
-  const availableUsers = allUsers.filter((u: any) => !existingMemberIds.has(u.id));
-
-  return (
-    <div className="flex-1 flex flex-col bg-white dark:bg-gray-800 overflow-hidden">
-      {/* header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-        <div>
-          <h2 className="font-semibold text-gray-800 dark:text-gray-100 text-base">{inbox.name} — Senders &amp; Members</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Manage the 25+ sending addresses and team access</p>
-        </div>
-        <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400">
-          <X size={18} />
-        </button>
-      </div>
-
-      {/* tabs */}
-      <div className="flex border-b border-gray-100 dark:border-gray-700 px-6 flex-shrink-0">
-        {(['senders', 'members'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors capitalize ${tab === t ? 'border-violet-500 text-violet-600 dark:text-violet-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
-            {t}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-6 py-5">
-        {tab === 'senders' && (
-          <div className="space-y-5 max-w-xl">
-            <p className="text-sm text-gray-500">Add every email address that sends mail on behalf of this inbox. These appear as selectable "From" addresses when replying to threads.</p>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className={LBL}>Email address</label>
-                <input value={newSender.email_address} onChange={e => setNewSender(s => ({ ...s, email_address: e.target.value }))}
-                  onKeyDown={e => e.key === 'Enter' && addSender()}
-                  placeholder="sales@yourdomain.com" className={INP} />
-              </div>
-              <div className="flex-1">
-                <label className={LBL}>Display name (optional)</label>
-                <input value={newSender.display_name} onChange={e => setNewSender(s => ({ ...s, display_name: e.target.value }))}
-                  onKeyDown={e => e.key === 'Enter' && addSender()}
-                  placeholder="Saurabh — Sales" className={INP} />
-              </div>
-              <div className="flex items-end">
-                <button onClick={addSender} disabled={addingSender || !newSender.email_address.trim()}
-                  className="px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap">
-                  {addingSender ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add
-                </button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {senders.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">No senders added yet — add your first one above.</p>
-              ) : senders.map((s: any) => (
-                <div key={s.id} className="flex items-center justify-between py-3 px-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{s.email_address}</p>
-                    {s.display_name && <p className="text-xs text-gray-400">{s.display_name}</p>}
-                  </div>
-                  <button onClick={() => removeSender(s.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {tab === 'members' && (
-          <div className="space-y-5 max-w-xl">
-            <p className="text-sm text-gray-500">Team members who can view and reply to threads in this inbox. They will only see threads assigned to them.</p>
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <label className={LBL}>Add a team member</label>
-                <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)} className={INP}>
-                  <option value="">Select a team member…</option>
-                  {availableUsers.map((u: any) => (
-                    <option key={u.id} value={u.id}>{u.full_name} — {u.email}</option>
-                  ))}
-                </select>
-              </div>
-              <button onClick={addMember} disabled={addingMember || !selectedUser}
-                className="px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap">
-                {addingMember ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add
-              </button>
-            </div>
-            <div className="space-y-2">
-              {members.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">No members yet — add your first team member above.</p>
-              ) : members.map((m: any) => (
-                <div key={m.user_id} className="flex items-center justify-between py-3 px-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <AvatarFallback name={m.full_name} />
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{m.full_name}</p>
-                      <p className="text-xs text-gray-400">{m.email} · {m.role}</p>
-                    </div>
-                  </div>
-                  <button onClick={() => removeMember(m.user_id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── Main component ─────────────────────────────────────────────────────────
 
 export default function SharedInbox() {
   const user = useAuthStore(s => s.user);
   const isAdmin = ADMIN_ROLES.includes(user?.role || '');
   const qc = useQueryClient();
+  const navigate = useNavigate();
+
+  const basePath = window.location.pathname.startsWith('/emp') ? '/emp/inbox' : '/admin/inbox';
 
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
@@ -500,11 +111,6 @@ export default function SharedInbox() {
   const [searchQ, setSearchQ] = useState('');
   const [showUnassigned, setShowUnassigned] = useState(false);
 
-  // right-panel mode: null = thread/empty, 'new-inbox' = create form,
-  // 'inbox-settings' = IMAP/SMTP edit form, 'inbox-members' = senders+members
-  const [rightPanel, setRightPanel] = useState<null | 'new-inbox' | 'inbox-settings' | 'inbox-members'>('new-inbox');
-
-  // Small modals (simple — kept as overlays)
   const [showNewThread, setShowNewThread] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
 
@@ -585,19 +191,17 @@ export default function SharedInbox() {
     onError: (e: any) => toast.error(errMsg(e)),
   });
 
-  // Auto-select first inbox (but don't override rightPanel if it's already 'new-inbox')
+  // Auto-select first inbox
   useEffect(() => {
     if (inboxes.length > 0 && !selectedInboxId) {
       setSelectedInboxId(inboxes[0].id);
-      setRightPanel(null);
     }
-    // If there are inboxes and we're still on 'new-inbox', stay on the form (user is creating another)
   }, [inboxes]);
 
-  // When user has no inboxes, keep the form open
+  // Redirect admins to create page when no inboxes exist
   useEffect(() => {
     if (!loadingInboxes && inboxes.length === 0 && isAdmin) {
-      setRightPanel('new-inbox');
+      navigate(`${basePath}/new`, { replace: true });
     }
   }, [loadingInboxes, inboxes.length, isAdmin]);
 
@@ -638,9 +242,7 @@ export default function SharedInbox() {
     }
   };
 
-  // ── Helpers ──────────────────────────────────────────────────
-
-  const openThread = (tid: string) => { setSelectedThreadId(tid); setRightPanel(null); };
+  const openThread = (tid: string) => setSelectedThreadId(tid);
 
   if (loadingInboxes) {
     return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-gray-400" size={32} /></div>;
@@ -657,7 +259,7 @@ export default function SharedInbox() {
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Inboxes</span>
           {isAdmin && (
             <button
-              onClick={() => { setSelectedThreadId(null); setRightPanel('new-inbox'); }}
+              onClick={() => navigate(`${basePath}/new`)}
               className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
               title="Create new inbox"
             >
@@ -669,17 +271,16 @@ export default function SharedInbox() {
           {inboxes.length === 0 ? (
             <div className="px-3 py-4 text-center">
               <p className="text-xs text-gray-400">No inboxes yet.</p>
-              {isAdmin && <p className="text-xs text-gray-400 mt-1">Fill in the form →</p>}
             </div>
           ) : inboxes.map(inbox => (
             <button
               key={inbox.id}
-              onClick={() => { setSelectedInboxId(inbox.id); setSelectedThreadId(null); setRightPanel(null); }}
-              className={`w-full text-left px-3 py-2.5 flex items-start gap-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${selectedInboxId === inbox.id && !rightPanel ? 'bg-violet-50 dark:bg-violet-900/20 border-r-2 border-violet-500' : ''}`}
+              onClick={() => { setSelectedInboxId(inbox.id); setSelectedThreadId(null); }}
+              className={`w-full text-left px-3 py-2.5 flex items-start gap-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${selectedInboxId === inbox.id ? 'bg-violet-50 dark:bg-violet-900/20 border-r-2 border-violet-500' : ''}`}
             >
-              <Inbox size={15} className={`mt-0.5 flex-shrink-0 ${selectedInboxId === inbox.id && !rightPanel ? 'text-violet-600' : 'text-gray-400'}`} />
+              <Inbox size={15} className={`mt-0.5 flex-shrink-0 ${selectedInboxId === inbox.id ? 'text-violet-600' : 'text-gray-400'}`} />
               <div className="min-w-0">
-                <p className={`text-xs font-medium truncate ${selectedInboxId === inbox.id && !rightPanel ? 'text-violet-700 dark:text-violet-400' : 'text-gray-700 dark:text-gray-300'}`}>{inbox.name}</p>
+                <p className={`text-xs font-medium truncate ${selectedInboxId === inbox.id ? 'text-violet-700 dark:text-violet-400' : 'text-gray-700 dark:text-gray-300'}`}>{inbox.name}</p>
                 <p className="text-xs text-gray-400 truncate">{inbox.email_address}</p>
               </div>
             </button>
@@ -687,8 +288,8 @@ export default function SharedInbox() {
         </div>
       </div>
 
-      {/* ── Middle: thread list (only when an inbox is selected and not in form mode) ── */}
-      {selectedInbox && rightPanel === null && (
+      {/* ── Middle: thread list ───────────────────────────────── */}
+      {selectedInbox && (
         <div className={`flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${selectedThreadId ? 'hidden lg:flex w-72 flex-shrink-0' : 'flex-1 max-w-sm'}`}>
           <div className="p-3 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between mb-2">
@@ -702,9 +303,17 @@ export default function SharedInbox() {
                   <RefreshCw size={14} className={syncMut.isPending ? 'animate-spin' : ''} />
                 </button>
                 {isAdmin && <>
-                  <button onClick={() => { setSelectedThreadId(null); setRightPanel('inbox-settings'); }} title="Edit IMAP / SMTP settings"
+                  <button
+                    onClick={() => navigate(`${basePath}/${selectedInbox.id}/settings`)}
+                    title="Edit IMAP / SMTP settings"
                     className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500">
                     <Settings size={14} />
+                  </button>
+                  <button
+                    onClick={() => navigate(`${basePath}/${selectedInbox.id}/members`)}
+                    title="Manage senders & members"
+                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500">
+                    <UserPlus size={14} />
                   </button>
                   <button onClick={() => setShowNewThread(true)} title="New outbound email"
                     className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500">
@@ -754,34 +363,8 @@ export default function SharedInbox() {
         </div>
       )}
 
-      {/* ── Right panel ───────────────────────────────────────── */}
-      {rightPanel === 'new-inbox' ? (
-        <InboxForm
-          onSaved={(id) => {
-            qc.invalidateQueries({ queryKey: ['shared-inboxes'] });
-            setSelectedInboxId(id);
-            setRightPanel('inbox-members');
-          }}
-          onCancel={() => {
-            setRightPanel(inboxes.length > 0 ? null : 'new-inbox');
-          }}
-        />
-      ) : rightPanel === 'inbox-settings' && selectedInbox ? (
-        <InboxForm
-          inbox={selectedInbox}
-          onSaved={() => {
-            qc.invalidateQueries({ queryKey: ['shared-inboxes'] });
-            setRightPanel(null);
-          }}
-          onCancel={() => setRightPanel(null)}
-        />
-      ) : rightPanel === 'inbox-members' && (selectedInbox || inboxes.length > 0) ? (
-        <InboxSettingsPanel
-          inbox={selectedInbox || inboxes[inboxes.length - 1]}
-          onClose={() => setRightPanel(null)}
-        />
-      ) : selectedThreadId && threadDetail ? (
-        /* ── Thread detail ── */
+      {/* ── Right: thread detail or empty state ──────────────── */}
+      {selectedThreadId && threadDetail ? (
         <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-gray-800">
           <div className="flex items-start justify-between gap-4 px-5 py-3 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-3 min-w-0">
@@ -1012,7 +595,7 @@ function StatusDropdown({ status, onChange }: { status: string; onChange: (s: st
   );
 }
 
-// ── AssignModal (kept as small overlay — simple list) ──────────────────────
+// ── AssignModal ────────────────────────────────────────────────────────────
 
 function AssignModal({ members, currentAssignee, onClose, onAssign }: {
   members: any[]; currentAssignee?: string; onClose: () => void; onAssign: (uid: string | null) => void;
@@ -1047,7 +630,7 @@ function AssignModal({ members, currentAssignee, onClose, onAssign }: {
   );
 }
 
-// ── NewThreadModal (kept as small overlay — few fields) ────────────────────
+// ── NewThreadModal ─────────────────────────────────────────────────────────
 
 function NewThreadModal({ inboxId, senders, onClose, onCreated }: {
   inboxId: string; senders: Sender[]; onClose: () => void; onCreated: (tid: string) => void;

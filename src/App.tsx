@@ -34,6 +34,8 @@ import Permissions from "./pages/admin/Permissions";
 import RolesPermissions from "./pages/admin/RolesPermissions";
 import EmailPage from "./pages/admin/Email";
 import SharedInbox from "./pages/admin/SharedInbox";
+import InboxFormPage from "./pages/admin/InboxFormPage";
+import InboxMembersPage from "./pages/admin/InboxMembersPage";
 import Expenses from "./pages/admin/Expenses";
 import BalanceSheet from "./pages/admin/BalanceSheet";
 import Subscriptions from "./pages/admin/Subscriptions";
@@ -129,6 +131,9 @@ const App = () => (
           <Route path="vault" element={<Vault />} />
           <Route path="email" element={<EmailPage />} />
           <Route path="inbox" element={<SharedInbox />} />
+          <Route path="inbox/new" element={<InboxFormPage />} />
+          <Route path="inbox/:inboxId/settings" element={<InboxFormPage />} />
+          <Route path="inbox/:inboxId/members" element={<InboxMembersPage />} />
           <Route path="tickets" element={<Tickets />} />
           <Route path="tickets/:id" element={<TicketDetail />} />
           <Route path="tracker" element={<Tracker />} />
@@ -159,6 +164,9 @@ const App = () => (
           <Route path="vault" element={<Vault />} />
           <Route path="email" element={<EmailPage />} />
           <Route path="inbox" element={<SharedInbox />} />
+          <Route path="inbox/new" element={<InboxFormPage />} />
+          <Route path="inbox/:inboxId/settings" element={<InboxFormPage />} />
+          <Route path="inbox/:inboxId/members" element={<InboxMembersPage />} />
           <Route path="tickets" element={<Tickets />} />
           <Route path="tickets/:id" element={<TicketDetail />} />
           <Route path="tracker" element={<Tracker />} />
