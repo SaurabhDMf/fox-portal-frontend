@@ -7,7 +7,7 @@ import {
   Settings, Users, Mail, Tag, Zap, AlertCircle, Archive,
   ArrowLeft, UserPlus, Trash2, Eye, Loader2, Bot,
 } from 'lucide-react';
-import { inboxApi } from '@/lib/api';
+import api, { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -155,10 +155,15 @@ export default function SharedInbox() {
 
   // ── Queries ──────────────────────────────────────────────────
 
+  // Any modal open? Pause background polling so typing is never interrupted.
+  const anyModalOpen = showNewInbox || showNewThread || showAssign || !!showSettings;
+
   const { data: inboxes = [], isLoading: loadingInboxes } = useQuery<SharedInbox[]>({
     queryKey: ['shared-inboxes'],
     queryFn: () => inboxApi.getInboxes().then(r => r.data),
-    refetchInterval: 30_000,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchInterval: anyModalOpen ? false : 60_000,
   });
 
   const selectedInbox = inboxes.find(i => i.id === selectedInboxId) ?? null;
@@ -171,26 +176,34 @@ export default function SharedInbox() {
       unassigned: showUnassigned ? '1' : undefined,
     }).then(r => r.data),
     enabled: !!selectedInboxId,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchInterval: anyModalOpen ? false : 30_000,
   });
 
   const { data: threadDetail, isLoading: loadingThread } = useQuery<{ thread: Thread; messages: Message[]; senders: Sender[] }>({
     queryKey: ['inbox-thread', selectedInboxId, selectedThreadId],
     queryFn: () => inboxApi.getThread(selectedInboxId!, selectedThreadId!).then(r => r.data),
     enabled: !!(selectedInboxId && selectedThreadId),
-    refetchInterval: 10_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    refetchInterval: anyModalOpen ? false : 30_000,
   });
 
   const { data: members = [] } = useQuery<any[]>({
     queryKey: ['inbox-members', selectedInboxId],
     queryFn: () => inboxApi.getMembers(selectedInboxId!).then(r => r.data),
     enabled: !!selectedInboxId,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: senders = [] } = useQuery<Sender[]>({
     queryKey: ['inbox-senders', selectedInboxId],
     queryFn: () => inboxApi.getSenders(selectedInboxId!).then(r => r.data),
     enabled: !!selectedInboxId,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   // ── Mutations ────────────────────────────────────────────────
@@ -237,12 +250,15 @@ export default function SharedInbox() {
   const [replyCC, setReplyCC] = useState('');
   const [sendLater, setSendLater] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+  const replyFromInitialised = useRef<string | null>(null);
 
   useEffect(() => {
-    if (threadDetail?.senders?.length) {
+    // Only initialise replyFrom once per thread — never overwrite what the user picked
+    if (threadDetail?.senders?.length && replyFromInitialised.current !== selectedThreadId) {
+      replyFromInitialised.current = selectedThreadId;
       setReplyFrom(threadDetail.thread.received_on || threadDetail.senders[0].email_address);
     }
-  }, [threadDetail]);
+  }, [threadDetail, selectedThreadId]);
 
   const sendReply = async () => {
     if (!replyText.trim() || !selectedInboxId || !selectedThreadId) return;
@@ -965,16 +981,22 @@ function InboxSettingsModal({ inbox, onClose }: { inbox: SharedInbox; onClose: (
   const { data: senders = [], refetch: refetchSenders } = useQuery<Sender[]>({
     queryKey: ['inbox-senders-settings', inbox.id],
     queryFn: () => inboxApi.getSenders(inbox.id).then(r => r.data),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: members = [], refetch: refetchMembers } = useQuery<any[]>({
     queryKey: ['inbox-members-settings', inbox.id],
     queryFn: () => inboxApi.getMembers(inbox.id).then(r => r.data),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: allUsers = [] } = useQuery<any[]>({
     queryKey: ['users-active'],
-    queryFn: () => import('@/lib/api').then(m => m.default.get('/users/active').then(r => r.data)),
+    queryFn: () => api.get('/users/active').then(r => r.data),
+    staleTime: 120_000,
+    refetchOnWindowFocus: false,
   });
 
   // General settings form
