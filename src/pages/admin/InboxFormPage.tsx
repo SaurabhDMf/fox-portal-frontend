@@ -86,13 +86,15 @@ export default function InboxFormPage() {
           old?.map(i => i.id === savedId ? { ...i, ...updated } : i) ?? []
         );
         toast.success('Inbox updated');
+        navigate(basePath);
+        return;
       } else {
         const r = await inboxApi.createInbox(form);
         savedId = r.data.id;
         toast.success('Inbox created — now add senders and team members');
       }
       qc.invalidateQueries({ queryKey: ['shared-inboxes'] });
-      navigate(isEdit ? basePath : `${basePath}/${savedId}/members`);
+      navigate(`${basePath}/${savedId}/members`);
     } catch (e: any) {
       toast.error(errMsg(e));
     } finally {

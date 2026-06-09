@@ -7,7 +7,7 @@ import {
   X, Check, MoreVertical,
   Settings, Mail, Tag, Zap, Archive,
   ArrowLeft, UserPlus, Loader2, Bot, ChevronDown, CalendarDays,
-  FolderOpen, FolderPlus, Trash2,
+  FolderOpen, FolderPlus, Trash2, ArrowUpDown,
 } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -170,11 +170,12 @@ export default function SharedInbox() {
     }
   };
 
-  // Restore folder selection when inbox changes
+  // Restore folder selection when inbox changes; reset sort to newest-first
   useEffect(() => {
     if (selectedInboxId) {
       const saved = localStorage.getItem(`inbox_folder_${selectedInboxId}`);
       setSelectedFolderIdRaw(saved || null);
+      setSortOrder('desc');
     }
   }, [selectedInboxId]);
 
@@ -182,6 +183,7 @@ export default function SharedInbox() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showDateFilter, setShowDateFilter] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   const applyPreset = (key: string) => {
     const preset = DATE_PRESETS.find(p => p.key === key);
@@ -216,7 +218,7 @@ export default function SharedInbox() {
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery<{ threads: Thread[]; hasMore: boolean; page: number }>({
-    queryKey: ['inbox-threads', selectedInboxId, filterStatus, searchQ, showUnassigned, dateFrom, dateTo, selectedFolderId],
+    queryKey: ['inbox-threads', selectedInboxId, filterStatus, searchQ, showUnassigned, dateFrom, dateTo, selectedFolderId, sortOrder],
     queryFn: ({ pageParam }) => inboxApi.getThreads(selectedInboxId!, {
       status: filterStatus === 'all' ? undefined : filterStatus,
       search: searchQ || undefined,
@@ -224,6 +226,7 @@ export default function SharedInbox() {
       from_date: dateFrom || undefined,
       to_date:   dateTo   || undefined,
       folder_id: selectedFolderId || undefined,
+      order: sortOrder,
       page:  pageParam,
       limit: 50,
     }).then(r => {
@@ -293,7 +296,9 @@ export default function SharedInbox() {
   const fullSyncMut = useMutation({
     mutationFn: () => inboxApi.syncInboxFull(selectedInboxId!),
     onSuccess: (r) => {
-      toast.success(`Pulled from server — ${r.data.synced} new message(s)`);
+      const n = r.data.synced ?? 0;
+      toast.success(n > 0 ? `Imported ${n} historical email${n !== 1 ? 's' : ''} — showing oldest first` : 'No new emails found on server');
+      setSortOrder('asc');
       qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
     },
     onError: (e: any) => toast.error(errMsg(e)),
@@ -561,6 +566,11 @@ export default function SharedInbox() {
               <button onClick={() => setShowDateFilter(v => !v)}
                 className={`px-2 py-0.5 text-xs rounded-full border transition-colors flex items-center gap-1 ${(dateFrom || dateTo) ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
                 <CalendarDays size={11} />Date
+              </button>
+              <button onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}
+                title={sortOrder === 'desc' ? 'Showing newest first' : 'Showing oldest first'}
+                className={`px-2 py-0.5 text-xs rounded-full border transition-colors flex items-center gap-1 ${sortOrder === 'asc' ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                <ArrowUpDown size={11} />{sortOrder === 'asc' ? 'Oldest' : 'Newest'}
               </button>
             </div>
 
