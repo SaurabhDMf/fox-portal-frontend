@@ -170,6 +170,13 @@ export const inboxApi = {
   updateInbox:   (id: string, data: any) => api.put(`/inbox/${id}`, data),
   deleteInbox:   (id: string)      => api.delete(`/inbox/${id}`),
   syncInbox:     (id: string)      => api.post(`/inbox/${id}/sync`),
+  syncInboxFull: (id: string)      => api.post(`/inbox/${id}/sync?full=1`),
+  // Folders
+  getFolders:    (id: string)               => api.get(`/inbox/${id}/folders`),
+  createFolder:  (id: string, data: any)    => api.post(`/inbox/${id}/folders`, data),
+  deleteFolder:  (id: string, fid: string)  => api.delete(`/inbox/${id}/folders/${fid}`),
+  moveThread:    (id: string, tid: string, folder_id: string | null) =>
+    api.put(`/inbox/${id}/threads/${tid}/folder`, { folder_id }),
   // Senders
   getSenders:    (id: string)      => api.get(`/inbox/${id}/senders`),
   addSender:     (id: string, data: any) => api.post(`/inbox/${id}/senders`, data),

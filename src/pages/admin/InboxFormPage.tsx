@@ -80,8 +80,11 @@ export default function InboxFormPage() {
         const payload: any = { ...form };
         if (!payload.imap_password) delete payload.imap_password;
         if (!payload.smtp_password) delete payload.smtp_password;
-        await inboxApi.updateInbox(inbox!.id, payload);
+        const { data: updated } = await inboxApi.updateInbox(inbox!.id, payload);
         savedId = inbox!.id;
+        qc.setQueryData(['shared-inboxes'], (old: any[] | undefined) =>
+          old?.map(i => i.id === savedId ? { ...i, ...updated } : i) ?? []
+        );
         toast.success('Inbox updated');
       } else {
         const r = await inboxApi.createInbox(form);

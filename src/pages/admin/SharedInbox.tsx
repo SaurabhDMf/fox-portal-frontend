@@ -7,6 +7,7 @@ import {
   X, Check, MoreVertical,
   Settings, Mail, Tag, Zap, Archive,
   ArrowLeft, UserPlus, Loader2, Bot, ChevronDown, CalendarDays,
+  FolderOpen, FolderPlus, Trash2,
 } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -103,6 +104,7 @@ interface Thread {
   status: 'open' | 'followup' | 'closed';
   followup_count: number; last_inbound_at?: string; last_outbound_at?: string;
   ai_sent_at?: string; updated_at: string; message_count: number; last_body?: string;
+  folder_id?: string; folder_name?: string; folder_color?: string;
 }
 
 interface Message {
@@ -152,6 +154,30 @@ export default function SharedInbox() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQ, setSearchQ] = useState('');
   const [showUnassigned, setShowUnassigned] = useState(false);
+  const [selectedFolderId, setSelectedFolderIdRaw] = useState<string | null>(null);
+  const [showMoveFolder, setShowMoveFolder] = useState(false);
+  const [moveFolderThreadId, setMoveFolderThreadId] = useState<string | null>(null);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [showNewFolder, setShowNewFolder] = useState(false);
+
+  // Persist folder selection per inbox in localStorage
+  const setSelectedFolderId = (fid: string | null) => {
+    setSelectedFolderIdRaw(fid);
+    if (selectedInboxId) {
+      if (fid) localStorage.setItem(`inbox_folder_${selectedInboxId}`, fid);
+      else localStorage.removeItem(`inbox_folder_${selectedInboxId}`);
+    }
+  };
+
+  // Restore folder selection when inbox changes
+  useEffect(() => {
+    if (selectedInboxId) {
+      const saved = localStorage.getItem(`inbox_folder_${selectedInboxId}`);
+      setSelectedFolderIdRaw(saved || null);
+    }
+  }, [selectedInboxId]);
+
   const [datePreset, setDatePreset] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -170,7 +196,7 @@ export default function SharedInbox() {
   const [showNewThread, setShowNewThread] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
 
-  const anyOverlayOpen = showNewThread || showAssign;
+  const anyOverlayOpen = showNewThread || showAssign || showMoveFolder;
 
   // ── Queries ──────────────────────────────────────────────────
 
@@ -190,13 +216,14 @@ export default function SharedInbox() {
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery<{ threads: Thread[]; hasMore: boolean; page: number }>({
-    queryKey: ['inbox-threads', selectedInboxId, filterStatus, searchQ, showUnassigned, dateFrom, dateTo],
+    queryKey: ['inbox-threads', selectedInboxId, filterStatus, searchQ, showUnassigned, dateFrom, dateTo, selectedFolderId],
     queryFn: ({ pageParam }) => inboxApi.getThreads(selectedInboxId!, {
       status: filterStatus === 'all' ? undefined : filterStatus,
       search: searchQ || undefined,
       unassigned: showUnassigned ? '1' : undefined,
       from_date: dateFrom || undefined,
       to_date:   dateTo   || undefined,
+      folder_id: selectedFolderId || undefined,
       page:  pageParam,
       limit: 50,
     }).then(r => {
@@ -245,12 +272,28 @@ export default function SharedInbox() {
     staleTime: 60_000, refetchOnWindowFocus: false,
   });
 
+  const { data: folders = [], refetch: refetchFolders } = useQuery<any[]>({
+    queryKey: ['inbox-folders', selectedInboxId],
+    queryFn: () => inboxApi.getFolders(selectedInboxId!).then(r => r.data),
+    enabled: !!selectedInboxId,
+    staleTime: 60_000, refetchOnWindowFocus: false,
+  });
+
   // ── Mutations ────────────────────────────────────────────────
 
   const syncMut = useMutation({
     mutationFn: () => inboxApi.syncInbox(selectedInboxId!),
     onSuccess: (r) => {
       toast.success(`Synced — ${r.data.synced} new message(s)`);
+      qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
+    },
+    onError: (e: any) => toast.error(errMsg(e)),
+  });
+
+  const fullSyncMut = useMutation({
+    mutationFn: () => inboxApi.syncInboxFull(selectedInboxId!),
+    onSuccess: (r) => {
+      toast.success(`Pulled from server — ${r.data.synced} new message(s)`);
       qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
     },
     onError: (e: any) => toast.error(errMsg(e)),
@@ -271,6 +314,39 @@ export default function SharedInbox() {
       qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
       setShowAssign(false);
       toast.success('Thread assigned');
+    },
+    onError: (e: any) => toast.error(errMsg(e)),
+  });
+
+  const moveFolderMut = useMutation({
+    mutationFn: ({ tid, fid }: { tid: string; fid: string | null }) =>
+      inboxApi.moveThread(selectedInboxId!, tid, fid),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
+      qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
+      setShowMoveFolder(false);
+      toast.success('Moved');
+    },
+    onError: (e: any) => toast.error(errMsg(e)),
+  });
+
+  const createFolderMut = useMutation({
+    mutationFn: (name: string) => inboxApi.createFolder(selectedInboxId!, { name }),
+    onSuccess: () => {
+      refetchFolders();
+      setNewFolderName('');
+      setShowNewFolder(false);
+      toast.success('Folder created');
+    },
+    onError: (e: any) => toast.error(errMsg(e)),
+  });
+
+  const deleteFolderMut = useMutation({
+    mutationFn: (fid: string) => inboxApi.deleteFolder(selectedInboxId!, fid),
+    onSuccess: () => {
+      refetchFolders();
+      if (selectedFolderId && deleteFolderMut.variables === selectedFolderId) setSelectedFolderId(null);
+      toast.success('Folder deleted');
     },
     onError: (e: any) => toast.error(errMsg(e)),
   });
@@ -370,6 +446,53 @@ export default function SharedInbox() {
             </button>
           ))}
         </div>
+        {selectedInboxId && (
+          <div className="border-t border-gray-100 dark:border-gray-700">
+            <div className="px-3 py-2 flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Folders</span>
+              {isAdmin && (
+                <button onClick={() => setShowNewFolder(v => !v)}
+                  className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400">
+                  <FolderPlus size={13} />
+                </button>
+              )}
+            </div>
+            {showNewFolder && (
+              <div className="px-2 pb-2 flex gap-1">
+                <input autoFocus value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && newFolderName.trim()) createFolderMut.mutate(newFolderName.trim()); if (e.key === 'Escape') setShowNewFolder(false); }}
+                  placeholder="Folder name…"
+                  className="flex-1 text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                <button onClick={() => newFolderName.trim() && createFolderMut.mutate(newFolderName.trim())}
+                  disabled={createFolderMut.isPending || !newFolderName.trim()}
+                  className="px-2 py-1 bg-violet-600 text-white text-xs rounded hover:bg-violet-700 disabled:opacity-50">
+                  Add
+                </button>
+              </div>
+            )}
+            <div className="pb-1">
+              <button onClick={() => setSelectedFolderId(null)}
+                className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${!selectedFolderId ? 'text-violet-600 dark:text-violet-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+                <FolderOpen size={12} />All threads
+              </button>
+              {folders.map(f => (
+                <div key={f.id} className={`group flex items-center hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${selectedFolderId === f.id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
+                  <button onClick={() => setSelectedFolderId(f.id)}
+                    className="flex-1 text-left px-3 py-1.5 flex items-center gap-2 text-xs min-w-0">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: f.color }} />
+                    <span className={`truncate ${selectedFolderId === f.id ? 'text-violet-700 dark:text-violet-300 font-medium' : 'text-gray-600 dark:text-gray-300'}`}>{f.name}</span>
+                  </button>
+                  {isAdmin && (
+                    <button onClick={() => deleteFolderMut.mutate(f.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 mr-1 rounded text-gray-400 hover:text-red-500 transition-all">
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Middle: thread list ───────────────────────────────── */}
@@ -411,6 +534,17 @@ export default function SharedInbox() {
               <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search threads…"
                 className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400" />
             </div>
+            {selectedFolderId && (
+              <div className="flex items-center gap-1.5 px-1 py-0.5 mb-1">
+                <span className="text-xs text-violet-600 dark:text-violet-400 flex items-center gap-1">
+                  <FolderOpen size={11} />
+                  {folders.find(f => f.id === selectedFolderId)?.name || 'Folder'}
+                </span>
+                <button onClick={() => setSelectedFolderId(null)} className="text-gray-400 hover:text-gray-600">
+                  <X size={11} />
+                </button>
+              </div>
+            )}
             <div className="flex gap-1 flex-wrap">
               {['all', 'open', 'followup', 'closed'].map(s => (
                 <button key={s} onClick={() => setFilterStatus(s)}
@@ -475,10 +609,11 @@ export default function SharedInbox() {
             ) : threads.map(thread => (
               <ThreadRow key={thread.id} thread={thread}
                 selected={selectedThreadId === thread.id}
-                isAdmin={isAdmin} members={members}
+                isAdmin={isAdmin} members={members} folders={folders}
                 onSelect={() => openThread(thread.id)}
                 onStatusChange={status => patchThreadMut.mutate({ tid: thread.id, data: { status } })}
                 onAssign={() => { setSelectedThreadId(thread.id); setShowAssign(true); }}
+                onMoveFolder={() => { setMoveFolderThreadId(thread.id); setShowMoveFolder(true); }}
               />
             ))}
             {hasNextPage && (
@@ -490,6 +625,21 @@ export default function SharedInbox() {
                 </button>
               </div>
             )}
+            <div className="border-t border-gray-100 dark:border-gray-700 p-3 space-y-2">
+              <p className="text-xs text-center text-gray-400">
+                {threads.length} thread{threads.length !== 1 ? 's' : ''} loaded from database
+              </p>
+              <button onClick={() => fullSyncMut.mutate()} disabled={fullSyncMut.isPending}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-50 transition-colors">
+                <RefreshCw size={13} className={fullSyncMut.isPending ? 'animate-spin' : ''} />
+                {fullSyncMut.isPending ? 'Pulling from server…' : 'Pull older emails from mail server'}
+              </button>
+              {fullSyncMut.isPending && (
+                <p className="text-xs text-center text-gray-400 italic">
+                  Scanning IMAP mailbox — this may take a few seconds
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -520,6 +670,19 @@ export default function SharedInbox() {
                 <button onClick={() => setShowAssign(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
                   <UserPlus size={13} />{threadDetail.thread.assignee_name || 'Assign'}
+                </button>
+              )}
+              {isAdmin && threadDetail.thread.folder_id && (
+                <button onClick={() => { setMoveFolderThreadId(selectedThreadId); setShowMoveFolder(true); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+                  style={{ borderColor: threadDetail.thread.folder_color || undefined }}>
+                  <FolderOpen size={13} />{threadDetail.thread.folder_name}
+                </button>
+              )}
+              {isAdmin && !threadDetail.thread.folder_id && (
+                <button onClick={() => { setMoveFolderThreadId(selectedThreadId); setShowMoveFolder(true); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+                  <FolderPlus size={13} />Folder
                 </button>
               )}
               <StatusDropdown status={threadDetail.thread.status}
@@ -591,15 +754,24 @@ export default function SharedInbox() {
           onClose={() => setShowAssign(false)}
           onAssign={(uid) => assignMut.mutate({ tid: selectedThreadId, uid })} />
       )}
+
+      {showMoveFolder && selectedInboxId && moveFolderThreadId && (
+        <MoveFolderModal
+          folders={folders}
+          currentFolderId={threads.find(t => t.id === moveFolderThreadId)?.folder_id || threadDetail?.thread.folder_id}
+          onClose={() => setShowMoveFolder(false)}
+          onMove={(fid) => moveFolderMut.mutate({ tid: moveFolderThreadId, fid })}
+        />
+      )}
     </div>
   );
 }
 
 // ── ThreadRow ──────────────────────────────────────────────────────────────
 
-function ThreadRow({ thread, selected, isAdmin, members, onSelect, onStatusChange, onAssign }: {
-  thread: Thread; selected: boolean; isAdmin: boolean; members: any[];
-  onSelect: () => void; onStatusChange: (s: string) => void; onAssign: () => void;
+function ThreadRow({ thread, selected, isAdmin, members, folders, onSelect, onStatusChange, onAssign, onMoveFolder }: {
+  thread: Thread; selected: boolean; isAdmin: boolean; members: any[]; folders: any[];
+  onSelect: () => void; onStatusChange: (s: string) => void; onAssign: () => void; onMoveFolder: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -625,6 +797,12 @@ function ThreadRow({ thread, selected, isAdmin, members, onSelect, onStatusChang
         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
           <ThreadStatusBadge thread={thread} />
           {thread.assignee_name && <span className="text-xs text-gray-400 truncate">→ {thread.assignee_name}</span>}
+          {thread.folder_name && (
+            <span className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full"
+              style={{ background: (thread.folder_color || '#6366f1') + '22', color: thread.folder_color || '#6366f1' }}>
+              <FolderOpen size={9} />{thread.folder_name}
+            </span>
+          )}
         </div>
       </div>
       <div ref={menuRef} className="relative flex-shrink-0" onClick={e => e.stopPropagation()}>
@@ -645,6 +823,15 @@ function ThreadRow({ thread, selected, isAdmin, members, onSelect, onStatusChang
                 className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border-t border-gray-100 dark:border-gray-700 mt-1 pt-2">
                 <UserPlus size={12} /> Assign
               </button>
+            )}
+            {isAdmin && folders && folders.length > 0 && (
+              <div className="border-t border-gray-100 dark:border-gray-700 mt-1 pt-1">
+                <p className="px-3 py-1 text-xs text-gray-400">Move to folder</p>
+                <button onClick={() => { onMoveFolder(); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs">
+                  <FolderOpen size={12} /> Choose folder…
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -759,6 +946,46 @@ function AssignModal({ salesUsers, currentAssignee, onClose, onAssign }: {
               {currentAssignee === u.id && <Check size={14} className="ml-auto flex-shrink-0 text-violet-500" />}
             </button>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── MoveFolderModal ────────────────────────────────────────────────────────
+
+function MoveFolderModal({ folders, currentFolderId, onClose, onMove }: {
+  folders: any[]; currentFolderId?: string; onClose: () => void; onMove: (fid: string | null) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-72 max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
+          <h3 className="font-semibold text-gray-800 dark:text-gray-100">Move to folder</h3>
+          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
+        </div>
+        <div className="overflow-y-auto p-2">
+          <button onClick={() => onMove(null)}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm ${!currentFolderId ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
+            <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-600 flex items-center justify-center">
+              <FolderOpen size={14} className="text-gray-500" />
+            </div>
+            <span className="text-gray-700 dark:text-gray-200">No folder</span>
+            {!currentFolderId && <Check size={14} className="ml-auto text-violet-500" />}
+          </button>
+          {folders.map(f => (
+            <button key={f.id} onClick={() => onMove(f.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm ${currentFolderId === f.id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
+              <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: (f.color || '#6366f1') + '22' }}>
+                <FolderOpen size={14} style={{ color: f.color || '#6366f1' }} />
+              </div>
+              <span className="text-gray-700 dark:text-gray-200">{f.name}</span>
+              {currentFolderId === f.id && <Check size={14} className="ml-auto text-violet-500" />}
+            </button>
+          ))}
+          {folders.length === 0 && (
+            <p className="text-xs text-gray-400 text-center py-4">No folders yet. Create one from the sidebar.</p>
+          )}
         </div>
       </div>
     </div>
