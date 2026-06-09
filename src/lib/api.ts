@@ -136,8 +136,8 @@ export const emailApi = {
   updateAccount: (id: string, data: any) => api.put(`/email/accounts/${id}`, data),
   deleteAccount: (id: string)    => api.delete(`/email/accounts/${id}`),
   testAccount:   (id: string)    => api.post(`/email/accounts/${id}/test`),
-  syncAccount:   (id: string, folder = 'INBOX') =>
-    api.post(`/email/accounts/${id}/sync`, { folder }),
+  syncAccount:   (id: string, folder = 'INBOX', full = false) =>
+    api.post(`/email/accounts/${id}/sync`, { folder, full }),
   hardResyncAccount: (id: string, folder = 'INBOX', limit = 200) =>
     api.post(`/email/accounts/${id}/hard-resync`, { folder, limit }),
   getFolders:    (id: string)    => api.get(`/email/accounts/${id}/folders`),
