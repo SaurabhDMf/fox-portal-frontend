@@ -154,6 +154,15 @@ export default function SharedInbox() {
     staleTime: 60_000, refetchOnWindowFocus: false,
   });
 
+  const { data: salesUsers = [] } = useQuery<any[]>({
+    queryKey: ['sales-users'],
+    queryFn: () => api.get('/users/active').then(r => {
+      const all: any[] = r.data?.data || r.data || [];
+      return all.filter((u: any) => ['sales_rep', 'sales_manager'].includes(u.role));
+    }),
+    staleTime: 120_000, refetchOnWindowFocus: false,
+  });
+
   const { data: senders = [] } = useQuery<Sender[]>({
     queryKey: ['inbox-senders', selectedInboxId],
     queryFn: () => inboxApi.getSenders(selectedInboxId!).then(r => r.data),
@@ -456,7 +465,7 @@ export default function SharedInbox() {
       )}
 
       {showAssign && selectedInboxId && selectedThreadId && (
-        <AssignModal members={members} currentAssignee={threadDetail?.thread.assigned_to}
+        <AssignModal salesUsers={salesUsers} currentAssignee={threadDetail?.thread.assigned_to}
           onClose={() => setShowAssign(false)}
           onAssign={(uid) => assignMut.mutate({ tid: selectedThreadId, uid })} />
       )}
@@ -597,14 +606,15 @@ function StatusDropdown({ status, onChange }: { status: string; onChange: (s: st
 
 // ── AssignModal ────────────────────────────────────────────────────────────
 
-function AssignModal({ members, currentAssignee, onClose, onAssign }: {
-  members: any[]; currentAssignee?: string; onClose: () => void; onAssign: (uid: string | null) => void;
+function AssignModal({ salesUsers, currentAssignee, onClose, onAssign }: {
+  salesUsers: any[]; currentAssignee?: string; onClose: () => void; onAssign: (uid: string | null) => void;
 }) {
+  const roleLabel: Record<string, string> = { sales_rep: 'Sales Rep', sales_manager: 'Sales Manager' };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-80 max-h-[80vh] flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-100">Assign thread</h3>
+          <h3 className="font-semibold text-gray-800 dark:text-gray-100">Assign to Sales</h3>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
         </div>
         <div className="overflow-y-auto p-2">
@@ -613,15 +623,18 @@ function AssignModal({ members, currentAssignee, onClose, onAssign }: {
             <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center"><X size={14} /></div>
             Unassign
           </button>
-          {members.map(m => (
-            <button key={m.user_id} onClick={() => onAssign(m.user_id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm ${currentAssignee === m.user_id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
-              <AvatarFallback name={m.full_name} />
-              <div className="text-left">
-                <p className="text-gray-800 dark:text-gray-100 font-medium">{m.full_name}</p>
-                <p className="text-xs text-gray-400">{m.email}</p>
+          {salesUsers.length === 0 && (
+            <p className="text-xs text-gray-400 text-center py-4">No sales users found.</p>
+          )}
+          {salesUsers.map(u => (
+            <button key={u.id} onClick={() => onAssign(u.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm ${currentAssignee === u.id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
+              <AvatarFallback name={u.full_name} />
+              <div className="text-left min-w-0">
+                <p className="text-gray-800 dark:text-gray-100 font-medium truncate">{u.full_name}</p>
+                <p className="text-xs text-gray-400">{roleLabel[u.role] || u.role}</p>
               </div>
-              {currentAssignee === m.user_id && <Check size={14} className="ml-auto text-violet-500" />}
+              {currentAssignee === u.id && <Check size={14} className="ml-auto flex-shrink-0 text-violet-500" />}
             </button>
           ))}
         </div>

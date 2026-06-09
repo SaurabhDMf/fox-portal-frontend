@@ -12,12 +12,14 @@ export default function PortalLayout() {
 
   return (
     <SidebarContext.Provider value={{ collapsed, setCollapsed }}>
-      <div className="min-h-screen bg-background">
+      <div className="h-screen overflow-hidden bg-background">
         <AppSidebar mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
-        <div className={`pb-20 md:pb-0 min-h-screen transition-[margin] duration-300 ${collapsed ? 'md:ml-16' : 'md:ml-60'}`}>
+        <div className={`flex flex-col h-screen transition-[margin] duration-300 ${collapsed ? 'md:ml-16' : 'md:ml-60'}`}>
           <AppHeader onMobileMenuOpen={() => setMobileMenuOpen(true)} />
-          <main>
-            <Outlet />
+          <main className="flex-1 overflow-hidden relative">
+            <div className="absolute inset-0 overflow-y-auto pb-20 md:pb-0">
+              <Outlet />
+            </div>
           </main>
         </div>
       </div>
