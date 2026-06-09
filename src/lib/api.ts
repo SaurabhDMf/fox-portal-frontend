@@ -169,8 +169,8 @@ export const inboxApi = {
   createInbox:   (data: any)       => api.post('/inbox', data),
   updateInbox:   (id: string, data: any) => api.put(`/inbox/${id}`, data),
   deleteInbox:   (id: string)      => api.delete(`/inbox/${id}`),
-  syncInbox:     (id: string)      => api.post(`/inbox/${id}/sync`),
-  syncInboxFull: (id: string)      => api.post(`/inbox/${id}/sync?full=1`),
+  syncInbox:       (id: string) => api.post(`/inbox/${id}/sync`),
+  pullOlderEmails: (id: string) => api.post(`/inbox/${id}/pull-older`),
   // Folders
   getFolders:    (id: string)               => api.get(`/inbox/${id}/folders`),
   createFolder:  (id: string, data: any)    => api.post(`/inbox/${id}/folders`, data),

@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   Inbox, Plus, RefreshCw, Search, Send, Clock,
   X, Check, MoreVertical,
   Settings, Mail, Tag, Zap, Archive,
   ArrowLeft, UserPlus, Loader2, Bot, ChevronDown, CalendarDays,
-  FolderOpen, FolderPlus, Trash2, ArrowUpDown,
+  FolderOpen, FolderPlus, Trash2, ArrowUpDown, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -211,15 +211,16 @@ export default function SharedInbox() {
 
   const selectedInbox = inboxes.find(i => i.id === selectedInboxId) ?? null;
 
-  const {
-    data: threadPages,
-    isLoading: loadingThreads,
-    isFetchingNextPage,
-    fetchNextPage,
-    hasNextPage,
-  } = useInfiniteQuery<{ threads: Thread[]; hasMore: boolean; page: number }>({
-    queryKey: ['inbox-threads', selectedInboxId, filterStatus, searchQ, showUnassigned, dateFrom, dateTo, selectedFolderId, sortOrder],
-    queryFn: ({ pageParam }) => inboxApi.getThreads(selectedInboxId!, {
+  const [page, setPage] = useState(1);
+
+  // Reset to page 1 whenever any filter or inbox changes
+  useEffect(() => { setPage(1); }, [selectedInboxId, filterStatus, searchQ, showUnassigned, dateFrom, dateTo, selectedFolderId, sortOrder]);
+
+  const { data: threadData, isLoading: loadingThreads } = useQuery<{
+    threads: Thread[]; hasMore: boolean; page: number; total: number;
+  }>({
+    queryKey: ['inbox-threads', selectedInboxId, filterStatus, searchQ, showUnassigned, dateFrom, dateTo, selectedFolderId, sortOrder, page],
+    queryFn: () => inboxApi.getThreads(selectedInboxId!, {
       status: filterStatus === 'all' ? undefined : filterStatus,
       search: searchQ || undefined,
       unassigned: showUnassigned ? '1' : undefined,
@@ -227,22 +228,21 @@ export default function SharedInbox() {
       to_date:   dateTo   || undefined,
       folder_id: selectedFolderId || undefined,
       order: sortOrder,
-      page:  pageParam,
-      limit: 50,
+      page,
+      limit: 100,
     }).then(r => {
       const d = r.data;
-      // normalise: old backend returns a plain array, new returns { threads, hasMore, page }
-      if (Array.isArray(d)) return { threads: d as Thread[], hasMore: false, page: 1 };
+      if (Array.isArray(d)) return { threads: d as Thread[], hasMore: false, page: 1, total: d.length };
       return d;
     }),
-    getNextPageParam: (last) => last.hasMore ? last.page + 1 : undefined,
-    initialPageParam: 1,
     enabled: !!selectedInboxId,
     staleTime: 30_000, refetchOnWindowFocus: false,
     refetchInterval: anyOverlayOpen ? false : 30_000,
   });
 
-  const threads = threadPages?.pages.flatMap(p => p.threads ?? []) ?? [];
+  const threads    = threadData?.threads ?? [];
+  const total      = threadData?.total   ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / 100));
 
   const { data: threadDetail, isLoading: loadingThread } = useQuery<{ thread: Thread; messages: Message[]; senders: Sender[] }>({
     queryKey: ['inbox-thread', selectedInboxId, selectedThreadId],
@@ -293,13 +293,18 @@ export default function SharedInbox() {
     onError: (e: any) => toast.error(errMsg(e)),
   });
 
-  const fullSyncMut = useMutation({
-    mutationFn: () => inboxApi.syncInboxFull(selectedInboxId!),
+  const pullOlderMut = useMutation({
+    mutationFn: () => inboxApi.pullOlderEmails(selectedInboxId!),
     onSuccess: (r) => {
-      const n = r.data.synced ?? 0;
-      toast.success(n > 0 ? `Imported ${n} historical email${n !== 1 ? 's' : ''} — showing oldest first` : 'No new emails found on server');
-      setSortOrder('asc');
-      qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
+      const { imported, hasMore } = r.data;
+      if (imported > 0) {
+        toast.success(`Imported ${imported} older email${imported !== 1 ? 's' : ''}${hasMore ? ' — click again to load more' : ''}`);
+        qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
+        // Jump to the last page so the newly imported older threads are visible
+        setPage(Math.ceil((total + imported) / 100));
+      } else {
+        toast.success(hasMore ? 'All emails in this batch already synced' : 'No more older emails on server');
+      }
     },
     onError: (e: any) => toast.error(errMsg(e)),
   });
@@ -626,29 +631,29 @@ export default function SharedInbox() {
                 onMoveFolder={() => { setMoveFolderThreadId(thread.id); setShowMoveFolder(true); }}
               />
             ))}
-            {hasNextPage && (
-              <div className="p-3 text-center">
-                <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}
-                  className="w-full px-3 py-2 text-xs text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
-                  {isFetchingNextPage ? <Loader2 size={12} className="animate-spin" /> : null}
-                  {isFetchingNextPage ? 'Loading…' : 'Load older threads'}
-                </button>
-              </div>
-            )}
             <div className="border-t border-gray-100 dark:border-gray-700 p-3 space-y-2">
-              <p className="text-xs text-center text-gray-400">
-                {threads.length} thread{threads.length !== 1 ? 's' : ''} loaded from database
-              </p>
-              <button onClick={() => fullSyncMut.mutate()} disabled={fullSyncMut.isPending}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-50 transition-colors">
-                <RefreshCw size={13} className={fullSyncMut.isPending ? 'animate-spin' : ''} />
-                {fullSyncMut.isPending ? 'Pulling from server…' : 'Pull older emails from mail server'}
-              </button>
-              {fullSyncMut.isPending && (
-                <p className="text-xs text-center text-gray-400 italic">
-                  Scanning IMAP mailbox — this may take a few seconds
-                </p>
+              {/* Gmail-style page navigation */}
+              {total > 0 && (
+                <div className="flex items-center justify-between">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 text-gray-500 transition-colors">
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {(page - 1) * 100 + 1}–{Math.min(page * 100, total)} of {total}
+                  </span>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 text-gray-500 transition-colors">
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
               )}
+              {/* Pull from IMAP server */}
+              <button onClick={() => pullOlderMut.mutate()} disabled={pullOlderMut.isPending}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-50 transition-colors">
+                <RefreshCw size={12} className={pullOlderMut.isPending ? 'animate-spin' : ''} />
+                {pullOlderMut.isPending ? 'Pulling from server…' : 'Pull older emails from mail server'}
+              </button>
             </div>
           </div>
         </div>
