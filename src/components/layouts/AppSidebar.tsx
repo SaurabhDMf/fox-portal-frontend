@@ -6,7 +6,7 @@ import { useSidebarCollapsed } from './PortalLayout';
 import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
-  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale, RefreshCw, Inbox
+  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale, RefreshCw, Inbox, KeyRound
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -18,13 +18,20 @@ interface NavItem {
   path: string;
   icon: React.ElementType;
   module?: string;
+  adminOnly?: boolean;
   children?: NavItem[];
 }
 
 const adminNav: NavItem[] = [
   { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
   { label: 'CRM', path: '/admin/crm', icon: Users, module: 'crm' },
-  { label: 'Invoicing', path: '/admin/invoicing', icon: FileText, module: 'invoicing' },
+  {
+    label: 'Invoicing', path: '/admin/invoicing', icon: FileText, module: 'invoicing',
+    children: [
+      { label: 'All Invoices',      path: '/admin/invoicing',         icon: FileText,  module: 'invoicing' },
+      { label: 'Invoice Settings',  path: '/admin/settings?tab=invoice', icon: Settings, adminOnly: true },
+    ],
+  },
   { label: 'Clients', path: '/admin/clients', icon: Building2, module: 'clients' },
   { label: 'Chat', path: '/admin/chat', icon: MessageSquare, module: 'chat' },
   { label: 'Projects', path: '/admin/projects', icon: FolderKanban, module: 'projects' },
@@ -42,7 +49,13 @@ const adminNav: NavItem[] = [
     ],
   },
   { label: 'Subscriptions', path: '/admin/subscriptions', icon: RefreshCw },
-  { label: 'Users', path: '/admin/users', icon: Users, module: 'users' },
+  {
+    label: 'Team & Users', path: '/admin/users', icon: Users, module: 'users',
+    children: [
+      { label: 'All Users',           path: '/admin/users', icon: Users,    module: 'users' },
+      { label: 'Roles & Permissions', path: '/admin/roles', icon: KeyRound, adminOnly: true },
+    ],
+  },
   { label: 'Reports', path: '/admin/reports', icon: BarChart3, module: 'reports' },
   { label: 'Settings', path: '/admin/settings', icon: Settings },
 ];
@@ -116,6 +129,8 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
   const role = user?.role || '';
   const navItems = getNavItems(role);
 
+  const isAdmin = ['super_admin', 'admin'].includes(role);
+
   const isModuleAllowed = (mod?: string) => {
     if (!mod) return true;
     if (enabledModules && enabledModules.length > 0 && !enabledModules.includes(mod)) return false;
@@ -126,9 +141,14 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
     return true;
   };
 
+  const isItemAllowed = (item: NavItem) => {
+    if (item.adminOnly && !isAdmin) return false;
+    return isModuleAllowed(item.module);
+  };
+
   const visibleItems = navItems
-    .filter((item) => isModuleAllowed(item.module))
-    .map((item) => item.children ? { ...item, children: item.children.filter((c) => isModuleAllowed(c.module)) } : item);
+    .filter(isItemAllowed)
+    .map((item) => item.children ? { ...item, children: item.children.filter(isItemAllowed) } : item);
 
   const handleLogout = async () => {
     try { await api.post('/auth/logout', { refreshToken }); } catch {}
@@ -137,8 +157,10 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
     navigate('/login');
   };
 
-  const isItemActive = (path: string) =>
-    location.pathname === path || (!rootPaths.includes(path) && location.pathname.startsWith(path));
+  const isItemActive = (path: string) => {
+    const cleanPath = path.split('?')[0];
+    return location.pathname === cleanPath || (!rootPaths.includes(cleanPath) && location.pathname.startsWith(cleanPath));
+  };
 
   const isGroupActive = (item: NavItem) =>
     isItemActive(item.path) || (item.children?.some((c) => isItemActive(c.path)) ?? false);
