@@ -854,11 +854,63 @@ function ThreadRow({ thread, selected, isAdmin, members, folders, onSelect, onSt
   );
 }
 
+// ── EmailHtmlFrame — isolates email HTML/CSS in a sandboxed iframe ─────────
+
+function EmailHtmlFrame({ html }: { html: string }) {
+  const ref = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(200);
+
+  const sanitized = html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/javascript:/gi, '');
+
+  const onLoad = () => {
+    const doc = ref.current?.contentDocument;
+    if (doc?.body) {
+      setHeight(Math.min(doc.body.scrollHeight + 24, 1200));
+    }
+  };
+
+  return (
+    <iframe
+      ref={ref}
+      srcDoc={sanitized}
+      sandbox="allow-same-origin"
+      onLoad={onLoad}
+      title="email"
+      className="w-full border-none rounded block"
+      style={{ height, minHeight: 80 }}
+    />
+  );
+}
+
 // ── MessageBubble ──────────────────────────────────────────────────────────
 
 function MessageBubble({ msg }: { msg: Message }) {
   const isOut = msg.direction === 'outbound';
   const isScheduled = msg.status === 'scheduled';
+  const hasHtml = !!msg.body_html && !isOut;
+
+  // Inbound HTML emails: full-width card (email CSS must not bleed into the page)
+  if (hasHtml) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2 px-1">
+          <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-semibold text-gray-600 dark:text-gray-300 flex-shrink-0">
+            {(msg.from_name || msg.from_address || '?')[0].toUpperCase()}
+          </div>
+          <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{msg.from_name || msg.from_address}</span>
+          <span className="text-xs text-gray-400">{fmtDateTime(msg.sent_at || msg.created_at)}</span>
+        </div>
+        <div className="rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-white">
+          <EmailHtmlFrame html={msg.body_html!} />
+        </div>
+        {msg.cc_addresses && <span className="text-xs text-gray-400 px-1">CC: {msg.cc_addresses}</span>}
+      </div>
+    );
+  }
+
+  // Outbound & plain-text inbound: chat bubble
   return (
     <div className={`flex gap-3 ${isOut ? 'flex-row-reverse' : ''}`}>
       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${isOut ? 'bg-violet-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>
@@ -877,12 +929,7 @@ function MessageBubble({ msg }: { msg: Message }) {
           )}
         </div>
         <div className={`rounded-2xl px-4 py-3 text-sm ${isOut ? 'bg-violet-600 text-white rounded-tr-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-tl-sm'}`}>
-          {msg.body_html ? (
-            <div className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: msg.body_html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') }} />
-          ) : (
-            <pre className="whitespace-pre-wrap font-sans">{msg.body_text}</pre>
-          )}
+          <pre className="whitespace-pre-wrap font-sans">{msg.body_text}</pre>
         </div>
         {msg.cc_addresses && <span className="text-xs text-gray-400">CC: {msg.cc_addresses}</span>}
       </div>
