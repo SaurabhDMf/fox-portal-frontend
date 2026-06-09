@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   Inbox, Plus, RefreshCw, Search, Send, Clock,
   X, Check, MoreVertical,
   Settings, Mail, Tag, Zap, Archive,
   ArrowLeft, UserPlus, Loader2, Bot, ChevronDown, CalendarDays,
-  FolderOpen, FolderPlus, Trash2, ArrowUpDown, ChevronLeft, ChevronRight,
+  FolderOpen, FolderPlus, Trash2, ArrowUpDown,
 } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -211,16 +211,15 @@ export default function SharedInbox() {
 
   const selectedInbox = inboxes.find(i => i.id === selectedInboxId) ?? null;
 
-  const [page, setPage] = useState(1);
-
-  // Reset to page 1 whenever any filter or inbox changes
-  useEffect(() => { setPage(1); }, [selectedInboxId, filterStatus, searchQ, showUnassigned, dateFrom, dateTo, selectedFolderId, sortOrder]);
-
-  const { data: threadData, isLoading: loadingThreads } = useQuery<{
-    threads: Thread[]; hasMore: boolean; page: number; total: number;
-  }>({
-    queryKey: ['inbox-threads', selectedInboxId, filterStatus, searchQ, showUnassigned, dateFrom, dateTo, selectedFolderId, sortOrder, page],
-    queryFn: () => inboxApi.getThreads(selectedInboxId!, {
+  const {
+    data: threadPages,
+    isLoading: loadingThreads,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['inbox-threads', selectedInboxId, filterStatus, searchQ, showUnassigned, dateFrom, dateTo, selectedFolderId, sortOrder],
+    queryFn: ({ pageParam = 1 }) => inboxApi.getThreads(selectedInboxId!, {
       status: filterStatus === 'all' ? undefined : filterStatus,
       search: searchQ || undefined,
       unassigned: showUnassigned ? '1' : undefined,
@@ -228,21 +227,22 @@ export default function SharedInbox() {
       to_date:   dateTo   || undefined,
       folder_id: selectedFolderId || undefined,
       order: sortOrder,
-      page,
+      page: pageParam,
       limit: 100,
     }).then(r => {
       const d = r.data;
       if (Array.isArray(d)) return { threads: d as Thread[], hasMore: false, page: 1, total: d.length };
-      return d;
+      return d as { threads: Thread[]; hasMore: boolean; page: number; total: number };
     }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => lastPage.hasMore ? allPages.length + 1 : undefined,
     enabled: !!selectedInboxId,
     staleTime: 30_000, refetchOnWindowFocus: false,
     refetchInterval: anyOverlayOpen ? false : 30_000,
   });
 
-  const threads    = threadData?.threads ?? [];
-  const total      = threadData?.total   ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / 100));
+  const threads = threadPages?.pages.flatMap(p => p.threads) ?? [];
+  const total   = threadPages?.pages[0]?.total ?? 0;
 
   const { data: threadDetail, isLoading: loadingThread } = useQuery<{ thread: Thread; messages: Message[]; senders: Sender[] }>({
     queryKey: ['inbox-thread', selectedInboxId, selectedThreadId],
@@ -300,8 +300,6 @@ export default function SharedInbox() {
       if (imported > 0) {
         toast.success(`Imported ${imported} older email${imported !== 1 ? 's' : ''}${hasMore ? ' — click again to load more' : ''}`);
         qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
-        // Jump to the last page so the newly imported older threads are visible
-        setPage(Math.ceil((total + imported) / 100));
       } else {
         toast.success(hasMore ? 'All emails in this batch already synced' : 'No more older emails on server');
       }
@@ -632,23 +630,16 @@ export default function SharedInbox() {
               />
             ))}
             <div className="border-t border-gray-100 dark:border-gray-700 p-3 space-y-2">
-              {/* Gmail-style page navigation */}
-              {total > 0 && (
-                <div className="flex items-center justify-between">
-                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 text-gray-500 transition-colors">
-                    <ChevronLeft size={14} />
-                  </button>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {(page - 1) * 100 + 1}–{Math.min(page * 100, total)} of {total}
-                  </span>
-                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 text-gray-500 transition-colors">
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
+              {threads.length > 0 && (
+                <p className="text-xs text-center text-gray-400">Showing {threads.length} of {total} threads</p>
               )}
-              {/* Pull from IMAP server */}
+              {hasNextPage && (
+                <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium border border-violet-200 dark:border-violet-700 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 text-violet-600 dark:text-violet-400 disabled:opacity-50 transition-colors">
+                  <ChevronDown size={12} className={isFetchingNextPage ? 'animate-bounce' : ''} />
+                  {isFetchingNextPage ? 'Loading…' : 'Load older threads'}
+                </button>
+              )}
               <button onClick={() => pullOlderMut.mutate()} disabled={pullOlderMut.isPending}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-50 transition-colors">
                 <RefreshCw size={12} className={pullOlderMut.isPending ? 'animate-spin' : ''} />
