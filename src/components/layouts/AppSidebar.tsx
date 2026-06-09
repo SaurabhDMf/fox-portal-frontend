@@ -133,10 +133,13 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
 
   const isModuleAllowed = (mod?: string) => {
     if (!mod) return true;
-    if (enabledModules && enabledModules.length > 0 && !enabledModules.includes(mod)) return false;
+    // Admins see everything unless explicitly blocked — don't filter by enabledModules
+    if (!isAdmin && enabledModules && enabledModules.length > 0 && !enabledModules.includes(mod)) return false;
     if (permissions && Object.keys(permissions).length > 0) {
       const mp = permissions[mod];
-      if (!mp || !mp.can_view) return false;
+      // For admins, missing entry = allowed; only explicit can_view:false blocks
+      if (isAdmin) { if (mp && mp.can_view === false) return false; }
+      else { if (!mp || !mp.can_view) return false; }
     }
     return true;
   };
