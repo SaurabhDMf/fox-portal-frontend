@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   Inbox, Plus, RefreshCw, Search, Send, Clock,
   X, Check, MoreVertical,
   Settings, Mail, Tag, Zap, Archive,
-  ArrowLeft, UserPlus, Trash2, Loader2, Bot, ChevronDown,
+  ArrowLeft, UserPlus, Loader2, Bot, ChevronDown, CalendarDays,
 } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -38,6 +38,48 @@ const errMsg = (e: any) =>
   e?.response?.data?.error || e?.response?.data?.message || 'Something went wrong';
 
 const ADMIN_ROLES = ['super_admin', 'admin'];
+
+// ── date preset helpers ────────────────────────────────────────────────────
+
+const toYMD = (d: Date) => d.toISOString().slice(0, 10);
+
+const DATE_PRESETS: { label: string; key: string; from: () => string; to: () => string }[] = [
+  {
+    label: 'Today', key: 'today',
+    from: () => toYMD(new Date()),
+    to:   () => toYMD(new Date()),
+  },
+  {
+    label: 'This week', key: 'week',
+    from: () => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return toYMD(d); },
+    to:   () => toYMD(new Date()),
+  },
+  {
+    label: 'This month', key: 'month',
+    from: () => { const d = new Date(); d.setDate(1); return toYMD(d); },
+    to:   () => toYMD(new Date()),
+  },
+  {
+    label: 'Last month', key: 'lastmonth',
+    from: () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return toYMD(d); },
+    to:   () => { const d = new Date(); d.setDate(0); return toYMD(d); },
+  },
+  {
+    label: 'Last 3 months', key: '3mo',
+    from: () => { const d = new Date(); d.setMonth(d.getMonth() - 3); return toYMD(d); },
+    to:   () => toYMD(new Date()),
+  },
+  {
+    label: 'This year', key: 'year',
+    from: () => `${new Date().getFullYear()}-01-01`,
+    to:   () => toYMD(new Date()),
+  },
+  {
+    label: 'Last year', key: 'lastyear',
+    from: () => `${new Date().getFullYear() - 1}-01-01`,
+    to:   () => `${new Date().getFullYear() - 1}-12-31`,
+  },
+];
 
 const INP = 'w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-colors';
 const LBL = 'block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1';
@@ -110,6 +152,20 @@ export default function SharedInbox() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQ, setSearchQ] = useState('');
   const [showUnassigned, setShowUnassigned] = useState(false);
+  const [datePreset, setDatePreset] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [showDateFilter, setShowDateFilter] = useState(false);
+
+  const applyPreset = (key: string) => {
+    const preset = DATE_PRESETS.find(p => p.key === key);
+    if (!preset) { setDatePreset(''); setDateFrom(''); setDateTo(''); return; }
+    setDatePreset(key);
+    setDateFrom(preset.from());
+    setDateTo(preset.to());
+  };
+
+  const clearDate = () => { setDatePreset(''); setDateFrom(''); setDateTo(''); };
 
   const [showNewThread, setShowNewThread] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
@@ -127,17 +183,31 @@ export default function SharedInbox() {
 
   const selectedInbox = inboxes.find(i => i.id === selectedInboxId) ?? null;
 
-  const { data: threads = [], isLoading: loadingThreads } = useQuery<Thread[]>({
-    queryKey: ['inbox-threads', selectedInboxId, filterStatus, searchQ, showUnassigned],
-    queryFn: () => inboxApi.getThreads(selectedInboxId!, {
+  const {
+    data: threadPages,
+    isLoading: loadingThreads,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+  } = useInfiniteQuery<{ threads: Thread[]; hasMore: boolean; page: number }>({
+    queryKey: ['inbox-threads', selectedInboxId, filterStatus, searchQ, showUnassigned, dateFrom, dateTo],
+    queryFn: ({ pageParam }) => inboxApi.getThreads(selectedInboxId!, {
       status: filterStatus === 'all' ? undefined : filterStatus,
       search: searchQ || undefined,
       unassigned: showUnassigned ? '1' : undefined,
+      from_date: dateFrom || undefined,
+      to_date:   dateTo   || undefined,
+      page:  pageParam,
+      limit: 50,
     }).then(r => r.data),
+    getNextPageParam: (last) => last.hasMore ? last.page + 1 : undefined,
+    initialPageParam: 1,
     enabled: !!selectedInboxId,
     staleTime: 30_000, refetchOnWindowFocus: false,
     refetchInterval: anyOverlayOpen ? false : 30_000,
   });
+
+  const threads = threadPages?.pages.flatMap(p => p.threads) ?? [];
 
   const { data: threadDetail, isLoading: loadingThread } = useQuery<{ thread: Thread; messages: Message[]; senders: Sender[] }>({
     queryKey: ['inbox-thread', selectedInboxId, selectedThreadId],
@@ -349,7 +419,45 @@ export default function SharedInbox() {
                   Unassigned
                 </button>
               )}
+              <button onClick={() => setShowDateFilter(v => !v)}
+                className={`px-2 py-0.5 text-xs rounded-full border transition-colors flex items-center gap-1 ${(dateFrom || dateTo) ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                <CalendarDays size={11} />Date
+              </button>
             </div>
+
+            {/* ── Date filter panel ── */}
+            {showDateFilter && (
+              <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-2">
+                <div className="flex flex-wrap gap-1">
+                  {DATE_PRESETS.map(p => (
+                    <button key={p.key} onClick={() => applyPreset(p.key)}
+                      className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${datePreset === p.key ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                      {p.label}
+                    </button>
+                  ))}
+                  {(dateFrom || dateTo) && (
+                    <button onClick={clearDate}
+                      className="px-2 py-0.5 text-xs rounded-full border border-red-200 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div>
+                    <label className="text-xs text-gray-400 mb-0.5 block">From</label>
+                    <input type="date" value={dateFrom}
+                      onChange={e => { setDatePreset('custom'); setDateFrom(e.target.value); }}
+                      className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-0.5 block">To</label>
+                    <input type="date" value={dateTo}
+                      onChange={e => { setDatePreset('custom'); setDateTo(e.target.value); }}
+                      className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
             {loadingThreads ? (
@@ -357,7 +465,7 @@ export default function SharedInbox() {
             ) : threads.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                 <Mail size={32} className="text-gray-200 mb-2" />
-                <p className="text-sm text-gray-400">No threads</p>
+                <p className="text-sm text-gray-400">No threads{(dateFrom || dateTo) ? ' in this date range' : ''}</p>
               </div>
             ) : threads.map(thread => (
               <ThreadRow key={thread.id} thread={thread}
@@ -368,6 +476,15 @@ export default function SharedInbox() {
                 onAssign={() => { setSelectedThreadId(thread.id); setShowAssign(true); }}
               />
             ))}
+            {hasNextPage && (
+              <div className="p-3 text-center">
+                <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}
+                  className="w-full px-3 py-2 text-xs text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-800 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
+                  {isFetchingNextPage ? <Loader2 size={12} className="animate-spin" /> : null}
+                  {isFetchingNextPage ? 'Loading…' : 'Load older threads'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
