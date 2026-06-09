@@ -145,7 +145,7 @@ export default function AdminUsers() {
       dependencyDelete({
         url: `/users/${id}`,
         entityType: 'user',
-        skipPreConfirm: false,
+        skipPreConfirm: true,
         dependencyLabels: {
           tasks: 'Assigned Task',
           projects: 'Owned Project',
