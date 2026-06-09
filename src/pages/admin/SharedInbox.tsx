@@ -171,14 +171,28 @@ export default function SharedInbox() {
     }
   };
 
-  // Restore folder selection when inbox changes; reset sort to newest-first
+  // Restore folder selection when inbox changes; reset sort + folder UI state
   useEffect(() => {
     if (selectedInboxId) {
       const saved = localStorage.getItem(`inbox_folder_${selectedInboxId}`);
       setSelectedFolderIdRaw(saved || null);
       setSortOrder('desc');
+      setShowNewFolder(false);
+      setNewFolderName('');
     }
   }, [selectedInboxId]);
+
+  // Validate restored folder ID once folders load — clear it if it doesn't
+  // belong to the current inbox (e.g. stale localStorage from another inbox)
+  useEffect(() => {
+    if (!selectedFolderId) return;
+    if (folders.length === 0) return;
+    const valid = folders.some((f: any) => f.id === selectedFolderId);
+    if (!valid) {
+      setSelectedFolderIdRaw(null);
+      if (selectedInboxId) localStorage.removeItem(`inbox_folder_${selectedInboxId}`);
+    }
+  }, [folders, selectedFolderId, selectedInboxId]);
 
   const [datePreset, setDatePreset] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -451,8 +465,12 @@ export default function SharedInbox() {
                   className={`w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${isSelected ? 'bg-violet-50 dark:bg-violet-900/20 border-r-2 border-violet-500' : ''}`}
                 >
                   <Inbox size={15} className={`flex-shrink-0 ${isSelected ? 'text-violet-600' : 'text-gray-400'}`} />
-                  <p className={`text-xs font-medium truncate ${isSelected ? 'text-violet-700 dark:text-violet-400' : 'text-gray-700 dark:text-gray-300'}`}>{inbox.name}</p>
-                  {isAdmin && <p className="text-xs text-gray-400 truncate ml-auto hidden">{inbox.email_address}</p>}
+                  <p className={`text-xs font-medium truncate flex-1 ${isSelected ? 'text-violet-700 dark:text-violet-400' : 'text-gray-700 dark:text-gray-300'}`}>{inbox.name}</p>
+                  {inbox.thread_count > 0 && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${isSelected ? 'bg-violet-200 dark:bg-violet-800 text-violet-700 dark:text-violet-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'}`}>
+                      {inbox.thread_count}
+                    </span>
+                  )}
                 </button>
 
                 {/* Folders inline under selected inbox */}
