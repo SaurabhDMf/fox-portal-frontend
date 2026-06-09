@@ -16,6 +16,7 @@ const DEFAULTS = {
   imap_host: 'imap.gmail.com', imap_port: 993, imap_secure: 1, imap_user: '', imap_password: '',
   smtp_host: 'smtp.gmail.com', smtp_port: 587, smtp_secure: 0, smtp_user: '', smtp_password: '',
   ai_followup_enabled: 1, ai_followup_delay_hr: 2, ai_followup_tone: 'professional',
+  sync_history_days: 90,
 };
 
 export default function InboxFormPage() {
@@ -61,6 +62,7 @@ export default function InboxFormPage() {
         ai_followup_enabled:  inbox.ai_followup_enabled  ?? 1,
         ai_followup_delay_hr: inbox.ai_followup_delay_hr ?? 2,
         ai_followup_tone:     inbox.ai_followup_tone     ?? 'professional',
+        sync_history_days:    inbox.sync_history_days    ?? 90,
       });
       setInitialised(true);
     }
@@ -229,6 +231,28 @@ export default function InboxFormPage() {
                 SSL / TLS
               </label>
             </div>
+          </div>
+        </div>
+
+        {/* ── Email History ── */}
+        <div className="glass-card p-6">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Email History</h3>
+          <p className="text-xs text-gray-400 mb-4">
+            How far back to import existing emails from your inbox on the first sync.
+            Older emails already in the mailbox will be pulled in up to this limit.
+          </p>
+          <div className="max-w-xs">
+            <label className={LBL}>Import history</label>
+            <select value={form.sync_history_days}
+              onChange={e => set('sync_history_days', +e.target.value)} className={INP}>
+              <option value={0}>All time (everything in mailbox)</option>
+              <option value={365}>Last 1 year</option>
+              <option value={180}>Last 6 months</option>
+              <option value={90}>Last 90 days</option>
+              <option value={60}>Last 60 days</option>
+              <option value={30}>Last 30 days</option>
+              <option value={7}>Last 7 days</option>
+            </select>
           </div>
         </div>
 
