@@ -182,17 +182,6 @@ export default function SharedInbox() {
     }
   }, [selectedInboxId]);
 
-  // Validate restored folder ID once folders load — clear it if it doesn't
-  // belong to the current inbox (e.g. stale localStorage from another inbox)
-  useEffect(() => {
-    if (!selectedFolderId) return;
-    if (folders.length === 0) return;
-    const valid = folders.some((f: any) => f.id === selectedFolderId);
-    if (!valid) {
-      setSelectedFolderIdRaw(null);
-      if (selectedInboxId) localStorage.removeItem(`inbox_folder_${selectedInboxId}`);
-    }
-  }, [folders, selectedFolderId, selectedInboxId]);
 
   const [datePreset, setDatePreset] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -297,6 +286,16 @@ export default function SharedInbox() {
     enabled: !!selectedInboxId,
     staleTime: 60_000, refetchOnWindowFocus: false,
   });
+
+  // Validate restored folder ID once folders load — clear it if it doesn't
+  // belong to the current inbox (stale localStorage from a different inbox)
+  useEffect(() => {
+    if (!selectedFolderId || folders.length === 0) return;
+    if (!folders.some((f: any) => f.id === selectedFolderId)) {
+      setSelectedFolderIdRaw(null);
+      if (selectedInboxId) localStorage.removeItem(`inbox_folder_${selectedInboxId}`);
+    }
+  }, [folders, selectedFolderId, selectedInboxId]);
 
   // ── Mutations ────────────────────────────────────────────────
 
