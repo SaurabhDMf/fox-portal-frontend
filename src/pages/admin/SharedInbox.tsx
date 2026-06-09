@@ -374,6 +374,15 @@ export default function SharedInbox() {
     onError: (e: any) => toast.error(errMsg(e)),
   });
 
+  const deleteMsgMut = useMutation({
+    mutationFn: (mid: string) => inboxApi.deleteMessage(selectedInboxId!, selectedThreadId!, mid),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['thread', selectedThreadId] });
+      toast.success('Message deleted');
+    },
+    onError: (e: any) => toast.error(errMsg(e)),
+  });
+
   // Auto-select first inbox
   useEffect(() => {
     if (inboxes.length > 0 && !selectedInboxId) {
@@ -734,7 +743,11 @@ export default function SharedInbox() {
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {loadingThread ? (
               <div className="flex justify-center py-8"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
-            ) : threadDetail.messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}
+            ) : threadDetail.messages.map(msg => (
+              <MessageBubble key={msg.id} msg={msg}
+                canDelete={isAdmin}
+                onDelete={() => deleteMsgMut.mutate(msg.id)} />
+            ))}
           </div>
           {threadDetail.thread.status !== 'closed' && (
             <div className="border-t border-gray-100 dark:border-gray-700 p-4">
@@ -914,15 +927,34 @@ function EmailHtmlFrame({ html }: { html: string }) {
 
 // ── MessageBubble ──────────────────────────────────────────────────────────
 
-function MessageBubble({ msg }: { msg: Message }) {
+function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?: boolean; onDelete?: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const isOut = msg.direction === 'outbound';
   const isScheduled = msg.status === 'scheduled';
   const hasHtml = !!msg.body_html && !isOut;
 
-  // Inbound HTML emails: full-width card (email CSS must not bleed into the page)
+  const DeleteBtn = () => canDelete ? (
+    confirmDelete ? (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-red-500">Delete?</span>
+        <button onClick={() => { onDelete?.(); setConfirmDelete(false); }}
+          className="text-xs text-red-500 hover:text-red-700 font-medium px-1">Yes</button>
+        <button onClick={() => setConfirmDelete(false)}
+          className="text-xs text-gray-400 hover:text-gray-600 px-1">No</button>
+      </div>
+    ) : (
+      <button onClick={() => setConfirmDelete(true)}
+        className={`p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-300 hover:text-red-400 transition-opacity ${hovered ? 'opacity-100' : 'opacity-0'}`}>
+        <Trash2 size={12} />
+      </button>
+    )
+  ) : null;
+
+  // Inbound HTML emails: full-width card
   if (hasHtml) {
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5" onMouseEnter={() => setHovered(true)} onMouseLeave={() => { setHovered(false); setConfirmDelete(false); }}>
         <div className="flex items-center gap-2 px-1 flex-wrap">
           <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-semibold text-gray-600 dark:text-gray-300 flex-shrink-0">
             {(msg.from_name || msg.from_address || '?')[0].toUpperCase()}
@@ -930,6 +962,7 @@ function MessageBubble({ msg }: { msg: Message }) {
           <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{msg.from_name || msg.from_address}</span>
           {msg.from_name && <span className="text-xs text-gray-400">&lt;{msg.from_address}&gt;</span>}
           <span className="text-xs text-gray-400">{fmtDateTime(msg.sent_at || msg.created_at)}</span>
+          <DeleteBtn />
         </div>
         <div className="rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-white">
           <EmailHtmlFrame html={msg.body_html!} />
@@ -941,7 +974,8 @@ function MessageBubble({ msg }: { msg: Message }) {
 
   // Outbound & plain-text inbound: chat bubble
   return (
-    <div className={`flex gap-3 ${isOut ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex gap-3 ${isOut ? 'flex-row-reverse' : ''}`}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => { setHovered(false); setConfirmDelete(false); }}>
       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${isOut ? 'bg-violet-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>
         {isOut ? (msg.is_ai_generated ? <Bot size={14} /> : <Send size={12} />) : (msg.from_name || msg.from_address || '?')[0].toUpperCase()}
       </div>
@@ -958,6 +992,7 @@ function MessageBubble({ msg }: { msg: Message }) {
               <Clock size={10} /> Scheduled {fmtDateTime(msg.scheduled_at)}
             </span>
           )}
+          <DeleteBtn />
         </div>
         <div className={`rounded-2xl px-4 py-3 text-sm ${isOut ? 'bg-violet-600 text-white rounded-tr-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-tl-sm'}`}>
           <pre className="whitespace-pre-wrap font-sans">{msg.body_text}</pre>

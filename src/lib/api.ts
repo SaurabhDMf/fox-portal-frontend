@@ -193,7 +193,8 @@ export const inboxApi = {
     api.post(`/inbox/${id}/threads/${tid}/assign`, { user_id }),
   patchThread:   (id: string, tid: string, data: any) => api.patch(`/inbox/${id}/threads/${tid}`, data),
   replyThread:   (id: string, tid: string, data: any) => api.post(`/inbox/${id}/threads/${tid}/reply`, data),
-  newThread:     (id: string, data: any) => api.post(`/inbox/${id}/threads`, data),
+  newThread:       (id: string, data: any) => api.post(`/inbox/${id}/threads`, data),
+  deleteMessage:   (id: string, tid: string, mid: string) => api.delete(`/inbox/${id}/threads/${tid}/messages/${mid}`),
 };
 
 export default api;
