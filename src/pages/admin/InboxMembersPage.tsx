@@ -54,7 +54,7 @@ export default function InboxMembersPage() {
 
   const { data: allUsers = [] } = useQuery<any[]>({
     queryKey: ['users-active'],
-    queryFn: () => api.get('/users/active').then(r => r.data),
+    queryFn: () => api.get('/users/active').then(r => r.data?.data || r.data),
     staleTime: 120_000, refetchOnWindowFocus: false, refetchInterval: false,
   });
 
