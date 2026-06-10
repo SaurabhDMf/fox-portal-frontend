@@ -757,7 +757,11 @@ export default function SharedInbox() {
                     <span className="text-xs text-gray-400 flex-shrink-0">From:</span>
                     <select value={replyFrom} onChange={e => setReplyFrom(e.target.value)}
                       className="text-xs text-gray-700 dark:text-gray-200 bg-transparent border-none outline-none cursor-pointer">
-                      {threadDetail.senders.map(s => (
+                      {threadDetail.thread.received_on &&
+                        !threadDetail.senders.some((s: any) => s.email_address === threadDetail.thread.received_on) && (
+                        <option value={threadDetail.thread.received_on}>{threadDetail.thread.received_on}</option>
+                      )}
+                      {threadDetail.senders.map((s: any) => (
                         <option key={s.id} value={s.email_address}>{s.display_name || s.email_address}</option>
                       ))}
                     </select>
