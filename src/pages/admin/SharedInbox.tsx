@@ -7,7 +7,7 @@ import {
   X, Check, MoreVertical,
   Settings, Mail, Tag, Zap, Archive,
   ArrowLeft, UserPlus, Loader2, Bot, ChevronDown, CalendarDays,
-  FolderOpen, FolderPlus, Trash2, ArrowUpDown,
+  FolderOpen, FolderPlus, Trash2, ArrowUpDown, ShieldAlert, MoveRight,
 } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -161,6 +161,7 @@ export default function SharedInbox() {
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [showNewFolder, setShowNewFolder] = useState(false);
+  const [showSpam, setShowSpam] = useState(false);
 
   // Persist folder selection per inbox in localStorage
   const setSelectedFolderId = (fid: string | null) => {
@@ -179,6 +180,7 @@ export default function SharedInbox() {
       setSortOrder('desc');
       setShowNewFolder(false);
       setNewFolderName('');
+      setShowSpam(false);
     }
   }, [selectedInboxId]);
 
@@ -287,6 +289,14 @@ export default function SharedInbox() {
     staleTime: 60_000, refetchOnWindowFocus: false,
   });
 
+  const { data: spamData, isLoading: loadingSpam, refetch: refetchSpam } = useQuery<{ messages: any[] }>({
+    queryKey: ['inbox-spam', selectedInboxId],
+    queryFn: () => api.get(`/inbox/${selectedInboxId}/spam`).then(r => r.data),
+    enabled: !!(selectedInboxId && showSpam),
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+
   // Validate restored folder ID once folders load — clear it if it doesn't
   // belong to the current inbox (stale localStorage from a different inbox)
   useEffect(() => {
@@ -298,6 +308,15 @@ export default function SharedInbox() {
   }, [folders, selectedFolderId, selectedInboxId]);
 
   // ── Mutations ────────────────────────────────────────────────
+
+  const moveToInboxMut = useMutation({
+    mutationFn: (uid: number) => api.post(`/inbox/${selectedInboxId}/spam/move-to-inbox`, { uid }),
+    onSuccess: () => {
+      toast.success('Moved to inbox — sync to see it in threads');
+      refetchSpam();
+    },
+    onError: (e: any) => toast.error(errMsg(e)),
+  });
 
   const syncMut = useMutation({
     mutationFn: () => inboxApi.syncInbox(selectedInboxId!),
@@ -484,9 +503,13 @@ export default function SharedInbox() {
                 {/* Folders inline under selected inbox */}
                 {isSelected && (
                   <div className="pl-5 pb-1">
-                    <button onClick={() => setSelectedFolderId(null)}
-                      className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded ${!selectedFolderId ? 'text-violet-600 dark:text-violet-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+                    <button onClick={() => { setSelectedFolderId(null); setShowSpam(false); }}
+                      className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded ${!selectedFolderId && !showSpam ? 'text-violet-600 dark:text-violet-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
                       <FolderOpen size={12} />All threads
+                    </button>
+                    <button onClick={() => { setShowSpam(true); setSelectedFolderId(null); setSelectedThreadId(null); }}
+                      className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded ${showSpam ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+                      <ShieldAlert size={12} />Spam
                     </button>
                     {folders.map(f => (
                       <div key={f.id} className={`group flex items-center rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${selectedFolderId === f.id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
@@ -646,7 +669,37 @@ export default function SharedInbox() {
             )}
           </div>
           <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
-            {loadingThreads ? (
+            {showSpam ? (
+              loadingSpam ? (
+                <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
+              ) : !spamData?.messages?.length ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                  <ShieldAlert size={32} className="text-gray-200 mb-2" />
+                  <p className="text-sm text-gray-400">No spam emails in the last 30 days</p>
+                </div>
+              ) : spamData.messages.map((msg: any) => (
+                <div key={msg.uid} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">
+                        {msg.from_name ? `${msg.from_name} <${msg.from}>` : msg.from}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 truncate mt-0.5">{msg.subject}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {msg.date ? new Date(msg.date).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'numeric', minute:'2-digit', hour12:true }) : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => moveToInboxMut.mutate(msg.uid)}
+                      disabled={moveToInboxMut.isPending}
+                      title="Move to Inbox"
+                      className="flex-shrink-0 flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/40 border border-violet-200 dark:border-violet-700 disabled:opacity-50 transition-colors">
+                      <MoveRight size={11} />Inbox
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : loadingThreads ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
             ) : threads.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
@@ -663,23 +716,25 @@ export default function SharedInbox() {
                 onMoveFolder={() => { setMoveFolderThreadId(thread.id); setShowMoveFolder(true); }}
               />
             ))}
-            <div className="border-t border-gray-100 dark:border-gray-700 p-3 space-y-2">
-              {threads.length > 0 && (
-                <p className="text-xs text-center text-gray-400">Showing {threads.length} of {total} threads</p>
-              )}
-              {hasNextPage && (
-                <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium border border-violet-200 dark:border-violet-700 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 text-violet-600 dark:text-violet-400 disabled:opacity-50 transition-colors">
-                  <ChevronDown size={12} className={isFetchingNextPage ? 'animate-bounce' : ''} />
-                  {isFetchingNextPage ? 'Loading…' : 'Load older threads'}
+            {!showSpam && (
+              <div className="border-t border-gray-100 dark:border-gray-700 p-3 space-y-2">
+                {threads.length > 0 && (
+                  <p className="text-xs text-center text-gray-400">Showing {threads.length} of {total} threads</p>
+                )}
+                {hasNextPage && (
+                  <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium border border-violet-200 dark:border-violet-700 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 text-violet-600 dark:text-violet-400 disabled:opacity-50 transition-colors">
+                    <ChevronDown size={12} className={isFetchingNextPage ? 'animate-bounce' : ''} />
+                    {isFetchingNextPage ? 'Loading…' : 'Load older threads'}
+                  </button>
+                )}
+                <button onClick={() => pullOlderMut.mutate()} disabled={pullOlderMut.isPending}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-50 transition-colors">
+                  <RefreshCw size={12} className={pullOlderMut.isPending ? 'animate-spin' : ''} />
+                  {pullOlderMut.isPending ? 'Pulling from server…' : 'Pull older emails from mail server'}
                 </button>
-              )}
-              <button onClick={() => pullOlderMut.mutate()} disabled={pullOlderMut.isPending}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-50 transition-colors">
-                <RefreshCw size={12} className={pullOlderMut.isPending ? 'animate-spin' : ''} />
-                {pullOlderMut.isPending ? 'Pulling from server…' : 'Pull older emails from mail server'}
-              </button>
-            </div>
+              </div>
+            )}
           </div>
         </div>
       )}
