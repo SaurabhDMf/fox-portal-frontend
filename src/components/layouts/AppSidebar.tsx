@@ -133,14 +133,15 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
 
   const isModuleAllowed = (mod?: string) => {
     if (!mod) return true;
-    // Admins see everything unless explicitly blocked — don't filter by enabledModules
-    if (!isAdmin && enabledModules && enabledModules.length > 0 && !enabledModules.includes(mod)) return false;
+    // If API permissions are loaded, they are the single source of truth
     if (permissions && Object.keys(permissions).length > 0) {
       const mp = permissions[mod];
-      // For admins, missing entry = allowed; only explicit can_view:false blocks
       if (isAdmin) { if (mp && mp.can_view === false) return false; }
       else { if (!mp || !mp.can_view) return false; }
+      return true;
     }
+    // Permissions not yet loaded — fall back to enabledModules from login
+    if (!isAdmin && enabledModules && enabledModules.length > 0 && !enabledModules.includes(mod)) return false;
     return true;
   };
 
