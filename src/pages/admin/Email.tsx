@@ -2222,15 +2222,12 @@ function InfiniteScrollSentinel({
   const ref = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
-  // Hard-resync mutation — pulls 200 latest emails directly from the IMAP
-  // server (vs the local DB pagination which only sees what was previously
-  // synced). Use this to load OLDER emails that haven't been synced yet.
+  // Full historical sync — fetches all-time emails from IMAP, non-destructive
   const hardResyncMut = useMutation({
-    mutationFn: () => emailApi.hardResyncAccount(activeAccountId!, activeFolder, 200),
+    mutationFn: () => emailApi.syncAccount(activeAccountId!, activeFolder, true),
     onSuccess: (r: any) => {
-      const log = r?.data?.log || [];
-      const lastLine = Array.isArray(log) ? log[log.length - 1] : '';
-      toast.success(lastLine || 'Older emails synced from server');
+      const n = r?.data?.saved ?? 0;
+      toast.success(n > 0 ? `Imported ${n} historical email${n !== 1 ? 's' : ''} from server` : 'No new emails found on server');
       qc.invalidateQueries({ queryKey: ['email-unread'] });
       onResynced();
     },
@@ -2288,7 +2285,7 @@ function InfiniteScrollSentinel({
           {hardResyncMut.isPending ? (
             <span className="inline-flex items-center gap-2">
               <Loader2 size={12} className="animate-spin" />
-              Pulling 200 latest from mail server…
+              Pulling full history from mail server…
             </span>
           ) : (
             <span className="inline-flex items-center gap-2 justify-center">
@@ -2299,7 +2296,7 @@ function InfiniteScrollSentinel({
         </button>
       )}
       <p className="text-[10px] text-muted-foreground/60 italic">
-        Local pagination is instant. Pulling from server takes a few seconds and may overwrite the local cache.
+        Local pagination is instant. Pulling from server imports only emails not already in your local cache.
       </p>
     </div>
   );

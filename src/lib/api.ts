@@ -136,8 +136,8 @@ export const emailApi = {
   updateAccount: (id: string, data: any) => api.put(`/email/accounts/${id}`, data),
   deleteAccount: (id: string)    => api.delete(`/email/accounts/${id}`),
   testAccount:   (id: string)    => api.post(`/email/accounts/${id}/test`),
-  syncAccount:   (id: string, folder = 'INBOX') =>
-    api.post(`/email/accounts/${id}/sync`, { folder }),
+  syncAccount:   (id: string, folder = 'INBOX', full = false) =>
+    api.post(`/email/accounts/${id}/sync`, { folder, full }),
   hardResyncAccount: (id: string, folder = 'INBOX', limit = 200) =>
     api.post(`/email/accounts/${id}/hard-resync`, { folder, limit }),
   getFolders:    (id: string)    => api.get(`/email/accounts/${id}/folders`),
@@ -161,6 +161,40 @@ export const emailApi = {
     api.post('/email/messages/bulk-move', { ids, custom_folder_id }),
   bulkDeleteMessages: (ids: string[], permanent = false) =>
     api.post('/email/messages/bulk-delete', { ids, permanent }),
+};
+
+export const inboxApi = {
+  // Inboxes
+  getInboxes:    ()                => api.get('/inbox'),
+  createInbox:   (data: any)       => api.post('/inbox', data),
+  updateInbox:   (id: string, data: any) => api.put(`/inbox/${id}`, data),
+  deleteInbox:   (id: string)      => api.delete(`/inbox/${id}`),
+  syncInbox:       (id: string) => api.post(`/inbox/${id}/sync`),
+  pullOlderEmails: (id: string) => api.post(`/inbox/${id}/pull-older`),
+  // Folders
+  getFolders:    (id: string)               => api.get(`/inbox/${id}/folders`),
+  createFolder:  (id: string, data: any)    => api.post(`/inbox/${id}/folders`, data),
+  deleteFolder:  (id: string, fid: string)  => api.delete(`/inbox/${id}/folders/${fid}`),
+  moveThread:    (id: string, tid: string, folder_id: string | null) =>
+    api.put(`/inbox/${id}/threads/${tid}/folder`, { folder_id }),
+  // Senders
+  getSenders:    (id: string)      => api.get(`/inbox/${id}/senders`),
+  addSender:     (id: string, data: any) => api.post(`/inbox/${id}/senders`, data),
+  updateSender:  (id: string, sid: string, data: any) => api.put(`/inbox/${id}/senders/${sid}`, data),
+  deleteSender:  (id: string, sid: string) => api.delete(`/inbox/${id}/senders/${sid}`),
+  // Members
+  getMembers:    (id: string)      => api.get(`/inbox/${id}/members`),
+  addMember:     (id: string, data: any) => api.post(`/inbox/${id}/members`, data),
+  removeMember:  (id: string, uid: string) => api.delete(`/inbox/${id}/members/${uid}`),
+  // Threads
+  getThreads:    (id: string, params?: any) => api.get(`/inbox/${id}/threads`, { params }),
+  getThread:     (id: string, tid: string) => api.get(`/inbox/${id}/threads/${tid}`),
+  assignThread:  (id: string, tid: string, user_id: string | null) =>
+    api.post(`/inbox/${id}/threads/${tid}/assign`, { user_id }),
+  patchThread:   (id: string, tid: string, data: any) => api.patch(`/inbox/${id}/threads/${tid}`, data),
+  replyThread:   (id: string, tid: string, data: any) => api.post(`/inbox/${id}/threads/${tid}/reply`, data),
+  newThread:       (id: string, data: any) => api.post(`/inbox/${id}/threads`, data),
+  deleteMessage:   (id: string, tid: string, mid: string) => api.delete(`/inbox/${id}/threads/${tid}/messages/${mid}`),
 };
 
 export default api;

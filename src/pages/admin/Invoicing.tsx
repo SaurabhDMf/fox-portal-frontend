@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { useState } from 'react';
-import { Plus, Send, DollarSign, CheckCircle, Clock, AlertTriangle, FileText, Upload, Download, Trash2, Link2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Plus, Send, DollarSign, CheckCircle, Clock, AlertTriangle, FileText, Upload, Download, Trash2, Link2, MoreHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
 import { useModulePermission } from '@/hooks/usePermission';
@@ -63,7 +63,18 @@ export default function Invoicing() {
   const [showPrint, setShowPrint] = useState<any>(null);
   const [showSend, setShowSend] = useState<any>(null);
   const [showShare, setShowShare] = useState<any>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpenMenuId(null);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [openMenuId]);
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.delete(`/invoices/${id}`),
@@ -133,10 +144,10 @@ export default function Invoicing() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Billed" value={fmtAmount(Number(stats.total_billed || 0), companyCurrency)} icon={FileText} />
-        <StatCard label="Collected" value={fmtAmount(Number(stats.collected || 0), companyCurrency)} icon={CheckCircle} iconColor="text-success" />
-        <StatCard label="Outstanding" value={fmtAmount(Number(stats.outstanding || 0), companyCurrency)} icon={Clock} iconColor="text-warning" />
-        <StatCard label="Overdue" value={fmtAmount(Number(stats.overdue || 0), companyCurrency)} icon={AlertTriangle} iconColor="text-destructive" />
+        <StatCard label="Total Billed" value={Number(stats.total_billed || 0).toLocaleString()} icon={FileText} />
+        <StatCard label="Collected" value={Number(stats.collected || 0).toLocaleString()} icon={CheckCircle} iconColor="text-success" />
+        <StatCard label="Outstanding" value={Number(stats.outstanding || 0).toLocaleString()} icon={Clock} iconColor="text-warning" />
+        <StatCard label="Overdue" value={Number(stats.overdue || 0).toLocaleString()} icon={AlertTriangle} iconColor="text-destructive" />
       </div>
 
       <div className="flex gap-1 overflow-x-auto">
@@ -149,7 +160,7 @@ export default function Invoicing() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-              <th className="p-4">Invoice #</th><th className="p-4">Client</th><th className="p-4">Amount</th><th className="p-4">Due Date</th><th className="p-4">Source</th><th className="p-4">Status</th><th className="p-4">Actions</th>
+              <th className="p-4">Invoice #</th><th className="p-4">Client</th><th className="p-4">Amount</th><th className="p-4">Due Date</th><th className="p-4">Source</th><th className="p-4">Status</th><th className="p-4 w-12"></th>
             </tr>
           </thead>
           <tbody>
@@ -171,31 +182,56 @@ export default function Invoicing() {
                   <span className={inv.status === 'Paid' ? 'badge-success' : inv.status === 'Overdue' ? 'badge-danger' : inv.status === 'Sent' ? 'badge-info' : inv.status === 'Cancelled' ? 'badge-neutral' : 'badge-warning'}>{inv.status}</span>
                 </td>
                 <td className="p-4" onClick={e => e.stopPropagation()}>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => viewDetail(inv)} className="text-xs flex items-center gap-1 text-muted-foreground hover:text-foreground">
-                      <FileText className="h-3 w-3" /> View
+                  <div className="relative" ref={openMenuId === inv.id ? menuRef : undefined}>
+                    <button
+                      onClick={() => setOpenMenuId(openMenuId === inv.id ? null : inv.id)}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
                     </button>
-                    {inv.has_pdf && (
-                      <button onClick={() => downloadPdf(inv)} className="text-xs flex items-center gap-1 text-muted-foreground hover:text-foreground">
-                        <Download className="h-3 w-3" /> PDF
-                      </button>
-                    )}
-                    {(inv.status === 'Draft' || inv.status === 'Sent' || inv.status === 'Overdue') && (
-                      <button onClick={() => setShowSend(inv)} className="text-xs flex items-center gap-1 text-primary hover:underline">
-                        <Send className="h-3 w-3" /> Send
-                      </button>
-                    )}
-                    <button onClick={() => setShowShare(inv)} className="text-xs flex items-center gap-1 text-muted-foreground hover:text-primary">
-                      <Link2 className="h-3 w-3" /> Share
-                    </button>
-                    {canDelete(inv) && (
-                      <button
-                        onClick={() => handleDelete(inv)}
-                        disabled={deleteMut.isPending}
-                        className="text-xs flex items-center gap-1 text-destructive hover:underline disabled:opacity-50"
-                      >
-                        <Trash2 className="h-3 w-3" /> Delete
-                      </button>
+                    {openMenuId === inv.id && (
+                      <div className="absolute right-0 top-8 z-50 min-w-[150px] bg-popover border border-border rounded-lg shadow-lg py-1 text-sm">
+                        <button
+                          onClick={() => { setOpenMenuId(null); viewDetail(inv); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-secondary text-left"
+                        >
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground" /> View
+                        </button>
+                        {inv.has_pdf && (
+                          <button
+                            onClick={() => { setOpenMenuId(null); downloadPdf(inv); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-secondary text-left"
+                          >
+                            <Download className="h-3.5 w-3.5 text-muted-foreground" /> Download PDF
+                          </button>
+                        )}
+                        {(inv.status === 'Draft' || inv.status === 'Sent' || inv.status === 'Overdue') && (
+                          <button
+                            onClick={() => { setOpenMenuId(null); setShowSend(inv); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-secondary text-left text-primary"
+                          >
+                            <Send className="h-3.5 w-3.5" /> Send Invoice
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setOpenMenuId(null); setShowShare(inv); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-secondary text-left"
+                        >
+                          <Link2 className="h-3.5 w-3.5 text-muted-foreground" /> Share Link
+                        </button>
+                        {canDelete(inv) && (
+                          <>
+                            <div className="my-1 border-t border-border" />
+                            <button
+                              onClick={() => { setOpenMenuId(null); handleDelete(inv); }}
+                              disabled={deleteMut.isPending}
+                              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-secondary text-left text-destructive disabled:opacity-50"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
                 </td>

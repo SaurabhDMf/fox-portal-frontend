@@ -3,7 +3,7 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { Shield, Check, X, Loader2 } from 'lucide-react';
 
-const MODULES = ['crm', 'invoicing', 'clients', 'chat', 'projects', 'tasks', 'expenses', 'vault', 'payroll', 'tracker', 'tickets', 'users', 'reports'] as const;
+const MODULES = ['crm', 'invoicing', 'clients', 'chat', 'projects', 'tasks', 'expenses', 'vault', 'payroll', 'tracker', 'tickets', 'inbox', 'users', 'reports'] as const;
 const ACTIONS = ['can_view', 'can_create', 'can_edit', 'can_delete', 'can_export'] as const;
 const ACTION_LABELS: Record<string, string> = { can_view: 'View', can_create: 'Create', can_edit: 'Edit', can_delete: 'Delete', can_export: 'Export' };
 

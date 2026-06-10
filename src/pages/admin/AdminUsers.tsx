@@ -145,7 +145,7 @@ export default function AdminUsers() {
       dependencyDelete({
         url: `/users/${id}`,
         entityType: 'user',
-        skipPreConfirm: false,
+        skipPreConfirm: true,
         dependencyLabels: {
           tasks: 'Assigned Task',
           projects: 'Owned Project',
@@ -159,7 +159,7 @@ export default function AdminUsers() {
     },
     onError: (e: any) => {
       if (e?.message === 'cancelled') return;
-      toast.error(e?.response?.data?.message || 'Error deleting user');
+      toast.error(e?.response?.data?.message || 'Error deactivating user');
     },
   });
 

@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import {
   Send, Paperclip, Search, Pin, Info, ArrowLeft, MessageSquare,
   Smile, Reply, Pencil, Trash2, X, Check, CheckCheck, MoreVertical,
-  Image as ImageIcon,
+  Image as ImageIcon, Loader2,
 } from 'lucide-react';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusBadge from '@/components/chat/StatusBadge';
@@ -132,14 +132,21 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   // Members for read receipts + status map
   const roomMembers: any[] = roomDetail?.members || [];
   const [statusMap, setStatusMap] = useState<Record<string, { status: string; status_text: string | null }>>({});
+  // readMap: userId → last_read_at; updated by messages_read socket event
+  const [readMap, setReadMap] = useState<Record<string, string>>({});
 
-  // Populate statusMap from room members
+  // Populate statusMap + readMap from room members
   useEffect(() => {
     if (!roomMembers.length) return;
-    const map: Record<string, any> = {};
-    roomMembers.forEach((m: any) => { map[m.user_id || m.id] = { status: m.status || 'offline', status_text: m.status_text || null }; });
-    setStatusMap(map);
-  }, [roomMembers]);
+    const smap: Record<string, any> = {};
+    const rmap: Record<string, string> = {};
+    roomMembers.forEach((m: any) => {
+      smap[m.user_id || m.id] = { status: m.status || 'offline', status_text: m.status_text || null };
+      if (m.last_read_at) rmap[m.user_id] = m.last_read_at;
+    });
+    setStatusMap(smap);
+    setReadMap(rmap);
+  }, [roomMembers.length]);
 
   // When room changes: reset scroll state and clear any staged files
   useEffect(() => {
@@ -309,6 +316,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
     };
 
+    const handleMessagesRead = (data: any) => {
+      if (data.room_id !== roomId) return;
+      setReadMap(prev => ({ ...prev, [data.user_id]: data.read_at }));
+    };
+
     const handleRoomDeleted = (data: any) => {
       if (data?.room_id === roomId || data?.id === roomId) {
         qc.invalidateQueries({ queryKey: ['chat-rooms'] });
@@ -331,6 +343,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     socket.on('message_reaction',  handleMessageReaction);
     socket.on('user_typing',       handleUserTyping);
     socket.on('user_status_changed', handleStatusChanged);
+    socket.on('messages_read',     handleMessagesRead);
     socket.on('room_deleted',      handleRoomDeleted);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -344,6 +357,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       socket.off('message_reaction',   handleMessageReaction);
       socket.off('user_typing',        handleUserTyping);
       socket.off('user_status_changed', handleStatusChanged);
+      socket.off('messages_read',      handleMessagesRead);
       socket.off('room_deleted',       handleRoomDeleted);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       setRealtimeMessages([]);
@@ -417,47 +431,67 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   const [isDragOver, setIsDragOver] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
-  const uploadMut = useMutation({
-    mutationFn: async (file: File) => {
-      const BASE = import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1';
-      const token = (() => {
-        try { return JSON.parse(localStorage.getItem('ubp-auth') || '{}')?.state?.accessToken || ''; }
-        catch { return ''; }
-      })();
-      const form = new FormData();
-      form.append('file', file);
+  const getToken = () => {
+    try { return JSON.parse(localStorage.getItem('ubp-auth') || '{}')?.state?.accessToken || ''; }
+    catch { return ''; }
+  };
+
+  const uploadFileOptimistic = async (file: File, localId: string) => {
+    const BASE = import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1';
+    const form = new FormData();
+    form.append('file', file);
+    try {
       const res = await fetch(`${BASE}/chat/rooms/${roomId}/upload`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: { Authorization: `Bearer ${getToken()}` },
         body: form,
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Upload failed (${res.status})`);
       }
-      return res.json();
-    },
-    onSuccess: (data) => {
+      const data = await res.json();
       const msg = data?.data || data;
-      if (msg?.id) {
-        setRealtimeMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg]);
-      }
+      setRealtimeMessages(prev => {
+        const without = prev.filter(m => (m as any)._localId !== localId);
+        if (msg?.id && without.find(m => m.id === msg.id)) return without;
+        return msg?.id ? [...without, msg] : without;
+      });
       requestAnimationFrame(() => scrollToBottom(true));
-    },
-    onError: (err: any) => toast.error(err?.message || 'Upload failed'),
-  });
+    } catch (err: any) {
+      setRealtimeMessages(prev => prev.filter(m => (m as any)._localId !== localId));
+      toast.error(err?.message || 'Upload failed');
+    }
+  };
 
-  const handleFiles = async (files: File[]) => {
+  // Immediately add an optimistic bubble in the chat and start upload in background
+  const sendFilesOptimistic = (files: File[]) => {
     if (!files.length) return;
-    setUploadingCount(files.length);
-    await Promise.allSettled(files.map(f => uploadMut.mutateAsync(f)));
-    setUploadingCount(0);
+    for (const file of files) {
+      const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const isImage = file.type.startsWith('image/');
+      const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
+      const optimistic: any = {
+        id: localId, _localId: localId, _uploading: true,
+        type: isImage ? 'image' : 'file',
+        file_name: file.name, file_url: previewUrl || '',
+        content: file.name,
+        sender_id: user?.id, sender_name: user?.full_name, sender_avatar: (user as any)?.avatar_url,
+        created_at: new Date().toISOString(), room_id: roomId,
+      };
+      setRealtimeMessages(prev => [...prev, optimistic]);
+      scrollToBottom(true);
+      uploadFileOptimistic(file, localId);
+    }
   };
 
   const stageFiles = (files: File[]) => {
     if (!files.length) return;
     setPendingFiles(prev => [...prev, ...files]);
   };
+
+  // Keep for paste/drag-drop that should upload immediately without staging
+  const handleFiles = (files: File[]) => sendFilesOptimistic(files);
 
   // Auto-grow textarea
   const autoGrow = (el: HTMLTextAreaElement | null) => {
@@ -496,7 +530,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     return () => window.removeEventListener('paste', onWindowPaste);
   }, [roomId]); // eslint-disable-line
 
-  const handleSend = async () => {
+  const handleSend = () => {
     if (editingMsg) {
       if (editText.trim()) editMut.mutate({ id: editingMsg.id, content: editText });
       return;
@@ -504,7 +538,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     if (pendingFiles.length > 0) {
       const toUpload = pendingFiles;
       setPendingFiles([]);
-      await handleFiles(toUpload);
+      sendFilesOptimistic(toUpload);
     }
     if (message.trim()) sendMut.mutate(message);
   };
@@ -699,8 +733,9 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             : '';
 
           const otherMember = isDM ? roomMembers.find((m: any) => m.user_id !== user?.id) : null;
-          const isSeen = isDM && otherMember?.last_read_at &&
-            new Date(otherMember.last_read_at) >= new Date(msg.created_at);
+          const otherLastRead = otherMember ? (readMap[otherMember.user_id] || otherMember.last_read_at) : null;
+          const isSeen = isDM && !!otherLastRead &&
+            new Date(otherLastRead) >= new Date(msg.created_at);
           const isLastMessage = i === allMessages.length - 1;
           const seenByGroup = !isDM && isLastMessage
             ? roomMembers.filter((m: any) =>
@@ -777,21 +812,37 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                         : 'bg-secondary text-foreground rounded-[18px] rounded-bl-[4px]'
                     } ${isFirstInGroup && isOwn ? 'rounded-tr-[4px]' : ''} ${isFirstInGroup && !isOwn ? 'rounded-tl-[4px]' : ''}`}
                     >
-                      {msg.type === 'file' && msg.file_url && (
-                        <a href={msg.file_url} target="_blank" rel="noreferrer"
-                          className={`flex items-center gap-2 text-xs mb-1 ${isOwn ? 'text-primary-foreground/80 hover:text-primary-foreground' : 'text-primary hover:underline'}`}>
-                          <div className={`p-1.5 rounded ${isOwn ? 'bg-primary-foreground/10' : 'bg-primary/10'}`}>
-                            <Paperclip className="h-3.5 w-3.5" />
+                      {msg.type === 'file' && (msg.file_url || msg._uploading) && (
+                        msg._uploading ? (
+                          <div className={`flex items-center gap-2 text-xs mb-1 opacity-70`}>
+                            <div className={`p-1.5 rounded ${isOwn ? 'bg-primary-foreground/10' : 'bg-primary/10'}`}>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            </div>
+                            <span className="truncate max-w-[200px]">{msg.file_name}</span>
                           </div>
-                          <span className="truncate max-w-[200px]">{msg.file_name || 'Download file'}</span>
-                        </a>
+                        ) : (
+                          <a href={msg.file_url} target="_blank" rel="noreferrer"
+                            className={`flex items-center gap-2 text-xs mb-1 ${isOwn ? 'text-primary-foreground/80 hover:text-primary-foreground' : 'text-primary hover:underline'}`}>
+                            <div className={`p-1.5 rounded ${isOwn ? 'bg-primary-foreground/10' : 'bg-primary/10'}`}>
+                              <Paperclip className="h-3.5 w-3.5" />
+                            </div>
+                            <span className="truncate max-w-[200px]">{msg.file_name || 'Download file'}</span>
+                          </a>
+                        )
                       )}
                       {msg.type === 'image' && msg.file_url && (
-                        <img
-                          src={msg.file_url} alt=""
-                          className="max-w-full rounded-xl mb-1 max-h-64 object-contain cursor-zoom-in"
-                          onClick={() => setLightboxUrl(msg.file_url)}
-                        />
+                        <div className="relative">
+                          <img
+                            src={msg.file_url} alt=""
+                            className="max-w-full rounded-xl mb-1 max-h-64 object-contain cursor-zoom-in"
+                            onClick={() => !msg._uploading && setLightboxUrl(msg.file_url)}
+                          />
+                          {msg._uploading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl mb-1">
+                              <Loader2 className="h-6 w-6 animate-spin text-white" />
+                            </div>
+                          )}
+                        </div>
                       )}
                       {msg.content && !(msg.type === 'file' && msg.file_url) && (
                         <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">

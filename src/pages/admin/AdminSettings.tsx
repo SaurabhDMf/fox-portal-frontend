@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { User, Shield, Bell, Palette, Pencil, X, Building2, KeyRound, Plug, Mail, FileText } from 'lucide-react';
+import { User, Shield, Bell, Pencil, X, Building2, Plug, Mail, FileText } from 'lucide-react';
 import CompanySettings from '@/components/settings/CompanySettings';
 import IntegrationsSettings from '@/components/settings/IntegrationsSettings';
 import EmailSettings from '@/components/settings/EmailSettings';
@@ -12,15 +12,13 @@ import ConnectedEmailCard from '@/components/settings/ConnectedEmailCard';
 import InvoiceSettings from '@/components/settings/InvoiceSettings';
 
 const tabs = [
-  { id: 'profile', label: 'Profile', icon: User },
-  { id: 'company', label: 'Company', icon: Building2 },
-  { id: 'invoice', label: 'Invoice Settings', icon: FileText, adminOnly: true },
-  { id: 'integrations', label: 'Integrations', icon: Plug, adminOnly: true },
-  { id: 'email', label: 'Email', icon: Mail, adminOnly: true },
-  { id: 'security', label: 'Security', icon: Shield },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'roles', label: 'Roles & Permissions', icon: KeyRound, adminOnly: true },
+  { id: 'profile',      label: 'Profile',      icon: User                        },
+  { id: 'company',      label: 'Company',       icon: Building2                   },
+  { id: 'invoice',      label: 'Invoice',       icon: FileText,  adminOnly: true  },
+  { id: 'integrations', label: 'Integrations',  icon: Plug,      adminOnly: true  },
+  { id: 'email',        label: 'Email',         icon: Mail,      adminOnly: true  },
+  { id: 'security',     label: 'Security',      icon: Shield                      },
+  { id: 'notifications',label: 'Notifications', icon: Bell                        },
 ];
 
 const notificationSettings = [
@@ -32,20 +30,12 @@ const notificationSettings = [
   { key: 'leave_approved', label: 'Leave Request Update', desc: 'When your leave request is reviewed' },
 ];
 
-const accentColors = [
-  { name: 'Indigo', value: '244 94% 62%' },
-  { name: 'Emerald', value: '157 87% 46%' },
-  { name: 'Blue', value: '213 100% 62%' },
-  { name: 'Amber', value: '35 100% 63%' },
-  { name: 'Rose', value: '4 100% 64%' },
-  { name: 'Violet', value: '270 80% 60%' },
-];
-
 export default function AdminSettings() {
   const user = useAuthStore(s => s.user);
   const setAuth = useAuthStore(s => s.setAuth);
   const navigate = useNavigate();
-  const [tab, setTab] = useState('profile');
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'profile');
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
   const [saving, setSaving] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -53,19 +43,10 @@ export default function AdminSettings() {
   const [notifications, setNotifications] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(notificationSettings.map(n => [n.key, true]))
   );
-  const [selectedAccent, setSelectedAccent] = useState('244 94% 62%');
 
   const toggleNotification = (key: string) => {
     setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
     toast.success('Preference updated');
-  };
-
-  const applyAccent = (value: string) => {
-    setSelectedAccent(value);
-    document.documentElement.style.setProperty('--primary', value);
-    document.documentElement.style.setProperty('--accent', value);
-    document.documentElement.style.setProperty('--ring', value);
-    toast.success('Accent color applied');
   };
 
   return (
@@ -77,7 +58,7 @@ export default function AdminSettings() {
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto">
         {tabs.filter(t => !t.adminOnly || isAdmin).map(t => (
-          <button key={t.id} onClick={() => t.id === 'roles' ? navigate('/admin/roles') : setTab(t.id)} className={`flex items-center gap-2 text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+          <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
             <t.icon className="h-3.5 w-3.5" /> {t.label}
           </button>
         ))}
@@ -189,40 +170,6 @@ export default function AdminSettings() {
         </div>
       )}
 
-      {/* Appearance */}
-      {tab === 'appearance' && (
-        <div className="space-y-4">
-          <div className="glass-card p-6 space-y-4">
-            <h2 className="text-sm font-semibold">Accent Color</h2>
-            <p className="text-xs text-muted-foreground">Choose the primary accent color for the interface</p>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-              {accentColors.map(c => (
-                <button
-                  key={c.value}
-                  onClick={() => applyAccent(c.value)}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-xl transition-all ${selectedAccent === c.value ? 'ring-2 ring-primary bg-primary/10' : 'hover:bg-secondary'}`}
-                >
-                  <div className="w-8 h-8 rounded-full" style={{ background: `hsl(${c.value})` }} />
-                  <span className="text-xs">{c.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="glass-card p-6 space-y-4">
-            <h2 className="text-sm font-semibold">Theme</h2>
-            <div className="flex gap-3">
-              <button className="flex-1 p-4 rounded-xl bg-primary/10 border-2 border-primary text-center">
-                <div className="w-full h-16 rounded-lg bg-[hsl(240,30%,6%)] mb-2 border border-border" />
-                <span className="text-xs font-medium">Dark</span>
-              </button>
-              <button className="flex-1 p-4 rounded-xl bg-secondary text-center opacity-50 cursor-not-allowed">
-                <div className="w-full h-16 rounded-lg bg-muted mb-2 border border-border" />
-                <span className="text-xs font-medium text-muted-foreground">Light (Coming Soon)</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

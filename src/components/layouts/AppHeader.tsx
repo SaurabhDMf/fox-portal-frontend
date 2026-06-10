@@ -1,13 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useUnreadStore } from '@/stores/unreadStore';
-import { Bell, Search, Menu } from 'lucide-react';
+import { Bell, Search, Menu, Palette, Check } from 'lucide-react';
 import { useSidebarCollapsed } from './PortalLayout';
 import ThemeToggle from '@/components/ThemeToggle';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusPicker from '@/components/chat/StatusPicker';
 import api from '@/lib/api';
+
+const accentColors = [
+  { name: 'Indigo',   value: '244 94% 62%' },
+  { name: 'Violet',   value: '270 80% 60%' },
+  { name: 'Blue',     value: '213 100% 62%' },
+  { name: 'Emerald',  value: '157 87% 46%' },
+  { name: 'Amber',    value: '35 100% 63%' },
+  { name: 'Rose',     value: '4 100% 64%' },
+];
 
 const routeLabels: Record<string, string> = {
   '/sa': 'Dashboard',
@@ -88,6 +97,10 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
   const [myStatus, setMyStatus] = useState('online');
   const [myStatusText, setMyStatusText] = useState('');
   const [myStatusEmoji, setMyStatusEmoji] = useState('');
+  const [showAppearance, setShowAppearance] = useState(false);
+  const [selectedAccent, setSelectedAccent] = useState('244 94% 62%');
+  const appearanceRef = useRef<HTMLDivElement>(null);
+  const isAdmin = ['super_admin', 'admin'].includes(user?.role || '');
   const crumbs = getBreadcrumbs(location.pathname);
   const pageTitle = routeLabels[location.pathname] || crumbs[crumbs.length - 1]?.label || '';
 
@@ -106,6 +119,23 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
     setMyStatusText(text);
     setMyStatusEmoji(emoji);
   };
+
+  const applyAccent = (value: string) => {
+    setSelectedAccent(value);
+    document.documentElement.style.setProperty('--primary', value);
+    document.documentElement.style.setProperty('--accent', value);
+    document.documentElement.style.setProperty('--ring', value);
+  };
+
+  useEffect(() => {
+    if (!showAppearance) return;
+    const handler = (e: MouseEvent) => {
+      if (appearanceRef.current && !appearanceRef.current.contains(e.target as Node))
+        setShowAppearance(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showAppearance]);
 
   return (
     <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
@@ -152,6 +182,37 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
 
           {/* Theme toggle */}
           <ThemeToggle />
+
+          {/* Appearance (admin only) */}
+          {isAdmin && (
+            <div ref={appearanceRef} className="relative">
+              <button
+                onClick={() => setShowAppearance(v => !v)}
+                className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                title="Appearance"
+              >
+                <Palette className="h-4 w-4" />
+              </button>
+              {showAppearance && (
+                <div className="absolute right-0 top-11 z-50 w-56 bg-popover border border-border rounded-xl shadow-xl p-3 space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Accent Color</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {accentColors.map(c => (
+                      <button
+                        key={c.value}
+                        onClick={() => applyAccent(c.value)}
+                        className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-all ${selectedAccent === c.value ? 'ring-2 ring-primary bg-primary/10' : 'hover:bg-secondary'}`}
+                      >
+                        <div className="w-6 h-6 rounded-full" style={{ background: `hsl(${c.value})` }} />
+                        <span className="text-[10px] text-muted-foreground">{c.name}</span>
+                        {selectedAccent === c.value && <Check className="h-2.5 w-2.5 text-primary absolute" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Notifications bell — toggle behavior:
               - First click: navigate to /notifications page (clear unread badge)
