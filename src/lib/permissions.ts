@@ -148,17 +148,14 @@ export function usePermission(module: Module) {
 }
 
 /**
- * Get role display label
+ * Display a role slug as a title-case name, e.g. "pre_sales" → "Pre Sales".
  */
-export function getRoleLabel(role: string): string {
-  const labels: Record<string, string> = {
-    super_admin: 'Super Admin',
-    admin: 'Admin',
-    sales_manager: 'Sales Manager',
-    sales_rep: 'Sales Rep',
-    resource: 'Resource',
-    freelancer: 'Freelancer',
-    client: 'Client',
-  };
-  return labels[role] || role;
+export function formatRoleName(slug?: string | null): string {
+  if (!slug) return '';
+  return slug
+    .split('_')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
 }
+
+export const getRoleLabel = formatRoleName;
