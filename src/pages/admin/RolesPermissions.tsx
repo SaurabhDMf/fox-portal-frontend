@@ -81,6 +81,17 @@ export default function RolesPermissions() {
 
   const handleSave = () => {
     if (!form.name.trim()) return toast.error('Role name is required');
+
+    // Warn when modules are viewable but NOT restricted to own data
+    const allDataModules = MODULES.filter(m => form.permissions[m]?.can_view && !form.permissions[m]?.own_only);
+    if (allDataModules.length > 0) {
+      const list = allDataModules.join(', ');
+      const ok = window.confirm(
+        `You have chosen to show ALL data (not just own) for these modules:\n\n${list}\n\nUsers with this role will see records created by everyone, not just their own. Continue?`
+      );
+      if (!ok) return;
+    }
+
     if (editingRole) {
       updateMut.mutate({ ...form, originalName: editingRole });
     } else {

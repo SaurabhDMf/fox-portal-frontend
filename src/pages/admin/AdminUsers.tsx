@@ -76,6 +76,12 @@ export default function AdminUsers() {
   const [viewGrants, setViewGrants] = useState<string[]>([]);
   const [grantBusy, setGrantBusy] = useState<string | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
+  const [emailForm, setEmailForm] = useState({
+    label: '', email_address: '',
+    smtp_host: '', smtp_port: '587', smtp_secure: false, smtp_user: '', smtp_password: '',
+    imap_host: '', imap_port: '993', imap_secure: true, imap_user: '', imap_password: '',
+  });
+  const [existingEmailAccountId, setExistingEmailAccountId] = useState<string | null>(null);
   const [resetPwTarget, setResetPwTarget] = useState<any>(null);
   const [resetPwValue, setResetPwValue] = useState('Welcome123!');
   const [resetPwError, setResetPwError] = useState('');
@@ -243,8 +249,18 @@ export default function AdminUsers() {
     });
   };
 
+  const resetEmailForm = () => {
+    setEmailForm({
+      label: '', email_address: '',
+      smtp_host: '', smtp_port: '587', smtp_secure: false, smtp_user: '', smtp_password: '',
+      imap_host: '', imap_port: '993', imap_secure: true, imap_user: '', imap_password: '',
+    });
+    setExistingEmailAccountId(null);
+  };
+
   const openEdit = async (u: any) => {
     setFormTab('basic');
+    resetEmailForm();
     try {
       const res = await api.get(`/users/${u.id}`);
       const full = res.data?.data || res.data;
@@ -254,6 +270,23 @@ export default function AdminUsers() {
       populateForm(u);
       setShowEdit(u);
     }
+    // Load existing email account (if any) so admin can edit instead of duplicate
+    try {
+      const r = await api.get(`/email/accounts?for_user_id=${u.id}`);
+      const list = r.data?.data || r.data || [];
+      const acct = Array.isArray(list) ? list[0] : null;
+      if (acct) {
+        setExistingEmailAccountId(acct.id);
+        setEmailForm({
+          label: acct.label || '',
+          email_address: acct.email_address || '',
+          smtp_host: acct.smtp_host || '', smtp_port: String(acct.smtp_port || 587),
+          smtp_secure: !!acct.smtp_secure, smtp_user: acct.smtp_user || '', smtp_password: '',
+          imap_host: acct.imap_host || '', imap_port: String(acct.imap_port || 993),
+          imap_secure: acct.imap_secure !== 0, imap_user: acct.imap_user || '', imap_password: '',
+        });
+      }
+    } catch {}
   };
 
   const openView = async (u: any) => {
@@ -322,10 +355,10 @@ export default function AdminUsers() {
 
   const renderFormFields = () => (
     <div className="space-y-4">
-      <div className="flex gap-1 border-b border-border pb-2">
-        {['basic', 'work', 'payroll', 'other'].map(t => (
+      <div className="flex gap-1 border-b border-border pb-2 flex-wrap">
+        {['basic', 'work', 'payroll', 'email', 'other'].map(t => (
           <button key={t} onClick={() => setFormTab(t)} className={`text-xs px-3 py-1.5 rounded-lg capitalize transition-colors ${formTab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
-            {t === 'basic' ? 'Basic Info' : t === 'work' ? 'Work Details' : t === 'payroll' ? 'Payroll & Bank' : 'Other'}
+            {t === 'basic' ? 'Basic Info' : t === 'work' ? 'Work Details' : t === 'payroll' ? 'Payroll & Bank' : t === 'email' ? 'Email Account' : 'Other'}
           </button>
         ))}
       </div>
@@ -388,6 +421,42 @@ export default function AdminUsers() {
           <div><label className={labelCls}>Bank Name</label><input placeholder="Enter bank name" value={form.bank_name} onChange={e => setForm(f => ({ ...f, bank_name: e.target.value }))} className={inputCls} /></div>
           <div><label className={labelCls}>Bank Account Number</label><input placeholder="Enter account number" value={form.bank_account} onChange={e => setForm(f => ({ ...f, bank_account: e.target.value }))} className={inputCls} /></div>
           <div><label className={labelCls}>IFSC Code</label><input placeholder="Enter IFSC code" value={form.ifsc_code} onChange={e => setForm(f => ({ ...f, ifsc_code: e.target.value }))} className={inputCls} /></div>
+        </div>
+      )}
+
+      {formTab === 'email' && (
+        <div className="space-y-4">
+          <div className="text-xs text-muted-foreground">
+            Configure the user's IMAP (incoming) and SMTP (outgoing) settings so they can read and send mail from their personal Email module.
+            {existingEmailAccountId && <span className="ml-1 text-amber-500">Editing existing account — leave password fields blank to keep the saved one.</span>}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div><label className={labelCls}>Email Address *</label><input type="email" placeholder="user@example.com" value={emailForm.email_address} onChange={e => setEmailForm(f => ({ ...f, email_address: e.target.value }))} className={inputCls} /></div>
+            <div><label className={labelCls}>Label</label><input placeholder="e.g. Work, Personal" value={emailForm.label} onChange={e => setEmailForm(f => ({ ...f, label: e.target.value }))} className={inputCls} /></div>
+          </div>
+
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">SMTP (Outgoing)</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div><label className={labelCls}>SMTP Host *</label><input placeholder="smtp.gmail.com" value={emailForm.smtp_host} onChange={e => setEmailForm(f => ({ ...f, smtp_host: e.target.value }))} className={inputCls} /></div>
+              <div><label className={labelCls}>SMTP Port</label><input type="number" placeholder="587" value={emailForm.smtp_port} onChange={e => setEmailForm(f => ({ ...f, smtp_port: e.target.value }))} className={inputCls} /></div>
+              <div><label className={labelCls}>SMTP User *</label><input placeholder="user@example.com" value={emailForm.smtp_user} onChange={e => setEmailForm(f => ({ ...f, smtp_user: e.target.value }))} className={inputCls} /></div>
+              <div><label className={labelCls}>SMTP Password {existingEmailAccountId ? '' : '*'}</label><input type="password" placeholder={existingEmailAccountId ? 'Leave blank to keep saved' : 'App password / mailbox password'} value={emailForm.smtp_password} onChange={e => setEmailForm(f => ({ ...f, smtp_password: e.target.value }))} className={inputCls} /></div>
+              <label className="md:col-span-2 flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={emailForm.smtp_secure} onChange={e => setEmailForm(f => ({ ...f, smtp_secure: e.target.checked }))} /> Use SSL (port 465)</label>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">IMAP (Incoming)</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div><label className={labelCls}>IMAP Host</label><input placeholder="imap.gmail.com" value={emailForm.imap_host} onChange={e => setEmailForm(f => ({ ...f, imap_host: e.target.value }))} className={inputCls} /></div>
+              <div><label className={labelCls}>IMAP Port</label><input type="number" placeholder="993" value={emailForm.imap_port} onChange={e => setEmailForm(f => ({ ...f, imap_port: e.target.value }))} className={inputCls} /></div>
+              <div><label className={labelCls}>IMAP User</label><input placeholder="Defaults to SMTP user" value={emailForm.imap_user} onChange={e => setEmailForm(f => ({ ...f, imap_user: e.target.value }))} className={inputCls} /></div>
+              <div><label className={labelCls}>IMAP Password</label><input type="password" placeholder={existingEmailAccountId ? 'Leave blank to keep saved' : 'Defaults to SMTP password'} value={emailForm.imap_password} onChange={e => setEmailForm(f => ({ ...f, imap_password: e.target.value }))} className={inputCls} /></div>
+              <label className="md:col-span-2 flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={emailForm.imap_secure} onChange={e => setEmailForm(f => ({ ...f, imap_secure: e.target.checked }))} /> Use SSL (port 993)</label>
+            </div>
+          </div>
         </div>
       )}
 
@@ -578,7 +647,7 @@ export default function AdminUsers() {
       {/* Edit User Modal */}
       {showEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-2xl p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
+          <div className="glass-card w-full max-w-5xl p-6 space-y-4 animate-slide-up max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Edit User — {showEdit.full_name}</h2>
               <button onClick={() => setShowEdit(null)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
@@ -586,7 +655,46 @@ export default function AdminUsers() {
             {renderFormFields()}
             <div className="flex gap-2 justify-end pt-2">
               <button onClick={() => setShowEdit(null)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
-              <button onClick={() => editMut.mutate({ id: showEdit.id, data: form })} disabled={editMut.isPending || !form.full_name || !form.email} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+              <button onClick={async () => {
+                await editMut.mutateAsync({ id: showEdit.id, data: form });
+                // Save email account if any meaningful field is filled in
+                const ef = emailForm;
+                const filledAny = ef.email_address || ef.smtp_host || ef.smtp_user;
+                if (filledAny) {
+                  try {
+                    if (existingEmailAccountId) {
+                      const payload: any = {
+                        label: ef.label || ef.email_address,
+                        email_address: ef.email_address,
+                        smtp_host: ef.smtp_host, smtp_port: Number(ef.smtp_port) || 587, smtp_secure: ef.smtp_secure,
+                        smtp_user: ef.smtp_user,
+                        imap_host: ef.imap_host || null, imap_port: Number(ef.imap_port) || 993, imap_secure: ef.imap_secure,
+                        imap_user: ef.imap_user || null,
+                      };
+                      if (ef.smtp_password) payload.smtp_password = ef.smtp_password;
+                      if (ef.imap_password) payload.imap_password = ef.imap_password;
+                      await api.put(`/email/accounts/${existingEmailAccountId}`, payload);
+                      toast.success('Email account updated');
+                    } else if (ef.email_address && ef.smtp_host && ef.smtp_user && ef.smtp_password) {
+                      await api.post('/email/accounts', {
+                        for_user_id: showEdit.id,
+                        label: ef.label || ef.email_address,
+                        email_address: ef.email_address,
+                        smtp_host: ef.smtp_host, smtp_port: Number(ef.smtp_port) || 587, smtp_secure: ef.smtp_secure,
+                        smtp_user: ef.smtp_user, smtp_password: ef.smtp_password,
+                        imap_host: ef.imap_host || null, imap_port: Number(ef.imap_port) || 993, imap_secure: ef.imap_secure,
+                        imap_user: ef.imap_user || null, imap_password: ef.imap_password || null,
+                        is_default: true,
+                      });
+                      toast.success('Email account added');
+                    } else if (ef.email_address) {
+                      toast.error('Email account needs SMTP host, user, and password');
+                    }
+                  } catch (e: any) {
+                    toast.error(e.response?.data?.error || 'Could not save email account');
+                  }
+                }
+              }} disabled={editMut.isPending || !form.full_name || !form.email} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
                 {editMut.isPending ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
