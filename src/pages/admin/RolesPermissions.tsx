@@ -19,12 +19,14 @@ const emptyPermissions = (): PermMatrix =>
 
 interface RoleForm {
   name: string;
-  label: string;
   description: string;
   permissions: PermMatrix;
 }
 
-const emptyForm = (): RoleForm => ({ name: '', label: '', description: '', permissions: emptyPermissions() });
+const emptyForm = (): RoleForm => ({ name: '', description: '', permissions: emptyPermissions() });
+
+const formatRoleName = (slug?: string | null) =>
+  !slug ? '' : slug.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 
 export default function RolesPermissions() {
   const qc = useQueryClient();
@@ -51,7 +53,7 @@ export default function RolesPermissions() {
   });
 
   const updateMut = useMutation({
-    mutationFn: (d: RoleForm & { originalName: string }) => api.put(`/roles/${d.originalName}`, { label: d.label, description: d.description, permissions: d.permissions }),
+    mutationFn: (d: RoleForm & { originalName: string }) => api.put(`/roles/${d.originalName}`, { description: d.description, permissions: d.permissions }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['roles'] }); setShowModal(false); setEditingRole(null); toast.success('Role updated'); },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error updating role'),
   });
@@ -64,7 +66,7 @@ export default function RolesPermissions() {
 
   const openCreate = () => { setForm(emptyForm()); setEditingRole(null); setEditingIsSystem(false); setShowModal(true); };
   const openEdit = (role: any) => {
-    setForm({ name: role.name, label: role.label || role.name, description: role.description || '', permissions: role.permissions || emptyPermissions() });
+    setForm({ name: role.name, description: role.description || '', permissions: role.permissions || emptyPermissions() });
     setEditingRole(role.name);
     setEditingIsSystem(!!role.is_system);
     setShowModal(true);
@@ -78,7 +80,7 @@ export default function RolesPermissions() {
   };
 
   const handleSave = () => {
-    if (!form.name.trim() || !form.label.trim()) return toast.error('Name and label are required');
+    if (!form.name.trim()) return toast.error('Role name is required');
     if (editingRole) {
       updateMut.mutate({ ...form, originalName: editingRole });
     } else {
@@ -117,7 +119,7 @@ export default function RolesPermissions() {
                     {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{role.label || role.name}</span>
+                        <span className="font-medium text-sm">{formatRoleName(role.name)}</span>
                         <span className="text-xs text-muted-foreground font-mono">({role.name})</span>
                         {isSystem && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[10px] font-medium">
@@ -196,15 +198,16 @@ export default function RolesPermissions() {
               </div>
             )}
             <div className="p-6 space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground font-medium">Name (slug) *</label>
-                  <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') }))} placeholder="e.g. team_lead" disabled={!!editingRole} className={`${inputCls} ${editingRole ? 'opacity-50 cursor-not-allowed' : ''}`} />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground font-medium">Label *</label>
-                  <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder="e.g. Team Lead" className={inputCls} />
-                </div>
+              <div>
+                <label className="text-xs text-muted-foreground font-medium">Role Name *</label>
+                <input
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') }))}
+                  placeholder="e.g. team_lead or pre_sales"
+                  disabled={!!editingRole}
+                  className={`${inputCls} ${editingRole ? 'opacity-50 cursor-not-allowed' : ''}`}
+                />
+                {form.name && <p className="text-xs text-muted-foreground mt-1">Displays as: <span className="font-medium text-foreground">{formatRoleName(form.name)}</span></p>}
               </div>
               <div>
                 <label className="text-xs text-muted-foreground font-medium">Description</label>
@@ -261,7 +264,7 @@ export default function RolesPermissions() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Role</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the role "{deleteTarget?.label || deleteTarget?.name}"? This action cannot be undone.
+              Are you sure you want to delete the role "{formatRoleName(deleteTarget?.name)}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
