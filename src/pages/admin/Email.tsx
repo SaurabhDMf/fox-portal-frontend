@@ -609,7 +609,7 @@ export default function EmailPage() {
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
       {/* ───────── COL 1 — SIDEBAR (collapsible) ───────── */}
-      <aside className={`flex-none border-r border-border bg-card flex flex-col py-3 overflow-y-auto overflow-x-hidden transition-all duration-200 ${sidebarExpanded ? 'w-[220px] items-stretch px-2' : 'w-[60px] items-center'}`}>
+      <aside className={`flex-none border-r border-border bg-card flex flex-col py-3 overflow-hidden transition-all duration-200 ${sidebarExpanded ? 'w-[220px] items-stretch px-2' : 'w-[60px] items-center'}`}>
 
         {/* Toggle + Compose row */}
         <div className={`flex items-center mb-2 ${sidebarExpanded ? 'gap-2 px-1' : 'flex-col gap-2'}`}>
@@ -655,7 +655,11 @@ export default function EmailPage() {
         })}
 
         {/* Divider */}
-        <div className={`bg-border my-2 ${sidebarExpanded ? 'h-px mx-1' : 'w-6 h-px'}`} />
+        <div className={`bg-border my-2 shrink-0 ${sidebarExpanded ? 'h-px mx-1' : 'w-6 h-px'}`} />
+
+        {/* Everything below the divider scrolls independently so the top
+           (Compose + system folders) stays pinned in view. */}
+        <div className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col ${sidebarExpanded ? 'items-stretch' : 'items-center'}`}>
 
         {/* IMAP / Mail server folders — only render when sidebar is expanded so the
            collapsed rail stays clean. When collapsed, a single chevron expands the
@@ -774,6 +778,7 @@ export default function EmailPage() {
             <Plus size={14} />
           </button>
         )}
+        </div>
       </aside>
 
       {/* ───────── COL 2 + 3 — LIST + DETAIL (resizable) ───────── */}
