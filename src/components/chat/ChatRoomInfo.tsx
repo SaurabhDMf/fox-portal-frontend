@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
-import { X, UserPlus, Trash2, LogOut, Download, Image as ImageIcon, FileText } from 'lucide-react';
+import { X, UserPlus, Trash2, LogOut, Download, Image as ImageIcon, FileText, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import toast from 'react-hot-toast';
 import UserPicker from '@/components/projects/UserPicker';
@@ -17,7 +17,7 @@ interface Props {
 export default function ChatRoomInfo({ roomId, onClose }: Props) {
   const user = useAuthStore(s => s.user);
   const qc = useQueryClient();
-  const [tab, setTab] = useState<'members' | 'media' | 'files'>('members');
+  const [tab, setTab] = useState<'members' | 'media' | 'files' | 'links'>('members');
   const [showAddMember, setShowAddMember] = useState(false);
 
   const { data: room } = useQuery({
@@ -41,6 +41,15 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
       return Array.isArray(d) ? d : d?.data || [];
     }),
     enabled: tab === 'files',
+  });
+
+  const { data: links = [] } = useQuery({
+    queryKey: ['chat-links', roomId],
+    queryFn: () => api.get(`/chat/rooms/${roomId}/links`).then(r => {
+      const d = r.data;
+      return Array.isArray(d) ? d : d?.data || [];
+    }),
+    enabled: tab === 'links',
   });
 
   const addMemberMut = useMutation({
@@ -78,6 +87,7 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
     { key: 'members' as const, label: 'Members' },
     { key: 'media' as const, label: 'Media' },
     { key: 'files' as const, label: 'Files' },
+    { key: 'links' as const, label: 'Links' },
   ];
 
   return (
@@ -204,6 +214,39 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
                   <Download className="h-3.5 w-3.5 text-muted-foreground" />
                 </a>
               ))
+            )}
+          </div>
+        )}
+
+        {tab === 'links' && (
+          <div className="p-3 space-y-1">
+            {(links as any[]).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <LinkIcon className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <p className="text-xs">No links shared yet</p>
+              </div>
+            ) : (
+              (links as any[]).flatMap((msg: any) => {
+                const urls: string[] = (msg.content?.match(/https?:\/\/[^\s<>"]+/gi) || []);
+                return urls.map((url, i) => ({ ...msg, url, key: `${msg.id}-${i}` }));
+              }).map((entry: any) => {
+                let host = entry.url;
+                try { host = new URL(entry.url).host; } catch {}
+                return (
+                  <a key={entry.key} href={entry.url} target="_blank" rel="noreferrer"
+                    className="flex items-start gap-2 px-3 py-2 rounded-lg hover:bg-secondary/50 transition-colors">
+                    <LinkIcon className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate text-primary">{host}</div>
+                      <div className="text-xs truncate text-muted-foreground">{entry.url}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {entry.sender_name} • {entry.created_at ? new Date(entry.created_at).toLocaleString([], { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                      </div>
+                    </div>
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                  </a>
+                );
+              })
             )}
           </div>
         )}

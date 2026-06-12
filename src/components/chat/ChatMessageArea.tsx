@@ -679,7 +679,12 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             ? <p className="text-xs text-muted-foreground p-3">No results found</p>
             : (searchResults as any[]).map((r: any) => (
               <div key={r.id} className="px-4 py-2 hover:bg-secondary/50 cursor-pointer text-sm border-b border-border/50">
-                <span className="text-xs text-muted-foreground">{r.sender_name}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground truncate">{r.sender_name}</span>
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {r.created_at ? new Date(r.created_at).toLocaleString([], { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                  </span>
+                </div>
                 <p className="truncate">{r.content}</p>
               </div>
             ))
