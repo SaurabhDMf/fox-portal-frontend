@@ -142,8 +142,8 @@ export default function ProjectDetail() {
         description: project.description || '',
         status: project.status || 'Active',
         priority: project.priority || 'Medium',
-        start_date: project.start_date || '',
-        due_date: project.due_date || '',
+        start_date: project.start_date ? String(project.start_date).substring(0, 10) : '',
+        due_date: project.due_date ? String(project.due_date).substring(0, 10) : '',
         color: project.color || '#3B82F6',
         client_id: project.client_id || (project as any)?.client?.id || (project as any)?.client?.client_id || null,
       });
