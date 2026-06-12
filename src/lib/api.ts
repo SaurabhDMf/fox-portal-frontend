@@ -195,6 +195,8 @@ export const inboxApi = {
   replyThread:   (id: string, tid: string, data: any) => api.post(`/inbox/${id}/threads/${tid}/reply`, data),
   newThread:       (id: string, data: any) => api.post(`/inbox/${id}/threads`, data),
   deleteMessage:   (id: string, tid: string, mid: string) => api.delete(`/inbox/${id}/threads/${tid}/messages/${mid}`),
+  deleteThread:    (id: string, tid: string) => api.delete(`/inbox/${id}/threads/${tid}`),
+  markThreadRead:  (id: string, tid: string) => api.post(`/inbox/${id}/threads/${tid}/read`),
 };
 
 export default api;

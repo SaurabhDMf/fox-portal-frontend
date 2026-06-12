@@ -458,7 +458,17 @@ export default function SharedInbox() {
     }
   };
 
-  const openThread = (tid: string) => setSelectedThreadId(tid);
+  const openThread = (tid: string) => {
+    setSelectedThreadId(tid);
+    if (selectedInboxId) {
+      inboxApi.markThreadRead(selectedInboxId, tid)
+        .then(() => {
+          qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
+          qc.invalidateQueries({ queryKey: ['shared-inboxes'] });
+        })
+        .catch(() => {});
+    }
+  };
 
   if (loadingInboxes) {
     return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-gray-400" size={32} /></div>;
@@ -498,9 +508,15 @@ export default function SharedInbox() {
                 >
                   <Inbox size={15} className={`flex-shrink-0 ${isSelected ? 'text-violet-600' : 'text-gray-400'}`} />
                   <p className={`text-xs font-medium truncate flex-1 ${isSelected ? 'text-violet-700 dark:text-violet-400' : 'text-gray-700 dark:text-gray-300'}`}>{inbox.name}</p>
-                  {inbox.thread_count > 0 && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${isSelected ? 'bg-violet-200 dark:bg-violet-800 text-violet-700 dark:text-violet-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'}`}>
-                      {inbox.thread_count}
+                  {Number(inbox.unread_count ?? inbox.thread_count ?? 0) > 0 && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                      Number(inbox.unread_count) > 0
+                        ? 'bg-violet-600 text-white font-semibold'
+                        : isSelected
+                          ? 'bg-violet-200 dark:bg-violet-800 text-violet-700 dark:text-violet-300'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500'
+                    }`}>
+                      {inbox.unread_count ?? inbox.thread_count}
                     </span>
                   )}
                 </button>
@@ -902,17 +918,25 @@ function ThreadRow({ thread, selected, isAdmin, members, folders, onSelect, onSt
     return () => document.removeEventListener('mousedown', h);
   }, [menuOpen]);
 
+  const unread = !!(thread as any).is_unread;
   return (
     <div onClick={onSelect}
-      className={`relative flex items-start gap-2.5 px-3 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${selected ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
+      className={`relative flex items-start gap-2.5 px-3 py-3 cursor-pointer transition-colors ${
+        selected
+          ? 'bg-violet-50 dark:bg-violet-900/20'
+          : unread
+            ? 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/40'
+            : 'bg-gray-50/50 dark:bg-gray-900/30 hover:bg-gray-50 dark:hover:bg-gray-700/40'
+      }`}>
+      {unread && !selected && <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-violet-500" />}
       <AvatarFallback name={thread.client_name || thread.client_email} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
-          <span className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">{thread.client_name || thread.client_email}</span>
-          <span className="text-xs text-gray-400 flex-shrink-0">{fmtDateTime(thread.last_inbound_at || thread.updated_at)}</span>
+          <span className={`text-xs truncate text-gray-800 dark:text-gray-100 ${unread ? 'font-bold' : 'font-medium'}`}>{thread.client_name || thread.client_email}</span>
+          <span className={`text-xs flex-shrink-0 ${unread ? 'text-violet-600 dark:text-violet-300 font-semibold' : 'text-gray-400'}`}>{fmtDateTime(thread.last_inbound_at || thread.updated_at)}</span>
         </div>
-        <p className="text-xs text-gray-600 dark:text-gray-300 truncate mt-0.5">{thread.subject}</p>
-        <p className="text-xs text-gray-400 truncate mt-0.5">{thread.last_body?.slice(0, 80)}</p>
+        <p className={`text-xs truncate mt-0.5 ${unread ? 'text-gray-800 dark:text-gray-100 font-semibold' : 'text-gray-600 dark:text-gray-400'}`}>{thread.subject}</p>
+        <p className={`text-xs truncate mt-0.5 ${unread ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400'}`}>{thread.last_body?.slice(0, 80)}</p>
         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
           <ThreadStatusBadge thread={thread} />
           {thread.assignee_name && <span className="text-xs text-gray-400 truncate">→ {thread.assignee_name}</span>}
