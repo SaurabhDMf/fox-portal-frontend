@@ -377,6 +377,17 @@ export default function SharedInbox() {
     onError: (e: any) => toast.error(errMsg(e)),
   });
 
+  const deleteThreadMut = useMutation({
+    mutationFn: (tid: string) => inboxApi.deleteThread(selectedInboxId!, tid),
+    onSuccess: (_d, tid) => {
+      qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
+      qc.invalidateQueries({ queryKey: ['shared-inboxes'] });
+      if (selectedThreadId === tid) setSelectedThreadId(null);
+      toast.success('Thread deleted');
+    },
+    onError: (e: any) => toast.error(errMsg(e)),
+  });
+
   const createFolderMut = useMutation({
     mutationFn: (name: string) => inboxApi.createFolder(selectedInboxId!, { name }),
     onSuccess: () => {
@@ -735,6 +746,7 @@ export default function SharedInbox() {
                 onStatusChange={status => patchThreadMut.mutate({ tid: thread.id, data: { status } })}
                 onAssign={() => { setSelectedThreadId(thread.id); setShowAssign(true); }}
                 onMoveFolder={() => { setMoveFolderThreadId(thread.id); setShowMoveFolder(true); }}
+                onDelete={canManageInbox ? () => deleteThreadMut.mutate(thread.id) : undefined}
               />
             ))}
             {!showSpam && (
@@ -904,9 +916,10 @@ export default function SharedInbox() {
 
 // ── ThreadRow ──────────────────────────────────────────────────────────────
 
-function ThreadRow({ thread, selected, isAdmin, members, folders, onSelect, onStatusChange, onAssign, onMoveFolder }: {
+function ThreadRow({ thread, selected, isAdmin, members, folders, onSelect, onStatusChange, onAssign, onMoveFolder, onDelete }: {
   thread: Thread; selected: boolean; isAdmin: boolean; members: any[]; folders: any[];
   onSelect: () => void; onStatusChange: (s: string) => void; onAssign: () => void; onMoveFolder: () => void;
+  onDelete?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -975,6 +988,12 @@ function ThreadRow({ thread, selected, isAdmin, members, folders, onSelect, onSt
                   <FolderOpen size={12} /> Choose folder…
                 </button>
               </div>
+            )}
+            {onDelete && (
+              <button onClick={(e) => { e.stopPropagation(); if (confirm('Delete this thread? All messages will be removed.')) { onDelete(); } setMenuOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 border-t border-gray-100 dark:border-gray-700 mt-1 pt-2 text-xs">
+                <Trash2 size={12} /> Delete thread
+              </button>
             )}
           </div>
         )}

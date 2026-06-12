@@ -18,6 +18,7 @@ const DEFAULTS = {
   smtp_host: 'smtp.gmail.com', smtp_port: 587, smtp_secure: 0, smtp_user: '', smtp_password: '',
   ai_followup_enabled: 1, ai_followup_delay_hr: 2, ai_followup_tone: 'professional',
   sync_history_days: 90,
+  signature: '',
 };
 
 export default function InboxFormPage() {
@@ -68,6 +69,7 @@ export default function InboxFormPage() {
         ai_followup_delay_hr: inbox.ai_followup_delay_hr ?? 2,
         ai_followup_tone:     inbox.ai_followup_tone     ?? 'professional',
         sync_history_days:    inbox.sync_history_days    ?? 90,
+        signature:            inbox.signature            ?? '',
       });
       setInitialised(true);
     }
@@ -314,6 +316,21 @@ export default function InboxFormPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* ── Common Signature ── */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-1">Common Signature</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Applied at the bottom of every reply and new thread sent from any sender on this inbox. Plain text becomes paragraphs; HTML is sent as-is.
+          </p>
+          <textarea
+            value={form.signature}
+            onChange={e => set('signature', e.target.value)}
+            rows={8}
+            placeholder={'Sales & Marketing\nM: +91 (707) 037-2562\nDigitalmediafox Pvt. Ltd. | digitalmediafox.com\nA: 743, Gaur Commercial, Sector 16 B, Gr. Noida West\nUttar Pradesh, India, 201306'}
+            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400 font-mono"
+          />
         </div>
 
         {/* ── Actions ── */}
