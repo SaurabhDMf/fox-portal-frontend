@@ -107,7 +107,11 @@ export default function EmailPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.innerWidth >= 768;
+  });
+  const [mailFoldersOpen, setMailFoldersOpen] = useState(true);
 
   // Auto-close the mobile sidebar drawer whenever an email opens, a folder
   // is picked, etc. — anything that changes context.
@@ -653,42 +657,53 @@ export default function EmailPage() {
         {/* Divider */}
         <div className={`bg-border my-2 ${sidebarExpanded ? 'h-px mx-1' : 'w-6 h-px'}`} />
 
-        {/* IMAP / Mail server folders (Gmail labels, custom IMAP folders) */}
+        {/* IMAP / Mail server folders — only render when sidebar is expanded so the
+           collapsed rail stays clean. When collapsed, a single chevron expands the
+           sidebar instead of stacking generic folder icons. */}
         {sidebarExpanded && imapFolders.length > 0 && (
-          <div className="px-2 mb-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Mail Folders</span>
-          </div>
-        )}
-        {imapFolders
-          .filter((f: any) => !f.no_select && f.path !== 'INBOX')
-          .map((f: any) => {
-            const active = !activeCustomFolderId && activeFolder === f.path;
-            return (
-              <button
-                key={f.path}
-                title={sidebarExpanded ? undefined : `${f.name}${f.unread ? ` (${f.unread})` : ''}`}
-                onClick={() => { setActiveFolder(f.path); setActiveCustomFolderId(null); setSelectedId(null); }}
-                className={`relative flex items-center gap-3 rounded-xl transition-colors ${
-                  sidebarExpanded ? 'w-full px-3 py-2' : 'w-10 h-10 justify-center'
-                } ${active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
-              >
-                <Folder size={17} className="shrink-0" />
-                {sidebarExpanded && (
-                  <>
+          <>
+            <button
+              onClick={() => setMailFoldersOpen((v) => !v)}
+              className="flex items-center justify-between px-2 mb-1 w-full text-muted-foreground hover:text-foreground"
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wider">Mail Folders</span>
+              <ChevronDown size={12} className={`transition-transform ${mailFoldersOpen ? '' : '-rotate-90'}`} />
+            </button>
+            {mailFoldersOpen && imapFolders
+              .filter((f: any) => !f.no_select && f.path !== 'INBOX')
+              .map((f: any) => {
+                const active = !activeCustomFolderId && activeFolder === f.path;
+                return (
+                  <button
+                    key={f.path}
+                    onClick={() => { setActiveFolder(f.path); setActiveCustomFolderId(null); setSelectedId(null); }}
+                    className={`relative flex items-center gap-3 rounded-xl transition-colors w-full px-3 py-2 ${
+                      active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                  >
+                    <Folder size={17} className="shrink-0" />
                     <span className="flex-1 text-left text-sm font-medium truncate">{f.name}</span>
                     {f.unread > 0 && (
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${active ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary'}`}>
                         {f.unread > 99 ? '99+' : f.unread}
                       </span>
                     )}
-                  </>
-                )}
-              </button>
-            );
-          })}
+                  </button>
+                );
+              })}
+            <div className="bg-border my-2 h-px mx-1" />
+          </>
+        )}
 
-        {sidebarExpanded && imapFolders.length > 0 && (
-          <div className={`bg-border my-2 ${sidebarExpanded ? 'h-px mx-1' : 'w-6 h-px'}`} />
+        {/* "More folders" hint when sidebar is collapsed but mail folders exist */}
+        {!sidebarExpanded && imapFolders.filter((f: any) => !f.no_select && f.path !== 'INBOX').length > 0 && (
+          <button
+            onClick={() => setSidebarExpanded(true)}
+            title={`${imapFolders.filter((f: any) => !f.no_select && f.path !== 'INBOX').length} more folders`}
+            className="w-10 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <ChevronDown size={14} className="-rotate-90" />
+          </button>
         )}
 
         {/* Custom folders header */}
