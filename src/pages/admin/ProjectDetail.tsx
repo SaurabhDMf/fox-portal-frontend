@@ -94,7 +94,7 @@ export default function ProjectDetail() {
       setShowEdit(false);
       toast.success('Project updated');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to update'),
+    onError: (e: any) => toast.error(e.response?.data?.error || e.response?.data?.message || 'Failed to update'),
   });
 
   const cancelMut = useMutation({
@@ -105,7 +105,7 @@ export default function ProjectDetail() {
       setShowCancelConfirm(false);
       toast.success('Project cancelled');
     },
-    onError: (e: any) => toast.error(e.response?.data?.message || 'Failed to cancel'),
+    onError: (e: any) => toast.error(e.response?.data?.error || e.response?.data?.message || 'Failed to cancel'),
   });
 
   const deleteMut = useMutation({
@@ -131,7 +131,7 @@ export default function ProjectDetail() {
     },
     onError: (e: any) => {
       if (e?.message === 'cancelled') return;
-      toast.error(e?.response?.data?.message || 'Failed to delete');
+      toast.error(e?.response?.data?.error || e?.response?.data?.message || 'Failed to delete');
     },
   });
 
