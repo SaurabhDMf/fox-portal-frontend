@@ -828,15 +828,18 @@ export default function SharedInbox() {
                 onChange={s => patchThreadMut.mutate({ tid: selectedThreadId, data: { status: s } })} />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {loadingThread ? (
-              <div className="flex justify-center py-8"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
-            ) : threadDetail.messages.map(msg => (
-              <MessageBubble key={msg.id} msg={msg}
-                canDelete={isAdmin}
-                onDelete={() => deleteMsgMut.mutate(msg.id)} />
-            ))}
-          </div>
+          {/* Single scrollable column: messages followed inline by the reply box,
+             so a short email doesn't leave a giant empty gap above the reply. */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-4 space-y-4">
+              {loadingThread ? (
+                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
+              ) : threadDetail.messages.map(msg => (
+                <MessageBubble key={msg.id} msg={msg}
+                  canDelete={isAdmin}
+                  onDelete={() => deleteMsgMut.mutate(msg.id)} />
+              ))}
+            </div>
           {threadDetail.thread.status !== 'closed' && (
             <div className="border-t border-gray-100 dark:border-gray-700 p-4">
               <div className="border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden">
@@ -879,6 +882,7 @@ export default function SharedInbox() {
               </div>
             </div>
           )}
+          </div>
         </div>
       ) : (
         <div className="hidden lg:flex flex-1 items-center justify-center text-gray-300 dark:text-gray-600">
