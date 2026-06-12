@@ -143,7 +143,12 @@ function AvatarFallback({ name, size = 8 }: { name?: string; size?: number }) {
 
 export default function SharedInbox() {
   const user = useAuthStore(s => s.user);
+  const permissions = useAuthStore(s => s.permissions);
   const isAdmin = ADMIN_ROLES.includes(user?.role || '');
+  // Anyone whose inbox matrix has own_only OFF can also manage threads
+  // (assign, see unassigned, etc.) — mirrors the backend canSeeAllInboxThreads helper.
+  const canManageInbox = isAdmin ||
+    (!!permissions?.inbox?.can_view && !permissions?.inbox?.own_only);
   const qc = useQueryClient();
   const navigate = useNavigate();
 
@@ -611,7 +616,7 @@ export default function SharedInbox() {
                   {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
               ))}
-              {isAdmin && (
+              {canManageInbox && (
                 <>
                   <button onClick={() => { setShowUnassigned(!showUnassigned); setShowAssignedToMe(false); }}
                     className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${showUnassigned ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
@@ -709,7 +714,7 @@ export default function SharedInbox() {
             ) : threads.map(thread => (
               <ThreadRow key={thread.id} thread={thread}
                 selected={selectedThreadId === thread.id}
-                isAdmin={isAdmin} members={members} folders={folders}
+                isAdmin={canManageInbox} members={members} folders={folders}
                 onSelect={() => openThread(thread.id)}
                 onStatusChange={status => patchThreadMut.mutate({ tid: thread.id, data: { status } })}
                 onAssign={() => { setSelectedThreadId(thread.id); setShowAssign(true); }}
@@ -772,20 +777,20 @@ export default function SharedInbox() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {isAdmin && (
+              {canManageInbox && (
                 <button onClick={() => setShowAssign(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
                   <UserPlus size={13} />{threadDetail.thread.assignee_name || 'Assign'}
                 </button>
               )}
-              {isAdmin && threadDetail.thread.folder_id && (
+              {canManageInbox && threadDetail.thread.folder_id && (
                 <button onClick={() => { setMoveFolderThreadId(selectedThreadId); setShowMoveFolder(true); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
                   style={{ borderColor: threadDetail.thread.folder_color || undefined }}>
                   <FolderOpen size={13} />{threadDetail.thread.folder_name}
                 </button>
               )}
-              {isAdmin && !threadDetail.thread.folder_id && (
+              {canManageInbox && !threadDetail.thread.folder_id && (
                 <button onClick={() => { setMoveFolderThreadId(selectedThreadId); setShowMoveFolder(true); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
                   <FolderPlus size={13} />Folder
