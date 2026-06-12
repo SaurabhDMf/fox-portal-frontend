@@ -148,6 +148,16 @@ export default function EmailPage() {
     }
   }, [accounts, activeAccountId]);
 
+  // ----- IMAP folders (all Gmail labels + custom IMAP folders, with unread counts) -----
+  const { data: imapFoldersData } = useQuery({
+    queryKey: ['email-imap-folders', activeAccountId],
+    queryFn: () => api.get(`/email/accounts/${activeAccountId}/imap-folders`).then((r) => r.data?.data ?? r.data ?? []),
+    enabled: !!activeAccountId,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+  const imapFolders: any[] = Array.isArray(imapFoldersData) ? imapFoldersData : [];
+
   // ----- messages list (paginated 50 at a time, auto-refresh every 30s) -----
   const PAGE_SIZE = 50;
   const {
@@ -642,6 +652,44 @@ export default function EmailPage() {
 
         {/* Divider */}
         <div className={`bg-border my-2 ${sidebarExpanded ? 'h-px mx-1' : 'w-6 h-px'}`} />
+
+        {/* IMAP / Mail server folders (Gmail labels, custom IMAP folders) */}
+        {sidebarExpanded && imapFolders.length > 0 && (
+          <div className="px-2 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Mail Folders</span>
+          </div>
+        )}
+        {imapFolders
+          .filter((f: any) => !f.no_select && f.path !== 'INBOX')
+          .map((f: any) => {
+            const active = !activeCustomFolderId && activeFolder === f.path;
+            return (
+              <button
+                key={f.path}
+                title={sidebarExpanded ? undefined : `${f.name}${f.unread ? ` (${f.unread})` : ''}`}
+                onClick={() => { setActiveFolder(f.path); setActiveCustomFolderId(null); setSelectedId(null); }}
+                className={`relative flex items-center gap-3 rounded-xl transition-colors ${
+                  sidebarExpanded ? 'w-full px-3 py-2' : 'w-10 h-10 justify-center'
+                } ${active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+              >
+                <Folder size={17} className="shrink-0" />
+                {sidebarExpanded && (
+                  <>
+                    <span className="flex-1 text-left text-sm font-medium truncate">{f.name}</span>
+                    {f.unread > 0 && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${active ? 'bg-primary text-primary-foreground' : 'bg-primary/15 text-primary'}`}>
+                        {f.unread > 99 ? '99+' : f.unread}
+                      </span>
+                    )}
+                  </>
+                )}
+              </button>
+            );
+          })}
+
+        {sidebarExpanded && imapFolders.length > 0 && (
+          <div className={`bg-border my-2 ${sidebarExpanded ? 'h-px mx-1' : 'w-6 h-px'}`} />
+        )}
 
         {/* Custom folders header */}
         {sidebarExpanded && (
