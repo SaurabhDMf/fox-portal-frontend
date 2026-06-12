@@ -101,7 +101,7 @@ interface Thread {
   id: string; inbox_id: string; subject: string;
   client_email: string; client_name?: string; received_on?: string;
   assigned_to?: string; assignee_name?: string; assignee_avatar?: string;
-  status: 'open' | 'followup' | 'closed';
+  status: 'open' | 'followup' | 'closed' | 'dead';
   followup_count: number; last_inbound_at?: string; last_outbound_at?: string;
   ai_sent_at?: string; updated_at: string; message_count: number; last_body?: string;
   folder_id?: string; folder_name?: string; folder_color?: string;
@@ -121,6 +121,8 @@ interface Sender { id: string; email_address: string; display_name?: string; }
 // ── StatusBadge ────────────────────────────────────────────────────────────
 
 function ThreadStatusBadge({ thread }: { thread: Thread }) {
+  if (thread.status === 'dead')
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"><X size={10} /> Dead</span>;
   if (thread.status === 'closed')
     return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"><Archive size={10} /> Closed</span>;
   if (thread.status === 'followup')
@@ -637,7 +639,7 @@ export default function SharedInbox() {
               </div>
             )}
             <div className="flex gap-1 flex-wrap">
-              {['all', 'open', 'followup', 'closed'].map(s => (
+              {['all', 'open', 'followup', 'closed', 'dead'].map(s => (
                 <button key={s} onClick={() => setFilterStatus(s)}
                   className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${filterStatus === s ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
                   {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -828,16 +830,19 @@ export default function SharedInbox() {
                 onChange={s => patchThreadMut.mutate({ tid: selectedThreadId, data: { status: s } })} />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {loadingThread ? (
-              <div className="flex justify-center py-8"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
-            ) : threadDetail.messages.map(msg => (
-              <MessageBubble key={msg.id} msg={msg}
-                canDelete={isAdmin}
-                onDelete={() => deleteMsgMut.mutate(msg.id)} />
-            ))}
-          </div>
-          {threadDetail.thread.status !== 'closed' && (
+          {/* Single scrollable column: messages followed inline by the reply box,
+             so a short email doesn't leave a giant empty gap above the reply. */}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-4 space-y-4">
+              {loadingThread ? (
+                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
+              ) : threadDetail.messages.map(msg => (
+                <MessageBubble key={msg.id} msg={msg}
+                  canDelete={isAdmin}
+                  onDelete={() => deleteMsgMut.mutate(msg.id)} />
+              ))}
+            </div>
+          {threadDetail.thread.status !== 'closed' && threadDetail.thread.status !== 'dead' && (
             <div className="border-t border-gray-100 dark:border-gray-700 p-4">
               <div className="border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden">
                 <div className="flex flex-wrap gap-2 px-3 pt-3 pb-1 border-b border-gray-100 dark:border-gray-700">
@@ -879,6 +884,7 @@ export default function SharedInbox() {
               </div>
             </div>
           )}
+          </div>
         </div>
       ) : (
         <div className="hidden lg:flex flex-1 items-center justify-center text-gray-300 dark:text-gray-600">
@@ -967,7 +973,7 @@ function ThreadRow({ thread, selected, isAdmin, members, folders, onSelect, onSt
         </button>
         {menuOpen && (
           <div className="absolute right-0 top-6 z-20 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg py-1 text-xs">
-            {['open', 'followup', 'closed'].map(s => (
+            {['open', 'followup', 'closed', 'dead'].map(s => (
               <button key={s} onClick={() => { onStatusChange(s); setMenuOpen(false); }}
                 className={`w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 ${thread.status === s ? 'font-semibold' : ''}`}>
                 {thread.status === s ? <Check size={12} className="text-violet-500" /> : <span className="w-3" />}
@@ -1121,11 +1127,12 @@ function StatusDropdown({ status, onChange }: { status: string; onChange: (s: st
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [open]);
-  const labels: Record<string, string> = { open: 'Open', followup: 'Follow-up', closed: 'Closed' };
+  const labels: Record<string, string> = { open: 'Open', followup: 'Follow-up', closed: 'Closed', dead: 'Dead' };
   const colors: Record<string, string> = {
     open: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     followup: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
     closed: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+    dead: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
   };
   return (
     <div ref={ref} className="relative">
@@ -1162,8 +1169,8 @@ function AssignModal({ salesUsers, currentAssignee, onClose, onAssign }: {
         </div>
         <div className="overflow-y-auto p-2">
           <button onClick={() => onAssign(null)}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-500">
-            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center"><X size={14} /></div>
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-100 font-medium">
+            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-100"><X size={14} /></div>
             Unassign
           </button>
           {salesUsers.length === 0 && (
