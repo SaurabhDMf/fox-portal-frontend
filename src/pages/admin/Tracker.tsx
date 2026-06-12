@@ -26,7 +26,9 @@ const expenseCategories = ['Travel', 'Meals', 'Software', 'Equipment', 'Office S
 
 export default function Tracker() {
   const [tab, setTab] = useState('Overview');
-  const [teamDate, setTeamDate] = useState(todayYMD());
+  const [teamRange, setTeamRange] = useState<'day' | 'week' | 'month' | 'custom'>('day');
+  const [teamFrom, setTeamFrom] = useState(todayYMD());
+  const [teamTo, setTeamTo] = useState(todayYMD());
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -50,9 +52,28 @@ export default function Tracker() {
   const canSeeTeam = TEAM_ROLES.includes(user?.role || '');
   const tabs = canSeeTeam ? [...baseTabs, 'Team Attendance'] : baseTabs;
 
+  // Resolve from/to based on the chosen range mode
+  const { from: rangeFrom, to: rangeTo } = (() => {
+    const today = new Date();
+    const toStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (teamRange === 'day')   return { from: teamFrom, to: teamFrom };
+    if (teamRange === 'week')  {
+      const d = new Date(today);
+      const day = d.getDay();
+      const diff = (day === 0 ? -6 : 1 - day); // Monday as start of week
+      d.setDate(d.getDate() + diff);
+      return { from: toStr(d), to: toStr(today) };
+    }
+    if (teamRange === 'month') {
+      const d = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { from: toStr(d), to: toStr(today) };
+    }
+    return { from: teamFrom, to: teamTo }; // custom
+  })();
+
   const { data: teamAttendance = [] } = useQuery<any[]>({
-    queryKey: ['team-attendance', teamDate],
-    queryFn: () => api.get(`/tracker/attendance?date=${teamDate}`).then(r => r.data?.data || r.data || []),
+    queryKey: ['team-attendance', rangeFrom, rangeTo],
+    queryFn: () => api.get(`/tracker/attendance?from=${rangeFrom}&to=${rangeTo}`).then(r => r.data?.data || r.data || []),
     enabled: tab === 'Team Attendance' && canSeeTeam,
   });
 
@@ -375,23 +396,49 @@ export default function Tracker() {
 
       {tab === 'Team Attendance' && canSeeTeam && (
         <div className="glass-card p-4 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div>
               <h3 className="font-semibold text-sm">Team Attendance</h3>
-              <p className="text-xs text-muted-foreground">Check-in / check-out for everyone on the selected day.</p>
+              <p className="text-xs text-muted-foreground">
+                Showing {rangeFrom === rangeTo ? rangeFrom : `${rangeFrom} → ${rangeTo}`}
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-muted-foreground">Date</label>
-              <input
-                type="date"
-                value={teamDate}
-                onChange={e => setTeamDate(e.target.value)}
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={teamRange}
+                onChange={e => setTeamRange(e.target.value as any)}
                 className="px-3 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-              <button
-                onClick={() => setTeamDate(todayYMD())}
-                className="text-xs px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground"
-              >Today</button>
+              >
+                <option value="day">Single Day</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="custom">Custom</option>
+              </select>
+              {teamRange === 'day' && (
+                <input
+                  type="date"
+                  value={teamFrom}
+                  onChange={e => setTeamFrom(e.target.value)}
+                  className="px-3 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              )}
+              {teamRange === 'custom' && (
+                <>
+                  <input
+                    type="date"
+                    value={teamFrom}
+                    onChange={e => setTeamFrom(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                  <span className="text-xs text-muted-foreground">to</span>
+                  <input
+                    type="date"
+                    value={teamTo}
+                    onChange={e => setTeamTo(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </>
+              )}
             </div>
           </div>
 
@@ -399,6 +446,7 @@ export default function Tracker() {
             <table className="w-full text-sm">
               <thead className="bg-secondary/50">
                 <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="px-3 py-2.5">Date</th>
                   <th className="px-3 py-2.5">Name</th>
                   <th className="px-3 py-2.5">Department</th>
                   <th className="px-3 py-2.5">Check In</th>
@@ -409,7 +457,7 @@ export default function Tracker() {
               </thead>
               <tbody className="divide-y divide-border">
                 {teamAttendance.length === 0 ? (
-                  <tr><td colSpan={6} className="px-3 py-8 text-center text-xs text-muted-foreground">No attendance records for this date.</td></tr>
+                  <tr><td colSpan={7} className="px-3 py-8 text-center text-xs text-muted-foreground">No attendance records in this range.</td></tr>
                 ) : teamAttendance.map((row: any) => {
                   const status = row.check_out ? 'Checked out' : row.check_in ? 'Working' : (row.status || 'Absent');
                   const statusClass = row.check_out
@@ -417,8 +465,10 @@ export default function Tracker() {
                     : row.check_in
                       ? 'bg-emerald-500/15 text-emerald-500'
                       : 'bg-destructive/15 text-destructive';
+                  const dateStr = row.date ? new Date(row.date).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
                   return (
                     <tr key={row.id || `${row.user_id}-${row.date}`} className="hover:bg-secondary/30">
+                      <td className="px-3 py-2.5 text-muted-foreground">{dateStr}</td>
                       <td className="px-3 py-2.5 font-medium">{row.full_name || '—'}</td>
                       <td className="px-3 py-2.5 text-muted-foreground">{row.department || '—'}</td>
                       <td className="px-3 py-2.5">{fmtTime(row.check_in)}</td>
