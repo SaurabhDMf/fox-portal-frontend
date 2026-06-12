@@ -7,12 +7,26 @@ import StatCard from '@/components/ui/StatCard';
 import { useAuthStore } from '@/stores/authStore';
 
 
-const tabs = ['Overview', 'Leave', 'Time Logs', 'Expenses'];
+const baseTabs = ['Overview', 'Leave', 'Time Logs', 'Expenses'];
+const TEAM_ROLES = ['super_admin', 'admin', 'sales_manager'];
+
+const fmtTime = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+const fmtHours = (h?: number | null) => {
+  if (h == null) return '—';
+  const n = Number(h);
+  return `${Math.floor(n)}h ${Math.round((n % 1) * 60)}m`;
+};
+const todayYMD = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 const leaveTypes = ['Annual', 'Sick', 'Personal', 'Unpaid', 'Maternity', 'Paternity'];
 const expenseCategories = ['Travel', 'Meals', 'Software', 'Equipment', 'Office Supplies', 'Other'];
 
 export default function Tracker() {
   const [tab, setTab] = useState('Overview');
+  const [teamDate, setTeamDate] = useState(todayYMD());
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showTimeModal, setShowTimeModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
@@ -31,6 +45,15 @@ export default function Tracker() {
   const { data: today } = useQuery({
     queryKey: ['today-attendance'],
     queryFn: () => api.get('/tracker/attendance/today').then(r => r.data?.data || r.data || {}),
+  });
+
+  const canSeeTeam = TEAM_ROLES.includes(user?.role || '');
+  const tabs = canSeeTeam ? [...baseTabs, 'Team Attendance'] : baseTabs;
+
+  const { data: teamAttendance = [] } = useQuery<any[]>({
+    queryKey: ['team-attendance', teamDate],
+    queryFn: () => api.get(`/tracker/attendance?date=${teamDate}`).then(r => r.data?.data || r.data || []),
+    enabled: tab === 'Team Attendance' && canSeeTeam,
   });
 
   const { data: leaveRequests = [] } = useQuery({
@@ -344,6 +367,69 @@ export default function Tracker() {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab === 'Team Attendance' && canSeeTeam && (
+        <div className="glass-card p-4 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-sm">Team Attendance</h3>
+              <p className="text-xs text-muted-foreground">Check-in / check-out for everyone on the selected day.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-muted-foreground">Date</label>
+              <input
+                type="date"
+                value={teamDate}
+                onChange={e => setTeamDate(e.target.value)}
+                className="px-3 py-1.5 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <button
+                onClick={() => setTeamDate(todayYMD())}
+                className="text-xs px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground"
+              >Today</button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-secondary/50">
+                <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="px-3 py-2.5">Name</th>
+                  <th className="px-3 py-2.5">Department</th>
+                  <th className="px-3 py-2.5">Check In</th>
+                  <th className="px-3 py-2.5">Check Out</th>
+                  <th className="px-3 py-2.5">Hours</th>
+                  <th className="px-3 py-2.5">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {teamAttendance.length === 0 ? (
+                  <tr><td colSpan={6} className="px-3 py-8 text-center text-xs text-muted-foreground">No attendance records for this date.</td></tr>
+                ) : teamAttendance.map((row: any) => {
+                  const status = row.check_out ? 'Checked out' : row.check_in ? 'Working' : (row.status || 'Absent');
+                  const statusClass = row.check_out
+                    ? 'bg-muted text-muted-foreground'
+                    : row.check_in
+                      ? 'bg-emerald-500/15 text-emerald-500'
+                      : 'bg-destructive/15 text-destructive';
+                  return (
+                    <tr key={row.id || `${row.user_id}-${row.date}`} className="hover:bg-secondary/30">
+                      <td className="px-3 py-2.5 font-medium">{row.full_name || '—'}</td>
+                      <td className="px-3 py-2.5 text-muted-foreground">{row.department || '—'}</td>
+                      <td className="px-3 py-2.5">{fmtTime(row.check_in)}</td>
+                      <td className="px-3 py-2.5">{fmtTime(row.check_out)}</td>
+                      <td className="px-3 py-2.5">{fmtHours(row.hours_worked)}</td>
+                      <td className="px-3 py-2.5">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${statusClass}`}>{status}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
