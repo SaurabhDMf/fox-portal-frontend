@@ -1162,8 +1162,8 @@ function AssignModal({ salesUsers, currentAssignee, onClose, onAssign }: {
         </div>
         <div className="overflow-y-auto p-2">
           <button onClick={() => onAssign(null)}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-500">
-            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center"><X size={14} /></div>
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-100 font-medium">
+            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-100"><X size={14} /></div>
             Unassign
           </button>
           {salesUsers.length === 0 && (
