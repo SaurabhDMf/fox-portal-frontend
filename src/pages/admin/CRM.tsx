@@ -191,6 +191,7 @@ export default function CRM() {
   const [form, setForm] = useState({
     full_name: '', email: '', phone: '', country: '', purpose: '',
     status: 'New', assigned_to: '', added_by: '', notes: '',
+    lead_source: '', next_followup: '',
   });
 
   const { data: leads = [], isLoading } = useQuery({
@@ -234,7 +235,7 @@ export default function CRM() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leads'] });
       setShowCreate(false);
-      setForm({ full_name: '', email: '', phone: '', country: '', purpose: '', status: 'New', assigned_to: '', added_by: '', notes: '' });
+      setForm({ full_name: '', email: '', phone: '', country: '', purpose: '', status: 'New', assigned_to: '', added_by: '', notes: '', lead_source: '', next_followup: '' });
       toast.success('Lead created successfully');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || e.response?.data?.error || 'Error creating lead'),
@@ -265,6 +266,8 @@ export default function CRM() {
       full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '',
       country: getLeadCountry(lead), purpose: getLeadPurpose(lead), status: lead.status || 'New',
       assigned_to: lead.assigned_to || '', added_by: lead.added_by || '', notes: lead.notes || '',
+      lead_source: lead.lead_source || '',
+      next_followup: lead.next_followup ? new Date(lead.next_followup).toISOString().slice(0, 16) : '',
     });
     setShowEdit(lead);
   };
@@ -521,6 +524,22 @@ export default function CRM() {
                 <option value="">Assign To (Sales Manager)</option>
                 {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}{u.role ? ` (${u.role})` : ''}</option>)}
               </select>
+
+              <input
+                placeholder="Source (e.g. Referral, LinkedIn, Trade show)"
+                value={form.lead_source}
+                onChange={e => setForm(f => ({ ...f, lead_source: e.target.value }))}
+                className={inputCls}
+              />
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-muted-foreground">Next Follow-up</label>
+                <input
+                  type="datetime-local"
+                  value={form.next_followup}
+                  onChange={e => setForm(f => ({ ...f, next_followup: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
             </div>
             <textarea placeholder="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} className={`w-full ${inputCls} resize-none`} />
             <div className="flex gap-2 justify-end">
@@ -561,6 +580,22 @@ export default function CRM() {
                 <option value="">Assign To (Sales Manager)</option>
                 {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}{u.role ? ` (${u.role})` : ''}</option>)}
               </select>
+
+              <input
+                placeholder="Source (e.g. Referral, LinkedIn, Trade show)"
+                value={form.lead_source}
+                onChange={e => setForm(f => ({ ...f, lead_source: e.target.value }))}
+                className={inputCls}
+              />
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-muted-foreground">Next Follow-up</label>
+                <input
+                  type="datetime-local"
+                  value={form.next_followup}
+                  onChange={e => setForm(f => ({ ...f, next_followup: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
             </div>
             <textarea placeholder="Notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={3} className={`w-full ${inputCls} resize-none`} />
             <div className="flex gap-2 justify-end">
