@@ -86,6 +86,25 @@ function isStale(lead: any): boolean {
   return created.toDateString() !== today.toDateString();
 }
 
+// 0 = overdue, 1 = today, 2 = future, 3 = no follow-up set
+function followupBucket(lead: any): { bucket: 0|1|2|3; ts: number } {
+  if (!lead?.next_followup) return { bucket: 3, ts: 0 };
+  const f = new Date(lead.next_followup);
+  if (isNaN(f.getTime())) return { bucket: 3, ts: 0 };
+  const todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
+  const nextMid  = new Date(f); nextMid.setHours(0, 0, 0, 0);
+  if (nextMid < todayMid)            return { bucket: 0, ts: f.getTime() };
+  if (+nextMid === +todayMid)        return { bucket: 1, ts: f.getTime() };
+  return { bucket: 2, ts: f.getTime() };
+}
+
+function formatFollowup(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 function getLeadCountry(lead: any): string {
   return lead?.country || lead?.country_name || lead?.lead_country || lead?.location || lead?.meta?.country || '';
 }
@@ -261,6 +280,15 @@ export default function CRM() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error deleting lead'),
   });
 
+  const statusMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.put(`/leads/${id}`, { status }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leads'] });
+      toast.success('Status updated');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message || 'Error updating status'),
+  });
+
   const openEdit = (lead: any) => {
     setForm({
       full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '',
@@ -273,7 +301,13 @@ export default function CRM() {
   };
 
   const rawLeads = Array.isArray(leads) ? leads : [];
+  // Overdue follow-ups first, then today's, then future. Leads with no
+  // follow-up date sort by created_at per the user's toggle.
   const sortedLeads = [...rawLeads].sort((a: any, b: any) => {
+    const pa = followupBucket(a);
+    const pb = followupBucket(b);
+    if (pa.bucket !== pb.bucket) return pa.bucket - pb.bucket;
+    if (pa.bucket < 3)           return pa.ts - pb.ts;
     const dateA = new Date(a.created_at || 0).getTime();
     const dateB = new Date(b.created_at || 0).getTime();
     return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
@@ -372,15 +406,25 @@ export default function CRM() {
                 <th className="p-4">Country</th>
                 <th className="p-4">Purpose</th>
                 <th className="p-4">Status</th>
+                <th className="p-4">Follow-up</th>
                 <th className="p-4">Added By</th>
                 <th className="p-4">Assigned To</th>
                 <th className="p-4">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={10} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
+              {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={11} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
               leadsArr.map((lead: any) => {
                 const stale = isStale(lead);
+                const fb = followupBucket(lead);
+                const followupCls =
+                  fb.bucket === 0 ? 'text-destructive font-medium'
+                  : fb.bucket === 1 ? 'text-amber-500 font-medium'
+                  : 'text-muted-foreground';
+                const statusBadgeCls =
+                  lead.status === 'Closed Won'  ? 'badge-success'
+                  : lead.status === 'Closed Lost' ? 'badge-danger'
+                  : 'badge-info';
                 return (
                   <tr key={lead.id}
                     className={`border-b border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer ${stale ? 'bg-destructive/5' : ''}`}>
@@ -392,8 +436,32 @@ export default function CRM() {
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.phone || '—'}</td>
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{getLeadCountry(lead) || '—'}</td>
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{getLeadPurpose(lead) || '—'}</td>
-                    <td className="p-4" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>
-                      <span className={lead.status === 'Closed Won' ? 'badge-success' : lead.status === 'Closed Lost' ? 'badge-danger' : 'badge-info'}>{lead.status}</span>
+                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                      {perm.canEdit ? (
+                        <select
+                          value={lead.status || 'New'}
+                          onChange={(e) => statusMut.mutate({ id: lead.id, status: e.target.value })}
+                          disabled={statusMut.isPending}
+                          className={`${statusBadgeCls} cursor-pointer border-0 outline-none focus:ring-2 focus:ring-primary/50 rounded-full text-xs font-medium`}
+                          title="Change status"
+                        >
+                          {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      ) : (
+                        <span className={statusBadgeCls}>{lead.status}</span>
+                      )}
+                    </td>
+                    <td className={`p-4 ${followupCls}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>
+                      {lead.next_followup
+                        ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatFollowup(lead.next_followup)}
+                            {fb.bucket === 0 && <span className="ml-1 text-[10px] uppercase tracking-wide">Overdue</span>}
+                            {fb.bucket === 1 && <span className="ml-1 text-[10px] uppercase tracking-wide">Today</span>}
+                          </span>
+                        )
+                        : '—'}
                     </td>
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{resolveAddedBy(lead) || '—'}</td>
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{resolveAssignedTo(lead) || '—'}</td>
@@ -420,7 +488,7 @@ export default function CRM() {
                 );
               })}
               {leadsArr.length === 0 && !isLoading && (
-                <tr><td colSpan={10} className="p-12 text-center">
+                <tr><td colSpan={11} className="p-12 text-center">
                   <div className="text-muted-foreground text-sm mb-3">No leads found</div>
                   {perm.canCreate && <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first lead →</button>}
                 </td></tr>
