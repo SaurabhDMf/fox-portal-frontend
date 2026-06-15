@@ -249,8 +249,14 @@ export default function CRM() {
     }).catch(() => []),
   });
 
+  // Empty strings break MySQL datetime columns — send null instead.
+  const normalizeLead = (d: typeof form) => ({
+    ...d,
+    next_followup: d.next_followup ? d.next_followup : null,
+  });
+
   const createMut = useMutation({
-    mutationFn: (d: typeof form) => api.post('/leads', d),
+    mutationFn: (d: typeof form) => api.post('/leads', normalizeLead(d)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leads'] });
       setShowCreate(false);
@@ -261,7 +267,7 @@ export default function CRM() {
   });
 
   const editMut = useMutation({
-    mutationFn: (d: { id: string; data: typeof form }) => api.put(`/leads/${d.id}`, d.data),
+    mutationFn: (d: { id: string; data: typeof form }) => api.put(`/leads/${d.id}`, normalizeLead(d.data)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leads'] });
       setShowEdit(null);
@@ -416,6 +422,7 @@ export default function CRM() {
               {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={11} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
               leadsArr.map((lead: any) => {
                 const stale = isStale(lead);
+                const isDead = (lead.status || '').toLowerCase() === 'dead';
                 const fb = followupBucket(lead);
                 const followupCls =
                   fb.bucket === 0 ? 'text-destructive font-medium'
@@ -423,29 +430,34 @@ export default function CRM() {
                   : 'text-muted-foreground';
                 const statusBadgeCls =
                   lead.status === 'Closed Won'  ? 'badge-success'
-                  : lead.status === 'Closed Lost' ? 'badge-danger'
+                  : lead.status === 'Closed Lost' || isDead ? 'badge-danger'
                   : 'badge-info';
+                // Make sure the lead's own status is in the dropdown even when it
+                // isn't part of the global statuses list (e.g. "Dead" added later).
+                const statusOptions = Array.from(new Set([...allStatuses, lead.status].filter(Boolean)));
+                const rowDeadCls   = isDead ? 'opacity-60 [&_td]:line-through' : '';
+                const rowStaleCls  = stale && !isDead ? 'bg-destructive/5' : '';
                 return (
                   <tr key={lead.id}
-                    className={`border-b border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer ${stale ? 'bg-destructive/5' : ''}`}>
-                    <td className={`p-4 text-muted-foreground ${stale ? 'text-destructive font-medium' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>
+                    className={`border-b border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer ${rowStaleCls} ${rowDeadCls}`}>
+                    <td className={`p-4 text-muted-foreground ${stale && !isDead ? 'text-destructive font-medium' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>
                       {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—'}
                     </td>
-                    <td className={`p-4 font-medium ${stale ? 'text-destructive' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.full_name}</td>
+                    <td className={`p-4 font-medium ${stale && !isDead ? 'text-destructive' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.full_name}</td>
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.email || '—'}</td>
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.phone || '—'}</td>
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{getLeadCountry(lead) || '—'}</td>
                     <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{getLeadPurpose(lead) || '—'}</td>
-                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                    <td className="p-4 no-underline" onClick={(e) => e.stopPropagation()}>
                       {perm.canEdit ? (
                         <select
                           value={lead.status || 'New'}
                           onChange={(e) => statusMut.mutate({ id: lead.id, status: e.target.value })}
                           disabled={statusMut.isPending}
-                          className={`${statusBadgeCls} cursor-pointer border-0 outline-none focus:ring-2 focus:ring-primary/50 rounded-full text-xs font-medium`}
+                          className={`${statusBadgeCls} cursor-pointer border-0 outline-none focus:ring-2 focus:ring-primary/50 rounded-full text-xs font-medium no-underline`}
                           title="Change status"
                         >
-                          {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                          {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       ) : (
                         <span className={statusBadgeCls}>{lead.status}</span>
