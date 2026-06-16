@@ -461,8 +461,10 @@ export default function SharedInbox() {
   const [replyText, setReplyText] = useState('');
   const [replyFrom, setReplyFrom] = useState('');
   const [replyCC, setReplyCC] = useState('');
+  const [replySubject, setReplySubject] = useState('');
   const [sendLater, setSendLater] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+  const [aiDrafting, setAiDrafting] = useState(false);
   const replyFromInitialised = useRef<string | null>(null);
 
   // Undo-send: when the user clicks Send we actually schedule the message
@@ -486,9 +488,14 @@ export default function SharedInbox() {
   useEffect(() => {
     if (!threadDetail?.senders?.length) return;
     const seed = signatureText ? `\n\n${signatureText}` : '';
+    const threadSubject = threadDetail.thread.subject || '';
+    const defaultSubject = threadSubject.toLowerCase().startsWith('re:')
+      ? threadSubject
+      : `Re: ${threadSubject}`;
     if (replyFromInitialised.current !== selectedThreadId) {
       replyFromInitialised.current = selectedThreadId;
       setReplyFrom(threadDetail.thread.received_on || threadDetail.senders[0].email_address);
+      setReplySubject(defaultSubject);
       // Pre-fill the body with two blank lines + the signature so the user can
       // see and adjust the spacing themselves rather than guessing what the
       // server is going to append.
@@ -499,6 +506,27 @@ export default function SharedInbox() {
       setReplyText(seed);
     }
   }, [threadDetail, selectedThreadId, signatureText, replyText]);
+
+  const aiDraftReply = async () => {
+    if (!selectedInboxId || !selectedThreadId || aiDrafting) return;
+    setAiDrafting(true);
+    try {
+      const res = await inboxApi.aiDraftReply(selectedInboxId, selectedThreadId);
+      const draft = res.data?.draft;
+      if (!draft) {
+        toast.error('AI returned an empty draft');
+        return;
+      }
+      // Drop the AI body above the signature so the user can read and tweak.
+      const tail = signatureText ? `\n\n${signatureText}` : '';
+      setReplyText(`${draft}${tail}`);
+      toast.success('Draft ready — read it through before sending');
+    } catch (e: any) {
+      toast.error(errMsg(e));
+    } finally {
+      setAiDrafting(false);
+    }
+  };
 
   // Drive the countdown for the undo banner
   useEffect(() => {
@@ -540,6 +568,7 @@ export default function SharedInbox() {
           body_text: replyText,
           from_address: replyFrom,
           cc: replyCC || undefined,
+          subject: replySubject || undefined,
           scheduled_at: sendLater,
         });
         toast.success('Scheduled!');
@@ -564,6 +593,7 @@ export default function SharedInbox() {
         body_text: bodyCopy,
         from_address: fromCopy,
         cc: ccCopy || undefined,
+        subject: replySubject || undefined,
         scheduled_at: scheduledAt,
       });
       const newMsgId = res.data?.id;
@@ -994,6 +1024,12 @@ export default function SharedInbox() {
                       className="text-xs flex-1 bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400" />
                   </div>
                 </div>
+                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-100 dark:border-gray-700">
+                  <span className="text-xs text-gray-400 flex-shrink-0">Subject:</span>
+                  <input value={replySubject} onChange={e => setReplySubject(e.target.value)}
+                    placeholder={`Re: ${threadDetail.thread.subject || ''}`}
+                    className="text-xs flex-1 bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400" />
+                </div>
                 <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
                   placeholder="Write your reply…" rows={8}
                   className="w-full px-3 py-2 text-sm bg-transparent outline-none resize-none text-gray-700 dark:text-gray-200 placeholder-gray-400 whitespace-pre-wrap" />
@@ -1010,11 +1046,22 @@ export default function SharedInbox() {
                   </div>
                 )}
                 <div className="flex items-center justify-between px-3 pb-3 pt-1 gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <Clock size={14} className="text-gray-400" />
-                    <input type="datetime-local" value={sendLater} onChange={e => setSendLater(e.target.value)}
-                      className="text-xs bg-transparent outline-none text-gray-500 dark:text-gray-400 cursor-pointer"
-                      title="Send later — leave blank for the 30 second undo window" />
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Clock size={14} className="text-gray-400" />
+                      <input type="datetime-local" value={sendLater} onChange={e => setSendLater(e.target.value)}
+                        className="text-xs bg-transparent outline-none text-gray-500 dark:text-gray-400 cursor-pointer"
+                        title="Send later — leave blank for the 30 second undo window" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={aiDraftReply}
+                      disabled={aiDrafting || showPendingBanner}
+                      title="Let AI draft a reply based on this thread"
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-violet-200 dark:border-violet-700 text-xs text-violet-700 dark:text-violet-200 hover:bg-violet-50 dark:hover:bg-violet-900/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {aiDrafting ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
+                      {aiDrafting ? 'Drafting…' : 'AI draft'}
+                    </button>
                   </div>
                   <button onClick={sendReply} disabled={sendingReply || !replyText.trim() || showPendingBanner}
                     className="flex items-center gap-1.5 px-4 py-1.5 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -1386,6 +1433,9 @@ function NewThreadModal({ inboxId, senders, onClose, onCreated }: {
   const [cc, setCc] = useState('');
   const [sendLater, setSendLater] = useState('');
   const [saving, setSaving] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiDrafting, setAiDrafting] = useState(false);
 
   const submit = async () => {
     if (!to || !subject || !body) { toast.error('To, Subject and Body are required'); return; }
@@ -1399,6 +1449,28 @@ function NewThreadModal({ inboxId, senders, onClose, onCreated }: {
       onCreated(r.data.thread_id);
     } catch (e: any) { toast.error(errMsg(e)); }
     finally { setSaving(false); }
+  };
+
+  const runAiDraft = async () => {
+    if (!aiTopic.trim()) { toast.error('Tell the AI what the email should cover'); return; }
+    setAiDrafting(true);
+    try {
+      const r = await inboxApi.aiCompose(inboxId, {
+        topic: aiTopic.trim(),
+        to: to || undefined,
+        subject: subject || undefined,
+      });
+      const draft = r.data?.draft;
+      if (!draft) { toast.error('AI returned an empty draft'); return; }
+      setBody(draft);
+      setAiOpen(false);
+      setAiTopic('');
+      toast.success('Draft ready — read it through before sending');
+    } catch (e: any) {
+      toast.error(errMsg(e));
+    } finally {
+      setAiDrafting(false);
+    }
   };
 
   return (
@@ -1423,8 +1495,29 @@ function NewThreadModal({ inboxId, senders, onClose, onCreated }: {
           </div>
           <div><label className={LBL}>Subject</label><input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Subject" className={INP} /></div>
           <div><label className={LBL}>CC (optional)</label><input value={cc} onChange={e => setCc(e.target.value)} placeholder="cc@example.com" className={INP} /></div>
-          <div><label className={LBL}>Message</label>
-            <textarea value={body} onChange={e => setBody(e.target.value)} rows={6} placeholder="Write your email…" className={`${INP} resize-none`} />
+          <div>
+            <div className="flex items-center justify-between">
+              <label className={LBL}>Message</label>
+              <button type="button" onClick={() => setAiOpen(v => !v)}
+                className="flex items-center gap-1 text-[11px] text-violet-700 dark:text-violet-300 hover:underline">
+                <Bot size={12} /> {aiOpen ? 'Hide AI draft' : 'Write with AI'}
+              </button>
+            </div>
+            {aiOpen && (
+              <div className="mb-2 p-2 rounded-lg border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 space-y-2">
+                <input value={aiTopic} onChange={e => setAiTopic(e.target.value)}
+                  placeholder="What should this email cover? (e.g. follow up on our quote, ask for a meeting)"
+                  className="w-full text-xs px-2 py-1.5 rounded border border-violet-200 dark:border-violet-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-1 focus:ring-violet-400" />
+                <div className="flex justify-end">
+                  <button type="button" onClick={runAiDraft} disabled={aiDrafting}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-violet-600 text-white text-xs hover:bg-violet-700 disabled:opacity-50">
+                    {aiDrafting ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
+                    {aiDrafting ? 'Drafting…' : 'Generate draft'}
+                  </button>
+                </div>
+              </div>
+            )}
+            <textarea value={body} onChange={e => setBody(e.target.value)} rows={6} placeholder="Write your email…" className={`${INP} resize-none whitespace-pre-wrap`} />
           </div>
           <div className="flex items-center gap-2">
             <Clock size={14} className="text-gray-400" />

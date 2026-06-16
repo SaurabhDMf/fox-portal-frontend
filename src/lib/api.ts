@@ -161,6 +161,9 @@ export const emailApi = {
     api.post('/email/messages/bulk-move', { ids, custom_folder_id }),
   bulkDeleteMessages: (ids: string[], permanent = false) =>
     api.post('/email/messages/bulk-delete', { ids, permanent }),
+  // AI compose — server returns { draft } on success
+  aiDraft: (data: { topic?: string; to?: string; subject?: string; reply_to_id?: string }) =>
+    api.post('/email/ai-draft', data),
 };
 
 export const inboxApi = {
@@ -197,6 +200,13 @@ export const inboxApi = {
   deleteMessage:   (id: string, tid: string, mid: string) => api.delete(`/inbox/${id}/threads/${tid}/messages/${mid}`),
   deleteThread:    (id: string, tid: string) => api.delete(`/inbox/${id}/threads/${tid}`),
   markThreadRead:  (id: string, tid: string) => api.post(`/inbox/${id}/threads/${tid}/read`),
+  // AI: draft a reply for the open thread (server uses thread context). Pass
+  // optional hints for extra steering. Server returns { draft }.
+  aiDraftReply:    (id: string, tid: string, hints?: string) =>
+    api.post(`/inbox/${id}/threads/${tid}/ai-draft`, hints ? { hints } : {}),
+  // AI: draft a fresh outbound email — topic is what the sender wants to say.
+  aiCompose:       (id: string, data: { topic: string; to?: string; subject?: string }) =>
+    api.post(`/inbox/${id}/ai-compose`, data),
 };
 
 export default api;
