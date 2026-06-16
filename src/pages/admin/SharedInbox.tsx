@@ -484,14 +484,21 @@ export default function SharedInbox() {
   );
 
   useEffect(() => {
-    if (!threadDetail?.senders?.length || replyFromInitialised.current === selectedThreadId) return;
-    replyFromInitialised.current = selectedThreadId;
-    setReplyFrom(threadDetail.thread.received_on || threadDetail.senders[0].email_address);
-    // Pre-fill the body with two blank lines + the signature so the user can
-    // see and adjust the spacing themselves rather than guessing what the
-    // server is going to append.
-    setReplyText(signatureText ? `\n\n${signatureText}` : '');
-  }, [threadDetail, selectedThreadId, signatureText]);
+    if (!threadDetail?.senders?.length) return;
+    const seed = signatureText ? `\n\n${signatureText}` : '';
+    if (replyFromInitialised.current !== selectedThreadId) {
+      replyFromInitialised.current = selectedThreadId;
+      setReplyFrom(threadDetail.thread.received_on || threadDetail.senders[0].email_address);
+      // Pre-fill the body with two blank lines + the signature so the user can
+      // see and adjust the spacing themselves rather than guessing what the
+      // server is going to append.
+      setReplyText(seed);
+    } else if (seed && !replyText.trim()) {
+      // The thread was opened before the inbox (and its signature) finished
+      // loading — drop the signature in now since the composer is still blank.
+      setReplyText(seed);
+    }
+  }, [threadDetail, selectedThreadId, signatureText, replyText]);
 
   // Drive the countdown for the undo banner
   useEffect(() => {
