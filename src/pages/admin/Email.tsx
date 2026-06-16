@@ -10,6 +10,7 @@ import {
   Minus, X, PlugZap, CheckCircle2, XCircle, Loader2,
   Folder, FolderPlus, MoreVertical, Pencil, FolderInput, Check,
   Menu, ArrowLeft, PanelLeftOpen, PanelLeftClose, ChevronDown,
+  Bot,
 } from 'lucide-react';
 
 // Tracks whether the viewport is mobile-sized. Updates on resize.
@@ -101,6 +102,10 @@ export default function EmailPage() {
   const [activeCustomFolderId, setActiveCustomFolderId] = useState<string | null>(null);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [showCompose, setShowCompose] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiDrafting, setAiDrafting] = useState(false);
+  const [replyContextId, setReplyContextId] = useState<string | null>(null);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [search, setSearch] = useState('');
@@ -443,6 +448,41 @@ export default function EmailPage() {
   const escapeHtml = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+  // Run the server-side AI draft and replace the compose body with the result.
+  // Reply mode is automatic — if the composer was opened via Reply we pass the
+  // original message id so the AI has the thread context.
+  const runAiDraft = async () => {
+    if (!aiTopic.trim() && !replyContextId) {
+      toast.error('Tell the AI what the email should cover');
+      return;
+    }
+    setAiDrafting(true);
+    try {
+      const r = await emailApi.aiDraft({
+        topic: aiTopic.trim() || undefined,
+        to: composeForm.getValues('to') || undefined,
+        subject: composeForm.getValues('subject') || undefined,
+        reply_to_id: replyContextId || undefined,
+      });
+      const draft = r.data?.draft as string | undefined;
+      if (!draft) { toast.error('AI returned an empty draft'); return; }
+      // Convert plain text → HTML paragraphs and drop it above the existing
+      // signature/quote block so the user can read through.
+      const draftHtml = draft.split('\n').map(line =>
+        line.trim() ? `<p>${escapeHtml(line)}</p>` : '<p><br></p>'
+      ).join('');
+      const existing = composeForm.getValues('body_html') || '';
+      composeForm.setValue('body_html', `${draftHtml}${existing}`);
+      setAiOpen(false);
+      setAiTopic('');
+      toast.success('Draft ready — read it through before sending');
+    } catch (e: any) {
+      toast.error(errMsg(e));
+    } finally {
+      setAiDrafting(false);
+    }
+  };
+
   const replyTo = () => {
     if (!email) return;
     // Body layout: blank lines for typing → signature → blockquote of original
@@ -462,6 +502,7 @@ export default function EmailPage() {
       body_html: replyBody,
       account_id: activeAccountId || '',
     });
+    setReplyContextId(email.id);
     setShowCompose(true);
   };
 
@@ -489,6 +530,7 @@ export default function EmailPage() {
       body_html: forwardBody,
       account_id: activeAccountId || '',
     });
+    setReplyContextId(null);
     setShowCompose(true);
   };
 
@@ -1543,14 +1585,43 @@ export default function EmailPage() {
             </div>
           </div>
 
+          {aiOpen && (
+            <div className="px-4 py-2 border-t border-border bg-violet-50 dark:bg-violet-900/20 shrink-0 space-y-2">
+              <input
+                value={aiTopic}
+                onChange={e => setAiTopic(e.target.value)}
+                placeholder={replyContextId
+                  ? 'Any specific angle? (optional — AI already has the original message)'
+                  : 'What should this email cover?'}
+                className="w-full text-xs px-2 py-1.5 rounded border border-violet-200 dark:border-violet-700 bg-card text-foreground placeholder-muted-foreground outline-none focus:ring-1 focus:ring-violet-400"
+              />
+              <div className="flex justify-end">
+                <button type="button" onClick={runAiDraft} disabled={aiDrafting}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-violet-600 text-white text-xs hover:bg-violet-700 disabled:opacity-50">
+                  {aiDrafting ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
+                  {aiDrafting ? 'Drafting…' : 'Generate draft'}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between px-4 py-3 border-t border-border shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowCompose(false)}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Discard
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowCompose(false); setAiOpen(false); setReplyContextId(null); }}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={() => setAiOpen(v => !v)}
+                className="flex items-center gap-1 text-xs text-violet-700 dark:text-violet-300 hover:underline"
+              >
+                <Bot size={12} /> {aiOpen ? 'Hide AI' : 'Write with AI'}
+              </button>
+            </div>
             <button
               onClick={composeForm.handleSubmit((d) => sendMutation.mutate(d))}
               disabled={sendMutation.isPending}
