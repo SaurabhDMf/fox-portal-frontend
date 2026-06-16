@@ -560,26 +560,24 @@ export default function SharedInbox() {
                         )}
                       </div>
                     ))}
-                    {isAdmin && (
-                      <div className="px-2 pt-1">
-                        {showNewFolder ? (
-                          <div className="flex gap-1">
-                            <input autoFocus value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
-                              onKeyDown={e => { if (e.key === 'Enter' && newFolderName.trim()) createFolderMut.mutate(newFolderName.trim()); if (e.key === 'Escape') setShowNewFolder(false); }}
-                              placeholder="Folder name…"
-                              className="flex-1 text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400" />
-                            <button onClick={() => newFolderName.trim() && createFolderMut.mutate(newFolderName.trim())}
-                              disabled={createFolderMut.isPending || !newFolderName.trim()}
-                              className="px-2 py-1 bg-violet-600 text-white text-xs rounded hover:bg-violet-700 disabled:opacity-50">Add</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => setShowNewFolder(true)}
-                            className="flex items-center gap-1 text-xs text-gray-400 hover:text-violet-600 transition-colors py-0.5">
-                            <FolderPlus size={11} /> New folder
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    <div className="px-2 pt-1">
+                      {showNewFolder ? (
+                        <div className="flex gap-1">
+                          <input autoFocus value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && newFolderName.trim()) createFolderMut.mutate(newFolderName.trim()); if (e.key === 'Escape') setShowNewFolder(false); }}
+                            placeholder="Folder name…"
+                            className="flex-1 text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                          <button onClick={() => newFolderName.trim() && createFolderMut.mutate(newFolderName.trim())}
+                            disabled={createFolderMut.isPending || !newFolderName.trim()}
+                            className="px-2 py-1 bg-violet-600 text-white text-xs rounded hover:bg-violet-700 disabled:opacity-50">Add</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setShowNewFolder(true)}
+                          className="flex items-center gap-1 text-xs text-gray-400 hover:text-violet-600 transition-colors py-0.5">
+                          <FolderPlus size={11} /> New folder
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
