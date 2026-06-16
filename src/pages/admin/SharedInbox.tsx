@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -95,6 +95,28 @@ interface SharedInbox {
   imap_user: string; imap_password?: string;
   smtp_host: string; smtp_port: number; smtp_secure: number;
   smtp_user: string; smtp_password?: string;
+  signature?: string | null;
+}
+
+// Backend stores the signature as HTML or plain text. For the textarea we want
+// plain text only — strip tags, decode the common entities, and collapse runs
+// of blank lines down to one so the gap between the body and signature is one
+// blank line that the user can adjust.
+function signatureToPlain(sig: string | null | undefined): string {
+  if (!sig) return '';
+  const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(sig);
+  if (!looksLikeHtml) return sig.replace(/\n{3,}/g, '\n\n').trim();
+  return sig
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
+    .replace(/<\/?p[^>]*>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 interface Thread {
@@ -443,31 +465,133 @@ export default function SharedInbox() {
   const [sendingReply, setSendingReply] = useState(false);
   const replyFromInitialised = useRef<string | null>(null);
 
+  // Undo-send: when the user clicks Send we actually schedule the message
+  // 30 seconds out and show a banner with a countdown. While it's pending the
+  // sender can pull it back and tweak the body before it actually goes.
+  const UNDO_WINDOW_MS = 30_000;
+  const [pendingMsgId, setPendingMsgId] = useState<string | null>(null);
+  const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
+  const [pendingBody, setPendingBody] = useState('');
+  const [pendingCC, setPendingCC] = useState('');
+  const [pendingFrom, setPendingFrom] = useState('');
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  // The banner is only relevant on the thread the message was sent from.
+  const showPendingBanner = !!pendingMsgId && pendingThreadId === selectedThreadId;
+
+  const signatureText = useMemo(
+    () => signatureToPlain(selectedInbox?.signature),
+    [selectedInbox?.signature]
+  );
+
   useEffect(() => {
-    if (threadDetail?.senders?.length && replyFromInitialised.current !== selectedThreadId) {
-      replyFromInitialised.current = selectedThreadId;
-      setReplyFrom(threadDetail.thread.received_on || threadDetail.senders[0].email_address);
-    }
-  }, [threadDetail, selectedThreadId]);
+    if (!threadDetail?.senders?.length || replyFromInitialised.current === selectedThreadId) return;
+    replyFromInitialised.current = selectedThreadId;
+    setReplyFrom(threadDetail.thread.received_on || threadDetail.senders[0].email_address);
+    // Pre-fill the body with two blank lines + the signature so the user can
+    // see and adjust the spacing themselves rather than guessing what the
+    // server is going to append.
+    setReplyText(signatureText ? `\n\n${signatureText}` : '');
+  }, [threadDetail, selectedThreadId, signatureText]);
+
+  // Drive the countdown for the undo banner
+  useEffect(() => {
+    if (!pendingMsgId) { setSecondsLeft(0); return; }
+    setSecondsLeft(Math.ceil(UNDO_WINDOW_MS / 1000));
+    const tick = window.setInterval(() => {
+      setSecondsLeft(s => {
+        if (s <= 1) {
+          window.clearInterval(tick);
+          // Window closed — the cron will pick the scheduled message up
+          // shortly. Clear the banner and refresh the thread so the sent
+          // message shows up in place of the pending state.
+          setPendingMsgId(null);
+          setPendingThreadId(null);
+          setPendingBody('');
+          setPendingCC('');
+          setPendingFrom('');
+          if (selectedInboxId && selectedThreadId) {
+            qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
+            qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
+          }
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(tick);
+  }, [pendingMsgId, qc, selectedInboxId, selectedThreadId]);
 
   const sendReply = async () => {
     if (!replyText.trim() || !selectedInboxId || !selectedThreadId) return;
+
+    // "Send later" picks a specific date — bypass the undo flow in that case
+    // because the user is explicitly scheduling, not sending now.
+    if (sendLater) {
+      setSendingReply(true);
+      try {
+        await inboxApi.replyThread(selectedInboxId, selectedThreadId, {
+          body_text: replyText,
+          from_address: replyFrom,
+          cc: replyCC || undefined,
+          scheduled_at: sendLater,
+        });
+        toast.success('Scheduled!');
+        setReplyText(''); setReplyCC(''); setSendLater('');
+        qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
+        qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
+      } catch (e: any) {
+        toast.error(errMsg(e));
+      } finally {
+        setSendingReply(false);
+      }
+      return;
+    }
+
     setSendingReply(true);
+    const bodyCopy = replyText;
+    const ccCopy = replyCC;
+    const fromCopy = replyFrom;
     try {
-      await inboxApi.replyThread(selectedInboxId, selectedThreadId, {
-        body_text: replyText,
-        from_address: replyFrom,
-        cc: replyCC || undefined,
-        scheduled_at: sendLater || undefined,
+      const scheduledAt = new Date(Date.now() + UNDO_WINDOW_MS).toISOString();
+      const res = await inboxApi.replyThread(selectedInboxId, selectedThreadId, {
+        body_text: bodyCopy,
+        from_address: fromCopy,
+        cc: ccCopy || undefined,
+        scheduled_at: scheduledAt,
       });
-      toast.success(sendLater ? 'Scheduled!' : 'Sent!');
-      setReplyText(''); setReplyCC(''); setSendLater('');
-      qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
-      qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
+      const newMsgId = res.data?.id;
+      if (!newMsgId) throw new Error('Server did not return a message id');
+      setPendingMsgId(newMsgId);
+      setPendingThreadId(selectedThreadId);
+      setPendingBody(bodyCopy);
+      setPendingCC(ccCopy);
+      setPendingFrom(fromCopy);
+      // Clear the composer so the user can write the next reply if they want
+      setReplyText(signatureText ? `\n\n${signatureText}` : '');
+      setReplyCC('');
     } catch (e: any) {
       toast.error(errMsg(e));
     } finally {
       setSendingReply(false);
+    }
+  };
+
+  const undoPendingSend = async () => {
+    if (!pendingMsgId || !selectedInboxId || !selectedThreadId) return;
+    try {
+      await inboxApi.deleteMessage(selectedInboxId, selectedThreadId, pendingMsgId);
+      // Restore the composer so the user can edit and resend
+      setReplyText(pendingBody);
+      setReplyCC(pendingCC);
+      setReplyFrom(pendingFrom);
+      setPendingMsgId(null);
+      setPendingThreadId(null);
+      setPendingBody('');
+      setPendingCC('');
+      setPendingFrom('');
+      toast.success('Send cancelled — you can edit and resend');
+    } catch (e: any) {
+      toast.error(errMsg(e));
     }
   };
 
@@ -864,16 +988,28 @@ export default function SharedInbox() {
                   </div>
                 </div>
                 <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
-                  placeholder="Write your reply…" rows={5}
-                  className="w-full px-3 py-2 text-sm bg-transparent outline-none resize-none text-gray-700 dark:text-gray-200 placeholder-gray-400" />
+                  placeholder="Write your reply…" rows={8}
+                  className="w-full px-3 py-2 text-sm bg-transparent outline-none resize-none text-gray-700 dark:text-gray-200 placeholder-gray-400 whitespace-pre-wrap" />
+                {showPendingBanner && (
+                  <div className="flex items-center justify-between gap-3 px-3 py-2 mx-3 mb-2 rounded-lg border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/30">
+                    <div className="flex items-center gap-2 text-xs text-violet-700 dark:text-violet-200">
+                      <Clock size={13} />
+                      Sending in {secondsLeft}s — you can still edit it.
+                    </div>
+                    <button onClick={undoPendingSend}
+                      className="text-xs font-semibold text-violet-700 dark:text-violet-200 hover:text-violet-900 dark:hover:text-white">
+                      Undo & Edit
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-center justify-between px-3 pb-3 pt-1 gap-2">
                   <div className="flex items-center gap-1.5">
                     <Clock size={14} className="text-gray-400" />
                     <input type="datetime-local" value={sendLater} onChange={e => setSendLater(e.target.value)}
                       className="text-xs bg-transparent outline-none text-gray-500 dark:text-gray-400 cursor-pointer"
-                      title="Send later — leave blank to send now" />
+                      title="Send later — leave blank for the 30 second undo window" />
                   </div>
-                  <button onClick={sendReply} disabled={sendingReply || !replyText.trim()}
+                  <button onClick={sendReply} disabled={sendingReply || !replyText.trim() || showPendingBanner}
                     className="flex items-center gap-1.5 px-4 py-1.5 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed">
                     {sendingReply ? <Loader2 size={14} className="animate-spin" /> : sendLater ? <Clock size={14} /> : <Send size={14} />}
                     {sendLater ? 'Schedule' : 'Send'}
