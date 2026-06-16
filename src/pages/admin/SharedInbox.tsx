@@ -465,6 +465,8 @@ export default function SharedInbox() {
   const [sendLater, setSendLater] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
   const [aiDrafting, setAiDrafting] = useState(false);
+  const [aiReplyOpen, setAiReplyOpen] = useState(false);
+  const [aiReplyHints, setAiReplyHints] = useState('');
   const replyFromInitialised = useRef<string | null>(null);
   // In-session drafts keyed by thread id. Lets each thread remember the
   // user's edits to subject / body / cc when they switch away and come back,
@@ -537,7 +539,10 @@ export default function SharedInbox() {
     if (!selectedInboxId || !selectedThreadId || aiDrafting) return;
     setAiDrafting(true);
     try {
-      const res = await inboxApi.aiDraftReply(selectedInboxId, selectedThreadId);
+      // Empty hints → AI generates from the thread context only. Anything in
+      // the box gets sent as the steering instruction.
+      const hints = aiReplyHints.trim() || undefined;
+      const res = await inboxApi.aiDraftReply(selectedInboxId, selectedThreadId, hints);
       const draft = res.data?.draft;
       if (!draft) {
         toast.error('AI returned an empty draft');
@@ -546,6 +551,8 @@ export default function SharedInbox() {
       // Drop the AI body above the signature so the user can read and tweak.
       const tail = signatureText ? `\n\n${signatureText}` : '';
       onChangeReplyText(`${draft}${tail}`);
+      setAiReplyOpen(false);
+      setAiReplyHints('');
       toast.success('Draft ready — read it through before sending');
     } catch (e: any) {
       toast.error(errMsg(e));
@@ -1094,6 +1101,29 @@ export default function SharedInbox() {
                     </button>
                   </div>
                 )}
+                {aiReplyOpen && (
+                  <div className="mx-3 mb-2 rounded-lg border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 p-2 space-y-2">
+                    <input
+                      autoFocus
+                      value={aiReplyHints}
+                      onChange={e => setAiReplyHints(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); aiDraftReply(); } if (e.key === 'Escape') setAiReplyOpen(false); }}
+                      placeholder="Any specific angle? Leave blank to reply from the client's email."
+                      className="w-full text-xs px-2 py-1.5 rounded border border-violet-200 dark:border-violet-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-1 focus:ring-violet-400"
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <button type="button" onClick={() => { setAiReplyOpen(false); setAiReplyHints(''); }}
+                        className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                        Cancel
+                      </button>
+                      <button type="button" onClick={aiDraftReply} disabled={aiDrafting}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-violet-600 text-white text-xs hover:bg-violet-700 disabled:opacity-50">
+                        {aiDrafting ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
+                        {aiDrafting ? 'Drafting…' : 'Generate'}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between px-3 pb-3 pt-1 gap-2">
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1.5">
@@ -1104,12 +1134,12 @@ export default function SharedInbox() {
                     </div>
                     <button
                       type="button"
-                      onClick={aiDraftReply}
+                      onClick={() => setAiReplyOpen(v => !v)}
                       disabled={aiDrafting || showPendingBanner}
                       title="Let AI draft a reply based on this thread"
                       className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-violet-200 dark:border-violet-700 text-xs text-violet-700 dark:text-violet-200 hover:bg-violet-50 dark:hover:bg-violet-900/30 disabled:opacity-50 disabled:cursor-not-allowed">
-                      {aiDrafting ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
-                      {aiDrafting ? 'Drafting…' : 'AI draft'}
+                      <Bot size={12} />
+                      {aiReplyOpen ? 'Hide AI' : 'AI draft'}
                     </button>
                   </div>
                   <button onClick={sendReply} disabled={sendingReply || !replyText.trim() || showPendingBanner}
