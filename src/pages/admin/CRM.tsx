@@ -1,6 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useModulePermission } from '@/hooks/usePermission';
@@ -213,10 +213,24 @@ export default function CRM() {
     lead_source: '', next_followup: '',
   });
 
-  const { data: leads = [], isLoading } = useQuery({
+  // Paged list — fetches 100 leads per page on demand instead of shipping the
+  // full table on every render. The kanban view groups whatever's loaded so
+  // far; the user can click "Load more" at the bottom of the list to pull in
+  // additional pages.
+  const PAGE_SIZE = 100;
+  const {
+    data: leadsPages,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
     queryKey: ['leads', search, statusFilter, countryFilter, assignedFilter, dateFrom, dateTo],
-    queryFn: () => api.get('/leads', {
+    initialPageParam: 1,
+    queryFn: ({ pageParam = 1 }) => api.get('/leads', {
       params: {
+        page: pageParam,
+        limit: PAGE_SIZE,
         search: search || undefined,
         status: statusFilter || undefined,
         country: countryFilter || undefined,
@@ -224,13 +238,37 @@ export default function CRM() {
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
       },
-    }).then(r => {
-      console.log('[CRM] GET /leads raw response:', r.data);
-      const result = r.data?.leads || r.data?.data || r.data || [];
-      console.log('[CRM] Parsed leads array:', result, 'isArray:', Array.isArray(result));
-      return result;
-    }),
+    }).then(r => r.data),
+    getNextPageParam: (lastPage: any, allPages: any[]) =>
+      lastPage?.hasMore ? allPages.length + 1 : undefined,
   });
+
+  const leads = useMemo(() => {
+    const pages = leadsPages?.pages || [];
+    return pages.flatMap((p: any) =>
+      Array.isArray(p?.data) ? p.data
+        : Array.isArray(p?.leads) ? p.leads
+        : Array.isArray(p) ? p
+        : []
+    );
+  }, [leadsPages]);
+
+  // Helper that updates every variant of the leads query (each search/filter
+  // combination has its own key) so optimistic edits are reflected everywhere.
+  const mutateLeadsCache = (mutator: (rows: any[]) => any[]) => {
+    qc.setQueriesData<any>({ queryKey: ['leads'] }, (prev: any) => {
+      if (!prev?.pages) return prev;
+      return {
+        ...prev,
+        pages: prev.pages.map((page: any) => {
+          const rows = Array.isArray(page?.data) ? page.data
+            : Array.isArray(page?.leads) ? page.leads
+            : [];
+          return { ...page, data: mutator(rows) };
+        }),
+      };
+    });
+  };
 
   const fallbackUsers = [
     { id: 'presales-1', full_name: 'Riya Sharma', role: 'presales' },
@@ -255,10 +293,16 @@ export default function CRM() {
     next_followup: d.next_followup ? d.next_followup : null,
   });
 
+  // All mutations push their result straight into the cache instead of
+  // invalidating + refetching — that's what caused the "loading…" feel after
+  // every save on bigger tables.
   const createMut = useMutation({
-    mutationFn: (d: typeof form) => api.post('/leads', normalizeLead(d)),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['leads'] });
+    mutationFn: (d: typeof form) => api.post('/leads', normalizeLead(d)).then(r => r.data),
+    onSuccess: (newLead: any) => {
+      if (newLead?.id) {
+        mutateLeadsCache(rows => [newLead, ...rows.filter(r => r.id !== newLead.id)]);
+        qc.setQueryData(['lead', newLead.id], newLead);
+      }
       setShowCreate(false);
       setForm({ full_name: '', email: '', phone: '', country: '', purpose: '', status: 'New', assigned_to: '', added_by: '', notes: '', lead_source: '', next_followup: '' });
       toast.success('Lead created successfully');
@@ -267,9 +311,12 @@ export default function CRM() {
   });
 
   const editMut = useMutation({
-    mutationFn: (d: { id: string; data: typeof form }) => api.put(`/leads/${d.id}`, normalizeLead(d.data)),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['leads'] });
+    mutationFn: (d: { id: string; data: typeof form }) =>
+      api.put(`/leads/${d.id}`, normalizeLead(d.data)).then(r => r.data),
+    onSuccess: (updated: any, vars) => {
+      const merged = (prev: any) => ({ ...(prev || {}), ...(updated || {}) });
+      mutateLeadsCache(rows => rows.map(r => r.id === vars.id ? merged(r) : r));
+      qc.setQueryData(['lead', vars.id], (prev: any) => merged(prev));
       setShowEdit(null);
       toast.success('Lead updated successfully');
     },
@@ -277,9 +324,10 @@ export default function CRM() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api.delete(`/leads/${id}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['leads'] });
+    mutationFn: (id: string) => api.delete(`/leads/${id}`).then(() => id),
+    onSuccess: (id: string) => {
+      mutateLeadsCache(rows => rows.filter(r => r.id !== id));
+      qc.removeQueries({ queryKey: ['lead', id] });
       setShowDelete(null);
       toast.success('Lead deleted');
     },
@@ -287,9 +335,12 @@ export default function CRM() {
   });
 
   const statusMut = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => api.put(`/leads/${id}`, { status }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['leads'] });
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api.put(`/leads/${id}`, { status }).then(r => r.data),
+    onSuccess: (updated: any, vars) => {
+      const merged = (prev: any) => ({ ...(prev || {}), ...(updated || {}) });
+      mutateLeadsCache(rows => rows.map(r => r.id === vars.id ? merged(r) : r));
+      qc.setQueryData(['lead', vars.id], (prev: any) => merged(prev));
       toast.success('Status updated');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error updating status'),
@@ -306,10 +357,9 @@ export default function CRM() {
     setShowEdit(lead);
   };
 
-  const rawLeads = Array.isArray(leads) ? leads : [];
   // Overdue follow-ups first, then today's, then future. Leads with no
   // follow-up date sort by created_at per the user's toggle.
-  const sortedLeads = [...rawLeads].sort((a: any, b: any) => {
+  const sortedLeads = [...leads].sort((a: any, b: any) => {
     const pa = followupBucket(a);
     const pb = followupBucket(b);
     if (pa.bucket !== pb.bucket) return pa.bucket - pb.bucket;
@@ -503,6 +553,14 @@ export default function CRM() {
                 <tr><td colSpan={11} className="p-12 text-center">
                   <div className="text-muted-foreground text-sm mb-3">No leads found</div>
                   {perm.canCreate && <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first lead →</button>}
+                </td></tr>
+              )}
+              {hasNextPage && leadsArr.length > 0 && (
+                <tr><td colSpan={11} className="p-3 text-center border-t border-border/50">
+                  <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}
+                    className="text-xs text-primary hover:underline disabled:opacity-50">
+                    {isFetchingNextPage ? 'Loading more leads…' : `Load more (${leadsArr.length} loaded)`}
+                  </button>
                 </td></tr>
               )}
             </tbody>
