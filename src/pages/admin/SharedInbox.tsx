@@ -466,6 +466,10 @@ export default function SharedInbox() {
   const [sendingReply, setSendingReply] = useState(false);
   const [aiDrafting, setAiDrafting] = useState(false);
   const replyFromInitialised = useRef<string | null>(null);
+  // In-session drafts keyed by thread id. Lets each thread remember the
+  // user's edits to subject / body / cc when they switch away and come back,
+  // instead of resetting to "Re: <thread.subject>".
+  const draftsRef = useRef<Record<string, { subject?: string; body?: string; cc?: string }>>({});
 
   // Undo-send: when the user clicks Send we actually schedule the message
   // 30 seconds out and show a banner with a countdown. While it's pending the
@@ -476,6 +480,7 @@ export default function SharedInbox() {
   const [pendingBody, setPendingBody] = useState('');
   const [pendingCC, setPendingCC] = useState('');
   const [pendingFrom, setPendingFrom] = useState('');
+  const [pendingSubject, setPendingSubject] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(0);
   // The banner is only relevant on the thread the message was sent from.
   const showPendingBanner = !!pendingMsgId && pendingThreadId === selectedThreadId;
@@ -486,7 +491,7 @@ export default function SharedInbox() {
   );
 
   useEffect(() => {
-    if (!threadDetail?.senders?.length) return;
+    if (!threadDetail?.senders?.length || !selectedThreadId) return;
     const seed = signatureText ? `\n\n${signatureText}` : '';
     const threadSubject = threadDetail.thread.subject || '';
     const defaultSubject = threadSubject.toLowerCase().startsWith('re:')
@@ -495,17 +500,38 @@ export default function SharedInbox() {
     if (replyFromInitialised.current !== selectedThreadId) {
       replyFromInitialised.current = selectedThreadId;
       setReplyFrom(threadDetail.thread.received_on || threadDetail.senders[0].email_address);
-      setReplySubject(defaultSubject);
-      // Pre-fill the body with two blank lines + the signature so the user can
-      // see and adjust the spacing themselves rather than guessing what the
-      // server is going to append.
-      setReplyText(seed);
-    } else if (seed && !replyText.trim()) {
+      // Per-thread draft wins over the default so the user's edits stick when
+      // they switch threads. The draft is populated by the onChange handlers
+      // below and cleared on successful send.
+      const draft = draftsRef.current[selectedThreadId] || {};
+      setReplySubject(draft.subject ?? defaultSubject);
+      setReplyText(draft.body ?? seed);
+      setReplyCC(draft.cc ?? '');
+    } else if (seed && !replyText.trim() && draftsRef.current[selectedThreadId]?.body === undefined) {
       // The thread was opened before the inbox (and its signature) finished
-      // loading — drop the signature in now since the composer is still blank.
+      // loading — drop the signature in now since the composer is still blank
+      // AND the user hasn't started editing this thread's draft.
       setReplyText(seed);
     }
   }, [threadDetail, selectedThreadId, signatureText, replyText]);
+
+  // onChange helpers that mirror the input into the per-thread draft so the
+  // edit survives a thread switch.
+  const onChangeReplySubject = (v: string) => {
+    setReplySubject(v);
+    if (selectedThreadId) draftsRef.current[selectedThreadId] = { ...draftsRef.current[selectedThreadId], subject: v };
+  };
+  const onChangeReplyText = (v: string) => {
+    setReplyText(v);
+    if (selectedThreadId) draftsRef.current[selectedThreadId] = { ...draftsRef.current[selectedThreadId], body: v };
+  };
+  const onChangeReplyCC = (v: string) => {
+    setReplyCC(v);
+    if (selectedThreadId) draftsRef.current[selectedThreadId] = { ...draftsRef.current[selectedThreadId], cc: v };
+  };
+  const clearThreadDraft = (tid: string | null) => {
+    if (tid) delete draftsRef.current[tid];
+  };
 
   const aiDraftReply = async () => {
     if (!selectedInboxId || !selectedThreadId || aiDrafting) return;
@@ -519,7 +545,7 @@ export default function SharedInbox() {
       }
       // Drop the AI body above the signature so the user can read and tweak.
       const tail = signatureText ? `\n\n${signatureText}` : '';
-      setReplyText(`${draft}${tail}`);
+      onChangeReplyText(`${draft}${tail}`);
       toast.success('Draft ready — read it through before sending');
     } catch (e: any) {
       toast.error(errMsg(e));
@@ -544,6 +570,7 @@ export default function SharedInbox() {
           setPendingBody('');
           setPendingCC('');
           setPendingFrom('');
+          setPendingSubject('');
           if (selectedInboxId && selectedThreadId) {
             qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
             qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
@@ -572,7 +599,11 @@ export default function SharedInbox() {
           scheduled_at: sendLater,
         });
         toast.success('Scheduled!');
+        clearThreadDraft(selectedThreadId);
         setReplyText(''); setReplyCC(''); setSendLater('');
+        // Reset the subject to the default for the next message in this thread
+        const ts = threadDetail?.thread?.subject || '';
+        setReplySubject(ts.toLowerCase().startsWith('re:') ? ts : `Re: ${ts}`);
         qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
         qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
       } catch (e: any) {
@@ -587,6 +618,7 @@ export default function SharedInbox() {
     const bodyCopy = replyText;
     const ccCopy = replyCC;
     const fromCopy = replyFrom;
+    const subjectCopy = replySubject;
     try {
       const scheduledAt = new Date(Date.now() + UNDO_WINDOW_MS).toISOString();
       const res = await inboxApi.replyThread(selectedInboxId, selectedThreadId, {
@@ -603,6 +635,12 @@ export default function SharedInbox() {
       setPendingBody(bodyCopy);
       setPendingCC(ccCopy);
       setPendingFrom(fromCopy);
+      setPendingSubject(subjectCopy);
+      // Successful send — drop the draft for this thread so the next reply
+      // starts fresh, and reset the subject back to the default.
+      clearThreadDraft(selectedThreadId);
+      const ts = threadDetail?.thread?.subject || '';
+      setReplySubject(ts.toLowerCase().startsWith('re:') ? ts : `Re: ${ts}`);
       // Clear the composer so the user can write the next reply if they want
       setReplyText(signatureText ? `\n\n${signatureText}` : '');
       setReplyCC('');
@@ -617,15 +655,26 @@ export default function SharedInbox() {
     if (!pendingMsgId || !selectedInboxId || !selectedThreadId) return;
     try {
       await inboxApi.deleteMessage(selectedInboxId, selectedThreadId, pendingMsgId);
-      // Restore the composer so the user can edit and resend
+      // Restore the composer so the user can edit and resend — also push the
+      // restored values back into the per-thread draft so a thread switch
+      // doesn't wipe them again.
       setReplyText(pendingBody);
       setReplyCC(pendingCC);
       setReplyFrom(pendingFrom);
+      setReplySubject(pendingSubject);
+      if (selectedThreadId) {
+        draftsRef.current[selectedThreadId] = {
+          subject: pendingSubject,
+          body: pendingBody,
+          cc: pendingCC,
+        };
+      }
       setPendingMsgId(null);
       setPendingThreadId(null);
       setPendingBody('');
       setPendingCC('');
       setPendingFrom('');
+      setPendingSubject('');
       toast.success('Send cancelled — you can edit and resend');
     } catch (e: any) {
       toast.error(errMsg(e));
@@ -1020,17 +1069,17 @@ export default function SharedInbox() {
                   </div>
                   <div className="flex items-center gap-1.5 flex-1 min-w-0">
                     <span className="text-xs text-gray-400 flex-shrink-0">CC:</span>
-                    <input value={replyCC} onChange={e => setReplyCC(e.target.value)} placeholder="optional"
+                    <input value={replyCC} onChange={e => onChangeReplyCC(e.target.value)} placeholder="optional"
                       className="text-xs flex-1 bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400" />
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-100 dark:border-gray-700">
                   <span className="text-xs text-gray-400 flex-shrink-0">Subject:</span>
-                  <input value={replySubject} onChange={e => setReplySubject(e.target.value)}
+                  <input value={replySubject} onChange={e => onChangeReplySubject(e.target.value)}
                     placeholder={`Re: ${threadDetail.thread.subject || ''}`}
                     className="text-xs flex-1 bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400" />
                 </div>
-                <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
+                <textarea value={replyText} onChange={e => onChangeReplyText(e.target.value)}
                   placeholder="Write your reply…" rows={8}
                   className="w-full px-3 py-2 text-sm bg-transparent outline-none resize-none text-gray-700 dark:text-gray-200 placeholder-gray-400 whitespace-pre-wrap" />
                 {showPendingBanner && (
