@@ -4,7 +4,7 @@ import api from '@/lib/api';
 import { dependencyDelete } from '@/lib/dependencyDelete';
 import { useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
-import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2, IndianRupee, FolderOpen } from 'lucide-react';
+import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2, IndianRupee, FolderOpen, MessageSquare } from 'lucide-react';
 import { extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectTask } from '@/lib/projectTypes';
 import TasksListView from '@/components/projects/TasksListView';
@@ -17,6 +17,7 @@ import CreateTaskModal from '@/components/projects/CreateTaskModal';
 import ProjectSettingsModal from '@/components/projects/ProjectSettingsModal';
 import FinancialsView from '@/components/projects/FinancialsView';
 import DocumentsView from '@/components/projects/DocumentsView';
+import ProjectChatView from '@/components/projects/ProjectChatView';
 import toast from 'react-hot-toast';
 
 const ALL_TABS = [
@@ -26,6 +27,7 @@ const ALL_TABS = [
   { id: 'sprints', label: 'Sprints', icon: Timer },
   { id: 'members', label: 'Members', icon: Users },
   { id: 'documents', label: 'Documents', icon: FolderOpen },
+  { id: 'chat', label: 'Chat', icon: MessageSquare },
   { id: 'financials', label: 'Financials', icon: IndianRupee },
 ] as const;
 
@@ -245,6 +247,13 @@ export default function ProjectDetail() {
       )}
       {activeTab === 'members' && <MembersView projectId={id!} />}
       {activeTab === 'documents' && <DocumentsView projectId={id!} />}
+      {activeTab === 'chat' && (
+        <ProjectChatView
+          projectId={id!}
+          chatRoomId={(project as any)?.chat_room_id ?? null}
+          chatRoomName={(project as any)?.chat_room_name ?? null}
+        />
+      )}
       {activeTab === 'financials' && canViewFinancials && <FinancialsView projectId={id!} />}
 
       {selectedTask && (
