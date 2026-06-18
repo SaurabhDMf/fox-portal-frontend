@@ -275,11 +275,26 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     socket.on('connect', joinRoom);
 
     const handleNewMessage = (msg: any) => {
-      setRealtimeMessages(prev => {
-        if (prev.find(m => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
-      scrollToBottom();
+      // The backend now delivers every message via the user channel (not the
+      // per-room channel) so this handler fires for ALL rooms the user is in,
+      // not just the open one. Only render into the local message list if the
+      // event belongs to the currently-open room — otherwise we'd inject
+      // someone else's DM into whichever chat we have on screen.
+      if (msg?.room_id === roomId) {
+        setRealtimeMessages(prev => {
+          if (prev.find(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+        scrollToBottom();
+        if (document.visibilityState === 'visible') {
+          api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
+        }
+        setTimeout(() => {
+          qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
+        }, 3000);
+      }
+      // Sidebar/unread updates run for every incoming message regardless of
+      // which room is open.
       qc.setQueryData(['chat-rooms'], (old: any[]) =>
         old?.map((r: any) => {
           if (r.id === msg.room_id && msg.room_id === roomId) {
@@ -291,14 +306,6 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           return r;
         })
       );
-      if (msg.room_id === roomId) {
-        if (document.visibilityState === 'visible') {
-          api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
-        }
-        setTimeout(() => {
-          qc.invalidateQueries({ queryKey: ['chat-room-detail', roomId] });
-        }, 3000);
-      }
     };
 
     const handleMessageUpdated = (msg: any) => {
