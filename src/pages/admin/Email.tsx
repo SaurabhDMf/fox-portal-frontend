@@ -102,6 +102,10 @@ export default function EmailPage() {
   const [activeCustomFolderId, setActiveCustomFolderId] = useState<string | null>(null);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [showCompose, setShowCompose] = useState(false);
+  // When the user clicks the minus button the modal collapses into a small
+  // bar at the bottom-right instead of being torn down — clicking the bar
+  // brings the draft back. Closing the bar (X) discards the draft.
+  const [composeMinimized, setComposeMinimized] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [aiDrafting, setAiDrafting] = useState(false);
@@ -440,6 +444,8 @@ export default function EmailPage() {
       toast.success('Email sent!');
       composeForm.reset({ to: '', cc: '', subject: '', body_html: '', account_id: activeAccountId || '' });
       setShowCompose(false);
+      setComposeMinimized(false);
+      setReplyContextId(null);
       qc.invalidateQueries({ queryKey: ['emails'] });
     },
     onError: (e: any) => toast.error(errMsg(e)),
@@ -504,6 +510,7 @@ export default function EmailPage() {
     });
     setReplyContextId(email.id);
     setShowCompose(true);
+    setComposeMinimized(false);
   };
 
   const forwardEmail = () => {
@@ -532,6 +539,7 @@ export default function EmailPage() {
     });
     setReplyContextId(null);
     setShowCompose(true);
+    setComposeMinimized(false);
   };
 
   // ----- add-account form -----
@@ -583,7 +591,7 @@ export default function EmailPage() {
     <>
       <div className="p-3">
         <button
-          onClick={() => { setShowCompose(true); setMobileSidebarOpen(false); }}
+          onClick={() => { setShowCompose(true); setComposeMinimized(false); setMobileSidebarOpen(false); }}
           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-sm hover:opacity-90 transition"
         >
           <Plus size={16} /> Compose
@@ -663,7 +671,7 @@ export default function EmailPage() {
             {sidebarExpanded ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
           </button>
           <button
-            onClick={() => setShowCompose(true)}
+            onClick={() => { setShowCompose(true); setComposeMinimized(false); }}
             title="Compose"
             className={`h-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition shadow-sm shrink-0 ${sidebarExpanded ? 'flex-1 gap-2 px-3 text-sm font-semibold' : 'w-10'}`}
           >
@@ -1228,7 +1236,7 @@ export default function EmailPage() {
                     : (FOLDERS.find((f) => f.key === activeFolder)?.label || activeFolder)}
                 </span>
                 <button
-                  onClick={() => setShowCompose(true)}
+                  onClick={() => { setShowCompose(true); setComposeMinimized(false); }}
                   className="p-1.5 rounded-md bg-primary text-primary-foreground"
                   aria-label="Compose"
                   title="Compose"
@@ -1508,8 +1516,44 @@ export default function EmailPage() {
         </div>
       )}
 
+      {/* ───────── COMPOSE — minimized bar ───────── */}
+      {showCompose && composeMinimized && (
+        <div
+          className="fixed z-50 bottom-4 right-4 bg-card border border-border shadow-xl
+                     rounded-xl flex items-center gap-2 px-3 py-2 w-[280px] md:w-[320px]"
+          role="button"
+          tabIndex={0}
+          onClick={() => setComposeMinimized(false)}
+          onKeyDown={(e) => { if (e.key === 'Enter') setComposeMinimized(false); }}
+          title="Click to expand draft"
+        >
+          <span className="text-xs font-medium text-muted-foreground shrink-0">Draft</span>
+          <span className="text-sm flex-1 truncate text-foreground">
+            {composeForm.getValues('subject')?.trim() || '(no subject)'}
+          </span>
+          <button
+            onClick={(e) => { e.stopPropagation(); setComposeMinimized(false); }}
+            className="text-muted-foreground hover:text-foreground p-1"
+            title="Reopen draft"
+          >
+            <PanelLeftOpen size={14} className="rotate-180" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowCompose(false); setComposeMinimized(false); setReplyContextId(null);
+              composeForm.reset({ to: '', cc: '', subject: '', body_html: '', account_id: activeAccountId || '' });
+            }}
+            className="text-muted-foreground hover:text-destructive p-1"
+            title="Discard draft"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* ───────── COMPOSE MODAL ───────── */}
-      {showCompose && (
+      {showCompose && !composeMinimized && (
         <div
           className="fixed z-50 bg-card border border-border shadow-2xl flex flex-col
                      inset-2 rounded-xl
@@ -1520,14 +1564,19 @@ export default function EmailPage() {
             <h3 className="text-sm font-semibold text-foreground">New Message</h3>
             <div className="flex gap-1">
               <button
-                onClick={() => setShowCompose(false)}
+                onClick={() => setComposeMinimized(true)}
                 className="text-muted-foreground hover:text-foreground p-1"
+                title="Minimize — your draft stays open"
               >
                 <Minus size={15} />
               </button>
               <button
-                onClick={() => setShowCompose(false)}
+                onClick={() => {
+                  setShowCompose(false); setComposeMinimized(false); setReplyContextId(null);
+                  composeForm.reset({ to: '', cc: '', subject: '', body_html: '', account_id: activeAccountId || '' });
+                }}
                 className="text-muted-foreground hover:text-foreground p-1"
+                title="Discard draft"
               >
                 <X size={15} />
               </button>

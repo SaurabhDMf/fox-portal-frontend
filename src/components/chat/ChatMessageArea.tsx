@@ -26,6 +26,38 @@ function Avatar({ name, avatarUrl, size = 8 }: { name?: string; avatarUrl?: stri
         style={{ fontSize: size <= 7 ? 11 : 13 }}>{initials}</div>;
 }
 
+// Small emoji picker that closes on a real click-outside (the previous version
+// closed on onMouseLeave, which was flaky — moving the pointer between the
+// trigger and the panel sometimes dismissed it before the click landed).
+const EMOJI_PICKER_GLYPHS = ['😀','😂','😍','🥰','😎','🤔','😅','😭','😡','🥹','👍','❤️','🔥','✅','👏','🎉','💯','🙏','😊','🤝'];
+function EmojiPickerPanel({ onPick, onClose }: { onPick: (e: string) => void; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [onClose]);
+  return (
+    <div
+      ref={ref}
+      className="absolute bottom-full mb-2 left-0 bg-card border border-border rounded-2xl shadow-2xl p-2 flex flex-wrap gap-0.5 w-56 z-50"
+    >
+      {EMOJI_PICKER_GLYPHS.map(emoji => (
+        <button
+          key={emoji}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onPick(emoji); }}
+          className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-secondary text-xl transition-transform hover:scale-125"
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const formatDateLabel = (dateStr: string): string => {
   const date = new Date(dateStr);
   const today = new Date();
@@ -1046,25 +1078,25 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             {/* Emoji panel toggle */}
             <div className="relative">
               <button
-                onClick={() => setShowEmojiToolbar(!showEmojiToolbar)}
+                onClick={(e) => { e.stopPropagation(); setShowEmojiToolbar(v => !v); }}
                 className="p-2 rounded-xl hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
                 title="Emoji"
               >
-                <Smile className="h-4.5 w-4.5" style={{ width: 18, height: 18 }} />
+                <Smile style={{ width: 18, height: 18 }} />
               </button>
               {showEmojiToolbar && (
-                <div className="absolute bottom-full mb-2 left-0 bg-card border border-border rounded-2xl shadow-2xl p-2 flex flex-wrap gap-0.5 w-56 z-30"
-                  onMouseLeave={() => setShowEmojiToolbar(false)}>
-                  {['😀','😂','😍','🥰','😎','🤔','😅','😭','😡','🥹','👍','❤️','🔥','✅','👏','🎉','💯','🙏','😊','🤝'].map(emoji => (
-                    <button key={emoji} onClick={() => {
-                      setMessage(m => m + emoji);
-                      setShowEmojiToolbar(false);
-                      textareaRef.current?.focus();
-                    }} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-secondary text-xl transition-transform hover:scale-125">
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
+                <EmojiPickerPanel
+                  onPick={(emoji) => {
+                    // If the user is editing a message, the textarea is bound
+                    // to editText — insert there so the picked emoji actually
+                    // shows up. Otherwise append to the draft.
+                    if (editingMsg) setEditText(t => t + emoji);
+                    else            setMessage(m => m + emoji);
+                    setShowEmojiToolbar(false);
+                    textareaRef.current?.focus();
+                  }}
+                  onClose={() => setShowEmojiToolbar(false)}
+                />
               )}
             </div>
 
