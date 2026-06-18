@@ -409,20 +409,26 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
 
   const sendMut = useMutation({
-    mutationFn: (content: string) => api.post(`/chat/rooms/${roomId}/messages`, {
-      content,
-      type: 'text',
-      ...(replyTo ? { reply_to_id: replyTo.id } : {}),
-    }),
+    mutationFn: (vars: { content: string; reply_to_id?: string }) =>
+      api.post(`/chat/rooms/${roomId}/messages`, {
+        content: vars.content,
+        type: 'text',
+        ...(vars.reply_to_id ? { reply_to_id: vars.reply_to_id } : {}),
+      }),
     onSuccess: (res) => {
       const saved = res.data?.data || res.data;
       if (saved?.id) {
         setRealtimeMessages(prev => prev.find(m => m.id === saved.id) ? prev : [...prev, saved]);
       }
-      setMessage('');
-      setReplyTo(null);
       // Defer until after React has flushed the new message into the DOM
       requestAnimationFrame(() => scrollToBottom(true));
+    },
+    onError: (_err, vars) => {
+      // Network or server fail — give the typed text back so the user doesn't
+      // lose what they wrote. If they've already started typing the next
+      // message, prepend the failed one above it.
+      setMessage(prev => prev ? `${vars.content}\n${prev}` : vars.content);
+      toast.error('Could not send — your message is back in the box');
     },
   });
 
@@ -564,15 +570,27 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
   const handleSend = () => {
     if (editingMsg) {
-      if (editText.trim()) editMut.mutate({ id: editingMsg.id, content: editText });
+      if (editText.trim() && !editMut.isPending) editMut.mutate({ id: editingMsg.id, content: editText });
       return;
     }
+    // Guard against double-clicks / double Enter — until the previous send
+    // finishes we ignore additional sends with the same text.
+    if (sendMut.isPending) return;
     if (pendingFiles.length > 0) {
       const toUpload = pendingFiles;
       setPendingFiles([]);
       sendFilesOptimistic(toUpload);
     }
-    if (message.trim()) sendMut.mutate(message);
+    const text = message.trim();
+    if (!text) return;
+    // Optimistically clear the composer so it feels instant. The mutation's
+    // onError restores the text if the send actually fails. We also stop
+    // emitting typing so other users' indicator clears immediately.
+    const replySnapshot = replyTo;
+    setMessage('');
+    setReplyTo(null);
+    try { socketRef.current?.emit('typing', { roomId, isTyping: false }); } catch {}
+    sendMut.mutate({ content: text, reply_to_id: replySnapshot?.id });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1146,11 +1164,19 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
             {/* Send */}
             <button
               onClick={handleSend}
-              disabled={editingMsg ? !editText.trim() : (!message.trim() && pendingFiles.length === 0)}
+              disabled={
+                editingMsg
+                  ? (!editText.trim() || editMut.isPending)
+                  : (sendMut.isPending || (!message.trim() && pendingFiles.length === 0))
+              }
               className="p-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Send"
+              title={sendMut.isPending ? 'Sending…' : 'Send'}
             >
-              {editingMsg ? <Check style={{ width: 18, height: 18 }} /> : <Send style={{ width: 18, height: 18 }} />}
+              {sendMut.isPending && !editingMsg
+                ? <Loader2 className="animate-spin" style={{ width: 18, height: 18 }} />
+                : editingMsg
+                  ? <Check style={{ width: 18, height: 18 }} />
+                  : <Send style={{ width: 18, height: 18 }} />}
             </button>
           </div>
         </div>
