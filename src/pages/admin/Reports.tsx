@@ -1,11 +1,18 @@
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, Legend,
 } from 'recharts';
-import { TrendingUp, TrendingDown, Users, IndianRupee, Receipt, Wallet } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, IndianRupee, Receipt, Wallet, MessageCircle, Skull, Clock, Target } from 'lucide-react';
+
+const STATUS_BUCKETS = {
+  converted:   ['Closed Won'],
+  discussion:  ['Contacted', 'Qualified', 'Negotiation', 'Proposal Sent', 'On Hold'],
+  dead:        ['Dead', 'Closed Lost', 'Unqualified'],
+  no_response: ['New'],
+} as const;
 
 const CHART_COLORS = ['hsl(199, 100%, 55%)', 'hsl(157, 87%, 46%)', 'hsl(244, 94%, 62%)', 'hsl(35, 100%, 63%)', 'hsl(4, 100%, 64%)', 'hsl(280, 80%, 60%)', 'hsl(180, 70%, 50%)', 'hsl(45, 100%, 60%)'];
 
@@ -27,6 +34,8 @@ export default function Reports() {
   const [tab, setTab] = useState<Tab>('sales');
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [month, setMonth] = useState<number | 'all'>('all'); // 0..11 or 'all'
+  const [employeeId, setEmployeeId] = useState<string>('all');
+  const queryClient = useQueryClient();
 
   const inSelectedRange = (dateStr?: string) => {
     if (!dateStr) return false;
@@ -71,6 +80,49 @@ export default function Reports() {
   const filteredLeads = useMemo(() =>
     leads.filter((l: any) => inSelectedRange(l.created_at || l.createdAt)),
   [leads, year, month]);
+
+  // Leads narrowed to a chosen employee (or all employees when employeeId='all')
+  const employeeLeads = useMemo(() => {
+    if (employeeId === 'all') return filteredLeads;
+    return filteredLeads.filter((l: any) => {
+      const uid = l.assigned_to || l.assigned_user_id || l.owner_id;
+      return uid === employeeId;
+    });
+  }, [filteredLeads, employeeId]);
+
+  const leadBuckets = useMemo(() => {
+    const counts = { received: employeeLeads.length, converted: 0, discussion: 0, dead: 0, no_response: 0 };
+    employeeLeads.forEach((l: any) => {
+      const s = String(l.status || '').trim();
+      if (STATUS_BUCKETS.converted.includes(s as any))         counts.converted++;
+      else if (STATUS_BUCKETS.discussion.includes(s as any))   counts.discussion++;
+      else if (STATUS_BUCKETS.dead.includes(s as any))         counts.dead++;
+      else if (STATUS_BUCKETS.no_response.includes(s as any))  counts.no_response++;
+    });
+    return counts;
+  }, [employeeLeads]);
+
+  // ── Target vs Sale (requires a specific month selected) ──
+  const targetMonth = month === 'all' ? null : month + 1; // backend uses 1-12
+  const { data: targetData } = useQuery({
+    queryKey: ['perf-target', employeeId, year, targetMonth],
+    queryFn: () => api.get('/performance-targets', {
+      params: { user_id: employeeId, year, month: targetMonth },
+    }).then(r => r.data),
+    enabled: targetMonth !== null,
+  });
+
+  const [targetInput, setTargetInput] = useState<string>('');
+  useEffect(() => {
+    if (targetData?.target_value !== undefined) setTargetInput(String(targetData.target_value || ''));
+  }, [targetData]);
+
+  const saveTarget = useMutation({
+    mutationFn: (val: number) => api.put('/performance-targets', {
+      user_id: employeeId, year, month: targetMonth, target_value: val,
+    }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['perf-target', employeeId, year, targetMonth] }),
+  });
 
   const leadsPerUser = useMemo(() => {
     const map: Record<string, { name: string; received: number; converted: number }> = {};
@@ -202,7 +254,16 @@ export default function Reports() {
           <h1 className="page-title">Reports</h1>
           <p className="page-subtitle">Business analytics and financial insights</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {tab === 'sales' && (
+            <select value={employeeId} onChange={e => setEmployeeId(e.target.value)}
+              className="px-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none">
+              <option value="all">All Employees</option>
+              {users.filter((u: any) => u.id && u.full_name).map((u: any) => (
+                <option key={u.id} value={u.id}>{u.full_name}{u.role ? ` (${u.role})` : ''}</option>
+              ))}
+            </select>
+          )}
           <select value={month} onChange={e => setMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
             className="px-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none">
             <option value="all">All Months</option>
@@ -225,19 +286,82 @@ export default function Reports() {
 
       {tab === 'sales' && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             <div className="stat-card">
-              <div className="flex items-center justify-between"><p className="text-xs text-muted-foreground uppercase tracking-wider">Total Leads</p><Users className="h-4 w-4 text-primary" /></div>
-              <p className="text-2xl font-bold mt-1">{totalLeads}</p>
+              <div className="flex items-center justify-between"><p className="text-xs text-muted-foreground uppercase tracking-wider">Received</p><Users className="h-4 w-4 text-primary" /></div>
+              <p className="text-2xl font-bold mt-1">{leadBuckets.received}</p>
             </div>
             <div className="stat-card">
               <div className="flex items-center justify-between"><p className="text-xs text-muted-foreground uppercase tracking-wider">Converted</p><TrendingUp className="h-4 w-4 text-success" /></div>
-              <p className="text-2xl font-bold mt-1">{totalConverted}</p>
+              <p className="text-2xl font-bold mt-1 text-success">{leadBuckets.converted}</p>
             </div>
             <div className="stat-card">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Conversion Rate</p>
-              <p className="text-2xl font-bold mt-1 text-success">{conversionRate}%</p>
+              <div className="flex items-center justify-between"><p className="text-xs text-muted-foreground uppercase tracking-wider">In Discussion</p><MessageCircle className="h-4 w-4 text-warning" /></div>
+              <p className="text-2xl font-bold mt-1 text-warning">{leadBuckets.discussion}</p>
             </div>
+            <div className="stat-card">
+              <div className="flex items-center justify-between"><p className="text-xs text-muted-foreground uppercase tracking-wider">Dead</p><Skull className="h-4 w-4 text-destructive" /></div>
+              <p className="text-2xl font-bold mt-1 text-destructive">{leadBuckets.dead}</p>
+            </div>
+            <div className="stat-card">
+              <div className="flex items-center justify-between"><p className="text-xs text-muted-foreground uppercase tracking-wider">No Response</p><Clock className="h-4 w-4 text-muted-foreground" /></div>
+              <p className="text-2xl font-bold mt-1">{leadBuckets.no_response}</p>
+            </div>
+          </div>
+
+          {/* Target vs Sale — only shown when a specific month is selected */}
+          <div className="glass-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> Target vs Sale {month !== 'all' && `— ${new Date(year, month, 1).toLocaleString('default', { month: 'long' })} ${year}`}</h2>
+              {employeeId !== 'all' && (
+                <p className="text-xs text-muted-foreground">{users.find((u: any) => u.id === employeeId)?.full_name}</p>
+              )}
+            </div>
+            {month === 'all' ? (
+              <p className="text-sm text-muted-foreground py-4">Select a specific month to view target vs sale.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Target</p>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min="0" value={targetInput} onChange={e => setTargetInput(e.target.value)}
+                      placeholder="0"
+                      className="w-full px-3 py-2 rounded-lg bg-background border border-border text-base font-semibold focus:border-primary focus:outline-none" />
+                    <button onClick={() => saveTarget.mutate(Number(targetInput) || 0)} disabled={saveTarget.isPending}
+                      className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-50">
+                      {saveTarget.isPending ? '…' : 'Save'}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Actual Sale</p>
+                  <p className="text-2xl font-bold text-success">{fmtINR(Number(targetData?.actual_sale || 0))}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{Number(targetData?.paid_invoice_count || 0)} paid invoice(s)</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Pending</p>
+                  <p className="text-2xl font-bold text-warning">
+                    {fmtINR(Math.max(0, Number(targetData?.target_value || 0) - Number(targetData?.actual_sale || 0)))}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Progress</p>
+                  {(() => {
+                    const t = Number(targetData?.target_value || 0);
+                    const a = Number(targetData?.actual_sale || 0);
+                    const pct = t > 0 ? Math.min(100, (a / t) * 100) : 0;
+                    return (
+                      <>
+                        <p className="text-2xl font-bold">{pct.toFixed(1)}%</p>
+                        <div className="w-full bg-secondary h-2 rounded-full mt-2 overflow-hidden">
+                          <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
