@@ -156,7 +156,7 @@ export default function InboxFormPage() {
       <div className="max-w-2xl space-y-6">
 
         {/* ── Basic info ── */}
-        <div className="glass-card p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">Basic Info</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -181,7 +181,7 @@ export default function InboxFormPage() {
         </div>
 
         {/* ── IMAP ── */}
-        <div className="glass-card p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">IMAP — Incoming Mail</h3>
           <p className="text-xs text-gray-400 mb-4">
             Used to pull new emails from your Gmail inbox.
@@ -224,7 +224,7 @@ export default function InboxFormPage() {
         </div>
 
         {/* ── SMTP ── */}
-        <div className="glass-card p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">SMTP — Outgoing Mail</h3>
           <p className="text-xs text-gray-400 mb-4">
             Used to send replies. Individual sender addresses can override this later.
@@ -262,7 +262,7 @@ export default function InboxFormPage() {
         </div>
 
         {/* ── Email History ── */}
-        <div className="glass-card p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Email History</h3>
           <p className="text-xs text-gray-400 mb-4">
             How far back to import existing emails from your inbox on the first sync.
@@ -284,7 +284,7 @@ export default function InboxFormPage() {
         </div>
 
         {/* ── AI Follow-up ── */}
-        <div className="glass-card p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">AI Auto Follow-up</h3>
           <p className="text-xs text-gray-400 mb-4">
             If an assigned employee doesn't reply within the delay window, Claude writes and sends
@@ -320,8 +320,8 @@ export default function InboxFormPage() {
 
         {/* ── Common Signature ── */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-1">Common Signature</h2>
-          <p className="text-xs text-gray-500 mb-4">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Common Signature</h3>
+          <p className="text-xs text-gray-400 mb-4">
             Applied at the bottom of every reply and new thread sent from any sender on this inbox. Plain text becomes paragraphs; HTML is sent as-is.
           </p>
           <textarea
@@ -329,7 +329,7 @@ export default function InboxFormPage() {
             onChange={e => set('signature', e.target.value)}
             rows={8}
             placeholder={'Sales & Marketing\nM: +91 (707) 037-2562\nDigitalmediafox Pvt. Ltd. | digitalmediafox.com\nA: 743, Gaur Commercial, Sector 16 B, Gr. Noida West\nUttar Pradesh, India, 201306'}
-            className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400 font-mono"
+            className={`${INP} font-mono`}
           />
         </div>
 
@@ -348,7 +348,7 @@ export default function InboxFormPage() {
 
         {/* ── Danger Zone (edit only, admin/super_admin only) ── */}
         {isEdit && canDelete && (
-          <div className="glass-card border border-red-200 dark:border-red-800/50 p-6 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-800/50 p-6 mb-8">
             <h3 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1">Danger Zone</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
               Removing this inbox will permanently delete all its threads, messages, senders and members. This cannot be undone.
