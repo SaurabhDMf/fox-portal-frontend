@@ -49,11 +49,11 @@ export default function MyDashboard() {
   });
 
   // Current-month target + received for this user
-  const now = new Date();
+  const currentDate = new Date();
   const { data: targetData } = useQuery({
-    queryKey: ['my-target', user?.id, now.getFullYear(), now.getMonth() + 1],
+    queryKey: ['my-target', user?.id, currentDate.getFullYear(), currentDate.getMonth() + 1],
     queryFn: () => api.get('/performance-targets', {
-      params: { user_id: user?.id, year: now.getFullYear(), month: now.getMonth() + 1 },
+      params: { user_id: user?.id, year: currentDate.getFullYear(), month: currentDate.getMonth() + 1 },
     }).then(r => r.data),
     enabled: !!user?.id,
   });
@@ -206,7 +206,7 @@ export default function MyDashboard() {
       {/* Monthly Target vs Received */}
       <div className="glass-card p-5">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> {now.toLocaleString('default', { month: 'long' })} {now.getFullYear()} — Target vs Received</h2>
+          <h2 className="text-sm font-semibold flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> {currentDate.toLocaleString('default', { month: 'long' })} {currentDate.getFullYear()} — Target vs Received</h2>
         </div>
         {(() => {
           const t = Number(targetData?.target_value || 0);
