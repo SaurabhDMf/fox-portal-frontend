@@ -7,7 +7,7 @@ import { ListChecks, FolderKanban, Target, FileText, Clock, ArrowUpRight, ArrowD
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 
-const fmtINR = (n: number) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+const fmtNum = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export default function MyDashboard() {
@@ -217,15 +217,15 @@ export default function MyDashboard() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">Target</p>
-                <p className="text-xl font-bold mt-1">{fmtINR(t)}</p>
+                <p className="text-xl font-bold mt-1">{fmtNum(t)}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">Received</p>
-                <p className="text-xl font-bold mt-1 text-success">{fmtINR(a)}</p>
+                <p className="text-xl font-bold mt-1 text-success">{fmtNum(a)}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">Pending</p>
-                <p className="text-xl font-bold mt-1 text-warning">{fmtINR(pending)}</p>
+                <p className="text-xl font-bold mt-1 text-warning">{fmtNum(pending)}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">Progress</p>

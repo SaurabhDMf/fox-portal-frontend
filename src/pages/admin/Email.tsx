@@ -116,10 +116,11 @@ export default function EmailPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return window.innerWidth >= 768;
-  });
+  // Sidebar is now fixed-expanded to match the Shared Inbox layout.
+  // The setter is kept (always a no-op) so existing collapse-toggle calls
+  // remain compile-safe without functional change.
+  const sidebarExpanded = true;
+  const setSidebarExpanded = (_: boolean | ((v: boolean) => boolean)) => {};
   const [mailFoldersOpen, setMailFoldersOpen] = useState(true);
 
   // Auto-close the mobile sidebar drawer whenever an email opens, a folder
@@ -654,29 +655,22 @@ export default function EmailPage() {
   const activeFolderTotal = totalMessages;
 
   return (
-    <div className="h-[calc(100vh-4rem)] bg-background flex flex-col overflow-hidden">
+    <div className="h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       {!isMobile && (
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
       {/* ───────── COL 1 — SIDEBAR (collapsible) ───────── */}
-      <aside className={`flex-none border-r border-border bg-card flex flex-col py-3 overflow-hidden transition-all duration-200 ${sidebarExpanded ? 'w-[220px] items-stretch px-2' : 'w-[60px] items-center'}`}>
+      <aside className="flex-none w-[220px] border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col py-3 px-2 items-stretch overflow-hidden">
 
-        {/* Toggle + Compose row */}
-        <div className={`flex items-center mb-2 ${sidebarExpanded ? 'gap-2 px-1' : 'flex-col gap-2'}`}>
-          <button
-            onClick={() => setSidebarExpanded(v => !v)}
-            title={sidebarExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
-          >
-            {sidebarExpanded ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-          </button>
+        {/* Compose row */}
+        <div className="flex items-center mb-2 px-1">
           <button
             onClick={() => { setShowCompose(true); setComposeMinimized(false); }}
             title="Compose"
-            className={`h-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition shadow-sm shrink-0 ${sidebarExpanded ? 'flex-1 gap-2 px-3 text-sm font-semibold' : 'w-10'}`}
+            className="h-9 flex-1 rounded-xl bg-primary text-primary-foreground flex items-center justify-center gap-2 px-3 text-sm font-semibold hover:opacity-90 transition shadow-sm shrink-0"
           >
             <Plus size={16} />
-            {sidebarExpanded && <span>Compose</span>}
+            <span>Compose</span>
           </button>
         </div>
 
@@ -705,7 +699,7 @@ export default function EmailPage() {
         })}
 
         {/* Divider */}
-        <div className={`bg-border my-2 shrink-0 ${sidebarExpanded ? 'h-px mx-1' : 'w-6 h-px'}`} />
+        <div className="bg-gray-200 dark:bg-gray-700 my-2 shrink-0 h-px mx-1" />
 
         {/* Everything below the divider scrolls independently so the top
            (Compose + system folders) stays pinned in view. */}
@@ -745,7 +739,7 @@ export default function EmailPage() {
                   </button>
                 );
               })}
-            <div className="bg-border my-2 h-px mx-1" />
+            <div className="bg-gray-200 dark:bg-gray-700 my-2 h-px mx-1" />
           </>
         )}
 
@@ -789,7 +783,7 @@ export default function EmailPage() {
         )}
 
         {/* Divider + accounts */}
-        <div className={`bg-border my-2 ${sidebarExpanded ? 'h-px mx-1' : 'w-6 h-px'}`} />
+        <div className="bg-gray-200 dark:bg-gray-700 my-2 h-px mx-1" />
 
         {/* Accounts header */}
         {sidebarExpanded && (
@@ -834,10 +828,10 @@ export default function EmailPage() {
       {/* ───────── COL 2 + 3 — LIST + DETAIL (resizable) ───────── */}
       <PanelGroup direction="horizontal" autoSaveId="email-list-detail" className="flex-1 min-h-0">
       <Panel defaultSize={35} minSize={24} maxSize={55} order={2} id="list">
-      <section className="h-full border-r border-border bg-card flex flex-col">
+      <section className="h-full border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col">
 
         {/* Top search + compose bar */}
-        <div className="px-3 py-2.5 border-b border-border flex items-center gap-2 shrink-0">
+        <div className="px-3 py-2.5 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2 shrink-0">
           {messages.length > 0 && selectedIds.size === 0 && (
             <button
               onClick={() => setSelectedIds(new Set(messages.map((m: any) => m.id)))}

@@ -30,6 +30,7 @@ const tooltipStyle = {
 type Tab = 'sales' | 'finance' | 'expenses';
 
 const fmtINR = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+const fmtNum = (n: number) => n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
 const FULL_ACCESS_ROLES = ['super_admin', 'admin', 'sales_manager'];
 
@@ -342,13 +343,13 @@ export default function Reports() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Actual Sale</p>
-                  <p className="text-2xl font-bold text-success">{fmtINR(Number(targetData?.actual_sale || 0))}</p>
+                  <p className="text-2xl font-bold text-success">{fmtNum(Number(targetData?.actual_sale || 0))}</p>
                   <p className="text-xs text-muted-foreground mt-1">{Number(targetData?.paid_invoice_count || 0)} paid invoice(s)</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Pending</p>
                   <p className="text-2xl font-bold text-warning">
-                    {fmtINR(Math.max(0, Number(targetData?.target_value || 0) - Number(targetData?.actual_sale || 0)))}
+                    {fmtNum(Math.max(0, Number(targetData?.target_value || 0) - Number(targetData?.actual_sale || 0)))}
                   </p>
                 </div>
                 <div>
