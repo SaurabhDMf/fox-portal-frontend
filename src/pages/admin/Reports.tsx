@@ -169,6 +169,27 @@ export default function Reports() {
     return months;
   }, [leads, year]);
 
+  // Monthly USD-normalised sales for the selected year (paid invoices only).
+  // Scoped to the selected employee when one is chosen on the Sales tab.
+  const salesByMonth = useMemo(() => {
+    const months = Array.from({ length: 12 }, (_, i) => ({
+      month: new Date(year, i, 1).toLocaleString('default', { month: 'short' }),
+      sales: 0,
+    }));
+    invoices.forEach((inv: any) => {
+      if (inv.status !== 'Paid' && inv.status !== 'paid') return;
+      if (employeeId !== 'all') {
+        const ownerId = inv.account_manager_id || inv.client_account_manager_id || inv.created_by;
+        if (ownerId !== employeeId) return;
+      }
+      const d = new Date(inv.paid_at || inv.created_at);
+      if (isNaN(d.getTime()) || d.getFullYear() !== year) return;
+      const usd = Number(inv.amount_paid_usd ?? inv.amount_paid ?? inv.total_amount ?? 0);
+      months[d.getMonth()].sales += usd;
+    });
+    return months;
+  }, [invoices, year, employeeId]);
+
   // ---- FINANCE TAB ----
   const paymentInByMonth = useMemo(() => {
     const months = Array.from({ length: 12 }, (_, i) => ({
@@ -374,25 +395,6 @@ export default function Reports() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="glass-card p-5">
-              <h2 className="text-sm font-semibold mb-4">Leads by Pre-Sales User</h2>
-              {leadsPerUser.length === 0 ? (
-                <div className="h-[300px] flex items-center justify-center text-sm text-muted-foreground">No pre-sales users with leads</div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={leadsPerUser} margin={{ left: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} angle={-15} textAnchor="end" height={60} />
-                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                    <Tooltip {...tooltipStyle} />
-                    <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Bar dataKey="received" name="Leads Received" fill="hsl(199, 100%, 55%)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="converted" name="Converted" fill="hsl(157, 87%, 46%)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-
-            <div className="glass-card p-5">
               <h2 className="text-sm font-semibold mb-4">Leads — Monthly ({year})</h2>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={leadsByMonth}>
@@ -404,6 +406,25 @@ export default function Reports() {
                   <Line type="monotone" dataKey="received" name="Received" stroke="hsl(199, 100%, 55%)" strokeWidth={2} dot={{ r: 3 }} />
                   <Line type="monotone" dataKey="converted" name="Converted" stroke="hsl(157, 87%, 46%)" strokeWidth={2} dot={{ r: 3 }} />
                 </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="glass-card p-5">
+              <h2 className="text-sm font-semibold mb-4">Sales — Monthly ({year})</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={salesByMonth}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="month" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip {...tooltipStyle} formatter={(v: number) => fmtNum(v)} />
+                  <defs>
+                    <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(157, 87%, 46%)" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="hsl(157, 87%, 46%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Area type="monotone" dataKey="sales" name="Sales" stroke="hsl(157, 87%, 46%)" fill="url(#salesGrad)" strokeWidth={2} />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>

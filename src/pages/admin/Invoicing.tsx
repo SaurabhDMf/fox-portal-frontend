@@ -17,6 +17,30 @@ import ShareInvoiceModal from '@/components/invoicing/ShareInvoiceModal';
 
 const statusTabs = ['All', 'Draft', 'Sent', 'Paid', 'Overdue', 'Cancelled'];
 
+type Period = 'all' | 'this_month' | 'last_month' | 'this_quarter' | 'this_year' | 'last_year' | 'custom';
+
+/** Return [from, toExclusive) date range for the chosen period, or null for "all". */
+function periodRange(p: Period, customFrom?: string, customTo?: string): [Date, Date] | null {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  switch (p) {
+    case 'all':         return null;
+    case 'this_month':  return [new Date(y, m, 1), new Date(y, m + 1, 1)];
+    case 'last_month':  return [new Date(y, m - 1, 1), new Date(y, m, 1)];
+    case 'this_quarter': { const q = Math.floor(m / 3); return [new Date(y, q * 3, 1), new Date(y, q * 3 + 3, 1)]; }
+    case 'this_year':   return [new Date(y, 0, 1), new Date(y + 1, 0, 1)];
+    case 'last_year':   return [new Date(y - 1, 0, 1), new Date(y, 0, 1)];
+    case 'custom': {
+      if (!customFrom && !customTo) return null;
+      const from = customFrom ? new Date(customFrom + 'T00:00:00') : new Date(2000, 0, 1);
+      // End-of-day for the "to" date so inclusive
+      const to = customTo ? new Date(new Date(customTo + 'T00:00:00').getTime() + 86400000) : new Date(2100, 0, 1);
+      return [from, to];
+    }
+  }
+}
+
 const fmtAmount = (amount: number, currency?: string) => {
   const cur = (currency || 'USD').toUpperCase();
   try {
@@ -58,6 +82,9 @@ export default function Invoicing() {
   const canDelete = (inv: any) =>
     isAdmin || (inv.status !== 'Paid' && inv.status !== 'Partially Paid');
   const [tab, setTab] = useState('All');
+  const [period, setPeriod] = useState<Period>('all');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [showPrint, setShowPrint] = useState<any>(null);
@@ -115,8 +142,33 @@ export default function Invoicing() {
   });
 
   const rawInvoices = data?.invoices || data?.data || (Array.isArray(data) ? data : []);
-  const invoices = Array.isArray(rawInvoices) ? rawInvoices : [];
-  const stats = data?.stats || { total_billed: 0, collected: 0, outstanding: 0, overdue: 0 };
+  const allInvoices: any[] = Array.isArray(rawInvoices) ? rawInvoices : [];
+
+  // Filter by billing period (uses issue_date; falls back to created_at)
+  const range = periodRange(period, customFrom, customTo);
+  const invoices = range
+    ? allInvoices.filter((inv: any) => {
+        const d = new Date(inv.issue_date || inv.created_at);
+        if (isNaN(d.getTime())) return false;
+        return d >= range[0] && d < range[1];
+      })
+    : allInvoices;
+
+  // Recompute the 4 stat tiles for the filtered period when one is selected;
+  // otherwise use the API's full-period totals.
+  const stats = range
+    ? invoices.reduce((acc: any, inv: any) => {
+        const total = Number(inv.total_amount || inv.total || inv.amount || 0);
+        const paid  = Number(inv.amount_paid || 0);
+        acc.total_billed += total;
+        acc.collected   += paid;
+        if (inv.status !== 'Paid' && inv.status !== 'Cancelled') {
+          acc.outstanding += Math.max(0, total - paid);
+        }
+        if (inv.status === 'Overdue') acc.overdue += Math.max(0, total - paid);
+        return acc;
+      }, { total_billed: 0, collected: 0, outstanding: 0, overdue: 0 })
+    : (data?.stats || { total_billed: 0, collected: 0, outstanding: 0, overdue: 0 });
 
   const viewDetail = async (inv: any) => {
     try {
@@ -150,10 +202,33 @@ export default function Invoicing() {
         <StatCard label="Overdue" value={Number(stats.overdue || 0).toLocaleString()} icon={AlertTriangle} iconColor="text-destructive" />
       </div>
 
-      <div className="flex gap-1 overflow-x-auto">
-        {statusTabs.map(s => (
-          <button key={s} onClick={() => setTab(s)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>{s}</button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-1 overflow-x-auto">
+          {statusTabs.map(s => (
+            <button key={s} onClick={() => setTab(s)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>{s}</button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <select value={period} onChange={e => setPeriod(e.target.value as Period)}
+            className="text-xs px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none">
+            <option value="all">All Time</option>
+            <option value="this_month">This Month</option>
+            <option value="last_month">Last Month</option>
+            <option value="this_quarter">This Quarter</option>
+            <option value="this_year">This Year</option>
+            <option value="last_year">Last Year</option>
+            <option value="custom">Custom…</option>
+          </select>
+          {period === 'custom' && (
+            <>
+              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                className="text-xs px-2 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none" />
+              <span className="text-xs text-muted-foreground">→</span>
+              <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                className="text-xs px-2 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none" />
+            </>
+          )}
+        </div>
       </div>
 
       <div className="glass-card overflow-x-auto">
