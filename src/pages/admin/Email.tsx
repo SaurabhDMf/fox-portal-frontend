@@ -969,7 +969,7 @@ export default function EmailPage() {
                       )}
 
                       {/* Line 4: Badges (folder, attachments, thread count, starred) */}
-                      {(folderForRow || latest.attachment_count > 0 || hasThread || latest.is_starred) && (
+                      {!!(folderForRow || latest.attachment_count > 0 || hasThread || latest.is_starred) && (
                         <div className="flex items-center flex-wrap gap-2 pt-1.5">
                           {folderForRow && (
                             <span className="inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 rounded-md px-2 py-0.5">
