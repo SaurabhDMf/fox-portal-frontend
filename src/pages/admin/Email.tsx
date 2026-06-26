@@ -923,69 +923,90 @@ export default function EmailPage() {
                   return next;
                 });
               };
-              const preview = (() => { const p = latest.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 60 ? `${p.slice(0, 60)}…` : p; })();
+              const preview = (() => { const p = latest.preview; if (!p || typeof p !== 'string' || !p.trim()) return ''; return p.length > 120 ? `${p.slice(0, 120)}…` : p; })();
+              const folderForRow = latest.custom_folder_id
+                ? customFolders.find((cf: any) => cf.id === latest.custom_folder_id)
+                : null;
               return (
                 <div key={key}>
-                  {/* Thread header row */}
+                  {/* Thread header row — detailed multi-line layout */}
                   <div
                     onClick={() => setSelectedId(latest.id)}
-                    className={`group flex items-center gap-2.5 px-3 py-2 cursor-pointer border-b border-border/60 transition-colors ${
+                    className={`group flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-border/60 transition-colors ${
                       someChecked ? 'bg-primary/8' : sel ? 'bg-primary/6 border-l-2 border-l-primary' : 'hover:bg-muted/40'
                     }`}
                   >
-                    {/* Unread dot */}
-                    <div className="w-2 shrink-0 flex items-center justify-center">
-                      {anyUnread && <span className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                    {/* Avatar with unread dot */}
+                    <div className="relative shrink-0">
+                      <div className={`w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-sm font-bold text-white uppercase`}>
+                        {fromLabel[0]}
+                      </div>
+                      {anyUnread && <span className="absolute -bottom-0.5 -left-0.5 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-white dark:ring-gray-800" />}
                     </div>
 
-                    {/* Checkbox */}
-                    <label
-                      onClick={(e) => e.stopPropagation()}
-                      className={`shrink-0 w-5 h-5 flex items-center justify-center rounded border-2 cursor-pointer transition-all ${
-                        allChecked ? 'bg-primary border-primary opacity-100' : someChecked ? 'bg-primary/50 border-primary opacity-100' : 'border-muted-foreground/40 opacity-0 group-hover:opacity-100'
-                      }`}
-                    >
-                      <input type="checkbox" checked={allChecked} onChange={toggleAllChecked} className="sr-only" />
-                      {(allChecked || someChecked) && <Check size={11} className="text-primary-foreground" strokeWidth={3} />}
-                    </label>
+                    {/* Right: vertical content block */}
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      {/* Line 1: Sender + Date */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-sm truncate ${anyUnread ? 'font-bold text-foreground' : 'font-semibold text-foreground/80'}`}>
+                          {fromLabel}
+                        </span>
+                        <span className="text-xs text-primary shrink-0 font-medium">
+                          {fmtDateTime(latest.received_at || latest.sent_at)}
+                        </span>
+                      </div>
 
-                    {/* Avatar */}
-                    <div className={`w-7 h-7 shrink-0 rounded-full ${avatarColor} flex items-center justify-center text-[11px] font-bold text-white uppercase`}>
-                      {fromLabel[0]}
-                    </div>
-
-                    {/* Sender name */}
-                    <span className={`w-[120px] shrink-0 text-sm truncate ${anyUnread ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-                      {fromLabel}
-                    </span>
-
-                    {/* Subject + count badge + preview */}
-                    <span className="flex-1 min-w-0 text-sm truncate flex items-center gap-1.5">
-                      <span className={anyUnread ? 'font-semibold text-foreground' : 'text-foreground'}>
+                      {/* Line 2: Subject */}
+                      <p className={`text-sm truncate ${anyUnread ? 'font-semibold text-foreground' : 'text-foreground/90'}`}>
                         {latest.subject || '(no subject)'}
-                      </span>
-                      {hasThread && (
-                        <span className="shrink-0 text-[10px] font-bold bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 leading-none">
-                          {msgs.length}
-                        </span>
-                      )}
-                      {preview && <span className="text-muted-foreground font-normal truncate"> — {preview}</span>}
-                    </span>
+                      </p>
 
-                    {/* Attachment + star + date + thread chevron */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {latest.attachment_count > 0 && (
-                        <span className="flex items-center text-[11px] text-muted-foreground">
-                          <Paperclip size={11} />
-                        </span>
+                      {/* Line 3: Preview snippet */}
+                      {preview && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {preview}
+                        </p>
                       )}
-                      {!!latest.is_starred && <Star size={11} className="text-amber-400 fill-amber-400" />}
-                      <span className="text-[11px] text-muted-foreground w-[52px] text-right shrink-0">
-                        {fmtRelative(latest.received_at || latest.sent_at)}
-                      </span>
+
+                      {/* Line 4: Badges (folder, attachments, thread count, starred) */}
+                      {(folderForRow || latest.attachment_count > 0 || hasThread || latest.is_starred) && (
+                        <div className="flex items-center flex-wrap gap-2 pt-1.5">
+                          {folderForRow && (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 rounded-md px-2 py-0.5">
+                              <Folder size={11} /> {folderForRow.name}
+                            </span>
+                          )}
+                          {hasThread && (
+                            <span className="inline-flex items-center text-xs text-muted-foreground bg-muted rounded-md px-2 py-0.5 font-medium">
+                              {msgs.length} messages
+                            </span>
+                          )}
+                          {latest.attachment_count > 0 && (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <Paperclip size={11} /> {latest.attachment_count}
+                            </span>
+                          )}
+                          {!!latest.is_starred && (
+                            <Star size={12} className="text-amber-400 fill-amber-400" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Far right: checkbox + thread expand */}
+                    <div className="flex flex-col items-center gap-2 shrink-0 pt-0.5">
+                      <label
+                        onClick={(e) => e.stopPropagation()}
+                        className={`shrink-0 w-5 h-5 flex items-center justify-center rounded border-2 cursor-pointer transition-all ${
+                          allChecked ? 'bg-primary border-primary opacity-100' : someChecked ? 'bg-primary/50 border-primary opacity-100' : 'border-muted-foreground/40 opacity-0 group-hover:opacity-100'
+                        }`}
+                      >
+                        <input type="checkbox" checked={allChecked} onChange={toggleAllChecked} className="sr-only" />
+                        {(allChecked || someChecked) && <Check size={11} className="text-primary-foreground" strokeWidth={3} />}
+                      </label>
                       {hasThread && (
-                        <button onClick={toggleThread} className="p-0.5 rounded text-muted-foreground hover:text-foreground shrink-0">
-                          <ChevronDown size={13} className={`transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
+                        <button onClick={toggleThread} className="p-0.5 rounded text-muted-foreground hover:text-foreground shrink-0" title={isExpanded ? 'Collapse thread' : 'Expand thread'}>
+                          <ChevronDown size={14} className={`transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`} />
                         </button>
                       )}
                     </div>
