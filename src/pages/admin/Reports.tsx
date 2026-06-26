@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, Legend,
@@ -30,11 +31,17 @@ type Tab = 'sales' | 'finance' | 'expenses';
 
 const fmtINR = (n: number) => `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
+const FULL_ACCESS_ROLES = ['super_admin', 'admin', 'sales_manager'];
+
 export default function Reports() {
+  const me = useAuthStore(s => s.user);
+  const hasFullAccess = FULL_ACCESS_ROLES.includes(me?.role || '');
+
   const [tab, setTab] = useState<Tab>('sales');
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [month, setMonth] = useState<number | 'all'>('all'); // 0..11 or 'all'
-  const [employeeId, setEmployeeId] = useState<string>('all');
+  // Non-admins are locked to their own user id; admins start with "all"
+  const [employeeId, setEmployeeId] = useState<string>(hasFullAccess ? 'all' : (me?.id || 'all'));
   const queryClient = useQueryClient();
 
   const inSelectedRange = (dateStr?: string) => {
@@ -255,7 +262,7 @@ export default function Reports() {
           <p className="page-subtitle">Business analytics and financial insights</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {tab === 'sales' && (
+          {tab === 'sales' && hasFullAccess && (
             <select value={employeeId} onChange={e => setEmployeeId(e.target.value)}
               className="px-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none">
               <option value="all">All Employees</option>

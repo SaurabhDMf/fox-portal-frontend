@@ -3,9 +3,12 @@ import api from '@/lib/api';
 import StatCard from '@/components/ui/StatCard';
 import { useAuthStore } from '@/stores/authStore';
 import { useNavigate } from 'react-router-dom';
-import { ListChecks, FolderKanban, Target, FileText, Clock, ArrowUpRight, ArrowDownRight, CheckCircle2, Coffee } from 'lucide-react';
+import { ListChecks, FolderKanban, Target, FileText, Clock, ArrowUpRight, ArrowDownRight, CheckCircle2, Coffee, Plus, Trash2, StickyNote } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+
+const fmtINR = (n: number) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export default function MyDashboard() {
   const user = useAuthStore(s => s.user);
@@ -43,6 +46,41 @@ export default function MyDashboard() {
     queryKey: ['today-attendance'],
     queryFn: () => api.get('/tracker/attendance/today').then(r => normalizeAttendance(r.data?.data ?? r.data)),
     refetchInterval: 60_000,
+  });
+
+  // Current-month target + received for this user
+  const now = new Date();
+  const { data: targetData } = useQuery({
+    queryKey: ['my-target', user?.id, now.getFullYear(), now.getMonth() + 1],
+    queryFn: () => api.get('/performance-targets', {
+      params: { user_id: user?.id, year: now.getFullYear(), month: now.getMonth() + 1 },
+    }).then(r => r.data),
+    enabled: !!user?.id,
+  });
+
+  // Today's personal notes
+  const { data: notesData } = useQuery({
+    queryKey: ['my-notes-today', todayStr()],
+    queryFn: () => api.get('/personal-notes', { params: { date: todayStr() } }).then(r => r.data?.data || []),
+  });
+  const todayNotes: any[] = Array.isArray(notesData) ? notesData : [];
+
+  const [noteInput, setNoteInput] = useState('');
+  const addNote = useMutation({
+    mutationFn: (content: string) => api.post('/personal-notes', { content, note_date: todayStr() }),
+    onSuccess: () => {
+      setNoteInput('');
+      qc.invalidateQueries({ queryKey: ['my-notes-today', todayStr()] });
+    },
+  });
+  const toggleNote = useMutation({
+    mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
+      api.patch(`/personal-notes/${id}`, { completed }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-notes-today', todayStr()] }),
+  });
+  const deleteNote = useMutation({
+    mutationFn: (id: string) => api.delete(`/personal-notes/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-notes-today', todayStr()] }),
   });
 
   const invalidateTracker = () => {
@@ -165,6 +203,42 @@ export default function MyDashboard() {
         <StatCard label="Invoices" value={toNum(stats.invoices, myInvoices.length)} icon={FileText} iconColor="text-success" />
       </div>
 
+      {/* Monthly Target vs Received */}
+      <div className="glass-card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> {now.toLocaleString('default', { month: 'long' })} {now.getFullYear()} — Target vs Received</h2>
+        </div>
+        {(() => {
+          const t = Number(targetData?.target_value || 0);
+          const a = Number(targetData?.actual_sale  || 0);
+          const pct = t > 0 ? Math.min(100, (a / t) * 100) : 0;
+          const pending = Math.max(0, t - a);
+          return (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Target</p>
+                <p className="text-xl font-bold mt-1">{fmtINR(t)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Received</p>
+                <p className="text-xl font-bold mt-1 text-success">{fmtINR(a)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Pending</p>
+                <p className="text-xl font-bold mt-1 text-warning">{fmtINR(pending)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Progress</p>
+                <p className="text-xl font-bold mt-1">{pct.toFixed(1)}%</p>
+                <div className="w-full bg-secondary h-2 rounded-full mt-1.5 overflow-hidden">
+                  <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
       {/* Time Tracker */}
       <div className={`glass-card p-5 flex flex-col sm:flex-row items-center gap-4 transition-colors ${isActive ? 'ring-1 ring-success/40' : ''}`}>
         <div className="relative">
@@ -243,6 +317,37 @@ export default function MyDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Today's Notes */}
+        <div className="glass-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold flex items-center gap-2"><StickyNote className="h-4 w-4 text-primary" /> Today's Notes</h2>
+            <button onClick={() => navigate(`${basePath === '/portal' ? '/portal' : basePath}/tasks`)} className="text-xs text-primary hover:underline">View all</button>
+          </div>
+          <form onSubmit={e => { e.preventDefault(); const v = noteInput.trim(); if (v) addNote.mutate(v); }} className="flex gap-2 mb-3">
+            <input value={noteInput} onChange={e => setNoteInput(e.target.value)} placeholder="Add a note for today…"
+              className="flex-1 px-3 py-2 rounded-lg bg-background border border-border text-sm focus:border-primary focus:outline-none" />
+            <button type="submit" disabled={addNote.isPending || !noteInput.trim()}
+              className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-1">
+              <Plus className="h-4 w-4" />
+            </button>
+          </form>
+          <div className="space-y-1.5">
+            {todayNotes.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No notes yet — add one above</p>}
+            {todayNotes.map((n: any) => (
+              <div key={n.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary/40 group">
+                <input type="checkbox" checked={!!n.completed}
+                  onChange={() => toggleNote.mutate({ id: n.id, completed: !n.completed })}
+                  className="h-4 w-4 rounded border-border accent-primary cursor-pointer" />
+                <span className={`flex-1 text-sm ${n.completed ? 'line-through text-muted-foreground' : ''}`}>{n.content}</span>
+                <button onClick={() => deleteNote.mutate(n.id)}
+                  className="opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive/80 transition-opacity">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* My Tasks */}
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">

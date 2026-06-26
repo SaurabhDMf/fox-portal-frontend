@@ -39,7 +39,7 @@ const routeLabels: Record<string, string> = {
   '/admin/reports': 'Reports',
   '/admin/settings': 'Settings',
   '/emp': 'Dashboard',
-  '/emp/tasks': 'My Tasks',
+  '/emp/tasks': 'Notes',
   '/emp/projects': 'Projects',
   '/emp/chat': 'Chat',
   '/emp/tracker': 'Tracker',
