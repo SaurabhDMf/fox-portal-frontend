@@ -60,7 +60,7 @@ export default function Reports() {
   });
   const { data: usersData = [] } = useQuery({
     queryKey: ['users-all'],
-    queryFn: () => api.get('/users').then(r => r.data?.users || r.data || []),
+    queryFn: () => api.get('/users').then(r => r.data?.data || r.data?.users || r.data || []),
   });
   const { data: payrollData = [] } = useQuery({
     queryKey: ['payroll-runs'],
