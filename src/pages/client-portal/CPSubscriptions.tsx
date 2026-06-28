@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { RefreshCw, ExternalLink } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { RefreshCw, ExternalLink, XCircle } from 'lucide-react';
 
 const fmtDate = (d?: string) =>
   d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -25,11 +26,23 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function CPSubscriptions() {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ['cp-subscriptions'],
     queryFn: () => api.get('/subscriptions').then(r => r.data?.data || []),
     staleTime: 60_000,
   });
+
+  const cancelSub = async (id: string) => {
+    if (!confirm('Cancel this subscription? Future automatic charges will stop immediately.')) return;
+    try {
+      await api.patch(`/subscriptions/${id}/cancel`);
+      toast.success('Subscription cancelled');
+      qc.invalidateQueries({ queryKey: ['cp-subscriptions'] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to cancel');
+    }
+  };
 
   const subs: any[] = data || [];
   const activeSubs = subs.filter(s => s.status === 'active');
@@ -113,6 +126,12 @@ export default function CPSubscriptions() {
                     className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline font-medium">
                     <ExternalLink className="h-3 w-3" /> Activate subscription →
                   </a>
+                )}
+                {s.status !== 'cancelled' && (
+                  <button onClick={() => cancelSub(s.id)}
+                    className="inline-flex items-center gap-1 mt-2 ml-3 text-xs text-destructive hover:underline font-medium">
+                    <XCircle className="h-3 w-3" /> Cancel subscription
+                  </button>
                 )}
               </div>
               <div className="text-right shrink-0">

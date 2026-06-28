@@ -655,7 +655,7 @@ export default function EmailPage() {
   const activeFolderTotal = totalMessages;
 
   return (
-    <div className="h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
+    <div className="h-full bg-gray-50 dark:bg-gray-900 flex flex-col overflow-hidden">
       {!isMobile && (
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
