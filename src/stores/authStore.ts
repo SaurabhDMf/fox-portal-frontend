@@ -99,11 +99,13 @@ export const useAuthStore = create<AuthState>()(
 
       getRedirectPath: () => {
         const role = get().user?.role;
-        const adminRoles = ['super_admin', 'admin', 'sales_manager', 'sales_rep'];
+        const adminRoles = ['super_admin', 'admin'];
+        const salesRoles = ['sales_manager', 'sales_rep', 'presales'];
         const clientRoles = ['client'];
         if (adminRoles.includes(role || '')) return '/admin';
-        if (clientRoles.includes(role || '')) return '/client-portal';
-        if (role) return '/emp'; // All other authenticated roles → employee portal
+        if (salesRoles.includes(role || '')) return '/sales';
+        if (clientRoles.includes(role || '')) return '/client';
+        if (role) return '/team'; // All other authenticated roles → team portal
         return '/login';
       },
     }),

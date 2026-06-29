@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate, Outlet } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, Outlet, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useAuthStore } from "@/stores/authStore";
 import { usePermissionsRefresh } from "@/hooks/usePermissionsRefresh";
@@ -90,11 +90,18 @@ function PermissionsLoader({ children }: { children: React.ReactNode }) {
 }
 
 function ClientPortalRedirect() {
-  return <Navigate to="/client-portal" replace />;
+  return <Navigate to="/client" replace />;
 }
 
 function ClientPortalChildRedirect() {
-  return <Navigate to={`/client-portal${window.location.pathname.replace(/^\/portal/, '')}${window.location.search}${window.location.hash}`} replace />;
+  return <Navigate to={`/client${window.location.pathname.replace(/^\/portal/, '')}${window.location.search}${window.location.hash}`} replace />;
+}
+
+// Subpath-preserving redirect: /from/anything → /to/anything (keeps query + hash)
+function PathForward({ from, to }: { from: string; to: string }) {
+  const location = useLocation();
+  const rest = location.pathname.replace(new RegExp(`^${from}`), '');
+  return <Navigate to={`${to}${rest}${location.search}${location.hash}`} replace />;
 }
 
 const App = () => (
@@ -117,8 +124,8 @@ const App = () => (
         <Route path="/client-login" element={<ClientLogin />} />
         <Route path="/invoice/:token" element={<PublicInvoice />} />
 
-        {/* Admin Portal */}
-        <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin', 'admin', 'sales_manager', 'sales_rep']}><PortalLayout /></ProtectedRoute>}>
+        {/* Admin Portal — super_admin + admin only */}
+        <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']}><PortalLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="crm" element={<CRM />} />
           <Route path="crm/:id" element={<LeadDetail />} />
@@ -151,8 +158,28 @@ const App = () => (
           <Route path="notifications" element={<Notifications />} />
         </Route>
 
-        {/* Employee Portal */}
-        <Route path="/emp" element={<ProtectedRoute denyRoles={['super_admin', 'admin', 'sales_manager', 'sales_rep', 'client']}><PortalLayout /></ProtectedRoute>}>
+        {/* Sales Portal — sales_manager, sales_rep, presales */}
+        <Route path="/sales" element={<ProtectedRoute allowedRoles={['sales_manager', 'sales_rep', 'presales']}><PortalLayout /></ProtectedRoute>}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="crm" element={<CRM />} />
+          <Route path="crm/:id" element={<LeadDetail />} />
+          <Route path="clients" element={<Clients />} />
+          <Route path="clients/:id" element={<ClientDetail />} />
+          <Route path="invoicing" element={<Invoicing />} />
+          <Route path="chat" element={<Chat />} />
+          <Route path="email" element={<EmailPage />} />
+          <Route path="inbox" element={<SharedInbox />} />
+          <Route path="inbox/new" element={<InboxFormPage />} />
+          <Route path="inbox/:inboxId/settings" element={<InboxFormPage />} />
+          <Route path="inbox/:inboxId/members" element={<InboxMembersPage />} />
+          <Route path="tickets" element={<Tickets />} />
+          <Route path="tickets/:id" element={<TicketDetail />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="notifications" element={<Notifications />} />
+        </Route>
+
+        {/* Team Portal (formerly /emp) */}
+        <Route path="/team" element={<ProtectedRoute denyRoles={['super_admin', 'admin', 'sales_manager', 'sales_rep', 'presales', 'client']}><PortalLayout /></ProtectedRoute>}>
           <Route index element={<EmpDashboard />} />
           <Route path="tasks" element={<EmpTasks />} />
           <Route path="projects" element={<Projects />} />
@@ -176,14 +203,8 @@ const App = () => (
           <Route path="notifications" element={<Notifications />} />
         </Route>
 
-        {/* Legacy Client Portal (redirect) */}
-        <Route path="/portal" element={<ProtectedRoute allowedRoles={['client']} loginPath="/client-login"><Outlet /></ProtectedRoute>}>
-          <Route index element={<ClientPortalRedirect />} />
-          <Route path="*" element={<ClientPortalChildRedirect />} />
-        </Route>
-
-        {/* New Client Portal */}
-        <Route path="/client-portal" element={<ProtectedRoute allowedRoles={['client']} loginPath="/client-login"><ClientPortalLayout /></ProtectedRoute>}>
+        {/* Client Portal (formerly /client-portal) */}
+        <Route path="/client" element={<ProtectedRoute allowedRoles={['client']} loginPath="/client-login"><ClientPortalLayout /></ProtectedRoute>}>
           <Route index element={<CPDashboard />} />
           <Route path="invoices" element={<CPInvoices />} />
           <Route path="invoices/:id" element={<CPInvoiceDetail />} />
@@ -198,6 +219,16 @@ const App = () => (
           <Route path="profile" element={<CPProfile />} />
           <Route path="subscriptions" element={<CPSubscriptions />} />
           <Route path="notifications" element={<Notifications />} />
+        </Route>
+
+        {/* Legacy redirects — preserve old bookmarks */}
+        <Route path="/emp/*" element={<PathForward from="/emp" to="/team" />} />
+        <Route path="/emp" element={<PathForward from="/emp" to="/team" />} />
+        <Route path="/client-portal/*" element={<PathForward from="/client-portal" to="/client" />} />
+        <Route path="/client-portal" element={<PathForward from="/client-portal" to="/client" />} />
+        <Route path="/portal" element={<ProtectedRoute allowedRoles={['client']} loginPath="/client-login"><Outlet /></ProtectedRoute>}>
+          <Route index element={<ClientPortalRedirect />} />
+          <Route path="*" element={<ClientPortalChildRedirect />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

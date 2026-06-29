@@ -60,41 +60,55 @@ const adminNav: NavItem[] = [
   { label: 'Settings', path: '/admin/settings', icon: Settings },
 ];
 
-const empNav: NavItem[] = [
-  { label: 'Dashboard', path: '/emp', icon: LayoutDashboard },
-  { label: 'Projects', path: '/emp/projects', icon: FolderKanban, module: 'projects' },
-  { label: 'CRM', path: '/emp/crm', icon: Users, module: 'crm' },
-  { label: 'Invoicing', path: '/emp/invoicing', icon: FileText, module: 'invoicing' },
-  { label: 'Chat', path: '/emp/chat', icon: MessageSquare, module: 'chat' },
-  { label: 'Password Manager', path: '/emp/vault', icon: Lock, module: 'vault' },
-  { label: 'Email', path: '/emp/email', icon: Mail },
-  { label: 'Shared Inbox', path: '/emp/inbox', icon: Inbox, module: 'inbox' },
-  { label: 'Tickets', path: '/emp/tickets', icon: Ticket, module: 'tickets' },
-  { label: 'Tracker', path: '/emp/tracker', icon: Clock, module: 'tracker' },
-  { label: 'Payroll', path: '/emp/payroll', icon: Wallet, module: 'payroll' },
-  { label: 'Expenses', path: '/emp/expenses', icon: Receipt, module: 'expenses' },
-  { label: 'Profile', path: '/emp/profile', icon: Users },
+const teamNav: NavItem[] = [
+  { label: 'Dashboard', path: '/team', icon: LayoutDashboard },
+  { label: 'Projects', path: '/team/projects', icon: FolderKanban, module: 'projects' },
+  { label: 'CRM', path: '/team/crm', icon: Users, module: 'crm' },
+  { label: 'Invoicing', path: '/team/invoicing', icon: FileText, module: 'invoicing' },
+  { label: 'Chat', path: '/team/chat', icon: MessageSquare, module: 'chat' },
+  { label: 'Password Manager', path: '/team/vault', icon: Lock, module: 'vault' },
+  { label: 'Email', path: '/team/email', icon: Mail },
+  { label: 'Shared Inbox', path: '/team/inbox', icon: Inbox, module: 'inbox' },
+  { label: 'Tickets', path: '/team/tickets', icon: Ticket, module: 'tickets' },
+  { label: 'Tracker', path: '/team/tracker', icon: Clock, module: 'tracker' },
+  { label: 'Payroll', path: '/team/payroll', icon: Wallet, module: 'payroll' },
+  { label: 'Expenses', path: '/team/expenses', icon: Receipt, module: 'expenses' },
+  { label: 'Profile', path: '/team/profile', icon: Users },
+];
+
+const salesNav: NavItem[] = [
+  { label: 'Dashboard', path: '/sales', icon: LayoutDashboard },
+  { label: 'CRM', path: '/sales/crm', icon: Users, module: 'crm' },
+  { label: 'Clients', path: '/sales/clients', icon: Building2, module: 'clients' },
+  { label: 'Invoicing', path: '/sales/invoicing', icon: FileText, module: 'invoicing' },
+  { label: 'Chat', path: '/sales/chat', icon: MessageSquare, module: 'chat' },
+  { label: 'Email', path: '/sales/email', icon: Mail },
+  { label: 'Shared Inbox', path: '/sales/inbox', icon: Inbox, module: 'inbox' },
+  { label: 'Tickets', path: '/sales/tickets', icon: Ticket, module: 'tickets' },
+  { label: 'Reports', path: '/sales/reports', icon: BarChart3, module: 'reports' },
 ];
 
 const portalNav: NavItem[] = [
-  { label: 'Dashboard', path: '/portal', icon: LayoutDashboard },
-  { label: 'Invoices', path: '/portal/invoices', icon: FileText },
-  { label: 'Projects', path: '/portal/projects', icon: FolderKanban },
-  { label: 'Documents', path: '/portal/documents', icon: BookOpen },
-  { label: 'Messages', path: '/portal/messages', icon: MessageSquare },
-  { label: 'Support', path: '/portal/support', icon: Ticket },
+  { label: 'Dashboard', path: '/client', icon: LayoutDashboard },
+  { label: 'Invoices', path: '/client/invoices', icon: FileText },
+  { label: 'Projects', path: '/client/projects', icon: FolderKanban },
+  { label: 'Documents', path: '/client/documents', icon: BookOpen },
+  { label: 'Messages', path: '/client/messages', icon: MessageSquare },
+  { label: 'Support', path: '/client/support', icon: Ticket },
 ];
 
 function getNavItems(role: string): NavItem[] {
-  const adminRoles = ['super_admin', 'admin', 'sales_manager', 'sales_rep'];
+  const adminRoles = ['super_admin', 'admin'];
+  const salesRoles = ['sales_manager', 'sales_rep', 'presales'];
   const clientRoles = ['client'];
   if (adminRoles.includes(role)) return adminNav;
+  if (salesRoles.includes(role)) return salesNav;
   if (clientRoles.includes(role)) return portalNav;
-  // All other roles (resource, freelancer, custom roles) → employee nav
-  return empNav;
+  // All other roles (resource, freelancer, custom roles) → team nav
+  return teamNav;
 }
 
-const rootPaths = ['/admin', '/emp', '/portal'];
+const rootPaths = ['/admin', '/sales', '/team', '/client', '/emp', '/portal', '/client-portal'];
 
 function pathToModule(path: string): string {
   if (path.includes('/chat'))      return 'chat';
@@ -129,7 +143,7 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
   const role = user?.role || '';
   const navItems = getNavItems(role);
 
-  const isAdmin = ['super_admin', 'admin', 'sales_manager', 'sales_rep'].includes(role);
+  const isAdmin = ['super_admin', 'admin', 'sales_manager', 'sales_rep', 'presales'].includes(role);
 
   const isModuleAllowed = (mod?: string) => {
     if (!mod) return true;
