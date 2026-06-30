@@ -109,7 +109,7 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
   const appearanceRef = useRef<HTMLDivElement>(null);
   const isAdmin = ['super_admin', 'admin'].includes(user?.role || '');
   const crumbs = getBreadcrumbs(location.pathname);
-  const pageTitle = routeLabels[location.pathname] || crumbs[crumbs.length - 1]?.label || '';
+  const pageTitle = crumbs[crumbs.length - 1]?.label || '';
 
   // Fetch own status on mount
   useEffect(() => {
