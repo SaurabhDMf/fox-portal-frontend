@@ -158,7 +158,9 @@ const App = () => (
           <Route path="notifications" element={<Notifications />} />
         </Route>
 
-        {/* Sales Portal — sales_manager, sales_rep, presales */}
+        {/* Sales Portal — sales_manager, sales_rep, presales.
+            Routes mirror /admin so per-role permissions (not the URL prefix)
+            decide what's visible / accessible. */}
         <Route path="/sales" element={<ProtectedRoute allowedRoles={['sales_manager', 'sales_rep', 'presales']}><PortalLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="crm" element={<CRM />} />
@@ -167,6 +169,9 @@ const App = () => (
           <Route path="clients/:id" element={<ClientDetail />} />
           <Route path="invoicing" element={<Invoicing />} />
           <Route path="chat" element={<Chat />} />
+          <Route path="projects" element={<Projects />} />
+          <Route path="projects/:id" element={<ProjectDetail />} />
+          <Route path="vault" element={<Vault />} />
           <Route path="email" element={<EmailPage />} />
           <Route path="inbox" element={<SharedInbox />} />
           <Route path="inbox/new" element={<InboxFormPage />} />
@@ -174,6 +179,8 @@ const App = () => (
           <Route path="inbox/:inboxId/members" element={<InboxMembersPage />} />
           <Route path="tickets" element={<Tickets />} />
           <Route path="tickets/:id" element={<TicketDetail />} />
+          <Route path="tracker" element={<Tracker />} />
+          <Route path="payroll" element={<Payroll />} />
           <Route path="reports" element={<Reports />} />
           <Route path="notifications" element={<Notifications />} />
         </Route>

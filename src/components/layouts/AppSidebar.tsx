@@ -76,15 +76,21 @@ const teamNav: NavItem[] = [
   { label: 'Profile', path: '/team/profile', icon: Users },
 ];
 
+// Sales gets the full backoffice menu — actual visibility is decided by
+// per-role permissions (Roles & Permissions page), not by a hardcoded trim.
 const salesNav: NavItem[] = [
   { label: 'Dashboard', path: '/sales', icon: LayoutDashboard },
   { label: 'CRM', path: '/sales/crm', icon: Users, module: 'crm' },
-  { label: 'Clients', path: '/sales/clients', icon: Building2, module: 'clients' },
   { label: 'Invoicing', path: '/sales/invoicing', icon: FileText, module: 'invoicing' },
+  { label: 'Clients', path: '/sales/clients', icon: Building2, module: 'clients' },
   { label: 'Chat', path: '/sales/chat', icon: MessageSquare, module: 'chat' },
+  { label: 'Projects', path: '/sales/projects', icon: FolderKanban, module: 'projects' },
+  { label: 'Password Manager', path: '/sales/vault', icon: Lock, module: 'vault' },
   { label: 'Email', path: '/sales/email', icon: Mail },
   { label: 'Shared Inbox', path: '/sales/inbox', icon: Inbox, module: 'inbox' },
   { label: 'Tickets', path: '/sales/tickets', icon: Ticket, module: 'tickets' },
+  { label: 'Tracker', path: '/sales/tracker', icon: Clock, module: 'tracker' },
+  { label: 'Payroll', path: '/sales/payroll', icon: Wallet, module: 'payroll' },
   { label: 'Reports', path: '/sales/reports', icon: BarChart3, module: 'reports' },
 ];
 
