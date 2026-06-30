@@ -16,6 +16,8 @@ export default function InvoiceUploadModal({ onClose }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [clientId, setClientId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState('USD');
   const [file, setFile] = useState<File | null>(null);
 
   const { data: clients = [] } = useQuery({
@@ -33,6 +35,8 @@ export default function InvoiceUploadModal({ onClose }: Props) {
     mutationFn: () => {
       const fd = new FormData();
       fd.append('client_id', clientId);
+      if (amount) fd.append('amount', amount);
+      if (currency) fd.append('currency', currency);
       if (file) fd.append('file', file);
       return api.post('/invoices/upload', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -89,6 +93,35 @@ export default function InvoiceUploadModal({ onClose }: Props) {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-2">
+              <label className="text-xs text-muted-foreground font-medium">Amount</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className={inputCls + ' w-full mt-1'}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground font-medium">Currency</label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className={inputCls + ' w-full mt-1'}
+              >
+                <option value="USD">USD</option>
+                <option value="INR">INR</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="AUD">AUD</option>
+              </select>
+            </div>
           </div>
 
           <div>
