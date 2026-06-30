@@ -256,7 +256,17 @@ export default function Invoicing() {
                   )}
                 </td>
                 <td className="p-4">
-                  <span className={inv.status === 'Paid' ? 'badge-success' : inv.status === 'Overdue' ? 'badge-danger' : inv.status === 'Sent' ? 'badge-info' : inv.status === 'Cancelled' ? 'badge-neutral' : 'badge-warning'}>{inv.status}</span>
+                  {(() => {
+                    const isSavedNotSent = inv.status === 'Sent' && !inv.sent_at;
+                    const label = isSavedNotSent ? 'Saved' : inv.status;
+                    const cls = inv.status === 'Paid' ? 'badge-success'
+                      : inv.status === 'Overdue' ? 'badge-danger'
+                      : isSavedNotSent ? 'badge-neutral'
+                      : inv.status === 'Sent' ? 'badge-info'
+                      : inv.status === 'Cancelled' ? 'badge-neutral'
+                      : 'badge-warning';
+                    return <span className={cls}>{label}</span>;
+                  })()}
                 </td>
                 <td className="p-4" onClick={e => e.stopPropagation()}>
                   <div className="relative" ref={openMenuId === inv.id ? menuRef : undefined}>
