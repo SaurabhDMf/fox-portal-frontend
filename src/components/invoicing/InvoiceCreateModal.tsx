@@ -331,7 +331,7 @@ export default function InvoiceCreateModal({ onClose, existing }: Props) {
       qc.invalidateQueries({ queryKey: ['invoices'] });
       qc.invalidateQueries({ queryKey: ['invoice', existing?.id] });
       if (isEdit) toast.success('Invoice updated');
-      else toast.success(status === 'Sent' ? 'Invoice created & sent' : 'Invoice saved as draft');
+      else toast.success(status === 'Sent' ? 'Invoice saved' : 'Invoice saved as draft');
       onClose();
     },
     onError: (e: any) =>
@@ -841,7 +841,7 @@ export default function InvoiceCreateModal({ onClose, existing }: Props) {
                   disabled={saveMut.isPending}
                   className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50 inline-flex items-center gap-2"
                 >
-                  <Send className="h-4 w-4" /> {saveMut.isPending ? 'Saving...' : 'Save & Send'}
+                  <Save className="h-4 w-4" /> {saveMut.isPending ? 'Saving...' : 'Save'}
                 </button>
               </>
             )}
