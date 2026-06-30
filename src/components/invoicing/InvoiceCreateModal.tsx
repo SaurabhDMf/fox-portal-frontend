@@ -648,63 +648,60 @@ export default function InvoiceCreateModal({ onClose, existing }: Props) {
             })}
           </div>
 
-          {/* Discount / Tax */}
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground whitespace-nowrap">Discount %</label>
-                <input
-                  type="number"
-                  value={form.discount_pct}
-                  onChange={(e) => setForm((f) => ({ ...f, discount_pct: Number(e.target.value) }))}
-                  className={'w-24 ' + inputCls}
-                  min="0"
-                  max="100"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground whitespace-nowrap">Tax %</label>
-                <input
-                  type="number"
-                  value={form.tax_pct}
-                  onChange={(e) => setForm((f) => ({ ...f, tax_pct: Number(e.target.value) }))}
-                  className={'w-24 ' + inputCls}
-                  min="0"
-                  max="100"
-                />
-              </div>
+          {/* Discount / Tax / Tax Label / Payment Terms — all use the same
+              stacked label-on-top pattern so columns line up vertically. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground font-medium">Discount %</label>
+              <input
+                type="number"
+                value={form.discount_pct}
+                onChange={(e) => setForm((f) => ({ ...f, discount_pct: Number(e.target.value) }))}
+                className={inputCls + ' w-full mt-1'}
+                min="0"
+                max="100"
+              />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground font-medium">Tax Label</label>
+            <div>
+              <label className="text-xs text-muted-foreground font-medium">Tax %</label>
+              <input
+                type="number"
+                value={form.tax_pct}
+                onChange={(e) => setForm((f) => ({ ...f, tax_pct: Number(e.target.value) }))}
+                className={inputCls + ' w-full mt-1'}
+                min="0"
+                max="100"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground font-medium">Tax Label</label>
+              <input
+                value={form.tax_label}
+                onChange={(e) => setForm((f) => ({ ...f, tax_label: e.target.value }))}
+                className={inputCls + ' w-full mt-1'}
+                placeholder="e.g. GST, IGST 18%, VAT"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground font-medium">Payment Terms</label>
+              <select
+                value={form.payment_terms}
+                onChange={(e) => setForm((f) => ({ ...f, payment_terms: e.target.value }))}
+                className={inputCls + ' w-full mt-1'}
+              >
+                <option value="">Select…</option>
+                {PAYMENT_TERMS_PRESETS.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+              {form.payment_terms === 'Custom' && (
                 <input
-                  value={form.tax_label}
-                  onChange={(e) => setForm((f) => ({ ...f, tax_label: e.target.value }))}
-                  className={inputCls + ' w-full mt-1'}
-                  placeholder="e.g. GST, IGST 18%, VAT"
+                  value={form.payment_terms_custom}
+                  onChange={(e) => setForm((f) => ({ ...f, payment_terms_custom: e.target.value }))}
+                  className={inputCls + ' w-full mt-2'}
+                  placeholder="Enter custom payment terms"
                 />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground font-medium">Payment Terms</label>
-                <select
-                  value={form.payment_terms}
-                  onChange={(e) => setForm((f) => ({ ...f, payment_terms: e.target.value }))}
-                  className={inputCls + ' w-full mt-1'}
-                >
-                  <option value="">Select…</option>
-                  {PAYMENT_TERMS_PRESETS.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-                {form.payment_terms === 'Custom' && (
-                  <input
-                    value={form.payment_terms_custom}
-                    onChange={(e) => setForm((f) => ({ ...f, payment_terms_custom: e.target.value }))}
-                    className={inputCls + ' w-full mt-2'}
-                    placeholder="Enter custom payment terms"
-                  />
-                )}
-              </div>
+              )}
             </div>
           </div>
 
