@@ -84,20 +84,6 @@ export default function EmailPage() {
   const currentUser = useAuthStore((s) => s.user);
   const isEmailAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
 
-  // Lock body scroll while on the email page so the page itself can never
-  // overflow past the viewport (the email layout is fixed-viewport-height
-  // with internal-only scrolling).
-  useEffect(() => {
-    const prevHtml = document.documentElement.style.overflow;
-    const prevBody = document.body.style.overflow;
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.documentElement.style.overflow = prevHtml;
-      document.body.style.overflow = prevBody;
-    };
-  }, []);
-
   const [activeFolder, setActiveFolder] = useState('INBOX');
   const [activeCustomFolderId, setActiveCustomFolderId] = useState<string | null>(null);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
