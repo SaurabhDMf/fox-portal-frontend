@@ -144,7 +144,7 @@ export default function CPInvoiceDetail() {
             <button
               onClick={() => {
                 if (providers.stripe && providers.razorpay) setShowPayChoice(true);
-                else if (providers.stripe) payWithStripe(id!);
+                else if (providers.stripe) payWithStripe(id!, 4);
                 else if (providers.razorpay) payWithRazorpay(id!, onPaidSuccess);
               }}
               className="px-3 py-2 rounded-lg text-sm bg-primary text-primary-foreground font-medium hover:opacity-90 inline-flex items-center gap-2"
@@ -363,22 +363,25 @@ export default function CPInvoiceDetail() {
           >
             <h3 className="text-base font-semibold text-foreground mb-1">Choose payment method</h3>
             <p className="text-xs text-muted-foreground mb-4">
-              Select how you'd like to pay {fmt(due)}.
+              Invoice amount: {fmt(due)}
             </p>
             <div className="grid grid-cols-1 gap-2">
               <button
                 type="button"
-                onClick={() => { setShowPayChoice(false); payWithStripe(id!); }}
+                onClick={() => { setShowPayChoice(false); payWithStripe(id!, 4); }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
               >
-                <CreditCard className="h-4 w-4" /> Pay with Card (Stripe)
+                <CreditCard className="h-4 w-4" /> Pay {fmt(due * 1.04)} with Stripe
               </button>
+              <p className="text-[10px] text-muted-foreground text-center -mt-1">
+                Includes 4% transaction fee ({fmt(due * 0.04)})
+              </p>
               <button
                 type="button"
                 onClick={() => { setShowPayChoice(false); payWithRazorpay(id!, onPaidSuccess); }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-foreground text-background text-sm font-semibold hover:opacity-90 transition"
               >
-                <Wallet className="h-4 w-4" /> Pay with Razorpay
+                <Wallet className="h-4 w-4" /> Pay {fmt(due)} with Razorpay
               </button>
               <button
                 type="button"
