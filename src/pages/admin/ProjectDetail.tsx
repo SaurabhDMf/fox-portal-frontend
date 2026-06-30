@@ -385,7 +385,7 @@ export default function ProjectDetail() {
                 <div className="mt-1 flex flex-wrap gap-2">
                   {templates.map(t => {
                     const picked = editForm.categories.includes(t.category);
-                    const label = t.category === 'SMM' ? 'Social Media Marketing' : t.category === 'SEO' ? 'Website / App SEO' : t.category === 'PPC' ? 'Google PPC' : t.category;
+                    const label = t.category === 'SMM' ? 'Social Media Marketing' : t.category === 'SEO' ? 'Website / App SEO' : t.category === 'PPC' ? 'Google PPC' : t.category === 'GEO' ? 'Generative Engine Optimization' : t.category;
                     return (
                       <button
                         type="button"
@@ -409,33 +409,48 @@ export default function ProjectDetail() {
                   })}
                 </div>
               </div>
-              {editGroupedServices.map(group => (
-                <div key={group.category}>
-                  <label className="text-xs text-muted-foreground">{group.category} services</label>
-                  <div className="mt-1 max-h-40 overflow-y-auto rounded-lg bg-secondary border border-border p-2 space-y-1">
-                    {group.services.map(svc => {
-                      const checked = editForm.service_types.includes(svc.name);
-                      return (
-                        <label key={svc.name} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => setEditForm(f => ({
-                              ...f,
-                              service_types: checked
-                                ? f.service_types.filter(s => s !== svc.name)
-                                : [...f.service_types, svc.name],
-                            }))}
-                            className="rounded border-border accent-primary"
-                          />
-                          <span className="flex-1">{svc.name}</span>
-                          <span className="text-xs text-muted-foreground">{svc.item_count} tasks</span>
-                        </label>
-                      );
-                    })}
+              {editGroupedServices.map(group => {
+                const groupNames = group.services.map(s => s.name);
+                const allChecked = groupNames.length > 0 && groupNames.every(n => editForm.service_types.includes(n));
+                const toggleAll = () => setEditForm(f => ({
+                  ...f,
+                  service_types: allChecked
+                    ? f.service_types.filter(s => !groupNames.includes(s))
+                    : Array.from(new Set([...f.service_types, ...groupNames])),
+                }));
+                return (
+                  <div key={group.category}>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs text-muted-foreground">{group.category} services</label>
+                      <button type="button" onClick={toggleAll} className="text-[11px] text-primary hover:underline">
+                        {allChecked ? 'Clear all' : 'Select all'}
+                      </button>
+                    </div>
+                    <div className="mt-1 max-h-40 overflow-y-auto rounded-lg bg-secondary border border-border p-2 space-y-1">
+                      {group.services.map(svc => {
+                        const checked = editForm.service_types.includes(svc.name);
+                        return (
+                          <label key={svc.name} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => setEditForm(f => ({
+                                ...f,
+                                service_types: checked
+                                  ? f.service_types.filter(s => s !== svc.name)
+                                  : [...f.service_types, svc.name],
+                              }))}
+                              className="rounded border-border accent-primary"
+                            />
+                            <span className="flex-1">{svc.name}</span>
+                            <span className="text-xs text-muted-foreground">{svc.item_count} tasks</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {editGroupedServices.length > 0 && (
                 <p className="text-[10px] text-muted-foreground">
                   Editing here updates the tags only. To create tasks for new services, use "Add services" on the Tasks tab.

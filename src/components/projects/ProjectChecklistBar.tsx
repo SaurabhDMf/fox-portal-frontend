@@ -137,11 +137,21 @@ export default function ProjectChecklistBar({ project, onApplied }: Props) {
               const remaining = group.services.filter(s => !currentServices.includes(s.name));
               if (!remaining.length) return null;
               const groupPicked = picked[group.category] || [];
+              const allChecked = remaining.length > 0 && remaining.every(s => groupPicked.includes(s.name));
+              const toggleAll = () => {
+                setPicked(p => ({
+                  ...p,
+                  [group.category]: allChecked ? [] : remaining.map(s => s.name),
+                }));
+              };
               return (
                 <div key={group.category} className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/15 text-primary font-semibold">{group.category}</span>
                     <span className="text-xs text-muted-foreground">{remaining.length} service{remaining.length === 1 ? '' : 's'} available</span>
+                    <button type="button" onClick={toggleAll} className="ml-auto text-[11px] text-primary hover:underline">
+                      {allChecked ? 'Clear all' : 'Select all'}
+                    </button>
                   </div>
                   <div className="max-h-40 overflow-y-auto rounded-lg bg-secondary border border-border p-2 space-y-1">
                     {remaining.map(svc => {
