@@ -198,7 +198,7 @@ export default function ClientDetail() {
             </div>
           )}
 
-          {isAdmin && id && (
+          {id && (
             <PortalAccessSection
               clientId={id}
               clientName={client.company_name}

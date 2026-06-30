@@ -175,7 +175,7 @@ export default function PortalAccessSection({ clientId, clientName, contactName,
             <div><span className="text-muted-foreground">Password:</span> <span className="font-mono">{createdCreds.password}</span></div>
           </div>
           <button onClick={() => {
-            const text = `Portal Login\nEmail: ${createdCreds.email}\nPassword: ${createdCreds.password}\nURL: ${window.location.origin}/login`;
+            const text = `Portal Login\nEmail: ${createdCreds.email}\nPassword: ${createdCreds.password}\nURL: ${window.location.origin}/client-login`;
             navigator.clipboard.writeText(text);
             toast.success('Credentials copied!');
           }} className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-success/15 text-success hover:bg-success/25 transition-colors">
