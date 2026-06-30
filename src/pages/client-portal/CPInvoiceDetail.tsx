@@ -56,6 +56,28 @@ export default function CPInvoiceDetail() {
     hasProvider;
   const isUploadedPdf = inv.source === 'uploaded' && inv.has_pdf;
   const [showPayChoice, setShowPayChoice] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  // Fetch the uploaded PDF as a blob (authenticated) and turn it into an
+  // object URL — iframes can't carry the Authorization header, so a direct
+  // src to the API endpoint returns 401 "No token provided".
+  useEffect(() => {
+    if (!isUploadedPdf || !id) return;
+    let revoked = false;
+    let createdUrl: string | null = null;
+    api.get(`/invoices/${id}/pdf`, { responseType: 'blob' })
+      .then((res) => {
+        if (revoked) return;
+        const blob = new Blob([res.data], { type: 'application/pdf' });
+        createdUrl = URL.createObjectURL(blob);
+        setPdfUrl(createdUrl);
+      })
+      .catch(() => {/* iframe just stays empty; download button is the fallback */});
+    return () => {
+      revoked = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [isUploadedPdf, id]);
 
   const downloadPdf = async () => {
     try {
@@ -139,11 +161,17 @@ export default function CPInvoiceDetail() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
             <FileText className="h-4 w-4" /> Uploaded invoice document
           </div>
-          <iframe
-            src={`${import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1'}/invoices/${id}/pdf`}
-            title="Invoice PDF"
-            className="w-full h-[80vh] rounded-lg bg-white"
-          />
+          {pdfUrl ? (
+            <iframe
+              src={pdfUrl}
+              title="Invoice PDF"
+              className="w-full h-[80vh] rounded-lg bg-white"
+            />
+          ) : (
+            <div className="w-full h-[80vh] rounded-lg bg-white/60 flex items-center justify-center text-sm text-muted-foreground">
+              Loading invoice…
+            </div>
+          )}
           <div className="mt-4 flex justify-end">
             <div className="w-64 space-y-2 text-sm">
               <div className="flex justify-between">
