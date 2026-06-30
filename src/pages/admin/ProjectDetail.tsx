@@ -53,7 +53,17 @@ export default function ProjectDetail() {
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', description: '', status: 'Active', priority: 'Medium', start_date: '', due_date: '', color: '#3B82F6', client_id: '' as string | null });
+  const [editForm, setEditForm] = useState({ name: '', description: '', status: 'Active', priority: 'Medium', start_date: '', due_date: '', color: '#3B82F6', client_id: '' as string | null, category: '', service_types: [] as string[] });
+
+  // Master checklist templates (cached for an hour — static list)
+  const { data: templatesData } = useQuery({
+    queryKey: ['project-templates'],
+    queryFn: () => api.get('/projects/templates').then((r: any) => r.data?.data || []),
+    staleTime: 60 * 60 * 1000,
+  });
+  const templates: { category: string; services: { name: string; item_count: number }[] }[] =
+    Array.isArray(templatesData) ? templatesData : [];
+  const editCategoryServices = templates.find(t => t.category === editForm.category)?.services || [];
   const [clientSearch, setClientSearch] = useState('');
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
@@ -140,6 +150,13 @@ export default function ProjectDetail() {
 
   const openEdit = () => {
     if (project) {
+      // service_types may come back as a JSON string or already-parsed array
+      const rawSvc = (project as any).service_types;
+      let services: string[] = [];
+      if (Array.isArray(rawSvc)) services = rawSvc;
+      else if (typeof rawSvc === 'string') {
+        try { const parsed = JSON.parse(rawSvc); if (Array.isArray(parsed)) services = parsed; } catch {}
+      }
       setEditForm({
         name: project.name || '',
         description: project.description || '',
@@ -149,6 +166,8 @@ export default function ProjectDetail() {
         due_date: project.due_date ? String(project.due_date).substring(0, 10) : '',
         color: project.color || '#3B82F6',
         client_id: project.client_id || (project as any)?.client?.id || (project as any)?.client?.client_id || null,
+        category: (project as any).category || '',
+        service_types: services,
       });
       setShowEdit(true);
     }
@@ -348,6 +367,57 @@ export default function ProjectDetail() {
                 {priorityOptions.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
+            {/* Category + Services — editing only changes the project's tags.
+                Use the "+ Add services" button on the Tasks tab to actually
+                append checklist tasks for newly-selected services. */}
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs text-muted-foreground">Project Type / Category</label>
+                <select
+                  value={editForm.category}
+                  onChange={e => setEditForm(f => ({ ...f, category: e.target.value, service_types: e.target.value === f.category ? f.service_types : [] }))}
+                  className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">No template — blank project</option>
+                  {templates.map(t => (
+                    <option key={t.category} value={t.category}>
+                      {t.category === 'SMM' ? 'Social Media Marketing (SMM)' : t.category === 'SEO' ? 'Website / App SEO' : t.category === 'PPC' ? 'Google PPC' : t.category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {editForm.category && editCategoryServices.length > 0 && (
+                <div>
+                  <label className="text-xs text-muted-foreground">Services</label>
+                  <div className="mt-1 max-h-44 overflow-y-auto rounded-lg bg-secondary border border-border p-2 space-y-1">
+                    {editCategoryServices.map(svc => {
+                      const checked = editForm.service_types.includes(svc.name);
+                      return (
+                        <label key={svc.name} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => setEditForm(f => ({
+                              ...f,
+                              service_types: checked
+                                ? f.service_types.filter(s => s !== svc.name)
+                                : [...f.service_types, svc.name],
+                            }))}
+                            className="rounded border-border accent-primary"
+                          />
+                          <span className="flex-1">{svc.name}</span>
+                          <span className="text-xs text-muted-foreground">{svc.item_count} tasks</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Editing here updates the tags only. To create tasks for new services, use "Add services" on the Tasks tab.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div><label className="text-xs text-muted-foreground">Start Date</label><input type="date" value={editForm.start_date} onChange={e => setEditForm(f => ({ ...f, start_date: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none" /></div>
               <div><label className="text-xs text-muted-foreground">Due Date</label><input type="date" value={editForm.due_date} onChange={e => setEditForm(f => ({ ...f, due_date: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none" /></div>
