@@ -94,7 +94,9 @@ export default function CPInvoices() {
             {filtered.map((inv: any) => {
               const total  = Number(inv.total_amount ?? inv.total ?? inv.amount ?? 0);
               const isPaid = inv.status === 'Paid';
-              const paid   = isPaid && !Number(inv.amount_paid) ? total : Number(inv.amount_paid ?? inv.paid_amount ?? 0);
+              // Clamp at total — a past duplicate-payment bug can leave
+              // amount_paid stored higher than the invoice's actual total.
+              const paid   = isPaid && !Number(inv.amount_paid) ? total : Math.min(Number(inv.amount_paid ?? inv.paid_amount ?? 0), total);
               return (
                 <tr key={inv.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
                   <td className="p-4 font-medium">{inv.invoice_number || inv.id?.slice(0, 8)}</td>
