@@ -39,7 +39,7 @@ const UNIT_OPTIONS = ['hrs', 'days', 'pcs', 'kg', 'l', 'm', 'sqft', 'fixed'];
 const CURRENCY_OPTIONS = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'CAD', 'AUD'];
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
-const in30DaysISO = () => new Date(Date.now() + 30*24*60*60*1000).toISOString().slice(0, 10);
+const tomorrowISO = () => new Date(Date.now() + 24*60*60*1000).toISOString().slice(0, 10);
 
 export default function InvoiceCreateModal({ onClose, existing }: Props) {
   const qc = useQueryClient();
@@ -49,7 +49,7 @@ export default function InvoiceCreateModal({ onClose, existing }: Props) {
     client_id: '',
     project_id: '',
     issue_date: todayISO(),
-    due_date: in30DaysISO(),
+    due_date: tomorrowISO(),
     po_number: '',
     currency: 'USD',
     discount_pct: 0,
