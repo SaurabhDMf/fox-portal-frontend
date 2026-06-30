@@ -392,7 +392,19 @@ export default function PublicInvoice() {
             <MetaCard label="Amount Due" value={fmt(amountDue)} highlight={!isPaid} />
           </div>
 
-          {/* Line items */}
+          {/* Uploaded PDF — embed the actual document instead of a fake
+              "no line items" table. The public /pdf endpoint is scoped by
+              share_token, so the iframe src works without an auth header. */}
+          {invoice.source === 'uploaded' && invoice.has_pdf ? (
+            <div className="overflow-hidden rounded-xl ring-1 ring-slate-200">
+              <iframe
+                src={`${API_BASE}/invoices/public/${token}/pdf`}
+                title="Invoice PDF"
+                className="w-full h-[80vh] bg-white"
+              />
+            </div>
+          ) : (
+          /* Line items */
           <div className="overflow-hidden rounded-xl ring-1 ring-slate-200">
             <table className="w-full text-sm">
               <thead className="bg-slate-50">
@@ -438,6 +450,7 @@ export default function PublicInvoice() {
               </tbody>
             </table>
           </div>
+          )}
 
           {/* Totals */}
           <div className="flex justify-end">
