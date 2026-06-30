@@ -306,7 +306,7 @@ export default function ProjectDetail() {
       {/* Edit Project Modal */}
       {showEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-lg p-6 space-y-4 animate-slide-up">
+          <div className="glass-card w-full max-w-lg p-6 space-y-4 animate-slide-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Edit Project</h2>
               <button onClick={() => setShowEdit(false)} className="p-1 rounded-md hover:bg-secondary"><X className="h-4 w-4" /></button>
