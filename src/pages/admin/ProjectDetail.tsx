@@ -8,6 +8,7 @@ import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, Chevron
 import { extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectTask } from '@/lib/projectTypes';
 import TasksListView from '@/components/projects/TasksListView';
+import ProjectChecklistBar from '@/components/projects/ProjectChecklistBar';
 import EpicsView from '@/components/projects/EpicsView';
 import SprintsView from '@/components/projects/SprintsView';
 import BacklogView from '@/components/projects/BacklogView';
@@ -233,7 +234,12 @@ export default function ProjectDetail() {
         ))}
       </div>
 
-      {activeTab === 'tasks' && <TasksListView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />}
+      {activeTab === 'tasks' && (
+        <>
+          <ProjectChecklistBar project={project} onApplied={() => { qc.invalidateQueries({ queryKey: ['project-all-tasks'] }); qc.invalidateQueries({ queryKey: ['project', id] }); }} />
+          <TasksListView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />
+        </>
+      )}
       {activeTab === 'epics' && <EpicsView projectId={id!} onTaskClick={setSelectedTask} />}
       {activeTab === 'sprints' && (
         <SprintsView
