@@ -128,23 +128,23 @@ export default function InvoiceUploadModal({ onClose }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 min-w-0">
               <label className="text-xs text-muted-foreground font-medium">Issue Date</label>
               <input
                 type="date"
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
-                className={inputCls + ' w-full mt-1'}
+                className={inputCls + ' w-full mt-1 min-w-[160px]'}
               />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <label className="text-xs text-muted-foreground font-medium">Due Date</label>
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className={inputCls + ' w-full mt-1'}
+                className={inputCls + ' w-full mt-1 min-w-[160px]'}
               />
             </div>
           </div>

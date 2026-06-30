@@ -82,6 +82,7 @@ export default function Invoicing() {
   const canDelete = (inv: any) =>
     isAdmin || (inv.status !== 'Paid' && inv.status !== 'Partially Paid');
   const [tab, setTab] = useState('All');
+  const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'status' | 'amount_desc' | 'amount_asc'>('date_desc');
   const [period, setPeriod] = useState<Period>('all');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
@@ -146,13 +147,32 @@ export default function Invoicing() {
 
   // Filter by billing period (uses issue_date; falls back to created_at)
   const range = periodRange(period, customFrom, customTo);
-  const invoices = range
+  const filteredInvoices = range
     ? allInvoices.filter((inv: any) => {
         const d = new Date(inv.issue_date || inv.created_at);
         if (isNaN(d.getTime())) return false;
         return d >= range[0] && d < range[1];
       })
     : allInvoices;
+
+  // Sort
+  const STATUS_ORDER: Record<string, number> = {
+    Overdue: 0, Sent: 1, 'Partially Paid': 2, Viewed: 3, Draft: 4, Paid: 5, Cancelled: 6,
+  };
+  const invoices = [...filteredInvoices].sort((a: any, b: any) => {
+    if (sortBy === 'status') {
+      return (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+    }
+    if (sortBy === 'amount_desc' || sortBy === 'amount_asc') {
+      const av = Number(a.total_amount || a.amount || 0);
+      const bv = Number(b.total_amount || b.amount || 0);
+      return sortBy === 'amount_desc' ? bv - av : av - bv;
+    }
+    // date_desc / date_asc
+    const at = new Date(a.issue_date || a.created_at || 0).getTime();
+    const bt = new Date(b.issue_date || b.created_at || 0).getTime();
+    return sortBy === 'date_asc' ? at - bt : bt - at;
+  });
 
   // Recompute the 4 stat tiles for the filtered period when one is selected;
   // otherwise use the API's full-period totals.
@@ -211,6 +231,14 @@ export default function Invoicing() {
           ))}
         </div>
         <div className="flex items-center gap-2 ml-auto">
+          <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
+            className="text-xs px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none">
+            <option value="date_desc">Newest first</option>
+            <option value="date_asc">Oldest first</option>
+            <option value="status">By status</option>
+            <option value="amount_desc">Amount: high to low</option>
+            <option value="amount_asc">Amount: low to high</option>
+          </select>
           <select value={period} onChange={e => setPeriod(e.target.value as Period)}
             className="text-xs px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none">
             <option value="all">All Time</option>
