@@ -53,7 +53,7 @@ export default function ProjectDetail() {
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', description: '', status: 'Active', priority: 'Medium', start_date: '', due_date: '', color: '#3B82F6', client_id: '' as string | null, category: '', service_types: [] as string[] });
+  const [editForm, setEditForm] = useState({ name: '', description: '', status: 'Active', priority: 'Medium', start_date: '', due_date: '', color: '#3B82F6', client_id: '' as string | null, categories: [] as string[], service_types: [] as string[] });
 
   // Master checklist templates (cached for an hour — static list)
   const { data: templatesData } = useQuery({
@@ -63,7 +63,7 @@ export default function ProjectDetail() {
   });
   const templates: { category: string; services: { name: string; item_count: number }[] }[] =
     Array.isArray(templatesData) ? templatesData : [];
-  const editCategoryServices = templates.find(t => t.category === editForm.category)?.services || [];
+  const editGroupedServices = templates.filter(t => editForm.categories.includes(t.category));
   const [clientSearch, setClientSearch] = useState('');
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
@@ -148,15 +148,22 @@ export default function ProjectDetail() {
     },
   });
 
+  // Parses a JSON array column that may come back as a string or already-parsed array
+  const parseJsonArray = (raw: any): string[] => {
+    if (Array.isArray(raw)) return raw.filter((x) => typeof x === 'string');
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed.startsWith('[')) {
+        try { const p = JSON.parse(trimmed); if (Array.isArray(p)) return p.filter((x) => typeof x === 'string'); } catch {}
+      } else if (trimmed) {
+        return [trimmed]; // legacy single-category string
+      }
+    }
+    return [];
+  };
+
   const openEdit = () => {
     if (project) {
-      // service_types may come back as a JSON string or already-parsed array
-      const rawSvc = (project as any).service_types;
-      let services: string[] = [];
-      if (Array.isArray(rawSvc)) services = rawSvc;
-      else if (typeof rawSvc === 'string') {
-        try { const parsed = JSON.parse(rawSvc); if (Array.isArray(parsed)) services = parsed; } catch {}
-      }
       setEditForm({
         name: project.name || '',
         description: project.description || '',
@@ -166,8 +173,8 @@ export default function ProjectDetail() {
         due_date: project.due_date ? String(project.due_date).substring(0, 10) : '',
         color: project.color || '#3B82F6',
         client_id: project.client_id || (project as any)?.client?.id || (project as any)?.client?.client_id || null,
-        category: (project as any).category || '',
-        service_types: services,
+        categories: parseJsonArray((project as any).category),
+        service_types: parseJsonArray((project as any).service_types),
       });
       setShowEdit(true);
     }
@@ -367,30 +374,46 @@ export default function ProjectDetail() {
                 {priorityOptions.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
-            {/* Category + Services — editing only changes the project's tags.
-                Use the "+ Add services" button on the Tasks tab to actually
-                append checklist tasks for newly-selected services. */}
+            {/* Categories + Services — editing only updates the tags.
+                Use "Add services" on the Tasks tab to actually create new
+                checklist tasks for newly-selected services. */}
             <div className="space-y-2">
               <div>
-                <label className="text-xs text-muted-foreground">Project Type / Category</label>
-                <select
-                  value={editForm.category}
-                  onChange={e => setEditForm(f => ({ ...f, category: e.target.value, service_types: e.target.value === f.category ? f.service_types : [] }))}
-                  className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="">No template — blank project</option>
-                  {templates.map(t => (
-                    <option key={t.category} value={t.category}>
-                      {t.category === 'SMM' ? 'Social Media Marketing (SMM)' : t.category === 'SEO' ? 'Website / App SEO' : t.category === 'PPC' ? 'Google PPC' : t.category}
-                    </option>
-                  ))}
-                </select>
+                <label className="text-xs text-muted-foreground">
+                  Project Type / Categories (pick any combination)
+                </label>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {templates.map(t => {
+                    const picked = editForm.categories.includes(t.category);
+                    const label = t.category === 'SMM' ? 'Social Media Marketing' : t.category === 'SEO' ? 'Website / App SEO' : t.category === 'PPC' ? 'Google PPC' : t.category;
+                    return (
+                      <button
+                        type="button"
+                        key={t.category}
+                        onClick={() => setEditForm(f => {
+                          if (picked) {
+                            const dropped = new Set((templates.find(x => x.category === t.category)?.services || []).map(s => s.name));
+                            return {
+                              ...f,
+                              categories: f.categories.filter(c => c !== t.category),
+                              service_types: f.service_types.filter(s => !dropped.has(s)),
+                            };
+                          }
+                          return { ...f, categories: [...f.categories, t.category] };
+                        })}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${picked ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-foreground border-border hover:bg-muted'}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              {editForm.category && editCategoryServices.length > 0 && (
-                <div>
-                  <label className="text-xs text-muted-foreground">Services</label>
-                  <div className="mt-1 max-h-44 overflow-y-auto rounded-lg bg-secondary border border-border p-2 space-y-1">
-                    {editCategoryServices.map(svc => {
+              {editGroupedServices.map(group => (
+                <div key={group.category}>
+                  <label className="text-xs text-muted-foreground">{group.category} services</label>
+                  <div className="mt-1 max-h-40 overflow-y-auto rounded-lg bg-secondary border border-border p-2 space-y-1">
+                    {group.services.map(svc => {
                       const checked = editForm.service_types.includes(svc.name);
                       return (
                         <label key={svc.name} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
@@ -411,10 +434,12 @@ export default function ProjectDetail() {
                       );
                     })}
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Editing here updates the tags only. To create tasks for new services, use "Add services" on the Tasks tab.
-                  </p>
                 </div>
+              ))}
+              {editGroupedServices.length > 0 && (
+                <p className="text-[10px] text-muted-foreground">
+                  Editing here updates the tags only. To create tasks for new services, use "Add services" on the Tasks tab.
+                </p>
               )}
             </div>
 

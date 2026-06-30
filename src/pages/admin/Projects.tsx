@@ -28,7 +28,7 @@ export default function Projects() {
   const perm = useModulePermission('projects');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: '', client_id: '', description: '', status: 'Active', priority: 'Medium', due_date: '', start_date: '', color: '#3B82F6', category: '', service_types: [] as string[] });
+  const [form, setForm] = useState({ name: '', client_id: '', description: '', status: 'Active', priority: 'Medium', due_date: '', start_date: '', color: '#3B82F6', categories: [] as string[], service_types: [] as string[] });
 
   // Master checklist templates — drives the Category + Services pickers and the
   // auto-creation of checklist tasks on the backend after the project is created.
@@ -38,7 +38,8 @@ export default function Projects() {
     staleTime: 60 * 60 * 1000, // 1 hour — the list is static
   });
   const templates: { category: string; services: { name: string; item_count: number }[] }[] = Array.isArray(templatesData) ? templatesData : [];
-  const servicesForSelectedCategory = templates.find(t => t.category === form.category)?.services || [];
+  // Categories are a multi-select; show services grouped per selected category.
+  const groupedServices = templates.filter(t => form.categories.includes(t.category));
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -70,7 +71,7 @@ export default function Projects() {
       // Delay refetch to let the backend commit
       setTimeout(() => qc.invalidateQueries({ queryKey: ['projects'] }), 1500);
       setShowCreate(false);
-      setForm({ name: '', client_id: '', description: '', status: 'Active', priority: 'Medium', due_date: '', start_date: '', color: '#3B82F6', category: '', service_types: [] });
+      setForm({ name: '', client_id: '', description: '', status: 'Active', priority: 'Medium', due_date: '', start_date: '', color: '#3B82F6', categories: [], service_types: [] });
       toast.success('Project created');
     },
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
@@ -187,29 +188,48 @@ export default function Projects() {
                 {priorityOptions.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
-            {/* Category + Services — picking these auto-creates a checklist
-                of tasks from the master template on the backend. */}
+            {/* Categories + Services — multi-select. Auto-creates one
+                checklist task per selected item across every chosen category. */}
             <div className="space-y-2">
               <div>
-                <label className="text-xs text-muted-foreground">Project Type / Category</label>
-                <select
-                  value={form.category}
-                  onChange={e => setForm(f => ({ ...f, category: e.target.value, service_types: [] }))}
-                  className="w-full mt-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="">No template — blank project</option>
-                  {templates.map(t => (
-                    <option key={t.category} value={t.category}>{t.category === 'SMM' ? 'Social Media Marketing (SMM)' : t.category === 'SEO' ? 'Website / App SEO' : t.category === 'PPC' ? 'Google PPC' : t.category}</option>
-                  ))}
-                </select>
+                <label className="text-xs text-muted-foreground">
+                  Project Type / Categories (pick any combination)
+                </label>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {templates.map(t => {
+                    const picked = form.categories.includes(t.category);
+                    const label = t.category === 'SMM' ? 'Social Media Marketing' : t.category === 'SEO' ? 'Website / App SEO' : t.category === 'PPC' ? 'Google PPC' : t.category;
+                    return (
+                      <button
+                        type="button"
+                        key={t.category}
+                        onClick={() => setForm(f => {
+                          if (picked) {
+                            // dropping the category — also clear services from it so the row stays clean
+                            const dropped = new Set((templates.find(x => x.category === t.category)?.services || []).map(s => s.name));
+                            return {
+                              ...f,
+                              categories: f.categories.filter(c => c !== t.category),
+                              service_types: f.service_types.filter(s => !dropped.has(s)),
+                            };
+                          }
+                          return { ...f, categories: [...f.categories, t.category] };
+                        })}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${picked ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-foreground border-border hover:bg-muted'}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              {form.category && servicesForSelectedCategory.length > 0 && (
-                <div>
+              {groupedServices.map(group => (
+                <div key={group.category}>
                   <label className="text-xs text-muted-foreground">
-                    Services to include (one checklist task per item)
+                    {group.category} services
                   </label>
-                  <div className="mt-1 max-h-44 overflow-y-auto rounded-lg bg-secondary border border-border p-2 space-y-1">
-                    {servicesForSelectedCategory.map(svc => {
+                  <div className="mt-1 max-h-40 overflow-y-auto rounded-lg bg-secondary border border-border p-2 space-y-1">
+                    {group.services.map(svc => {
                       const checked = form.service_types.includes(svc.name);
                       return (
                         <label key={svc.name} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
@@ -231,7 +251,7 @@ export default function Projects() {
                     })}
                   </div>
                 </div>
-              )}
+              ))}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
