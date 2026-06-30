@@ -18,6 +18,8 @@ export default function InvoiceUploadModal({ onClose }: Props) {
   const [clientId, setClientId] = useState('');
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('USD');
+  const [issueDate, setIssueDate] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [file, setFile] = useState<File | null>(null);
 
   const { data: clients = [] } = useQuery({
@@ -37,6 +39,8 @@ export default function InvoiceUploadModal({ onClose }: Props) {
       fd.append('client_id', clientId);
       if (amount) fd.append('amount', amount);
       if (currency) fd.append('currency', currency);
+      if (issueDate) fd.append('issue_date', issueDate);
+      if (dueDate) fd.append('due_date', dueDate);
       if (file) fd.append('file', file);
       return api.post('/invoices/upload', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -121,6 +125,27 @@ export default function InvoiceUploadModal({ onClose }: Props) {
                 <option value="GBP">GBP</option>
                 <option value="AUD">AUD</option>
               </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-muted-foreground font-medium">Issue Date</label>
+              <input
+                type="date"
+                value={issueDate}
+                onChange={(e) => setIssueDate(e.target.value)}
+                className={inputCls + ' w-full mt-1'}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground font-medium">Due Date</label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className={inputCls + ' w-full mt-1'}
+              />
             </div>
           </div>
 
