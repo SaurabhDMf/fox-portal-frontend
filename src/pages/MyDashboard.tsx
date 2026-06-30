@@ -3,6 +3,7 @@ import api from '@/lib/api';
 import StatCard from '@/components/ui/StatCard';
 import { useAuthStore } from '@/stores/authStore';
 import { useNavigate } from 'react-router-dom';
+import { usePortalBase } from '@/hooks/usePortalBase';
 import { ListChecks, FolderKanban, Target, FileText, Clock, ArrowUpRight, ArrowDownRight, CheckCircle2, Coffee, Plus, Trash2, StickyNote } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -14,7 +15,7 @@ export default function MyDashboard() {
   const user = useAuthStore(s => s.user);
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const basePath = window.location.pathname.startsWith('/admin') ? '/admin' : window.location.pathname.startsWith('/portal') ? '/portal' : '/emp';
+  const basePath = usePortalBase();
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-dashboard'],
@@ -321,7 +322,7 @@ export default function MyDashboard() {
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold flex items-center gap-2"><StickyNote className="h-4 w-4 text-primary" /> Today's Notes</h2>
-            <button onClick={() => navigate(`${basePath === '/portal' ? '/portal' : basePath}/tasks`)} className="text-xs text-primary hover:underline">View all</button>
+            <button onClick={() => navigate(`${basePath}/tasks`)} className="text-xs text-primary hover:underline">View all</button>
           </div>
           <form onSubmit={e => { e.preventDefault(); const v = noteInput.trim(); if (v) addNote.mutate(v); }} className="flex gap-2 mb-3">
             <input value={noteInput} onChange={e => setNoteInput(e.target.value)} placeholder="Add a note for today…"
@@ -352,7 +353,7 @@ export default function MyDashboard() {
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold">My Tasks</h2>
-            {basePath !== '/portal' && (
+            {basePath !== '/client' && (
               <button onClick={() => navigate(`${basePath}/tasks`)} className="text-xs text-primary hover:underline">View all</button>
             )}
           </div>
@@ -398,8 +399,8 @@ export default function MyDashboard() {
           <div className="glass-card p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold">My Leads</h2>
-              {basePath === '/admin' && (
-                <button onClick={() => navigate('/admin/crm')} className="text-xs text-primary hover:underline">View all</button>
+              {(basePath === '/admin' || basePath === '/sales') && (
+                <button onClick={() => navigate(`${basePath}/crm`)} className="text-xs text-primary hover:underline">View all</button>
               )}
             </div>
             <div className="space-y-2">
@@ -424,7 +425,7 @@ export default function MyDashboard() {
           <div className="glass-card p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold">My Invoices</h2>
-              <button onClick={() => navigate(basePath === '/portal' ? '/portal/invoices' : `${basePath}/invoicing`)} className="text-xs text-primary hover:underline">View all</button>
+              <button onClick={() => navigate(basePath === '/client' ? '/client/invoices' : `${basePath}/invoicing`)} className="text-xs text-primary hover:underline">View all</button>
             </div>
             <div className="space-y-2">
               {myInvoices.slice(0, 5).map((inv: any) => (

@@ -159,7 +159,9 @@ export default function Invoicing() {
   const stats = range
     ? invoices.reduce((acc: any, inv: any) => {
         const total = Number(inv.total_amount || inv.total || inv.amount || 0);
-        const paid  = Number(inv.amount_paid || 0);
+        // Clamp paid at total — a past duplicate-payment bug can leave
+        // amount_paid stored higher than the invoice's actual total.
+        const paid  = Math.min(Number(inv.amount_paid || 0), total);
         acc.total_billed += total;
         acc.collected   += paid;
         if (inv.status !== 'Paid' && inv.status !== 'Cancelled') {

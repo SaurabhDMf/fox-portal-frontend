@@ -5,6 +5,7 @@ import StatCard from '@/components/ui/StatCard';
 import { DollarSign, Users, Target, AlertTriangle, FileText, MessageSquare, Clock, LayoutDashboard, User, FolderOpen, LifeBuoy, CalendarOff, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { usePortalBase } from '@/hooks/usePortalBase';
 
 import MyDashboard from '@/pages/MyDashboard';
 
@@ -38,6 +39,7 @@ export default function AdminDashboard() {
 function OrgDashboard({ onSwitchView }: { onSwitchView: () => void }) {
   const navigate = useNavigate();
   const canCreate = useAuthStore(s => s.canCreate);
+  const base = usePortalBase();
 
   const { data: stats } = useQuery({
     queryKey: ['admin-stats'],
@@ -57,10 +59,10 @@ function OrgDashboard({ onSwitchView }: { onSwitchView: () => void }) {
   const overdueArr = Array.isArray(overdueInvoices) ? overdueInvoices : [];
 
   const quickActions = [
-    { label: 'New Lead', icon: Target, path: '/admin/crm', show: canCreate('crm') },
-    { label: 'New Invoice', icon: FileText, path: '/admin/invoicing', show: canCreate('invoicing') },
-    { label: 'Open Chat', icon: MessageSquare, path: '/admin/chat', show: true },
-    { label: 'Log Time', icon: Clock, path: '/admin/tracker', show: true },
+    { label: 'New Lead', icon: Target, path: `${base}/crm`, show: canCreate('crm') },
+    { label: 'New Invoice', icon: FileText, path: `${base}/invoicing`, show: canCreate('invoicing') },
+    { label: 'Open Chat', icon: MessageSquare, path: `${base}/chat`, show: true },
+    { label: 'Log Time', icon: Clock, path: `${base}/tracker`, show: true },
   ].filter(a => a.show);
 
   return (
@@ -102,7 +104,7 @@ function OrgDashboard({ onSwitchView }: { onSwitchView: () => void }) {
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold">Recent Leads</h2>
-            <button onClick={() => navigate('/admin/crm')} className="text-xs text-primary hover:underline">View all</button>
+            <button onClick={() => navigate(`${base}/crm`)} className="text-xs text-primary hover:underline">View all</button>
           </div>
           <div className="space-y-2">
             {leadsArr.slice(0, 5).map((lead: any) => (
@@ -123,7 +125,7 @@ function OrgDashboard({ onSwitchView }: { onSwitchView: () => void }) {
         <div className="glass-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold">Overdue Invoices</h2>
-            <button onClick={() => navigate('/admin/invoicing')} className="text-xs text-primary hover:underline">View all</button>
+            <button onClick={() => navigate(`${base}/invoicing`)} className="text-xs text-primary hover:underline">View all</button>
           </div>
           <div className="space-y-2">
             {overdueArr.slice(0, 5).map((inv: any) => (
