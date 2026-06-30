@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Plus, Trash2, Loader2, Pencil, X, Check } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
+import { usePortalBase } from '@/hooks/usePortalBase';
 
 const INP = 'w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-colors';
 const LBL = 'block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1';
@@ -25,8 +26,7 @@ function AvatarFallback({ name }: { name?: string }) {
 export default function InboxMembersPage() {
   const navigate = useNavigate();
   const { inboxId } = useParams<{ inboxId: string }>();
-  const { pathname } = useLocation();
-  const basePath = pathname.startsWith('/emp') ? '/emp/inbox' : '/admin/inbox';
+  const basePath = `${usePortalBase()}/inbox`;
   const qc = useQueryClient();
 
   const [tab, setTab] = useState<'senders' | 'members'>('senders');

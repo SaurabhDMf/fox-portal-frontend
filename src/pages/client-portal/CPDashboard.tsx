@@ -43,7 +43,7 @@ export default function CPDashboard() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-card-hover p-5 cursor-pointer" onClick={() => navigate('/client-portal/invoices')}>
+        <div className="glass-card-hover p-5 cursor-pointer" onClick={() => navigate('/client/invoices')}>
           <div className="flex items-start justify-between mb-3">
             <div className="p-2.5 rounded-xl bg-primary/15"><Receipt className="h-5 w-5 text-primary" /></div>
           </div>
@@ -51,7 +51,7 @@ export default function CPDashboard() {
           <p className="text-2xl font-bold">{totalBilled > 0 ? fmt(totalBilled, primaryCurrency) : '—'}</p>
         </div>
 
-        <div className="glass-card-hover p-5 cursor-pointer" onClick={() => navigate('/client-portal/invoices')}>
+        <div className="glass-card-hover p-5 cursor-pointer" onClick={() => navigate('/client/invoices')}>
           <div className="flex items-start justify-between mb-3">
             <div className="p-2.5 rounded-xl bg-warning/15"><DollarSign className="h-5 w-5 text-warning" /></div>
           </div>
@@ -59,7 +59,7 @@ export default function CPDashboard() {
           <p className="text-2xl font-bold">{amountDue > 0 ? fmt(amountDue, primaryCurrency) : fmt(0, primaryCurrency)}</p>
         </div>
 
-        <div className="glass-card-hover p-5 cursor-pointer" onClick={() => navigate('/client-portal/projects')}>
+        <div className="glass-card-hover p-5 cursor-pointer" onClick={() => navigate('/client/projects')}>
           <div className="flex items-start justify-between mb-3">
             <div className="p-2.5 rounded-xl bg-info/15"><FolderKanban className="h-5 w-5 text-info" /></div>
           </div>
@@ -67,7 +67,7 @@ export default function CPDashboard() {
           <p className="text-2xl font-bold">{activeProjects}</p>
         </div>
 
-        <div className="glass-card-hover p-5 cursor-pointer" onClick={() => navigate('/client-portal/support')}>
+        <div className="glass-card-hover p-5 cursor-pointer" onClick={() => navigate('/client/support')}>
           <div className="flex items-start justify-between mb-3">
             <div className="p-2.5 rounded-xl bg-destructive/15"><Ticket className="h-5 w-5 text-destructive" /></div>
           </div>
@@ -81,7 +81,7 @@ export default function CPDashboard() {
         <div className="mt-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold">Recent Invoices</h2>
-            <button onClick={() => navigate('/client-portal/invoices')} className="text-xs text-primary hover:underline">View all →</button>
+            <button onClick={() => navigate('/client/invoices')} className="text-xs text-primary hover:underline">View all →</button>
           </div>
           <div className="glass-card overflow-hidden">
             <table className="w-full text-sm">

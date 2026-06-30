@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
+import { usePortalBase } from '@/hooks/usePortalBase';
 import { extractProjectArray } from '@/lib/projectResponse';
 
 import ClientFormModal, { type ClientFormData } from '@/components/clients/ClientFormModal';
@@ -28,6 +29,7 @@ export default function Clients() {
   const [showCreate, setShowCreate] = useState(false);
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const base = usePortalBase();
 
   const { data = [], isLoading, isError } = useQuery({
     queryKey: ['clients', type, search],
@@ -88,7 +90,7 @@ export default function Clients() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? [...Array(6)].map((_, i) => <div key={i} className="glass-card h-40 animate-pulse" />) :
         clients.map((client: any) => (
-          <div key={client.id} onClick={() => navigate(`/admin/clients/${client.id}`)} className="glass-card-hover p-5 space-y-3 cursor-pointer">
+          <div key={client.id} onClick={() => navigate(`${base}/clients/${client.id}`)} className="glass-card-hover p-5 space-y-3 cursor-pointer">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center text-primary font-bold text-sm flex-shrink-0">
                 {client.company_name?.[0] || 'C'}

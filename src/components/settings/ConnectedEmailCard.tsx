@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Mail, ExternalLink } from 'lucide-react';
 import { emailApi } from '@/lib/api';
-import { useAuthStore } from '@/stores/authStore';
+import { usePortalBase } from '@/hooks/usePortalBase';
 
 const fmtDate = (iso?: string) => {
   if (!iso) return 'Never';
@@ -15,9 +15,7 @@ const fmtDate = (iso?: string) => {
 };
 
 export default function ConnectedEmailCard() {
-  const user = useAuthStore((s) => s.user);
-  const adminRoles = ['super_admin', 'admin', 'sales_manager', 'sales_rep'];
-  const manageHref = adminRoles.includes(user?.role || '') ? '/admin/email' : '/emp/email';
+  const manageHref = `${usePortalBase()}/email`;
 
   const { data, isLoading } = useQuery({
     queryKey: ['email-accounts'],

@@ -5,14 +5,14 @@ import { Bell, Menu } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 
 const routeLabels: Record<string, string> = {
-  '/client-portal': 'Dashboard',
-  '/client-portal/invoices': 'Invoices',
-  '/client-portal/projects': 'Projects',
-  '/client-portal/documents': 'Documents',
-  '/client-portal/vault': 'Password Manager',
-  '/client-portal/support': 'Support',
-  '/client-portal/profile': 'Profile',
-  '/client-portal/notifications': 'Notifications',
+  '/client': 'Dashboard',
+  '/client/invoices': 'Invoices',
+  '/client/projects': 'Projects',
+  '/client/documents': 'Documents',
+  '/client/vault': 'Password Manager',
+  '/client/support': 'Support',
+  '/client/profile': 'Profile',
+  '/client/notifications': 'Notifications',
 };
 
 interface Props {
@@ -50,7 +50,7 @@ export default function ClientPortalHeader({ onMobileMenuOpen }: Props) {
                 navigate(-1);
               } else {
                 clearNotif('notifications');
-                navigate('/client-portal/notifications');
+                navigate('/client/notifications');
               }
             }}
             className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative"

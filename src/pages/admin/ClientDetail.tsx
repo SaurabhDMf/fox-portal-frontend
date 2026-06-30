@@ -6,6 +6,7 @@ import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ClientFormModal, { type ClientFormData } from '@/components/clients/ClientFormModal';
 import { useAuthStore } from '@/stores/authStore';
+import { usePortalBase } from '@/hooks/usePortalBase';
 import PortalAccessSection from '@/components/clients/PortalAccessSection';
 import { dependencyDelete } from '@/lib/dependencyDelete';
 import { extractProjectArray } from '@/lib/projectResponse';
@@ -18,6 +19,7 @@ export default function ClientDetail() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const userRole = useAuthStore(s => s.user?.role);
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+  const base = usePortalBase();
 
   const { data: client, isLoading } = useQuery({
     queryKey: ['client', id],
@@ -63,15 +65,15 @@ export default function ClientDetail() {
           contacts: 'Contact',
         },
         onViewDependency: {
-          invoices: () => navigate(`/admin/invoicing?client_id=${id}`),
-          leads: () => navigate(`/admin/crm?client_id=${id}`),
-          projects: () => navigate(`/admin/projects?client_id=${id}`),
-          tickets: () => navigate(`/admin/tickets?client_id=${id}`),
+          invoices: () => navigate(`${base}/invoicing?client_id=${id}`),
+          leads: () => navigate(`${base}/crm?client_id=${id}`),
+          projects: () => navigate(`${base}/projects?client_id=${id}`),
+          tickets: () => navigate(`${base}/tickets?client_id=${id}`),
         },
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clients'] });
-      navigate('/admin/clients');
+      navigate(`${base}/clients`);
     },
     onError: (e: any) => {
       if (e?.message === 'cancelled') return;

@@ -49,7 +49,7 @@ export default function CPTicketDetail() {
 
   return (
     <div className="page-container">
-      <button onClick={() => navigate('/client-portal/support')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+      <button onClick={() => navigate('/client/support')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="h-4 w-4" /> Back to Support
       </button>
 

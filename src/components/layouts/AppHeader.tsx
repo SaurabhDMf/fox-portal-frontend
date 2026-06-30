@@ -18,50 +18,57 @@ const accentColors = [
   { name: 'Rose',     value: '4 100% 64%' },
 ];
 
-const routeLabels: Record<string, string> = {
-  '/sa': 'Dashboard',
-  '/sa/organizations': 'Organizations',
-  '/sa/users': 'Users',
-  '/sa/plans': 'Plans',
-  '/sa/audit-log': 'Audit Log',
-  '/sa/permissions': 'Permissions',
-  '/admin': 'Dashboard',
-  '/admin/crm': 'Sales CRM',
-  '/admin/invoicing': 'Invoices',
-  '/admin/clients': 'Clients',
-  '/admin/chat': 'Chat',
-  '/admin/projects': 'Projects',
-  '/admin/vault': 'Password Manager',
-  '/admin/tickets': 'Support Tickets',
-  '/admin/tracker': 'HR & Tracker',
-  '/admin/payroll': 'Payroll',
-  '/admin/users': 'Team & Users',
-  '/admin/reports': 'Reports',
-  '/admin/settings': 'Settings',
-  '/emp': 'Dashboard',
-  '/emp/tasks': 'Notes',
-  '/emp/projects': 'Projects',
-  '/emp/chat': 'Chat',
-  '/emp/tracker': 'Tracker',
-  '/emp/payroll': 'Payroll',
-  '/emp/profile': 'Profile',
-  '/portal': 'Dashboard',
-  '/portal/invoices': 'Invoices',
-  '/portal/projects': 'Projects',
-  '/portal/documents': 'Documents',
-  '/portal/messages': 'Messages',
-  '/portal/support': 'Support',
+// Section labels keyed by the second URL segment so they work across all
+// portals (/admin, /sales, /team, /client) without per-portal duplicates.
+const sectionLabels: Record<string, string> = {
+  crm: 'Sales CRM',
+  invoicing: 'Invoices',
+  invoices: 'Invoices',
+  clients: 'Clients',
+  chat: 'Chat',
+  projects: 'Projects',
+  vault: 'Password Manager',
+  email: 'Email',
+  inbox: 'Shared Inbox',
+  tickets: 'Support Tickets',
+  tracker: 'HR & Tracker',
+  payroll: 'Payroll',
+  expenses: 'Expenses',
+  users: 'Team & Users',
+  reports: 'Reports',
+  settings: 'Settings',
+  permissions: 'Permissions',
+  roles: 'Roles & Permissions',
+  subscriptions: 'Subscriptions',
+  notifications: 'Notifications',
+  tasks: 'Notes',
+  profile: 'Profile',
+  documents: 'Documents',
+  messages: 'Messages',
+  support: 'Support',
+  'balance-sheet': 'Balance Sheet',
+  'input-sheet':   'Input Sheet',
+  'expense-sheet': 'Expense Sheet',
+  organizations: 'Organizations',
+  plans: 'Plans',
+  'audit-log': 'Audit Log',
+};
+
+const portalLabels: Record<string, string> = {
+  sa: 'Super Admin',
+  admin: 'Admin',
+  sales: 'Sales',
+  team: 'Team',
+  client: 'Client',
+  // legacy — kept so a momentary URL before redirect still shows a label
+  emp: 'Team',
+  portal: 'Client',
+  'client-portal': 'Client',
 };
 
 function getBreadcrumbs(pathname: string) {
   const parts = pathname.split('/').filter(Boolean);
   const portal = parts[0] || '';
-  const portalLabels: Record<string, string> = {
-    sa: 'Super Admin',
-    admin: 'Admin',
-    emp: 'Employee',
-    portal: 'Client Portal',
-  };
 
   const crumbs: { label: string; path: string }[] = [
     { label: portalLabels[portal] || portal, path: `/${portal}` },
@@ -69,7 +76,7 @@ function getBreadcrumbs(pathname: string) {
 
   if (parts.length > 1) {
     const fullPath = `/${parts[0]}/${parts[1]}`;
-    const label = routeLabels[fullPath] || parts[1].charAt(0).toUpperCase() + parts[1].slice(1).replace(/-/g, ' ');
+    const label = sectionLabels[parts[1]] || parts[1].charAt(0).toUpperCase() + parts[1].slice(1).replace(/-/g, ' ');
     crumbs.push({ label, path: fullPath });
   }
 

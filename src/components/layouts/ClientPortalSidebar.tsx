@@ -11,16 +11,16 @@ import ThemeLogo from '@/components/ThemeLogo';
 import { useClientPermissions } from '@/hooks/useClientPermissions';
 
 const allNavItems = [
-  { label: 'Dashboard', path: '/client-portal', icon: LayoutDashboard, permKey: null },
-  { label: 'Invoices', path: '/client-portal/invoices', icon: FileText, permKey: 'can_view_invoices' },
-  { label: 'Projects', path: '/client-portal/projects', icon: FolderKanban, permKey: 'can_view_projects' },
-  { label: 'Tasks', path: '/client-portal/tasks', icon: ListTodo, permKey: 'can_view_tasks' },
-  { label: 'Documents', path: '/client-portal/documents', icon: BookOpen, permKey: 'can_view_documents' },
-  { label: 'Password Manager', path: '/client-portal/vault', icon: Lock, permKey: 'can_view_vault' },
-  { label: 'Chat', path: '/client-portal/chat', icon: MessageSquare, permKey: 'can_view_chat' },
-  { label: 'Support', path: '/client-portal/support', icon: Ticket, permKey: 'can_view_support' },
-  { label: 'Subscriptions', path: '/client-portal/subscriptions', icon: RefreshCw, permKey: null },
-  { label: 'Profile', path: '/client-portal/profile', icon: User, permKey: null },
+  { label: 'Dashboard', path: '/client', icon: LayoutDashboard, permKey: null },
+  { label: 'Invoices', path: '/client/invoices', icon: FileText, permKey: 'can_view_invoices' },
+  { label: 'Projects', path: '/client/projects', icon: FolderKanban, permKey: 'can_view_projects' },
+  { label: 'Tasks', path: '/client/tasks', icon: ListTodo, permKey: 'can_view_tasks' },
+  { label: 'Documents', path: '/client/documents', icon: BookOpen, permKey: 'can_view_documents' },
+  { label: 'Password Manager', path: '/client/vault', icon: Lock, permKey: 'can_view_vault' },
+  { label: 'Chat', path: '/client/chat', icon: MessageSquare, permKey: 'can_view_chat' },
+  { label: 'Support', path: '/client/support', icon: Ticket, permKey: 'can_view_support' },
+  { label: 'Subscriptions', path: '/client/subscriptions', icon: RefreshCw, permKey: null },
+  { label: 'Profile', path: '/client/profile', icon: User, permKey: null },
 ] as const;
 
 const rootPath = '/client-portal';

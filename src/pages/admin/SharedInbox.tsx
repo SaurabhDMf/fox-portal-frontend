@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePortalBase } from '@/hooks/usePortalBase';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -176,7 +177,7 @@ export default function SharedInbox() {
   const qc = useQueryClient();
   const navigate = useNavigate();
 
-  const basePath = window.location.pathname.startsWith('/emp') ? '/emp/inbox' : '/admin/inbox';
+  const basePath = `${usePortalBase()}/inbox`;
 
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
