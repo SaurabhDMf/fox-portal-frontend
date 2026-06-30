@@ -30,6 +30,30 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
   const fmt = (n: number) =>
     `${currency}${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  const isUploadedPdf = invoice.source === 'uploaded' && invoice.has_pdf;
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  // Same pattern as the client portal: iframes can't carry the Authorization
+  // header, so fetch the PDF as a blob via the api client (which adds auth)
+  // and turn it into an object URL for the iframe.
+  useEffect(() => {
+    if (!isUploadedPdf || !invoice.id) return;
+    let revoked = false;
+    let createdUrl: string | null = null;
+    api.get(`/invoices/${invoice.id}/pdf`, { responseType: 'blob' })
+      .then((res) => {
+        if (revoked) return;
+        const blob = new Blob([res.data], { type: 'application/pdf' });
+        createdUrl = URL.createObjectURL(blob);
+        setPdfUrl(createdUrl);
+      })
+      .catch(() => {/* iframe stays empty; structured fallback isn't useful for uploaded PDFs */});
+    return () => {
+      revoked = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [isUploadedPdf, invoice.id]);
+
   const subtotal = items.reduce((s: number, i: any) => s + Number(i.quantity || 0) * Number(i.unit_price || 0), 0);
   const discountAmt = Number(invoice.discount_amount) || (subtotal * (Number(invoice.discount_pct) || 0)) / 100;
   const taxableAmt = subtotal - discountAmt;
@@ -348,7 +372,25 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
               <Meta label="Amount Due" value={fmt(amountDue)} highlight={!isPaid} />
             </div>
 
-            {/* Line Items */}
+            {/* Uploaded PDF — show the actual document instead of the
+                structured line-items table (uploaded invoices don't have
+                line-item rows). */}
+            {isUploadedPdf ? (
+              <div className="overflow-hidden rounded-xl ring-1 ring-slate-200">
+                {pdfUrl ? (
+                  <iframe
+                    src={pdfUrl}
+                    title="Invoice PDF"
+                    className="w-full h-[70vh] bg-white"
+                  />
+                ) : (
+                  <div className="w-full h-[70vh] bg-white flex items-center justify-center text-sm text-slate-400">
+                    Loading invoice…
+                  </div>
+                )}
+              </div>
+            ) : (
+            /* Line Items */
             <div className="overflow-hidden rounded-xl ring-1 ring-slate-200">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50">
@@ -392,6 +434,7 @@ export default function InvoicePrintView({ invoice, onClose, onDelete }: Props) 
                 </tbody>
               </table>
             </div>
+            )}
 
             {/* Totals */}
             <div className="flex justify-end">
