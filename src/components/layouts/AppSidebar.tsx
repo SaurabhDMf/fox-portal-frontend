@@ -149,10 +149,15 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
   const role = user?.role || '';
   const navItems = getNavItems(role);
 
-  const isAdmin = ['super_admin', 'admin', 'sales_manager', 'sales_rep', 'presales'].includes(role);
+  const isSuperOrAdmin = ['super_admin', 'admin'].includes(role);
+  const isAdmin = isSuperOrAdmin || ['sales_manager', 'sales_rep', 'presales'].includes(role);
 
   const isModuleAllowed = (mod?: string) => {
     if (!mod) return true;
+    // admin / super_admin: show everything, period. They're never gated by the
+    // role_permissions matrix in the sidebar — if you want to hide something
+    // from an admin, demote their role.
+    if (isSuperOrAdmin) return true;
     // If API permissions are loaded, they are the single source of truth
     if (permissions && Object.keys(permissions).length > 0) {
       const mp = permissions[mod];
