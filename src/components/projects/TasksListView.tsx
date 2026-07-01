@@ -81,6 +81,7 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
   const statusDropdownRef = useRef<HTMLDivElement>(null);
   const [typeFilter, setTypeFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>(''); // '' = All. Set by the SEO/SMM/PPC/GEO tab bar (only for checklist tasks)
   const [sprintFilter, setSprintFilter] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState('');
@@ -148,11 +149,26 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   const hierarchicalNumbers = useMemo(() => computeHierarchicalNumbers(tasks), [tasks]);
 
+  // Checklist tasks created from the SEO/SMM/PPC/GEO templates have a
+  // "{CATEGORY} · " prefix on their title. Detect which categories are
+  // present so the tab bar only shows the ones with matching tasks.
+  const CHECKLIST_CATEGORIES = ['SEO', 'SMM', 'PPC', 'GEO'] as const;
+  const detectedCategories = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of tasks) {
+      for (const cat of CHECKLIST_CATEGORIES) {
+        if (t.title?.startsWith(`${cat} · `)) { set.add(cat); break; }
+      }
+    }
+    return CHECKLIST_CATEGORIES.filter(c => set.has(c));
+  }, [tasks]);
+
   const matchesFilters = useCallback((t: ProjectTask) => {
     if (statusFilter.length > 0 && !statusFilter.includes(t.status)) return false;
     if (priorityFilter && t.priority !== priorityFilter) return false;
+    if (categoryFilter && !t.title?.startsWith(`${categoryFilter} · `)) return false;
     return true;
-  }, [statusFilter, priorityFilter]);
+  }, [statusFilter, priorityFilter, categoryFilter]);
 
   const visibleTasks = useMemo(() => tasks.filter(matchesFilters), [tasks, matchesFilters]);
 
@@ -416,6 +432,38 @@ export default function TasksListView({ projectId, onTaskClick, onCreateTask }: 
 
   return (
     <div className="space-y-4">
+      {/* Checklist category tabs — only render when the project actually has
+          tasks tagged with a category prefix (SEO / SMM / PPC / GEO). */}
+      {detectedCategories.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1 border-b border-border pb-1">
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('')}
+            className={`px-3 py-1.5 rounded-t-md text-xs font-medium transition-colors ${
+              categoryFilter === '' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+            }`}
+          >
+            All ({tasks.length})
+          </button>
+          {detectedCategories.map(cat => {
+            const count = tasks.filter(t => t.title?.startsWith(`${cat} · `)).length;
+            const active = categoryFilter === cat;
+            return (
+              <button
+                type="button"
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-3 py-1.5 rounded-t-md text-xs font-medium transition-colors ${
+                  active ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                }`}
+              >
+                {cat} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
