@@ -10,6 +10,7 @@ import type { Project, ProjectTask } from '@/lib/projectTypes';
 import TasksListView from '@/components/projects/TasksListView';
 import ProjectChecklistBar from '@/components/projects/ProjectChecklistBar';
 import ProjectCalendarView from '@/components/projects/ProjectCalendarView';
+import BulkAssignBar from '@/components/projects/BulkAssignBar';
 import EpicsView from '@/components/projects/EpicsView';
 import SprintsView from '@/components/projects/SprintsView';
 import BacklogView from '@/components/projects/BacklogView';
@@ -265,6 +266,9 @@ export default function ProjectDetail() {
       {activeTab === 'tasks' && (
         <>
           <ProjectChecklistBar project={project} onApplied={() => { qc.invalidateQueries({ queryKey: ['project-all-tasks'] }); qc.invalidateQueries({ queryKey: ['project', id] }); }} />
+          <div className="flex justify-end mb-2">
+            <BulkAssignBar projectId={id!} onDone={() => qc.invalidateQueries({ queryKey: ['project-all-tasks'] })} />
+          </div>
           <TasksListView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />
         </>
       )}
