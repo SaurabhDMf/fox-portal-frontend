@@ -4,11 +4,12 @@ import api from '@/lib/api';
 import { dependencyDelete } from '@/lib/dependencyDelete';
 import { useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
-import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2, IndianRupee, FolderOpen, MessageSquare } from 'lucide-react';
+import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2, IndianRupee, FolderOpen, MessageSquare, CalendarDays } from 'lucide-react';
 import { extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectTask } from '@/lib/projectTypes';
 import TasksListView from '@/components/projects/TasksListView';
 import ProjectChecklistBar from '@/components/projects/ProjectChecklistBar';
+import ProjectCalendarView from '@/components/projects/ProjectCalendarView';
 import EpicsView from '@/components/projects/EpicsView';
 import SprintsView from '@/components/projects/SprintsView';
 import BacklogView from '@/components/projects/BacklogView';
@@ -23,6 +24,7 @@ import toast from 'react-hot-toast';
 
 const ALL_TABS = [
   { id: 'tasks', label: 'Tasks', icon: List },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'backlog', label: 'Backlog', icon: Archive },
   { id: 'epics', label: 'Modules', icon: Zap },
   { id: 'sprints', label: 'Sprints', icon: Timer },
@@ -266,6 +268,7 @@ export default function ProjectDetail() {
           <TasksListView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />
         </>
       )}
+      {activeTab === 'calendar' && <ProjectCalendarView projectId={id!} onTaskClick={setSelectedTask} />}
       {activeTab === 'epics' && <EpicsView projectId={id!} onTaskClick={setSelectedTask} />}
       {activeTab === 'sprints' && (
         <SprintsView
