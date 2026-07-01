@@ -416,24 +416,30 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
 
   const sendMut = useMutation({
-    mutationFn: (vars: { content: string; reply_to_id?: string }) =>
+    mutationFn: (vars: { content: string; reply_to_id?: string; localId: string }) =>
       api.post(`/chat/rooms/${roomId}/messages`, {
         content: vars.content,
         type: 'text',
         ...(vars.reply_to_id ? { reply_to_id: vars.reply_to_id } : {}),
       }),
-    onSuccess: (res) => {
+    onSuccess: (res, vars) => {
       const saved = res.data?.data || res.data;
-      if (saved?.id) {
-        setRealtimeMessages(prev => prev.find(m => m.id === saved.id) ? prev : [...prev, saved]);
-      }
-      // Defer until after React has flushed the new message into the DOM
+      // Swap the optimistic bubble for the server one. If the socket already
+      // delivered the same message (server may echo back to sender), keep the
+      // real one and just drop the local placeholder.
+      setRealtimeMessages(prev => {
+        const withoutLocal = prev.filter(m => (m as any)._localId !== vars.localId);
+        if (!saved?.id) return withoutLocal;
+        if (withoutLocal.find(m => m.id === saved.id)) return withoutLocal;
+        return [...withoutLocal, saved];
+      });
       requestAnimationFrame(() => scrollToBottom(true));
     },
     onError: (_err, vars) => {
-      // Network or server fail — give the typed text back so the user doesn't
-      // lose what they wrote. If they've already started typing the next
-      // message, prepend the failed one above it.
+      // Remove the failed placeholder and restore the typed text so nothing
+      // gets lost. If they've already started typing the next message, prepend
+      // the failed one above it.
+      setRealtimeMessages(prev => prev.filter(m => (m as any)._localId !== vars.localId));
       setMessage(prev => prev ? `${vars.content}\n${prev}` : vars.content);
       toast.error('Could not send — your message is back in the box');
     },
@@ -590,14 +596,24 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     }
     const text = message.trim();
     if (!text) return;
-    // Optimistically clear the composer so it feels instant. The mutation's
-    // onError restores the text if the send actually fails. We also stop
-    // emitting typing so other users' indicator clears immediately.
+    // Optimistically clear the composer AND push a placeholder bubble so the
+    // message appears instantly. The mutation's onSuccess swaps the placeholder
+    // for the server one; onError removes it and restores the typed text.
     const replySnapshot = replyTo;
     setMessage('');
     setReplyTo(null);
     try { socketRef.current?.emit('typing', { roomId, isTyping: false }); } catch {}
-    sendMut.mutate({ content: text, reply_to_id: replySnapshot?.id });
+    const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimistic: any = {
+      id: localId, _localId: localId, _pending: true,
+      type: 'text', content: text,
+      sender_id: user?.id, sender_name: user?.full_name, sender_avatar: (user as any)?.avatar_url,
+      created_at: new Date().toISOString(), room_id: roomId,
+      ...(replySnapshot ? { reply_to_id: replySnapshot.id, reply_to: replySnapshot } : {}),
+    };
+    setRealtimeMessages(prev => [...prev, optimistic]);
+    requestAnimationFrame(() => scrollToBottom(true));
+    sendMut.mutate({ content: text, reply_to_id: replySnapshot?.id, localId });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
