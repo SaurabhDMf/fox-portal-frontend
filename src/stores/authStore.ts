@@ -31,6 +31,7 @@ interface AuthState {
   enabledModules: string[];
   isAuthenticated: boolean;
   setAuth: (data: { accessToken: string; refreshToken: string; user: User; permissions: Record<string, Permission>; grants?: string[]; enabled_modules?: string[] }) => void;
+  setUser: (patch: Partial<User>) => void;
   setPermissions: (permissions: Record<string, Permission>, enabled_modules?: string[], grants?: string[]) => void;
   hasGrant: (permission: string) => boolean;
   logout: () => void;
@@ -60,6 +61,12 @@ export const useAuthStore = create<AuthState>()(
           enabledModules: data.enabled_modules || [],
           isAuthenticated: true,
         }),
+
+      setUser: (patch) =>
+        set((state) => ({
+          ...state,
+          user: state.user ? ({ ...state.user, ...patch }) as User : state.user,
+        })),
 
       setPermissions: (permissions, enabled_modules, grants) =>
         set((state) => ({

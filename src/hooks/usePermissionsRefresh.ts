@@ -6,6 +6,7 @@ export function usePermissionsRefresh() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const accessToken = useAuthStore((s) => s.accessToken);
   const setPermissions = useAuthStore((s) => s.setPermissions);
+  const setUser = useAuthStore((s) => s.setUser);
 
   const refresh = useCallback(() => {
     if (!isAuthenticated || !accessToken) return;
@@ -19,7 +20,23 @@ export function usePermissionsRefresh() {
         }
       })
       .catch(() => {});
-  }, [isAuthenticated, accessToken, setPermissions]);
+
+    // Also refresh the user's own profile so role changes made by an admin
+    // (e.g. promoting a user to Admin) take effect without requiring the user
+    // to log out and back in. Only patch fields we actually get back.
+    api.get('/auth/me')
+      .then((res) => {
+        const u = res.data?.data || res.data?.user || res.data;
+        if (!u) return;
+        const patch: any = {};
+        if (u.role) patch.role = u.role;
+        if (u.full_name) patch.full_name = u.full_name;
+        if (u.email) patch.email = u.email;
+        if (u.avatar_url !== undefined) patch.avatar_url = u.avatar_url;
+        if (Object.keys(patch).length) setUser(patch);
+      })
+      .catch(() => {});
+  }, [isAuthenticated, accessToken, setPermissions, setUser]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
