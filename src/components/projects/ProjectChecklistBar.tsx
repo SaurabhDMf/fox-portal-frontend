@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, X, Sparkles } from 'lucide-react';
+import { Plus, X, Sparkles, ListChecks } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 
@@ -39,6 +39,7 @@ export default function ProjectChecklistBar({ project, onApplied }: Props) {
   // Per-category map of newly-picked services to append
   const [picked, setPicked] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   const projectCategories = useMemo(() => parseJsonArray(project?.category), [project?.category]);
   const currentServices = useMemo(() => parseJsonArray(project?.service_types), [project?.service_types]);
@@ -56,6 +57,27 @@ export default function ProjectChecklistBar({ project, onApplied }: Props) {
   const groupsForPicker = templates;
 
   const totalPicked = Object.values(picked).reduce((n, arr) => n + arr.length, 0);
+
+  // Generate tasks for every service currently tagged on the project.
+  // Backend dedupes by title, so calling this again after tasks were already
+  // created is safe — it only fills in what's missing.
+  const applyExisting = async () => {
+    if (!projectCategories.length || !currentServices.length) return;
+    setApplying(true);
+    try {
+      const res = await api.post(`/projects/${project.id}/services`, {
+        categories: projectCategories,
+        service_types: currentServices,
+      });
+      const created = res.data?.tasks_created || 0;
+      toast.success(created > 0 ? `Added ${created} checklist tasks` : 'Checklist already up to date');
+      onApplied();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.error || 'Failed to apply checklist');
+    } finally {
+      setApplying(false);
+    }
+  };
 
   const apply = async () => {
     if (!totalPicked) return;
@@ -116,12 +138,24 @@ export default function ProjectChecklistBar({ project, onApplied }: Props) {
           </div>
         </>
       )}
-      <button
-        onClick={() => { setOpen(true); setPicked({}); }}
-        className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/15 text-primary text-xs font-medium hover:bg-primary/25"
-      >
-        <Plus className="h-3.5 w-3.5" /> Add services
-      </button>
+      <div className="ml-auto flex items-center gap-2">
+        {projectCategories.length > 0 && currentServices.length > 0 && (
+          <button
+            onClick={applyExisting}
+            disabled={applying}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xs font-medium hover:bg-emerald-500/25 disabled:opacity-50"
+            title="Create checklist tasks for the services shown here (skips ones already added)"
+          >
+            <ListChecks className="h-3.5 w-3.5" /> {applying ? 'Applying…' : 'Apply checklist'}
+          </button>
+        )}
+        <button
+          onClick={() => { setOpen(true); setPicked({}); }}
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/15 text-primary text-xs font-medium hover:bg-primary/25"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add services
+        </button>
+      </div>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
