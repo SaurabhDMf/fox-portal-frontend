@@ -380,21 +380,7 @@ export default function TaskDetailDrawer({ task: initialTask, onClose, projectId
   const commentMut = useMutation({
     mutationFn: async (text: string) => {
       const trimmed = text.trim();
-      try {
-        return await api.post(`/tasks/${initialTask.id}/comments`, { text: trimmed });
-      } catch (error: any) {
-        if (error.response?.status === 400 || error.response?.status === 422) {
-          try {
-            return await api.post(`/tasks/${initialTask.id}/comments`, { message: trimmed });
-          } catch (fallbackError: any) {
-            if (fallbackError.response?.status === 400 || fallbackError.response?.status === 422) {
-              return api.post(`/tasks/${initialTask.id}/comments`, { content: trimmed });
-            }
-            throw fallbackError;
-          }
-        }
-        throw error;
-      }
+      return api.post(`/tasks/${initialTask.id}/comments`, { content: trimmed });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['task-comments', initialTask.id] });

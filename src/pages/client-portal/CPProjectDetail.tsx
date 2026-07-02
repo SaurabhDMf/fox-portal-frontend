@@ -590,20 +590,7 @@ function TaskDetailDrawer({ task, projectId, onClose }: { task: any; projectId: 
   const commentMut = useMutation({
     mutationFn: async (text: string) => {
       const trimmed = text.trim();
-      try {
-        return await api.post(`/client/projects/${projectId}/tasks/${task.id}/comments`, { text: trimmed });
-      } catch (e: any) {
-        if (e.response?.status === 400 || e.response?.status === 422) {
-          try { return await api.post(`/client/projects/${projectId}/tasks/${task.id}/comments`, { message: trimmed }); }
-          catch (e2: any) {
-            if (e2.response?.status === 400 || e2.response?.status === 422) {
-              return api.post(`/client/projects/${projectId}/tasks/${task.id}/comments`, { content: trimmed });
-            }
-            throw e2;
-          }
-        }
-        throw e;
-      }
+      return api.post(`/client/projects/${projectId}/tasks/${task.id}/comments`, { content: trimmed });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cp-task-detail', task.id] });
