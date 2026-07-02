@@ -51,10 +51,11 @@ export default function ProjectDetail() {
   const isClient = userRole === 'client';
   const canViewFinancials = userRole === 'admin' || userRole === 'super_admin' || (Array.isArray(userGrants) && userGrants.includes('project_finance'));
   // Clients see the same interactive layout but with admin-only chrome trimmed
-  // (no Backlog / Financials tabs; no edit / delete / reassign / add-services).
+  // (no Backlog / Financials / Members tabs; no edit / delete / reassign / add-services).
   const TABS = ALL_TABS.filter(t => {
     if (t.id === 'financials') return canViewFinancials && !isClient;
     if (t.id === 'backlog') return !isClient;
+    if (t.id === 'members') return !isClient;
     return true;
   });
   const [activeTab, setActiveTab] = useState<TabId>('tasks');
