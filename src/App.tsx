@@ -216,7 +216,7 @@ const App = () => (
           <Route path="invoices" element={<CPInvoices />} />
           <Route path="invoices/:id" element={<CPInvoiceDetail />} />
           <Route path="projects" element={<CPProjects />} />
-          <Route path="projects/:id" element={<CPProjectDetail />} />
+          <Route path="projects/:id" element={<ProjectDetail />} />
           <Route path="tasks" element={<CPTasks />} />
           <Route path="chat" element={<CPChat />} />
           <Route path="documents" element={<CPDocuments />} />

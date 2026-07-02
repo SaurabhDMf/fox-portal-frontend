@@ -48,8 +48,15 @@ export default function ProjectDetail() {
   const userRole = useAuthStore((s) => s.user?.role);
   const userGrants = useAuthStore((s) => s.grants);
   const isAdmin = userRole === 'admin' || userRole === 'super_admin' || userRole === 'supervisor';
+  const isClient = userRole === 'client';
   const canViewFinancials = userRole === 'admin' || userRole === 'super_admin' || (Array.isArray(userGrants) && userGrants.includes('project_finance'));
-  const TABS = ALL_TABS.filter(t => t.id !== 'financials' || canViewFinancials);
+  // Clients see the same interactive layout but with admin-only chrome trimmed
+  // (no Backlog / Financials tabs; no edit / delete / reassign / add-services).
+  const TABS = ALL_TABS.filter(t => {
+    if (t.id === 'financials') return canViewFinancials && !isClient;
+    if (t.id === 'backlog') return !isClient;
+    return true;
+  });
   const [activeTab, setActiveTab] = useState<TabId>('tasks');
   const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
   const [createTaskDefaults, setCreateTaskDefaults] = useState<{ status?: string; sprint_id?: string; epic_id?: string } | null>(null);
@@ -205,9 +212,11 @@ export default function ProjectDetail() {
           <div className="flex items-center gap-2">
             <span className={project.status === 'Active' ? 'badge-success' : project.status === 'Completed' ? 'badge-info' : project.status === 'On Hold' ? 'badge-warning' : 'badge-neutral'}>{project.status}</span>
             <span className={project.priority === 'Critical' ? 'badge-danger' : project.priority === 'High' ? 'badge-warning' : 'badge-neutral'}>{project.priority}</span>
-            <button onClick={() => setShowProjectSettings(true)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Project Settings">
-              <Settings2 className="h-4 w-4" />
-            </button>
+            {!isClient && (
+              <button onClick={() => setShowProjectSettings(true)} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Project Settings">
+                <Settings2 className="h-4 w-4" />
+              </button>
+            )}
             {isAdmin && (
               <>
                 <button onClick={openEdit} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit Project">
@@ -265,11 +274,13 @@ export default function ProjectDetail() {
 
       {activeTab === 'tasks' && (
         <>
-          <ProjectChecklistBar project={project} onApplied={() => { qc.invalidateQueries({ queryKey: ['project-all-tasks'] }); qc.invalidateQueries({ queryKey: ['project', id] }); }} />
-          <div className="flex justify-end mb-2">
-            <BulkAssignBar projectId={id!} onDone={() => qc.invalidateQueries({ queryKey: ['project-all-tasks'] })} />
-          </div>
-          <TasksListView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={() => setCreateTaskDefaults({ status: 'Open' })} />
+          {!isClient && <ProjectChecklistBar project={project} onApplied={() => { qc.invalidateQueries({ queryKey: ['project-all-tasks'] }); qc.invalidateQueries({ queryKey: ['project', id] }); }} />}
+          {!isClient && (
+            <div className="flex justify-end mb-2">
+              <BulkAssignBar projectId={id!} onDone={() => qc.invalidateQueries({ queryKey: ['project-all-tasks'] })} />
+            </div>
+          )}
+          <TasksListView projectId={id!} onTaskClick={setSelectedTask} onCreateTask={isClient ? undefined : () => setCreateTaskDefaults({ status: 'Open' })} />
         </>
       )}
       {activeTab === 'calendar' && <ProjectCalendarView projectId={id!} onTaskClick={setSelectedTask} />}
