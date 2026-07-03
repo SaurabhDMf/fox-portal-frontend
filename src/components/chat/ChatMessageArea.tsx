@@ -188,25 +188,48 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     setPendingFiles([]);
   }, [roomId]);
 
-  // Fetch messages imperatively whenever roomId changes
+  // Room messages: react-query so switching rooms is instant if we've already
+  // loaded them, and a background refetch reconciles any messages the socket
+  // dropped while the tab was hidden. On error we still fall back to whatever
+  // is in cache.
+  const {
+    data: initialMessagesData,
+    isLoading: rqLoading,
+    isFetching: rqFetching,
+  } = useQuery({
+    queryKey: ['chat-messages', roomId],
+    enabled: !!roomId,
+    queryFn: () => api.get(`/chat/rooms/${roomId}/messages?limit=50`).then((r) => r.data),
+    staleTime: 30_000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: true, // catches messages the socket dropped while tab was hidden
+    refetchOnReconnect: true,
+  });
+
+  // Sync react-query result into local state (kept as local state so socket
+  // handlers, edits, and deletes can patch it without going through the query).
   useEffect(() => {
     if (!roomId) return;
-    setFetchedMessages([]);
+    // Reset realtime buffer when entering a room; fetchedMessages will be
+    // repopulated from the query below.
     setRealtimeMessages([]);
-    setHasMore(false);
-    setLoadingMessages(true);
+    initialScrollDoneRef.current = false;
+    setIsScrollReady(false);
+  }, [roomId]);
 
-    api.get(`/chat/rooms/${roomId}/messages?limit=50`)
-      .then(res => {
-        const payload = res.data;
-        const msgs = Array.isArray(payload) ? payload : (payload?.data ?? payload?.messages ?? []);
-        setFetchedMessages(msgs);
-        setHasMore(payload?.has_more ?? false);
-      })
-      .catch(err => console.error('[Chat] Failed to load messages:', err))
-      .finally(() => setLoadingMessages(false));
+  useEffect(() => {
+    if (!initialMessagesData) return;
+    const payload = initialMessagesData;
+    const msgs = Array.isArray(payload) ? payload : (payload?.data ?? payload?.messages ?? []);
+    setFetchedMessages(msgs);
+    setHasMore(payload?.has_more ?? false);
+  }, [initialMessagesData]);
 
-    // Mark room as read
+  const initialLoading = rqLoading || (rqFetching && !initialMessagesData);
+
+  // Mark room as read whenever we enter it
+  useEffect(() => {
+    if (!roomId) return;
     api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
     qc.setQueryData(['chat-rooms'], (old: any[]) =>
       old?.map((r: any) => r.id === roomId ? { ...r, unread_count: 0 } : r)
@@ -781,14 +804,14 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         className="flex-1 overflow-y-auto py-4 relative"
       >
 
-        {loadingMessages && fetchedMessages.length === 0 && (
+        {initialLoading && fetchedMessages.length === 0 && (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Loading…</div>
         )}
 
         {/* Hidden until initial instant-scroll fires — prevents visible top-to-bottom scroll animation */}
         <div style={{ visibility: isScrollReady ? 'visible' : 'hidden' }}>
 
-        {!loadingMessages && allMessages.length === 0 && (
+        {!initialLoading && allMessages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <MessageSquare className="h-10 w-10 mb-2 opacity-20" />
             <p className="text-sm">No messages yet. Start the conversation!</p>
