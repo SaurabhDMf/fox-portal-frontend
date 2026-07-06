@@ -469,14 +469,24 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   });
 
   const editMut = useMutation({
-    mutationFn: ({ id, content }: { id: string; content: string }) =>
-      api.put(`/chat/messages/${id}`, { content }),
+    mutationFn: ({ id, content }: { id: string; content: string }) => {
+      // Reject if this is still an optimistic bubble that hasn't hit the
+      // server yet — the id is a local placeholder, not a real DB row.
+      if (String(id).startsWith('local-')) {
+        return Promise.reject(new Error('Wait for the message to finish sending before editing'));
+      }
+      return api.put(`/chat/messages/${id}`, { content });
+    },
     onSuccess: (res) => {
       const updated = res.data?.data || res.data;
       setFetchedMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
       setRealtimeMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
       setEditingMsg(null);
       setEditText('');
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.error || err?.message || 'Could not edit message';
+      toast.error(msg);
     },
   });
 
@@ -1034,7 +1044,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                         className={`p-1.5 rounded-lg hover:bg-secondary transition-colors ${Boolean(msg.is_pinned) ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`} title={Boolean(msg.is_pinned) ? 'Unpin' : 'Pin'}>
                         <Pin className="h-3.5 w-3.5" />
                       </button>
-                      {isOwn && <>
+                      {isOwn && !(msg as any)._localId && <>
                         <button onClick={() => { setEditingMsg(msg); setEditText(msg.content); }}
                           className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="Edit">
                           <Pencil className="h-3.5 w-3.5" />
