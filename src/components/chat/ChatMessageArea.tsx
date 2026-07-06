@@ -520,10 +520,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     catch { return ''; }
   };
 
-  const uploadFileOptimistic = async (file: File, localId: string) => {
+  const uploadFileOptimistic = async (file: File, localId: string, caption?: string) => {
     const BASE = import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1';
     const form = new FormData();
     form.append('file', file);
+    if (caption && caption.trim()) form.append('caption', caption.trim());
     try {
       const res = await fetch(`${BASE}/chat/rooms/${roomId}/upload`, {
         method: 'POST',
@@ -549,24 +550,27 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   };
 
   // Immediately add an optimistic bubble in the chat and start upload in background
-  const sendFilesOptimistic = (files: File[]) => {
+  const sendFilesOptimistic = (files: File[], caption?: string) => {
     if (!files.length) return;
-    for (const file of files) {
-      const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    files.forEach((file, idx) => {
+      const localId = `local-${Date.now()}-${idx}-${Math.random().toString(36).slice(2)}`;
       const isImage = file.type.startsWith('image/');
       const previewUrl = isImage ? URL.createObjectURL(file) : undefined;
+      // Attach the caption to the FIRST file only — matches WhatsApp/Slack UX
+      // and avoids stamping the same caption on every file in a batch.
+      const cap = idx === 0 ? (caption?.trim() || '') : '';
       const optimistic: any = {
         id: localId, _localId: localId, _uploading: true,
         type: isImage ? 'image' : 'file',
         file_name: file.name, file_url: previewUrl || '',
-        content: file.name,
+        content: cap || file.name,
         sender_id: user?.id, sender_name: user?.full_name, sender_avatar: (user as any)?.avatar_url,
         created_at: new Date().toISOString(), room_id: roomId,
       };
       setRealtimeMessages(prev => [...prev, optimistic]);
       scrollToBottom(true);
-      uploadFileOptimistic(file, localId);
-    }
+      uploadFileOptimistic(file, localId, cap);
+    });
   };
 
   const stageFiles = (files: File[]) => {
@@ -574,8 +578,9 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     setPendingFiles(prev => [...prev, ...files]);
   };
 
-  // Keep for paste/drag-drop that should upload immediately without staging
-  const handleFiles = (files: File[]) => sendFilesOptimistic(files);
+  // Paste / drag-drop stages the files in the composer strip so the user can
+  // add a caption and click Send instead of the file auto-sending immediately.
+  const handleFiles = (files: File[]) => stageFiles(files);
 
   // Auto-grow textarea
   const autoGrow = (el: HTMLTextAreaElement | null) => {
@@ -622,12 +627,21 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     // Guard against double-clicks / double Enter — until the previous send
     // finishes we ignore additional sends with the same text.
     if (sendMut.isPending) return;
+    const trimmedText = message.trim();
     if (pendingFiles.length > 0) {
       const toUpload = pendingFiles;
       setPendingFiles([]);
-      sendFilesOptimistic(toUpload);
+      // If the user also typed a message, send it as the caption on the first
+      // file so the whole thing arrives as one bubble (Slack/WhatsApp style)
+      // instead of a text bubble + separate file bubbles.
+      sendFilesOptimistic(toUpload, trimmedText);
+      if (trimmedText) {
+        setMessage('');
+        try { socketRef.current?.emit('typing', { roomId, isTyping: false }); } catch {}
+      }
+      return; // caption already sent with the file
     }
-    const text = message.trim();
+    const text = trimmedText;
     if (!text) return;
     // Optimistically clear the composer AND push a placeholder bubble so the
     // message appears instantly. The mutation's onSuccess swaps the placeholder
