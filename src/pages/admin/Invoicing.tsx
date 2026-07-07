@@ -145,11 +145,14 @@ export default function Invoicing() {
   const rawInvoices = data?.invoices || data?.data || (Array.isArray(data) ? data : []);
   const allInvoices: any[] = Array.isArray(rawInvoices) ? rawInvoices : [];
 
-  // Filter by billing period (uses issue_date; falls back to created_at)
+  // Filter by reporting period. Paid invoices are attributed to their
+  // payment month (paid_at); unpaid ones to their issue month. So a
+  // June-issued invoice paid in July belongs to July, both in the listing
+  // and in the stat tiles.
   const range = periodRange(period, customFrom, customTo);
   const filteredInvoices = range
     ? allInvoices.filter((inv: any) => {
-        const d = new Date(inv.issue_date || inv.created_at);
+        const d = new Date(inv.paid_at || inv.issue_date || inv.created_at);
         if (isNaN(d.getTime())) return false;
         return d >= range[0] && d < range[1];
       })
@@ -175,7 +178,9 @@ export default function Invoicing() {
   });
 
   // Recompute the 4 stat tiles for the filtered period when one is selected;
-  // otherwise use the API's full-period totals.
+  // otherwise use the API's full-period totals. The filter above already
+  // attributes each invoice to a single reporting month (paid_at for paid
+  // invoices, issue_date otherwise), so summing here is straightforward.
   const stats = range
     ? invoices.reduce((acc: any, inv: any) => {
         const total = Number(inv.total_amount || inv.total || inv.amount || 0);
@@ -265,24 +270,21 @@ export default function Invoicing() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-              <th className="p-4">Invoice #</th><th className="p-4">Client</th><th className="p-4">Amount</th><th className="p-4">Due Date</th><th className="p-4">Source</th><th className="p-4">Status</th><th className="p-4 w-12"></th>
+              <th className="px-3 py-4 whitespace-nowrap">Invoice Number</th><th className="px-3 py-4 whitespace-nowrap">Created Date</th><th className="px-3 py-4">Client</th><th className="px-3 py-4 whitespace-nowrap">Due Date</th><th className="px-3 py-4 whitespace-nowrap">Payment Date</th><th className="px-3 py-4 whitespace-nowrap">Amount</th><th className="px-3 py-4">Status</th><th className="px-3 py-4 w-12 whitespace-nowrap">Action</th>
             </tr>
           </thead>
           <tbody>
-            {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={7} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
-            (Array.isArray(invoices) ? invoices : []).map((inv: any) => (
+            {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={8} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
+            (Array.isArray(invoices) ? invoices : []).map((inv: any) => {
+              const clientLabel = inv.client_name || inv.company_name || '—';
+              return (
               <tr key={inv.id} className="border-b border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer" onClick={() => viewDetail(inv)}>
-                <td className="p-4 font-medium">{inv.invoice_number || `INV-${inv.id?.slice(0, 6)}`}</td>
-                <td className="p-4">{inv.client_name || inv.company_name || '—'}</td>
-                <td className="p-4 font-medium">{fmtAmount(Number(inv.total || inv.total_amount || inv.amount || 0), inv.currency)}</td>
-                <td className="p-4 text-muted-foreground">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '—'}</td>
-                <td className="p-4">
-                  {inv.source === 'uploaded' ? (
-                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-info/15 text-info"><Upload className="h-3 w-3" /> Uploaded</span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Generated</span>
-                  )}
-                </td>
+                <td className="px-3 py-4 font-medium whitespace-nowrap">{inv.invoice_number || `INV-${inv.id?.slice(0, 6)}`}</td>
+                <td className="px-3 py-4 text-muted-foreground whitespace-nowrap">{(inv.issue_date || inv.created_at) ? new Date(inv.issue_date || inv.created_at).toLocaleDateString() : '—'}</td>
+                <td className="px-3 py-4 max-w-[180px]" title={clientLabel}><div className="truncate">{clientLabel}</div></td>
+                <td className="px-3 py-4 text-muted-foreground whitespace-nowrap">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '—'}</td>
+                <td className="px-3 py-4 text-muted-foreground whitespace-nowrap">{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : '—'}</td>
+                <td className="px-3 py-4 font-medium whitespace-nowrap">{fmtAmount(Number(inv.total || inv.total_amount || inv.amount || 0), inv.currency)}</td>
                 <td className="p-4">
                   {(() => {
                     const isSavedNotSent = inv.status === 'Sent' && !inv.sent_at;
@@ -297,7 +299,13 @@ export default function Invoicing() {
                   })()}
                 </td>
                 <td className="p-4" onClick={e => e.stopPropagation()}>
-                  <div className="relative" ref={openMenuId === inv.id ? menuRef : undefined}>
+                  <div className="flex items-center gap-1">
+                    {inv.source === 'uploaded' ? (
+                      <span title="Uploaded" className="text-info"><Upload className="h-4 w-4" /></span>
+                    ) : (
+                      <span title="Generated" className="text-muted-foreground"><FileText className="h-4 w-4" /></span>
+                    )}
+                    <div className="relative" ref={openMenuId === inv.id ? menuRef : undefined}>
                     <button
                       onClick={() => setOpenMenuId(openMenuId === inv.id ? null : inv.id)}
                       className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
@@ -349,9 +357,11 @@ export default function Invoicing() {
                       </div>
                     )}
                   </div>
+                  </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
