@@ -461,19 +461,19 @@ export default function CRM() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
-                <th className="p-4 cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}>
+                <th className="px-3 py-4 whitespace-nowrap cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}>
                   <span className="flex items-center gap-1">Created {sortOrder === 'desc' ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}</span>
                 </th>
-                <th className="p-4">Name</th>
-                <th className="p-4">Email</th>
-                <th className="p-4">Phone</th>
-                <th className="p-4">Country</th>
-                <th className="p-4">Purpose</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Follow-up</th>
-                <th className="p-4">Added By</th>
-                <th className="p-4">Assigned To</th>
-                <th className="p-4">Actions</th>
+                <th className="px-3 py-4">Name</th>
+                <th className="px-3 py-4">Email</th>
+                <th className="px-3 py-4 whitespace-nowrap">Phone</th>
+                <th className="px-3 py-4">Country</th>
+                <th className="px-3 py-4">Purpose</th>
+                <th className="px-3 py-4 whitespace-nowrap">Status</th>
+                <th className="px-3 py-4 whitespace-nowrap">Follow-up</th>
+                <th className="px-3 py-4">Added By</th>
+                <th className="px-3 py-4">Assigned To</th>
+                <th className="px-3 py-4 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -498,15 +498,15 @@ export default function CRM() {
                 return (
                   <tr key={lead.id}
                     className={`border-b border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer ${rowStaleCls} ${rowDeadCls}`}>
-                    <td className={`p-4 text-muted-foreground ${stale && !isDead ? 'text-destructive font-medium' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>
+                    <td className={`px-3 py-4 text-muted-foreground whitespace-nowrap ${stale && !isDead ? 'text-destructive font-medium' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>
                       {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—'}
                     </td>
-                    <td className={`p-4 font-medium ${stale && !isDead ? 'text-destructive' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.full_name}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.email || '—'}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.phone || '—'}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{getLeadCountry(lead) || '—'}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{getLeadPurpose(lead) || '—'}</td>
-                    <td className="p-4 no-underline" onClick={(e) => e.stopPropagation()}>
+                    <td className={`px-3 py-4 font-medium ${stale && !isDead ? 'text-destructive' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={lead.full_name || ''}><div className="truncate max-w-[160px]">{lead.full_name}</div></td>
+                    <td className="px-3 py-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={lead.email || ''}><div className="truncate max-w-[200px]">{lead.email || '—'}</div></td>
+                    <td className="px-3 py-4 text-muted-foreground whitespace-nowrap" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.phone || '—'}</td>
+                    <td className="px-3 py-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={getLeadCountry(lead) || ''}><div className="truncate max-w-[120px]">{getLeadCountry(lead) || '—'}</div></td>
+                    <td className="px-3 py-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={getLeadPurpose(lead) || ''}><div className="truncate max-w-[160px]">{getLeadPurpose(lead) || '—'}</div></td>
+                    <td className="px-3 py-4 no-underline whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       {perm.canEdit ? (
                         <select
                           value={lead.status || 'New'}
@@ -521,7 +521,7 @@ export default function CRM() {
                         <span className={statusBadgeCls}>{lead.status}</span>
                       )}
                     </td>
-                    <td className={`p-4 ${followupCls}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>
+                    <td className={`px-3 py-4 whitespace-nowrap ${followupCls}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>
                       {lead.next_followup
                         ? (
                           <span className="inline-flex items-center gap-1">
@@ -533,9 +533,9 @@ export default function CRM() {
                         )
                         : '—'}
                     </td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{resolveAddedBy(lead) || '—'}</td>
-                    <td className="p-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{resolveAssignedTo(lead) || '—'}</td>
-                    <td className="p-4">
+                    <td className="px-3 py-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={resolveAddedBy(lead) || ''}><div className="truncate max-w-[140px]">{resolveAddedBy(lead) || '—'}</div></td>
+                    <td className="px-3 py-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={resolveAssignedTo(lead) || ''}><div className="truncate max-w-[140px]">{resolveAssignedTo(lead) || '—'}</div></td>
+                    <td className="px-3 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-1">
                         {perm.canEdit && lead.status !== 'Closed Won' && (
                           <button onClick={(e) => { e.stopPropagation(); setShowConvert(lead); }} className="p-1.5 rounded-md hover:bg-success/10 text-muted-foreground hover:text-success transition-colors" title="Convert to Client">

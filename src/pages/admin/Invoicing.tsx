@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Send, DollarSign, CheckCircle, Clock, AlertTriangle, FileText, Upload, Download, Trash2, Link2, MoreHorizontal } from 'lucide-react';
+import { Plus, Send, DollarSign, CheckCircle, Clock, AlertTriangle, FileText, Upload, Download, Trash2, Link2, MoreHorizontal, Target } from 'lucide-react';
 import toast from 'react-hot-toast';
 import StatCard from '@/components/ui/StatCard';
 import { useModulePermission } from '@/hooks/usePermission';
@@ -74,9 +74,12 @@ async function downloadPdf(inv: any) {
   }
 }
 
+const fmtNum = (n: number) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
 export default function Invoicing() {
   const perm = useModulePermission('invoicing');
   const role = useAuthStore(s => s.user?.role);
+  const userId = useAuthStore(s => s.user?.id);
   const { currencySymbol, companyCurrency } = useCompanyCurrency();
   const isAdmin = role === 'admin' || role === 'super_admin';
   const canDelete = (inv: any) =>
@@ -140,6 +143,16 @@ export default function Invoicing() {
   const { data, isLoading } = useQuery({
     queryKey: ['invoices', tab],
     queryFn: () => api.get('/invoices', { params: { status: tab === 'All' ? undefined : tab } }).then(r => r.data),
+  });
+
+  // Current-month target + received for this user (matches MyDashboard)
+  const currentDate = new Date();
+  const { data: targetData } = useQuery({
+    queryKey: ['invoicing-target', userId, currentDate.getFullYear(), currentDate.getMonth() + 1],
+    queryFn: () => api.get('/performance-targets', {
+      params: { user_id: userId, year: currentDate.getFullYear(), month: currentDate.getMonth() + 1 },
+    }).then(r => r.data),
+    enabled: !!userId,
   });
 
   const rawInvoices = data?.invoices || data?.data || (Array.isArray(data) ? data : []);
@@ -227,6 +240,42 @@ export default function Invoicing() {
         <StatCard label="Collected" value={Number(stats.collected || 0).toLocaleString()} icon={CheckCircle} iconColor="text-success" />
         <StatCard label="Outstanding" value={Number(stats.outstanding || 0).toLocaleString()} icon={Clock} iconColor="text-warning" />
         <StatCard label="Overdue" value={Number(stats.overdue || 0).toLocaleString()} icon={AlertTriangle} iconColor="text-destructive" />
+      </div>
+
+      {/* Monthly Target vs Received — current user, current month */}
+      <div className="glass-card p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold flex items-center gap-2"><Target className="h-4 w-4 text-primary" /> {currentDate.toLocaleString('default', { month: 'long' })} {currentDate.getFullYear()} — Target vs Received</h2>
+        </div>
+        {(() => {
+          const t = Number(targetData?.target_value || 0);
+          const a = Number(targetData?.actual_sale  || 0);
+          const pct = t > 0 ? Math.min(100, (a / t) * 100) : 0;
+          const pending = Math.max(0, t - a);
+          return (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Target</p>
+                <p className="text-xl font-bold mt-1">{fmtNum(t)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Received</p>
+                <p className="text-xl font-bold mt-1 text-success">{fmtNum(a)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Pending</p>
+                <p className="text-xl font-bold mt-1 text-warning">{fmtNum(pending)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Progress</p>
+                <p className="text-xl font-bold mt-1">{pct.toFixed(1)}%</p>
+                <div className="w-full bg-secondary h-2 rounded-full mt-1.5 overflow-hidden">
+                  <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
