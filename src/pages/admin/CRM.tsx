@@ -358,8 +358,16 @@ export default function CRM() {
   };
 
   // Overdue follow-ups first, then today's, then future. Leads with no
-  // follow-up date sort by created_at per the user's toggle.
+  // follow-up date sort by created_at per the user's toggle. Dead, Closed
+  // Won and Closed Lost leads sink to the bottom regardless of follow-up.
+  const isInactive = (l: any) => {
+    const s = (l.status || '').toLowerCase();
+    return s === 'dead' || s === 'closed won' || s === 'closed lost';
+  };
   const sortedLeads = [...leads].sort((a: any, b: any) => {
+    const aInactive = isInactive(a);
+    const bInactive = isInactive(b);
+    if (aInactive !== bInactive) return aInactive ? 1 : -1;
     const pa = followupBucket(a);
     const pb = followupBucket(b);
     if (pa.bucket !== pb.bucket) return pa.bucket - pb.bucket;
