@@ -459,7 +459,11 @@ export default function EmailPage() {
         return (div.textContent || div.innerText || '').trim();
       };
       const bodyText = stripHtml(d.body_html || '');
-      // Multipart when any attachment is staged; plain JSON otherwise.
+      // Multipart when any attachment is staged; plain JSON otherwise. Override
+      // Content-Type to multipart/form-data so axios drops the instance-wide
+      // application/json default and appends the boundary. Matches the
+      // convention used by other FormData posts in this repo (chat upload,
+      // task attachments, project docs).
       if (pendingFiles.length > 0) {
         const fd = new FormData();
         fd.append('account_id', d.account_id || '');
@@ -469,7 +473,9 @@ export default function EmailPage() {
         fd.append('body_html',  d.body_html || '');
         fd.append('body_text',  bodyText);
         pendingFiles.forEach(f => fd.append('attachments', f));
-        return api.post('/email/send', fd);
+        return api.post('/email/send', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
       }
       return emailApi.send({ ...d, body_text: bodyText });
     },
