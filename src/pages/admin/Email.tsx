@@ -95,6 +95,39 @@ export default function EmailPage() {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiTopic, setAiTopic] = useState('');
   const [aiDrafting, setAiDrafting] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const composeFileInputRef = useRef<HTMLInputElement>(null);
+
+  const COMPOSE_MAX_PER_FILE  = 15 * 1024 * 1024;
+  const COMPOSE_MAX_TOTAL     = 25 * 1024 * 1024;
+
+  const handleComposeFilesPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (picked.length === 0) return;
+    const oversize = picked.filter(f => f.size > COMPOSE_MAX_PER_FILE);
+    const ok       = picked.filter(f => f.size <= COMPOSE_MAX_PER_FILE);
+    if (oversize.length > 0) toast.error(`Skipped ${oversize.length} file(s) over 15MB`);
+    setPendingFiles(prev => {
+      const merged = [...prev, ...ok];
+      const total = merged.reduce((n, f) => n + f.size, 0);
+      if (total > COMPOSE_MAX_TOTAL) {
+        toast.error('Attachments would exceed 25MB total — some skipped');
+        // Add newest first, keep until we hit the cap
+        const kept: File[] = [...prev];
+        let running = prev.reduce((n, f) => n + f.size, 0);
+        for (const f of ok) {
+          if (running + f.size > COMPOSE_MAX_TOTAL) break;
+          kept.push(f); running += f.size;
+        }
+        return kept;
+      }
+      return merged;
+    });
+  };
+
+  const removePendingFile = (idx: number) =>
+    setPendingFiles(prev => prev.filter((_, i) => i !== idx));
   const [replyContextId, setReplyContextId] = useState<string | null>(null);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
@@ -425,11 +458,25 @@ export default function EmailPage() {
         div.innerHTML = html;
         return (div.textContent || div.innerText || '').trim();
       };
-      return emailApi.send({ ...d, body_text: stripHtml(d.body_html || '') });
+      const bodyText = stripHtml(d.body_html || '');
+      // Multipart when any attachment is staged; plain JSON otherwise.
+      if (pendingFiles.length > 0) {
+        const fd = new FormData();
+        fd.append('account_id', d.account_id || '');
+        fd.append('to',         d.to || '');
+        if (d.cc) fd.append('cc', d.cc);
+        fd.append('subject',    d.subject || '');
+        fd.append('body_html',  d.body_html || '');
+        fd.append('body_text',  bodyText);
+        pendingFiles.forEach(f => fd.append('attachments', f));
+        return api.post('/email/send', fd);
+      }
+      return emailApi.send({ ...d, body_text: bodyText });
     },
     onSuccess: () => {
       toast.success('Email sent!');
       composeForm.reset({ to: '', cc: '', subject: '', body_html: '', account_id: activeAccountId || '' });
+      setPendingFiles([]);
       setShowCompose(false);
       setComposeMinimized(false);
       setReplyContextId(null);
@@ -495,6 +542,7 @@ export default function EmailPage() {
       body_html: replyBody,
       account_id: activeAccountId || '',
     });
+    setPendingFiles([]);
     setReplyContextId(email.id);
     setShowCompose(true);
     setComposeMinimized(false);
@@ -524,6 +572,7 @@ export default function EmailPage() {
       body_html: forwardBody,
       account_id: activeAccountId || '',
     });
+    setPendingFiles([]);
     setReplyContextId(null);
     setShowCompose(true);
     setComposeMinimized(false);
@@ -1544,6 +1593,7 @@ export default function EmailPage() {
               e.stopPropagation();
               setShowCompose(false); setComposeMinimized(false); setReplyContextId(null);
               composeForm.reset({ to: '', cc: '', subject: '', body_html: '', account_id: activeAccountId || '' });
+              setPendingFiles([]);
             }}
             className="text-muted-foreground hover:text-destructive p-1"
             title="Discard draft"
@@ -1655,14 +1705,50 @@ export default function EmailPage() {
             </div>
           )}
 
+          {pendingFiles.length > 0 && (
+            <div className="px-4 py-2 border-t border-border shrink-0 flex flex-wrap gap-1.5">
+              {pendingFiles.map((f, i) => (
+                <div key={i} className="flex items-center gap-1.5 text-xs px-2 py-1 rounded bg-secondary max-w-full">
+                  <Paperclip size={11} className="shrink-0" />
+                  <span className="truncate max-w-[180px]" title={f.name}>{f.name}</span>
+                  <span className="text-muted-foreground shrink-0">({Math.round(f.size / 1024)}KB)</span>
+                  <button
+                    type="button"
+                    onClick={() => removePendingFile(i)}
+                    className="text-muted-foreground hover:text-destructive shrink-0"
+                    title="Remove"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <input
+            ref={composeFileInputRef}
+            type="file"
+            multiple
+            onChange={handleComposeFilesPicked}
+            className="hidden"
+          />
+
           <div className="flex items-center justify-between px-4 py-3 border-t border-border shrink-0">
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => { setShowCompose(false); setAiOpen(false); setReplyContextId(null); }}
+                onClick={() => { setShowCompose(false); setAiOpen(false); setReplyContextId(null); setPendingFiles([]); }}
                 className="text-xs text-muted-foreground hover:text-foreground"
               >
                 Discard
+              </button>
+              <button
+                type="button"
+                onClick={() => composeFileInputRef.current?.click()}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                title="Attach files (up to 15MB each, 25MB total)"
+              >
+                <Paperclip size={12} /> Attach
               </button>
               <button
                 type="button"
