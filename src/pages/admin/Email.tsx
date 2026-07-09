@@ -449,7 +449,7 @@ export default function EmailPage() {
   }, [showCompose, activeAccount?.id]); // eslint-disable-line
 
   const sendMutation = useMutation({
-    mutationFn: (d: any) => {
+    mutationFn: async (d: any) => {
       // Derive a plain-text version from the rich HTML so recipients without
       // HTML support still see something readable.
       const stripHtml = (html: string) => {
@@ -459,12 +459,16 @@ export default function EmailPage() {
         return (div.textContent || div.innerText || '').trim();
       };
       const bodyText = stripHtml(d.body_html || '');
-      // Multipart when any attachment is staged; plain JSON otherwise. Override
-      // Content-Type to multipart/form-data so axios drops the instance-wide
-      // application/json default and appends the boundary. Matches the
-      // convention used by other FormData posts in this repo (chat upload,
-      // task attachments, project docs).
+      // Multipart when any attachment is staged; plain JSON otherwise. Use
+      // native fetch (mirrors the chat upload) so the browser can pin the
+      // correct multipart/form-data boundary — with the axios instance's
+      // application/json default in play, the boundary was getting stripped
+      // and multer was skipping file parsing on the backend.
       if (pendingFiles.length > 0) {
+        const API_BASE = import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1';
+        const stored = localStorage.getItem('ubp-auth');
+        let token = '';
+        try { token = stored ? JSON.parse(stored)?.state?.accessToken || '' : ''; } catch {}
         const fd = new FormData();
         fd.append('account_id', d.account_id || '');
         fd.append('to',         d.to || '');
@@ -472,10 +476,17 @@ export default function EmailPage() {
         fd.append('subject',    d.subject || '');
         fd.append('body_html',  d.body_html || '');
         fd.append('body_text',  bodyText);
-        pendingFiles.forEach(f => fd.append('attachments', f));
-        return api.post('/email/send', fd, {
-          headers: { 'Content-Type': 'multipart/form-data' },
+        pendingFiles.forEach(f => fd.append('attachments', f, f.name));
+        const res = await fetch(`${API_BASE}/email/send`, {
+          method:  'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body:    fd,
         });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `Send failed (${res.status})`);
+        }
+        return res.json();
       }
       return emailApi.send({ ...d, body_text: bodyText });
     },
