@@ -48,7 +48,9 @@ function EmojiPickerPanel({ onPick, onClose }: { onPick: (e: string) => void; on
         <button
           key={emoji}
           type="button"
-          onClick={(e) => { e.stopPropagation(); onPick(emoji); }}
+          // onMouseDown + preventDefault: fires before the textarea can lose
+          // focus, so the emoji insertion lands without a blur/reflow race.
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onPick(emoji); }}
           className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-secondary text-xl transition-transform hover:scale-125"
         >
           {emoji}
@@ -692,6 +694,20 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
   const [showEmojiToolbar, setShowEmojiToolbar] = useState(false);
 
+  // Click-outside dismiss for the per-message reaction picker. The picker
+  // itself uses onMouseDown to fire before this listener sees the event, so
+  // clicking an emoji still lands the reaction before the picker closes.
+  useEffect(() => {
+    if (!emojiPickerMsgId) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('[data-reaction-picker], [data-reaction-trigger]')) return;
+      setEmojiPickerMsgId(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [emojiPickerMsgId]);
+
   // Sort by created_at after dedup so ordering follows actual timestamps
   // rather than socket-delivery order. Without this, an incoming reply that
   // arrives on the wire slightly before the user's own outbound echo would
@@ -1049,24 +1065,36 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                     )}
                   </div>
 
-                  {/* Hover action toolbar */}
-                  {hoveredMsg === msg.id && (
+                  {/* Hover action toolbar — also stays visible while its
+                      reaction picker is open, so moving the cursor to pick an
+                      emoji doesn't cause the toolbar to unmount. */}
+                  {(hoveredMsg === msg.id || emojiPickerMsgId === msg.id) && (
                     <div className={`absolute -top-9 ${isOwn ? 'right-0' : 'left-10'} flex items-center gap-0.5 bg-card border border-border rounded-xl shadow-xl p-1 z-10`}>
                       <div className="relative">
                         <button
+                          data-reaction-trigger
                           onClick={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
                           className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors" title="React"
                         >
                           <Smile className="h-3.5 w-3.5" />
                         </button>
                         {emojiPickerMsgId === msg.id && (
-                          <div className={`absolute -top-12 ${isOwn ? 'right-0' : 'left-0'} bg-card border border-border rounded-2xl shadow-2xl p-1.5 flex gap-0.5 z-20`}
-                            onMouseLeave={() => setEmojiPickerMsgId(null)}>
+                          // No onMouseLeave — the old handler killed the picker
+                          // if the pointer briefly slipped off, so the click
+                          // never landed. Click-outside is handled by the
+                          // global dismiss effect below.
+                          <div data-reaction-picker className={`absolute -top-12 ${isOwn ? 'right-0' : 'left-0'} bg-card border border-border rounded-2xl shadow-2xl p-1.5 flex gap-0.5 z-20`}>
                             {['👍','❤️','😂','😮','😢','🔥','✅','👏'].map(emoji => (
-                              <button key={emoji} onClick={() => {
-                                api.post(`/chat/messages/${msg.id}/reaction`, { emoji }).catch(() => {});
-                                setEmojiPickerMsgId(null);
-                              }} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-secondary text-lg leading-none transition-transform hover:scale-125">
+                              <button key={emoji}
+                                // onMouseDown + preventDefault so the reaction
+                                // fires before any focus/hover race can drop it.
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  api.post(`/chat/messages/${msg.id}/reaction`, { emoji }).catch(() => {});
+                                  setEmojiPickerMsgId(null);
+                                }}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-secondary text-lg leading-none transition-transform hover:scale-125">
                                 {emoji}
                               </button>
                             ))}
