@@ -30,6 +30,22 @@ function Avatar({ name, avatarUrl, size = 8 }: { name?: string; avatarUrl?: stri
 // closed on onMouseLeave, which was flaky — moving the pointer between the
 // trigger and the panel sometimes dismissed it before the click landed).
 const EMOJI_PICKER_GLYPHS = ['😀','😂','😍','🥰','😎','🤔','😅','😭','😡','🥹','👍','❤️','🔥','✅','👏','🎉','💯','🙏','😊','🤝'];
+
+// Larger set for per-message reactions — covers common categories without
+// pulling in a full emoji-picker dependency. Ordered so the frequent ones
+// (thumbs up, heart, laugh, fire, celebrate) sit in the first row.
+const REACTION_EMOJIS = [
+  '👍','❤️','😂','😮','😢','🔥','🎉','👏',
+  '✅','💯','🙏','🤝','👌','💪','🙌','🫡',
+  '😀','😁','😄','😊','😍','🥰','😘','😉',
+  '🤔','🤨','🧐','😅','😌','😐','😑','🙄',
+  '😭','😩','😔','😞','😤','😡','🤯','😱',
+  '🥳','🥺','😴','🤤','😷','🤒','🤕','🤢',
+  '👀','👋','🤞','🤟','🖖','✌️','🤘','🫶',
+  '💔','💖','💘','💝','💗','💓','💞','💕',
+  '⭐','🌟','✨','⚡','☀️','🌈','🌸','🍀',
+  '🎂','🍕','☕','🍺','🎁','🎈','🏆','💰',
+];
 function EmojiPickerPanel({ onPick, onClose }: { onPick: (e: string) => void; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -455,11 +471,14 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
   const sendMut = useMutation({
     mutationFn: (vars: { content: string; reply_to_id?: string; localId: string }) =>
+      // 30s timeout — if the request never resolves (bad network, stuck
+      // interceptor queue) the mutation errors instead of leaving the send
+      // button in a permanent loading state.
       api.post(`/chat/rooms/${roomId}/messages`, {
         content: vars.content,
         type: 'text',
         ...(vars.reply_to_id ? { reply_to_id: vars.reply_to_id } : {}),
-      }),
+      }, { timeout: 30_000 }),
     onSuccess: (res, vars) => {
       const saved = res.data?.data || res.data;
       // Swap the optimistic bubble for the server one. If the socket already
@@ -1083,8 +1102,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                           // if the pointer briefly slipped off, so the click
                           // never landed. Click-outside is handled by the
                           // global dismiss effect below.
-                          <div data-reaction-picker className={`absolute -top-12 ${isOwn ? 'right-0' : 'left-0'} bg-card border border-border rounded-2xl shadow-2xl p-1.5 flex gap-0.5 z-20`}>
-                            {['👍','❤️','😂','😮','😢','🔥','✅','👏'].map(emoji => (
+                          <div data-reaction-picker className={`absolute bottom-full mb-2 ${isOwn ? 'right-0' : 'left-0'} w-64 bg-card border border-border rounded-2xl shadow-2xl p-2 z-20 grid grid-cols-8 gap-0.5 max-h-72 overflow-y-auto`}>
+                            {REACTION_EMOJIS.map(emoji => (
                               <button key={emoji}
                                 // onMouseDown + preventDefault so the reaction
                                 // fires before any focus/hover race can drop it.
@@ -1094,7 +1113,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                                   api.post(`/chat/messages/${msg.id}/reaction`, { emoji }).catch(() => {});
                                   setEmojiPickerMsgId(null);
                                 }}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-secondary text-lg leading-none transition-transform hover:scale-125">
+                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-secondary text-lg leading-none transition-transform hover:scale-125">
                                 {emoji}
                               </button>
                             ))}
