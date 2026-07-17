@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { confirmDelete } from './confirmDialog';
+import { useAuthStore } from '@/stores/authStore';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://foxportal.in/api/v1';
 
@@ -113,10 +114,9 @@ api.interceptors.response.use(
         // socket hooks in particular) re-renders with the new value. Without
         // this, the WebSocket connection would keep reconnecting with the old
         // token — silently rejected by the server, breaking realtime chat.
-        try {
-          const { useAuthStore } = await import('@/stores/authStore');
-          useAuthStore.setState({ accessToken, refreshToken });
-        } catch { /* store not initialised — refresh in flight before login? */ }
+        // Static import (see top of file) avoids the previous dynamic-import
+        // hang risk where a slow chunk fetch would stall the retry queue.
+        try { useAuthStore.setState({ accessToken, refreshToken }); } catch {}
         processQueue(null, accessToken);
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
