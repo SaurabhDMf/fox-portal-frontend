@@ -109,6 +109,14 @@ api.interceptors.response.use(
         const { accessToken, refreshToken } = res.data;
         current.state = { ...current.state, accessToken, refreshToken };
         localStorage.setItem('ubp-auth', JSON.stringify(current));
+        // Also push the fresh tokens through Zustand so any subscriber (the
+        // socket hooks in particular) re-renders with the new value. Without
+        // this, the WebSocket connection would keep reconnecting with the old
+        // token — silently rejected by the server, breaking realtime chat.
+        try {
+          const { useAuthStore } = await import('@/stores/authStore');
+          useAuthStore.setState({ accessToken, refreshToken });
+        } catch { /* store not initialised — refresh in flight before login? */ }
         processQueue(null, accessToken);
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
