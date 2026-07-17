@@ -692,8 +692,17 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
   const [showEmojiToolbar, setShowEmojiToolbar] = useState(false);
 
+  // Sort by created_at after dedup so ordering follows actual timestamps
+  // rather than socket-delivery order. Without this, an incoming reply that
+  // arrives on the wire slightly before the user's own outbound echo would
+  // render above the user's message, even though it was sent later.
   const allMessages = [...fetchedMessages, ...realtimeMessages]
-    .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i);
+    .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i)
+    .sort((a, b) => {
+      const ta = new Date(a.created_at || 0).getTime();
+      const tb = new Date(b.created_at || 0).getTime();
+      return ta - tb;
+    });
 
   return (
     <div
