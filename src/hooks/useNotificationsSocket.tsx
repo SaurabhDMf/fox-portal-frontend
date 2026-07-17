@@ -351,6 +351,24 @@ export function useNotificationsSocket() {
       }
 
       qc.invalidateQueries({ queryKey: ['chat-rooms'] });
+
+      // Also patch the messages cache for the room the message belongs to so
+      // whichever component (ChatMessageArea, project chat, etc.) reads that
+      // cache picks up the new bubble immediately — without waiting for
+      // staleTime to expire or the user to bounce to another room and back.
+      if (msg?.room_id) {
+        qc.setQueryData(['chat-messages', msg.room_id], (old: any) => {
+          if (!old) return old;
+          const list: any[] = Array.isArray(old) ? old : (old?.data ?? old?.messages ?? []);
+          if (!Array.isArray(list)) return old;
+          if (list.some((m: any) => m && m.id === msg.id)) return old;
+          const nextList = [...list, msg];
+          if (Array.isArray(old))          return nextList;
+          if (Array.isArray(old?.data))    return { ...old, data: nextList };
+          if (Array.isArray(old?.messages)) return { ...old, messages: nextList };
+          return old;
+        });
+      }
     };
 
     // new_email fires when IMAP sync saves fresh emails.

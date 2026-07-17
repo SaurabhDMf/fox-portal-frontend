@@ -221,7 +221,17 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     if (!initialMessagesData) return;
     const payload = initialMessagesData;
     const msgs = Array.isArray(payload) ? payload : (payload?.data ?? payload?.messages ?? []);
-    setFetchedMessages(msgs);
+    // Merge instead of replace: when the cache is patched from
+    // useNotificationsSocket (new_message) or the user has scrolled up and
+    // loaded older pages, our local fetchedMessages already has more than the
+    // 50 in the initial cache. Clobbering with msgs would wipe that history,
+    // so we only add IDs we don't already have.
+    setFetchedMessages(prev => {
+      if (prev.length === 0) return msgs;
+      const existing = new Set(prev.map((m: any) => m.id));
+      const additions = msgs.filter((m: any) => m && !existing.has(m.id));
+      return additions.length > 0 ? [...prev, ...additions] : prev;
+    });
     setHasMore(payload?.has_more ?? false);
   }, [initialMessagesData]);
 
@@ -308,7 +318,10 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           if (prev.find(m => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
-        scrollToBottom();
+        // Defer scroll until after React has committed the new bubble so
+        // scrollHeight reflects the added row — otherwise scrollToBottom lands
+        // on the old bottom and the new message sits invisible below the fold.
+        requestAnimationFrame(() => scrollToBottom());
         if (document.visibilityState === 'visible') {
           api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
         }
