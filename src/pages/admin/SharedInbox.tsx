@@ -103,6 +103,38 @@ interface SharedInbox {
 // plain text only — strip tags, decode the common entities, and collapse runs
 // of blank lines down to one so the gap between the body and signature is one
 // blank line that the user can adjust.
+// ── per-thread reply drafts ───────────────────────────────────────────────
+// Persisted in localStorage so an unfinished reply survives a page refresh or
+// navigating away. A draft lives until the message is sent or the user empties
+// the box — nothing here expires on its own except very old abandoned entries.
+const DRAFTS_KEY = 'foxportal:inbox:reply-drafts:v1';
+const DRAFT_MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000; // prune after 60 days untouched
+
+export type ReplyDraft = { subject?: string; body?: string; cc?: string; savedAt?: number };
+
+function loadDrafts(): Record<string, ReplyDraft> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DRAFTS_KEY) || '{}');
+    if (!parsed || typeof parsed !== 'object') return {};
+    // Drop entries nobody has touched in months so the key can't grow forever.
+    const cutoff = Date.now() - DRAFT_MAX_AGE_MS;
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, ReplyDraft>)
+        .filter(([, d]) => d && (!d.savedAt || d.savedAt > cutoff))
+    );
+  } catch {
+    return {}; // corrupt JSON / disabled storage — start clean rather than crash
+  }
+}
+
+function persistDrafts(all: Record<string, ReplyDraft>) {
+  try {
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(all));
+  } catch {
+    /* private mode or quota exceeded — drafts stay in memory for this session */
+  }
+}
+
 function signatureToPlain(sig: string | null | undefined): string {
   if (!sig) return '';
   const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(sig);
@@ -470,10 +502,18 @@ export default function SharedInbox() {
   const [aiReplyOpen, setAiReplyOpen] = useState(false);
   const [aiReplyHints, setAiReplyHints] = useState('');
   const replyFromInitialised = useRef<string | null>(null);
-  // In-session drafts keyed by thread id. Lets each thread remember the
-  // user's edits to subject / body / cc when they switch away and come back,
-  // instead of resetting to "Re: <thread.subject>".
-  const draftsRef = useRef<Record<string, { subject?: string; body?: string; cc?: string }>>({});
+  // Drafts keyed by thread id, hydrated from localStorage on mount. Lets each
+  // thread remember the user's edits to subject / body / cc across a refresh or
+  // leaving the page, instead of resetting to "Re: <thread.subject>".
+  const draftsRef = useRef<Record<string, ReplyDraft>>(loadDrafts());
+  // Bumped on every draft write so the thread list re-renders its Draft badges.
+  const [draftTick, setDraftTick] = useState(0);
+
+  const writeDraft = (tid: string, patch: Partial<ReplyDraft>) => {
+    draftsRef.current[tid] = { ...draftsRef.current[tid], ...patch, savedAt: Date.now() };
+    persistDrafts(draftsRef.current);
+    setDraftTick(t => t + 1);
+  };
 
   // Undo-send: when the user clicks Send we actually schedule the message
   // 30 seconds out and show a banner with a countdown. While it's pending the
@@ -562,21 +602,37 @@ export default function SharedInbox() {
   }, [threadDetail, selectedThreadId, signatureText, replyText, replyAllCC]);
 
   // onChange helpers that mirror the input into the per-thread draft so the
-  // edit survives a thread switch.
+  // edit survives a thread switch, a refresh, or leaving the page entirely.
   const onChangeReplySubject = (v: string) => {
     setReplySubject(v);
-    if (selectedThreadId) draftsRef.current[selectedThreadId] = { ...draftsRef.current[selectedThreadId], subject: v };
+    if (selectedThreadId) writeDraft(selectedThreadId, { subject: v });
   };
   const onChangeReplyText = (v: string) => {
     setReplyText(v);
-    if (selectedThreadId) draftsRef.current[selectedThreadId] = { ...draftsRef.current[selectedThreadId], body: v };
+    if (selectedThreadId) writeDraft(selectedThreadId, { body: v });
   };
   const onChangeReplyCC = (v: string) => {
     setReplyCC(v);
-    if (selectedThreadId) draftsRef.current[selectedThreadId] = { ...draftsRef.current[selectedThreadId], cc: v };
+    if (selectedThreadId) writeDraft(selectedThreadId, { cc: v });
+  };
+
+  // A thread counts as having a draft only when there's something the user
+  // actually typed. Every opened thread gets the signature seeded into the box,
+  // so a body equal to just the signature is not a draft.
+  const threadHasDraft = (tid: string) => {
+    void draftTick; // re-evaluated whenever a draft is written
+    const d = draftsRef.current[tid];
+    if (!d) return false;
+    const body = (d.body ?? '').trim();
+    const sig = signatureText.trim();
+    const bodyIsUserContent = !!body && (!sig || body !== sig);
+    return bodyIsUserContent || !!(d.cc ?? '').trim();
   };
   const clearThreadDraft = (tid: string | null) => {
-    if (tid) delete draftsRef.current[tid];
+    if (!tid) return;
+    delete draftsRef.current[tid];
+    persistDrafts(draftsRef.current);
+    setDraftTick(t => t + 1);
   };
 
   const aiDraftReply = async () => {
@@ -714,11 +770,11 @@ export default function SharedInbox() {
       setReplyFrom(pendingFrom);
       setReplySubject(pendingSubject);
       if (selectedThreadId) {
-        draftsRef.current[selectedThreadId] = {
+        writeDraft(selectedThreadId, {
           subject: pendingSubject,
           body: pendingBody,
           cc: pendingCC,
-        };
+        });
       }
       setPendingMsgId(null);
       setPendingThreadId(null);
@@ -1002,6 +1058,7 @@ export default function SharedInbox() {
             ) : threads.map(thread => (
               <ThreadRow key={thread.id} thread={thread}
                 selected={selectedThreadId === thread.id}
+                hasDraft={threadHasDraft(thread.id)}
                 isAdmin={canManageInbox} members={members} folders={folders}
                 onSelect={() => openThread(thread.id)}
                 onStatusChange={status => patchThreadMut.mutate({ tid: thread.id, data: { status } })}
@@ -1133,6 +1190,24 @@ export default function SharedInbox() {
                 <textarea value={replyText} onChange={e => onChangeReplyText(e.target.value)}
                   placeholder="Write your reply…" rows={8}
                   className="w-full px-3 py-2 text-sm bg-transparent outline-none resize-none text-gray-700 dark:text-gray-200 placeholder-gray-400 whitespace-pre-wrap" />
+                {selectedThreadId && threadHasDraft(selectedThreadId) && (
+                  <div className="flex items-center justify-between gap-3 px-3 pb-2 -mt-1">
+                    <span className="inline-flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
+                      <Check size={11} /> Draft saved — it'll still be here after a refresh
+                    </span>
+                    <button
+                      onClick={() => {
+                        clearThreadDraft(selectedThreadId);
+                        setReplyText(signatureText ? `\n\n${signatureText}` : '');
+                        setReplyCC('');
+                        const ts = threadDetail?.thread?.subject || '';
+                        setReplySubject(ts.toLowerCase().startsWith('re:') ? ts : `Re: ${ts}`);
+                      }}
+                      className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+                      Discard draft
+                    </button>
+                  </div>
+                )}
                 {showPendingBanner && (
                   <div className="flex items-center justify-between gap-3 px-3 py-2 mx-3 mb-2 rounded-lg border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/30">
                     <div className="flex items-center gap-2 text-xs text-violet-700 dark:text-violet-200">
@@ -1233,8 +1308,8 @@ export default function SharedInbox() {
 
 // ── ThreadRow ──────────────────────────────────────────────────────────────
 
-function ThreadRow({ thread, selected, isAdmin, members, folders, onSelect, onStatusChange, onAssign, onMoveFolder, onDelete }: {
-  thread: Thread; selected: boolean; isAdmin: boolean; members: any[]; folders: any[];
+function ThreadRow({ thread, selected, hasDraft, isAdmin, members, folders, onSelect, onStatusChange, onAssign, onMoveFolder, onDelete }: {
+  thread: Thread; selected: boolean; hasDraft?: boolean; isAdmin: boolean; members: any[]; folders: any[];
   onSelect: () => void; onStatusChange: (s: string) => void; onAssign: () => void; onMoveFolder: () => void;
   onDelete?: () => void;
 }) {
@@ -1269,6 +1344,12 @@ function ThreadRow({ thread, selected, isAdmin, members, folders, onSelect, onSt
         <p className={`text-xs truncate mt-0.5 ${unread ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400'}`}>{thread.last_body?.slice(0, 80)}</p>
         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
           <ThreadStatusBadge thread={thread} />
+          {hasDraft && (
+            <span title="You have an unsent reply saved for this thread"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+              <Mail size={10} /> Draft
+            </span>
+          )}
           {thread.assignee_name && <span className="text-xs text-gray-400 truncate">→ {thread.assignee_name}</span>}
           {thread.folder_name && (
             <span className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full"
