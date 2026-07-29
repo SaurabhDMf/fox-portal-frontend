@@ -3,22 +3,25 @@ import { useAuthStore } from '@/stores/authStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { User, Shield, Bell, Pencil, X, Building2, Plug, Mail, FileText } from 'lucide-react';
+import { User, Shield, Bell, Pencil, X, Building2, Plug, Mail, FileText, Sparkles } from 'lucide-react';
 import CompanySettings from '@/components/settings/CompanySettings';
 import IntegrationsSettings from '@/components/settings/IntegrationsSettings';
 import EmailSettings from '@/components/settings/EmailSettings';
 import ChangePasswordSection from '@/components/settings/ChangePasswordSection';
 import ConnectedEmailCard from '@/components/settings/ConnectedEmailCard';
 import InvoiceSettings from '@/components/settings/InvoiceSettings';
+import AiSettings from '@/components/settings/AiSettings';
 
 const tabs = [
-  { id: 'profile',      label: 'Profile',      icon: User                        },
-  { id: 'company',      label: 'Company',       icon: Building2                   },
-  { id: 'invoice',      label: 'Invoice',       icon: FileText,  adminOnly: true  },
-  { id: 'integrations', label: 'Integrations',  icon: Plug,      adminOnly: true  },
-  { id: 'email',        label: 'Email',         icon: Mail,      adminOnly: true  },
-  { id: 'security',     label: 'Security',      icon: Shield                      },
-  { id: 'notifications',label: 'Notifications', icon: Bell                        },
+  { id: 'profile',      label: 'Profile',      icon: User                             },
+  { id: 'company',      label: 'Company',       icon: Building2                        },
+  { id: 'invoice',      label: 'Invoice',       icon: FileText,  adminOnly: true       },
+  { id: 'integrations', label: 'Integrations',  icon: Plug,      adminOnly: true       },
+  { id: 'email',        label: 'Email',         icon: Mail,      adminOnly: true       },
+  // Holds the Anthropic API key — super_admin only, not plain admin.
+  { id: 'ai',           label: 'AI',            icon: Sparkles,  superAdminOnly: true  },
+  { id: 'security',     label: 'Security',      icon: Shield                           },
+  { id: 'notifications',label: 'Notifications', icon: Bell                             },
 ];
 
 const notificationSettings = [
@@ -37,6 +40,7 @@ export default function AdminSettings() {
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'profile');
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
+  const isSuperAdmin = user?.role === 'super_admin';
   const [saving, setSaving] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: user?.full_name || '', department: user?.department || '', job_title: user?.job_title || '' });
@@ -57,7 +61,7 @@ export default function AdminSettings() {
 
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto">
-        {tabs.filter(t => !t.adminOnly || isAdmin).map(t => (
+        {tabs.filter(t => (!t.adminOnly || isAdmin) && (!t.superAdminOnly || isSuperAdmin)).map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
             <t.icon className="h-3.5 w-3.5" /> {t.label}
           </button>
@@ -143,6 +147,10 @@ export default function AdminSettings() {
 
       {/* Email (SMTP) */}
       {tab === 'email' && isAdmin && <EmailSettings />}
+
+      {/* Guarded in the UI and again on the server — every /superadmin route
+          sits behind the isSuperAdmin middleware. */}
+      {tab === 'ai' && isSuperAdmin && <AiSettings />}
 
       {/* Security */}
       {tab === 'security' && <ChangePasswordSection />}
