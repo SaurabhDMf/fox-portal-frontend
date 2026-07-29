@@ -181,6 +181,7 @@ export const inboxApi = {
   updateInbox:   (id: string, data: any) => api.put(`/inbox/${id}`, data),
   deleteInbox:   (id: string)      => api.delete(`/inbox/${id}`),
   syncInbox:       (id: string) => api.post(`/inbox/${id}/sync`),
+  resetSyncBackoff:(id: string) => api.post(`/inbox/${id}/sync/reset-backoff`),
   pullOlderEmails: (id: string) => api.post(`/inbox/${id}/pull-older`),
   // Folders
   getFolders:    (id: string)               => api.get(`/inbox/${id}/folders`),

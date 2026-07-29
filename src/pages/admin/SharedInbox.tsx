@@ -381,13 +381,46 @@ export default function SharedInbox() {
     onError: (e: any) => toast.error(errMsg(e)),
   });
 
+  // Clears the server-side cool-down, then immediately retries. Offered when a
+  // sync is paused so the admin isn't stuck waiting out the 30-minute window
+  // after fixing whatever caused the failures.
+  const retryAfterPause = async () => {
+    if (!selectedInboxId) return;
+    try {
+      await inboxApi.resetSyncBackoff(selectedInboxId);
+      syncMut.mutate();
+    } catch (e: any) {
+      toast.error(errMsg(e));
+    }
+  };
+
   const syncMut = useMutation({
     mutationFn: () => inboxApi.syncInbox(selectedInboxId!),
     onSuccess: (r) => {
       toast.success(`Synced — ${r.data.synced} new message(s)`);
       qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
     },
-    onError: (e: any) => toast.error(errMsg(e)),
+    onError: (e: any) => {
+      // A 429 means the inbox is in its cool-down, not that the sync itself
+      // failed — offer the override instead of a dead-end error toast.
+      if (e?.response?.status === 429 && canManageInbox) {
+        toast(
+          (t) => (
+            <div className="text-xs">
+              <p className="mb-2">{errMsg(e)}</p>
+              <button
+                onClick={() => { toast.dismiss(t.id); retryAfterPause(); }}
+                className="px-2 py-1 rounded bg-violet-600 text-white text-xs font-medium">
+                Retry now
+              </button>
+            </div>
+          ),
+          { duration: 10000 }
+        );
+        return;
+      }
+      toast.error(errMsg(e));
+    },
   });
 
   const pullOlderMut = useMutation({
