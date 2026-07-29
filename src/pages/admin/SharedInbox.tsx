@@ -137,6 +137,7 @@ interface Message {
   subject: string; body_text?: string; body_html?: string;
   sender_name?: string; is_ai_generated: number;
   scheduled_at?: string; sent_at?: string; status: string; created_at: string;
+  send_attempts?: number; last_send_error?: string;
 }
 
 interface Sender { id: string; email_address: string; display_name?: string; }
@@ -493,6 +494,48 @@ export default function SharedInbox() {
     [selectedInbox?.signature]
   );
 
+  // Reply-all: seed the CC box from the last inbound message so anyone who was
+  // on the original thread stays on it. Previously CC started empty on every
+  // reply, so third parties the client had CC'd were silently dropped unless
+  // the sender retyped them by hand.
+  //
+  // Filtered out: our own inbox/sender addresses (never CC ourselves) and the
+  // client, who is already the To recipient. Handles "Name <a@b.com>" wrappers
+  // and both comma- and semicolon-separated lists.
+  const replyAllCC = useMemo(() => {
+    const inbound = (threadDetail?.messages || []).filter((m: any) => m.direction === 'inbound');
+    const last = inbound[inbound.length - 1];
+    if (!last) return '';
+
+    const ours = new Set(
+      [
+        ...(threadDetail?.senders || []).map((s: any) => s.email_address),
+        threadDetail?.thread?.received_on,
+        threadDetail?.thread?.client_email,
+        last.from_address,
+      ]
+        .filter(Boolean)
+        .map((e: string) => e.toLowerCase().trim())
+    );
+
+    const seen = new Set<string>();
+    return [last.to_addresses, last.cc_addresses]
+      .filter(Boolean)
+      .join(',')
+      .split(/[,;]/)
+      .map((raw: string) => {
+        const angle = raw.match(/<([^>]+)>/);
+        return (angle ? angle[1] : raw).trim();
+      })
+      .filter((addr: string) => {
+        const key = addr.toLowerCase();
+        if (!addr.includes('@') || ours.has(key) || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .join(', ');
+  }, [threadDetail]);
+
   useEffect(() => {
     if (!threadDetail?.senders?.length || !selectedThreadId) return;
     const seed = signatureText ? `\n\n${signatureText}` : '';
@@ -509,14 +552,14 @@ export default function SharedInbox() {
       const draft = draftsRef.current[selectedThreadId] || {};
       setReplySubject(draft.subject ?? defaultSubject);
       setReplyText(draft.body ?? seed);
-      setReplyCC(draft.cc ?? '');
+      setReplyCC(draft.cc ?? replyAllCC);
     } else if (seed && !replyText.trim() && draftsRef.current[selectedThreadId]?.body === undefined) {
       // The thread was opened before the inbox (and its signature) finished
       // loading — drop the signature in now since the composer is still blank
       // AND the user hasn't started editing this thread's draft.
       setReplyText(seed);
     }
-  }, [threadDetail, selectedThreadId, signatureText, replyText]);
+  }, [threadDetail, selectedThreadId, signatureText, replyText, replyAllCC]);
 
   // onChange helpers that mirror the input into the per-thread draft so the
   // edit survives a thread switch.
@@ -1313,6 +1356,7 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isOut = msg.direction === 'outbound';
   const isScheduled = msg.status === 'scheduled';
+  const isFailed = msg.status === 'failed';
   const hasHtml = !!msg.body_html && !isOut;
 
   const DeleteBtn = () => canDelete ? (
@@ -1371,6 +1415,13 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
           {isScheduled && (
             <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
               <Clock size={10} /> Scheduled {fmtDateTime(msg.scheduled_at)}
+            </span>
+          )}
+          {isFailed && (
+            <span
+              title={msg.last_send_error || 'Send failed'}
+              className="inline-flex items-center gap-1 text-xs text-rose-600 bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded-full">
+              <X size={10} /> Not sent — delivery failed
             </span>
           )}
           <DeleteBtn />
