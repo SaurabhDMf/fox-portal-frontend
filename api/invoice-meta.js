@@ -45,7 +45,9 @@ async function fetchInvoiceNumber(token) {
   }
 }
 
-module.exports = async (req, res) => {
+// ESM export — package.json sets "type": "module", so a CommonJS
+// `module.exports` here fails at load with FUNCTION_INVOCATION_FAILED.
+export default async function handler(req, res) {
   const token = String((req.query && req.query.token) || '').trim();
   const number = token ? await fetchInvoiceNumber(token) : null;
 
@@ -84,4 +86,4 @@ module.exports = async (req, res) => {
     <p><a href="${u}">Open invoice</a></p>
   </body>
 </html>`);
-};
+}
