@@ -1,6 +1,17 @@
 {
   "rewrites": [
     { "source": "/api/v1/(.*)", "destination": "https://foxportal.in/api/v1/$1" },
+    {
+      "source": "/invoice/:token",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|WhatsApp|Twitterbot|LinkedInBot|Slackbot|Slack-ImgProxy|TelegramBot|Discordbot|Googlebot|Google-InspectionTool|bingbot|Applebot|SkypeUriPreview|redditbot|Embedly|Iframely|iframely|vkShare|Pinterest|Mastodon|Bluesky|DuckDuckBot|YandexBot|Baiduspider).*"
+        }
+      ],
+      "destination": "/api/invoice-meta?token=:token"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
