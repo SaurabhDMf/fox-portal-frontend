@@ -14,9 +14,19 @@ const inputCls =
 
 export default function SendInvoiceModal({ invoice, onClose }: Props) {
   const qc = useQueryClient();
-  const [recipient, setRecipient] = useState(
-    invoice.client?.email || invoice.billing_email || invoice.client_email || ''
-  );
+
+  // Mirror the server's own resolution order (POST /invoices/:id/send):
+  // invoice billing_email first, then the client record. Anything else here
+  // would show one address in the box and mail a different one.
+  const resolved: string =
+    invoice.billing_email || invoice.client_email || invoice.client?.email || '';
+  const resolvedFrom = invoice.billing_email
+    ? 'invoice billing details'
+    : (invoice.client_email || invoice.client?.email)
+      ? `client record — ${invoice.company_name || 'client'}`
+      : null;
+
+  const [recipient, setRecipient] = useState(resolved);
   const [includeLink, setIncludeLink] = useState(true);
 
   const sendMut = useMutation({
@@ -66,6 +76,16 @@ export default function SendInvoiceModal({ invoice, onClose }: Props) {
             className={inputCls + ' w-full mt-1'}
             placeholder="client@example.com"
           />
+          {resolvedFrom ? (
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Auto-filled from {resolvedFrom}. Edit it to send somewhere else.
+            </p>
+          ) : (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+              No email on file for {invoice.company_name || 'this client'} — add one on the client
+              record, or type an address here for this send.
+            </p>
+          )}
         </div>
 
         <label className="flex items-center gap-2 text-sm cursor-pointer">
