@@ -1543,6 +1543,17 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
         <div className={`rounded-2xl px-4 py-3 text-sm ${isOut ? 'bg-violet-600 text-white rounded-tr-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-tl-sm'}`}>
           <pre className="whitespace-pre-wrap font-sans">{msg.body_text}</pre>
         </div>
+        {/* Show the mail server's own words inline. Keeping this in a tooltip
+            meant a failed client email looked unexplained unless you knew to hover. */}
+        {isFailed && msg.last_send_error && (
+          <div className="max-w-full text-xs rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20 px-3 py-2 text-rose-700 dark:text-rose-300">
+            <span className="font-medium">Mail server said:</span>{' '}
+            <span className="break-words">{msg.last_send_error}</span>
+            {typeof msg.send_attempts === 'number' && msg.send_attempts > 0 && (
+              <span className="opacity-70"> (after {msg.send_attempts} attempts)</span>
+            )}
+          </div>
+        )}
         {msg.cc_addresses && <span className="text-xs text-gray-400">CC: {msg.cc_addresses}</span>}
       </div>
     </div>
