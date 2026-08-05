@@ -755,7 +755,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       type: 'text', content: text,
       sender_id: user?.id, sender_name: user?.full_name, sender_avatar: (user as any)?.avatar_url,
       created_at: new Date().toISOString(), room_id: roomId,
-      ...(replySnapshot ? { reply_to_id: replySnapshot.id, reply_to: replySnapshot } : {}),
+      // Flat fields matching the server row shape (reply_to_content/_type/
+      // _sender_name) — not a nested `reply_to` object — so the reply quote
+      // renders on the optimistic bubble immediately instead of only after
+      // the round trip swaps in the real message.
+      ...(replySnapshot ? {
+        reply_to_id: replySnapshot.id,
+        reply_to_content: replySnapshot.content,
+        reply_to_type: replySnapshot.type,
+        reply_to_sender_name: replySnapshot.sender_name,
+      } : {}),
     };
     setRealtimeMessages(prev => [...prev, optimistic]);
     requestAnimationFrame(() => scrollToBottom(true));
@@ -1053,7 +1062,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                     {/* Reply snippet */}
                     {msg.reply_to_id && msg.reply_to_content && (
                       <div className={`text-xs px-3 py-1.5 mb-0.5 rounded-lg border-l-2 border-primary/50 bg-secondary/60 text-muted-foreground max-w-full ${isOwn ? 'text-right border-l-0 border-r-2' : ''}`}>
-                        <span className="font-medium">{msg.reply_to_sender || 'User'}</span>: {msg.reply_to_content.slice(0, 80)}
+                        <span className="font-medium">{msg.reply_to_sender_name || 'User'}</span>: {msg.reply_to_content.slice(0, 80)}
                       </div>
                     )}
 
@@ -1104,13 +1113,17 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                       )}
                       {/* Reactions */}
                       {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                        <div className="flex gap-1 mt-1.5 flex-wrap -mb-0.5">
+                        <div className="flex gap-1 mt-1.5 flex-wrap">
                           {Object.entries(msg.reactions).map(([emoji, users]: [string, any]) => (
                             <button key={emoji}
                               onClick={() => reactMut.mutate({ id: msg.id, emoji })}
-                              className={`text-xs rounded-full px-2 py-0.5 flex items-center gap-0.5 ${isOwn ? 'bg-primary-foreground/15 hover:bg-primary-foreground/25' : 'bg-background/60 hover:bg-background border border-border/50'}`}>
-                              <span>{emoji}</span>
-                              <span className="font-medium">{Array.isArray(users) ? users.length : users}</span>
+                              className={`rounded-full pl-1.5 pr-2 py-1 flex items-center gap-1 leading-none ${isOwn ? 'bg-primary-foreground/15 hover:bg-primary-foreground/25' : 'bg-background/60 hover:bg-background border border-border/50'}`}>
+                              {/* Emoji glyphs render visually larger than text at the
+                                  same font-size, so giving them their own size and
+                                  baselining both spans on leading-none keeps the
+                                  count from looking sunken/off-center next to it. */}
+                              <span className="text-sm leading-none">{emoji}</span>
+                              <span className="text-[11px] font-medium leading-none translate-y-[0.5px]">{Array.isArray(users) ? users.length : users}</span>
                             </button>
                           ))}
                         </div>
