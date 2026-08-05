@@ -271,7 +271,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     if (initialScrollDoneRef.current || fetchedMessages.length === 0) return;
     const el = messagesContainerRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    el.scrollTop = el.scrollHeight + 99999;
     initialScrollDoneRef.current = true;
     setIsScrollReady(true);
   }, [fetchedMessages]);
@@ -478,7 +478,15 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     if (!el) return;
     // Only auto-scroll if user is already near the bottom, or forced (own send/upload)
     if (force || isNearBottomRef.current) {
-      el.scrollTop = el.scrollHeight;
+      // Assign an oversized scrollTop rather than reading el.scrollHeight —
+      // the browser clamps it to whatever the true max is *at assignment
+      // time*, so a scrollHeight read that's stale by even a frame (new
+      // bubble/avatar not fully laid out yet) can't leave it undershooting.
+      // (Deliberately not scrollIntoView here: the page has a real
+      // overflow-y-auto ancestor — PortalLayout's Outlet wrapper — and
+      // scrollIntoView would be free to scroll that instead of this
+      // container, reintroducing a whole-page-scroll bug.)
+      el.scrollTop = el.scrollHeight + 99999;
       isNearBottomRef.current = true;
     }
   };
