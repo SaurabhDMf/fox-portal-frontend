@@ -1111,19 +1111,25 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                           {Boolean(msg.is_edited) && <span className="text-[10px] opacity-50 ml-1.5">(edited)</span>}
                         </p>
                       )}
-                      {/* Reactions */}
+                      {/* Reactions — a floating chip (shadow, not a hard border)
+                          so it reads as part of the bubble's surface instead of
+                          a flat sticker dropped on top of it. */}
                       {msg.reactions && Object.keys(msg.reactions).length > 0 && (
                         <div className="flex gap-1 mt-1.5 flex-wrap">
                           {Object.entries(msg.reactions).map(([emoji, users]: [string, any]) => (
                             <button key={emoji}
                               onClick={() => reactMut.mutate({ id: msg.id, emoji })}
-                              className={`rounded-full pl-1.5 pr-2 py-1 flex items-center gap-1 leading-none ${isOwn ? 'bg-primary-foreground/15 hover:bg-primary-foreground/25' : 'bg-background/60 hover:bg-background border border-border/50'}`}>
+                              className={`rounded-full pl-1.5 pr-2 py-1 flex items-center gap-1 leading-none shadow-sm transition-all hover:scale-105 ${
+                                isOwn
+                                  ? 'bg-primary-foreground/20 hover:bg-primary-foreground/30'
+                                  : 'bg-card text-foreground hover:shadow-md'
+                              }`}>
                               {/* Emoji glyphs render visually larger than text at the
                                   same font-size, so giving them their own size and
                                   baselining both spans on leading-none keeps the
                                   count from looking sunken/off-center next to it. */}
                               <span className="text-sm leading-none">{emoji}</span>
-                              <span className="text-[11px] font-medium leading-none translate-y-[0.5px]">{Array.isArray(users) ? users.length : users}</span>
+                              <span className="text-[11px] font-semibold leading-none translate-y-[0.5px] opacity-70">{Array.isArray(users) ? users.length : users}</span>
                             </button>
                           ))}
                         </div>
