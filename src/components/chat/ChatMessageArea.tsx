@@ -511,14 +511,31 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       }
       return api.put(`/chat/messages/${id}`, { content });
     },
+    // Show the edited text immediately; roll back if the server rejects it.
+    onMutate: ({ id, content }) => {
+      if (String(id).startsWith('local-')) return {};
+      let prev: any = null;
+      const patch = (m: any) => {
+        if (m.id !== id) return m;
+        prev = { content: m.content, is_edited: m.is_edited };
+        return { ...m, content, is_edited: true };
+      };
+      setFetchedMessages(p => p.map(patch));
+      setRealtimeMessages(p => p.map(patch));
+      setEditingMsg(null);
+      setEditText('');
+      return { id, prev };
+    },
     onSuccess: (res) => {
       const updated = res.data?.data || res.data;
       setFetchedMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
       setRealtimeMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
-      setEditingMsg(null);
-      setEditText('');
     },
-    onError: (err: any) => {
+    onError: (err: any, _vars, ctx) => {
+      if (ctx?.prev) {
+        setFetchedMessages(prev => prev.map(m => m.id === ctx.id ? { ...m, ...ctx.prev } : m));
+        setRealtimeMessages(prev => prev.map(m => m.id === ctx.id ? { ...m, ...ctx.prev } : m));
+      }
       const msg = err?.response?.data?.error || err?.message || 'Could not edit message';
       toast.error(msg);
     },
@@ -526,9 +543,57 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.delete(`/chat/messages/${id}`),
-    onSuccess: (_, id) => {
-      setFetchedMessages(prev => prev.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString(), is_deleted: true } : m));
-      setRealtimeMessages(prev => prev.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString(), is_deleted: true } : m));
+    // Hide the message immediately; restore it if the delete fails.
+    onMutate: (id: string) => {
+      const now = new Date().toISOString();
+      let prev: any = null;
+      const patch = (m: any) => {
+        if (m.id !== id) return m;
+        prev = { deleted_at: m.deleted_at, is_deleted: m.is_deleted };
+        return { ...m, deleted_at: now, is_deleted: true };
+      };
+      setFetchedMessages(p => p.map(patch));
+      setRealtimeMessages(p => p.map(patch));
+      return { prev };
+    },
+    onError: (_err, id, ctx) => {
+      if (ctx?.prev) {
+        setFetchedMessages(prev => prev.map(m => m.id === id ? { ...m, ...ctx.prev } : m));
+        setRealtimeMessages(prev => prev.map(m => m.id === id ? { ...m, ...ctx.prev } : m));
+      }
+      toast.error('Could not delete message');
+    },
+  });
+
+  const reactMut = useMutation({
+    mutationFn: ({ id, emoji }: { id: string; emoji: string }) =>
+      api.post(`/chat/messages/${id}/react`, { emoji }).then(r => r.data),
+    // Toggle the reaction instantly for the clicking user instead of waiting
+    // for the round trip / socket echo.
+    onMutate: ({ id, emoji }) => {
+      const uid = user?.id;
+      let prevReactions: any = null;
+      const toggle = (m: any) => {
+        if (m.id !== id) return m;
+        prevReactions = m.reactions || {};
+        const reactions = { ...prevReactions };
+        const users: string[] = reactions[emoji] || [];
+        reactions[emoji] = users.includes(uid) ? users.filter((u: string) => u !== uid) : [...users, uid];
+        if (reactions[emoji].length === 0) delete reactions[emoji];
+        return { ...m, reactions };
+      };
+      setFetchedMessages(prev => prev.map(toggle));
+      setRealtimeMessages(prev => prev.map(toggle));
+      return { prevReactions };
+    },
+    onSuccess: (data, { id }) => {
+      setFetchedMessages(prev => prev.map(m => m.id === id ? { ...m, reactions: data.reactions } : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === id ? { ...m, reactions: data.reactions } : m));
+    },
+    onError: (_err, { id }, ctx) => {
+      setFetchedMessages(prev => prev.map(m => m.id === id ? { ...m, reactions: ctx?.prevReactions ?? m.reactions } : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === id ? { ...m, reactions: ctx?.prevReactions ?? m.reactions } : m));
+      toast.error('Could not react — try again');
     },
   });
 
@@ -731,13 +796,18 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   // rather than socket-delivery order. Without this, an incoming reply that
   // arrives on the wire slightly before the user's own outbound echo would
   // render above the user's message, even though it was sent later.
-  const allMessages = [...fetchedMessages, ...realtimeMessages]
-    .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i)
-    .sort((a, b) => {
-      const ta = new Date(a.created_at || 0).getTime();
-      const tb = new Date(b.created_at || 0).getTime();
-      return ta - tb;
-    });
+  // Memoized: this list previously re-sorted/deduped on every render (hover,
+  // typing, emoji picker open/close, etc.), which got visibly slow in longer
+  // conversations. It now only recomputes when the message arrays change.
+  const allMessages = useMemo(() => {
+    return [...fetchedMessages, ...realtimeMessages]
+      .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i)
+      .sort((a, b) => {
+        const ta = new Date(a.created_at || 0).getTime();
+        const tb = new Date(b.created_at || 0).getTime();
+        return ta - tb;
+      });
+  }, [fetchedMessages, realtimeMessages]);
 
   return (
     <div
@@ -1037,7 +1107,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                         <div className="flex gap-1 mt-1.5 flex-wrap -mb-0.5">
                           {Object.entries(msg.reactions).map(([emoji, users]: [string, any]) => (
                             <button key={emoji}
-                              onClick={() => api.post(`/chat/messages/${msg.id}/reaction`, { emoji }).catch(() => {})}
+                              onClick={() => reactMut.mutate({ id: msg.id, emoji })}
                               className={`text-xs rounded-full px-2 py-0.5 flex items-center gap-0.5 ${isOwn ? 'bg-primary-foreground/15 hover:bg-primary-foreground/25' : 'bg-background/60 hover:bg-background border border-border/50'}`}>
                               <span>{emoji}</span>
                               <span className="font-medium">{Array.isArray(users) ? users.length : users}</span>
@@ -1110,7 +1180,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                                 onMouseDown={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  api.post(`/chat/messages/${msg.id}/reaction`, { emoji }).catch(() => {});
+                                  reactMut.mutate({ id: msg.id, emoji });
                                   setEmojiPickerMsgId(null);
                                 }}
                                 className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-secondary text-lg leading-none transition-transform hover:scale-125">

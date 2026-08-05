@@ -61,14 +61,12 @@ export default function ClientDetail() {
           invoices: 'Invoice',
           leads: 'Lead',
           projects: 'Project',
-          tickets: 'Ticket',
           contacts: 'Contact',
         },
         onViewDependency: {
           invoices: () => navigate(`${base}/invoicing?client_id=${id}`),
           leads: () => navigate(`${base}/crm?client_id=${id}`),
           projects: () => navigate(`${base}/projects?client_id=${id}`),
-          tickets: () => navigate(`${base}/tickets?client_id=${id}`),
         },
       }),
     onSuccess: () => {
