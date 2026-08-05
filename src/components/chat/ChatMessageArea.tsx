@@ -281,8 +281,9 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     const el = messagesContainerRef.current;
     if (!el) return;
 
-    // Keep track of whether user is near the bottom
-    isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    // Keep track of whether user is near the bottom (matches the threshold
+    // used when a new message arrives, so the two checks always agree).
+    isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 300;
 
     if (!hasMore || loadingMessages) return;
     if (el.scrollTop < 50) {
@@ -332,14 +333,28 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       // event belongs to the currently-open room — otherwise we'd inject
       // someone else's DM into whichever chat we have on screen.
       if (msg?.room_id === roomId) {
+        // Recompute "am I at the bottom" fresh right now instead of trusting
+        // isNearBottomRef alone — that ref only updates on actual scroll
+        // events, so a room that was opened and never manually scrolled (the
+        // common case for a short thread) could be relying on a value that's
+        // never been recalculated since the room-change reset. Also treat
+        // "nothing to scroll" (whole thread fits on screen) as always-bottom.
+        const el = messagesContainerRef.current;
+        if (el) {
+          isNearBottomRef.current =
+            el.scrollHeight <= el.clientHeight ||
+            el.scrollHeight - el.scrollTop - el.clientHeight < 300;
+        }
         setRealtimeMessages(prev => {
           if (prev.find(m => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
-        // Defer scroll until after React has committed the new bubble so
-        // scrollHeight reflects the added row — otherwise scrollToBottom lands
-        // on the old bottom and the new message sits invisible below the fold.
-        requestAnimationFrame(() => scrollToBottom());
+        // Double-RAF: a single frame can still land before the browser has
+        // finished laying out the new bubble (e.g. text wrapping to another
+        // line), which reads a too-short scrollHeight and leaves the new
+        // message sitting just below the fold. Waiting a frame further
+        // guarantees layout has settled.
+        requestAnimationFrame(() => requestAnimationFrame(() => scrollToBottom()));
         if (document.visibilityState === 'visible') {
           api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
         }
