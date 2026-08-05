@@ -427,15 +427,19 @@ export default function EmailPage() {
   // if no signature is set. Used by new-compose, reply, and forward.
   const buildSignatureHtml = (sig: string | undefined | null): string => {
     if (!sig || !sig.trim()) return '';
+    // Inline styles (not classes) so the muted/divider look survives in the
+    // recipient's inbox too, not just our own editor preview.
+    const sigStyle = 'color:#6b7280;font-size:13px;line-height:1.5;';
     const sigHtml = sig
       .split('\n')
       .map((line: string) => {
         const safe = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<p>${safe || '<br>'}</p>`;
+        return `<p style="${sigStyle}">${safe || '<br>'}</p>`;
       })
       .join('');
-    // Two blank lines + "--" separator + signature paragraphs.
-    return `<p><br></p><p>--</p>${sigHtml}`;
+    // Two blank lines + a divider (not just a plain "--" line) so the
+    // signature is visually distinct from the message the user is typing.
+    return `<p><br></p><p style="border-top:1px solid #e5e7eb;margin:8px 0 0;padding-top:8px;"></p>${sigHtml}`;
   };
 
   useEffect(() => {
@@ -880,7 +884,7 @@ export default function EmailPage() {
       {/* ───────── COL 2 + 3 — LIST + DETAIL (resizable) ───────── */}
       <PanelGroup direction="horizontal" autoSaveId="email-list-detail" className="flex-1 min-h-0">
       <Panel defaultSize={35} minSize={24} maxSize={55} order={2} id="list">
-      <section className="h-full border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col">
+      <section className="h-full border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col overflow-hidden">
 
         {/* Top search + compose bar */}
         <div className="px-3 py-2.5 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2 shrink-0">
@@ -936,7 +940,7 @@ export default function EmailPage() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {isLoading ? (
             <div className="p-6 text-center text-sm text-muted-foreground">Loading…</div>
           ) : messages.length === 0 ? (
@@ -1151,7 +1155,7 @@ export default function EmailPage() {
             </div>
 
             {/* Conversation thread — scrollable, oldest → newest */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2">
               {(selectedThread ? [...selectedThread.msgs].reverse() : (email ? [email] : [])).map((msg: any) => {
                 const isCurrentSelected = msg.id === email?.id;
                 const cachedFull = threadEmailCache[msg.id];
@@ -1287,7 +1291,7 @@ export default function EmailPage() {
 
           {/* List view (when no email selected) OR Detail view */}
           {!selectedId ? (
-            <section className="flex-1 min-h-0 flex flex-col bg-card">
+            <section className="flex-1 min-h-0 flex flex-col bg-card overflow-hidden">
               {/* Mobile toolbar — hamburger + folder name */}
               <div className="px-3 py-2.5 border-b border-border flex items-center gap-2 shrink-0">
                 <button
@@ -1360,7 +1364,7 @@ export default function EmailPage() {
               )}
 
               {/* Message list (mobile) — same body as desktop, just full-width */}
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 {isLoading ? (
                   <div className="p-6 text-center text-sm text-muted-foreground">Loading…</div>
                 ) : messages.length === 0 ? (
@@ -1490,7 +1494,7 @@ export default function EmailPage() {
               </div>
             </section>
           ) : (
-            <section className="flex-1 min-h-0 flex flex-col bg-background">
+            <section className="flex-1 min-h-0 flex flex-col bg-background overflow-hidden">
               {/* Mobile detail toolbar */}
               <div className="px-2 py-2 border-b border-border flex items-center gap-1 shrink-0">
                 <button onClick={() => setSelectedId(null)} className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted inline-flex items-center gap-1" aria-label="Back to list">
@@ -1515,7 +1519,7 @@ export default function EmailPage() {
               {!email ? (
                 <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">Loading…</div>
               ) : (
-                <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+                <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-2">
                   {(selectedThread ? [...selectedThread.msgs].reverse() : [email]).map((msg: any) => {
                     const isCurrentSelected = msg.id === email?.id;
                     const cachedFull = threadEmailCache[msg.id];
