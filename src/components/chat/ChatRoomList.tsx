@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Plus, MessageSquare, Search, Hash, User, Bell } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -40,6 +40,7 @@ function getDisplayName(room: ChatRoom) {
 }
 
 export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, onCreateDM, hideCreateGroup = false }: Props) {
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'dm' | 'group'>('all');
   const user = useAuthStore(s => s.user);
@@ -73,6 +74,26 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
   });
 
   const typedRooms = rooms as ChatRoom[];
+
+  // Prefetch messages for a room into the same react-query cache key
+  // ChatMessageArea reads from, so opening it shows messages immediately
+  // instead of a loading state. Options must mirror ChatMessageArea's
+  // useQuery exactly (staleTime/gcTime) or the two disagree on freshness.
+  const prefetchRoomMessages = (roomId: string) => {
+    qc.prefetchQuery({
+      queryKey: ['chat-messages', roomId],
+      queryFn: () => api.get(`/chat/rooms/${roomId}/messages?limit=50`).then(r => r.data),
+      staleTime: 30_000,
+    });
+  };
+
+  // /chat/rooms has no server-side limit, so a heavy user could have dozens
+  // of rooms — only preload the most recent ones on mount (already sorted
+  // by activity by the backend); the rest get prefetched on hover instead.
+  useEffect(() => {
+    (rooms as ChatRoom[]).slice(0, 8).forEach(r => prefetchRoomMessages(r.id));
+  }, [rooms]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const dmUnread = typedRooms.filter(r => r.type === '1-to-1' && Number(r.unread_count) > 0).length;
   const grpUnread = typedRooms.filter(r => r.type === 'Group' && Number(r.unread_count) > 0).length;
 
@@ -194,6 +215,7 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
             <button
               key={room.id}
               onClick={() => onSelectRoom(room.id)}
+              onMouseEnter={() => prefetchRoomMessages(room.id)}
               className={`w-full flex items-center gap-3 p-3 text-left hover:bg-secondary/50 transition-colors ${activeRoom === room.id ? 'bg-secondary' : ''}`}
             >
               <RoomAvatar room={room} displayName={displayName} />
