@@ -271,7 +271,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     if (initialScrollDoneRef.current || fetchedMessages.length === 0) return;
     const el = messagesContainerRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    el.scrollTop = el.scrollHeight + 99999;
     initialScrollDoneRef.current = true;
     setIsScrollReady(true);
   }, [fetchedMessages]);
@@ -281,8 +281,9 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     const el = messagesContainerRef.current;
     if (!el) return;
 
-    // Keep track of whether user is near the bottom
-    isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    // Keep track of whether user is near the bottom (matches the threshold
+    // used when a new message arrives, so the two checks always agree).
+    isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 300;
 
     if (!hasMore || loadingMessages) return;
     if (el.scrollTop < 50) {
@@ -332,14 +333,28 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       // event belongs to the currently-open room — otherwise we'd inject
       // someone else's DM into whichever chat we have on screen.
       if (msg?.room_id === roomId) {
+        // Recompute "am I at the bottom" fresh right now instead of trusting
+        // isNearBottomRef alone — that ref only updates on actual scroll
+        // events, so a room that was opened and never manually scrolled (the
+        // common case for a short thread) could be relying on a value that's
+        // never been recalculated since the room-change reset. Also treat
+        // "nothing to scroll" (whole thread fits on screen) as always-bottom.
+        const el = messagesContainerRef.current;
+        if (el) {
+          isNearBottomRef.current =
+            el.scrollHeight <= el.clientHeight ||
+            el.scrollHeight - el.scrollTop - el.clientHeight < 300;
+        }
         setRealtimeMessages(prev => {
           if (prev.find(m => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
-        // Defer scroll until after React has committed the new bubble so
-        // scrollHeight reflects the added row — otherwise scrollToBottom lands
-        // on the old bottom and the new message sits invisible below the fold.
-        requestAnimationFrame(() => scrollToBottom());
+        // Double-RAF: a single frame can still land before the browser has
+        // finished laying out the new bubble (e.g. text wrapping to another
+        // line), which reads a too-short scrollHeight and leaves the new
+        // message sitting just below the fold. Waiting a frame further
+        // guarantees layout has settled.
+        requestAnimationFrame(() => requestAnimationFrame(() => scrollToBottom()));
         if (document.visibilityState === 'visible') {
           api.post(`/chat/rooms/${roomId}/read`).catch(() => {});
         }
@@ -463,7 +478,15 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     if (!el) return;
     // Only auto-scroll if user is already near the bottom, or forced (own send/upload)
     if (force || isNearBottomRef.current) {
-      el.scrollTop = el.scrollHeight;
+      // Assign an oversized scrollTop rather than reading el.scrollHeight —
+      // the browser clamps it to whatever the true max is *at assignment
+      // time*, so a scrollHeight read that's stale by even a frame (new
+      // bubble/avatar not fully laid out yet) can't leave it undershooting.
+      // (Deliberately not scrollIntoView here: the page has a real
+      // overflow-y-auto ancestor — PortalLayout's Outlet wrapper — and
+      // scrollIntoView would be free to scroll that instead of this
+      // container, reintroducing a whole-page-scroll bug.)
+      el.scrollTop = el.scrollHeight + 99999;
       isNearBottomRef.current = true;
     }
   };
@@ -511,14 +534,31 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       }
       return api.put(`/chat/messages/${id}`, { content });
     },
+    // Show the edited text immediately; roll back if the server rejects it.
+    onMutate: ({ id, content }) => {
+      if (String(id).startsWith('local-')) return {};
+      let prev: any = null;
+      const patch = (m: any) => {
+        if (m.id !== id) return m;
+        prev = { content: m.content, is_edited: m.is_edited };
+        return { ...m, content, is_edited: true };
+      };
+      setFetchedMessages(p => p.map(patch));
+      setRealtimeMessages(p => p.map(patch));
+      setEditingMsg(null);
+      setEditText('');
+      return { id, prev };
+    },
     onSuccess: (res) => {
       const updated = res.data?.data || res.data;
       setFetchedMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
       setRealtimeMessages(prev => prev.map(m => m.id === updated.id ? updated : m));
-      setEditingMsg(null);
-      setEditText('');
     },
-    onError: (err: any) => {
+    onError: (err: any, _vars, ctx) => {
+      if (ctx?.prev) {
+        setFetchedMessages(prev => prev.map(m => m.id === ctx.id ? { ...m, ...ctx.prev } : m));
+        setRealtimeMessages(prev => prev.map(m => m.id === ctx.id ? { ...m, ...ctx.prev } : m));
+      }
       const msg = err?.response?.data?.error || err?.message || 'Could not edit message';
       toast.error(msg);
     },
@@ -526,9 +566,57 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.delete(`/chat/messages/${id}`),
-    onSuccess: (_, id) => {
-      setFetchedMessages(prev => prev.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString(), is_deleted: true } : m));
-      setRealtimeMessages(prev => prev.map(m => m.id === id ? { ...m, deleted_at: new Date().toISOString(), is_deleted: true } : m));
+    // Hide the message immediately; restore it if the delete fails.
+    onMutate: (id: string) => {
+      const now = new Date().toISOString();
+      let prev: any = null;
+      const patch = (m: any) => {
+        if (m.id !== id) return m;
+        prev = { deleted_at: m.deleted_at, is_deleted: m.is_deleted };
+        return { ...m, deleted_at: now, is_deleted: true };
+      };
+      setFetchedMessages(p => p.map(patch));
+      setRealtimeMessages(p => p.map(patch));
+      return { prev };
+    },
+    onError: (_err, id, ctx) => {
+      if (ctx?.prev) {
+        setFetchedMessages(prev => prev.map(m => m.id === id ? { ...m, ...ctx.prev } : m));
+        setRealtimeMessages(prev => prev.map(m => m.id === id ? { ...m, ...ctx.prev } : m));
+      }
+      toast.error('Could not delete message');
+    },
+  });
+
+  const reactMut = useMutation({
+    mutationFn: ({ id, emoji }: { id: string; emoji: string }) =>
+      api.post(`/chat/messages/${id}/react`, { emoji }).then(r => r.data),
+    // Toggle the reaction instantly for the clicking user instead of waiting
+    // for the round trip / socket echo.
+    onMutate: ({ id, emoji }) => {
+      const uid = user?.id;
+      let prevReactions: any = null;
+      const toggle = (m: any) => {
+        if (m.id !== id) return m;
+        prevReactions = m.reactions || {};
+        const reactions = { ...prevReactions };
+        const users: string[] = reactions[emoji] || [];
+        reactions[emoji] = users.includes(uid) ? users.filter((u: string) => u !== uid) : [...users, uid];
+        if (reactions[emoji].length === 0) delete reactions[emoji];
+        return { ...m, reactions };
+      };
+      setFetchedMessages(prev => prev.map(toggle));
+      setRealtimeMessages(prev => prev.map(toggle));
+      return { prevReactions };
+    },
+    onSuccess: (data, { id }) => {
+      setFetchedMessages(prev => prev.map(m => m.id === id ? { ...m, reactions: data.reactions } : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === id ? { ...m, reactions: data.reactions } : m));
+    },
+    onError: (_err, { id }, ctx) => {
+      setFetchedMessages(prev => prev.map(m => m.id === id ? { ...m, reactions: ctx?.prevReactions ?? m.reactions } : m));
+      setRealtimeMessages(prev => prev.map(m => m.id === id ? { ...m, reactions: ctx?.prevReactions ?? m.reactions } : m));
+      toast.error('Could not react — try again');
     },
   });
 
@@ -607,9 +695,26 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     });
   };
 
+  // Backend (multer) caps uploads at 20MB — reject oversized files here
+  // instead of letting the browser spend minutes uploading something the
+  // server was always going to reject. Especially matters on a slow
+  // connection, where the failure would otherwise surface as a generic
+  // timeout well after the user's given up watching it.
+  const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+
   const stageFiles = (files: File[]) => {
     if (!files.length) return;
-    setPendingFiles(prev => [...prev, ...files]);
+    const tooBig = files.filter(f => f.size > MAX_UPLOAD_BYTES);
+    const ok = files.filter(f => f.size <= MAX_UPLOAD_BYTES);
+    if (tooBig.length) {
+      toast.error(
+        tooBig.length === 1
+          ? `"${tooBig[0].name}" is over the 20MB limit`
+          : `${tooBig.length} files are over the 20MB limit`
+      );
+    }
+    if (!ok.length) return;
+    setPendingFiles(prev => [...prev, ...ok]);
   };
 
   // Paste / drag-drop stages the files in the composer strip so the user can
@@ -690,7 +795,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
       type: 'text', content: text,
       sender_id: user?.id, sender_name: user?.full_name, sender_avatar: (user as any)?.avatar_url,
       created_at: new Date().toISOString(), room_id: roomId,
-      ...(replySnapshot ? { reply_to_id: replySnapshot.id, reply_to: replySnapshot } : {}),
+      // Flat fields matching the server row shape (reply_to_content/_type/
+      // _sender_name) — not a nested `reply_to` object — so the reply quote
+      // renders on the optimistic bubble immediately instead of only after
+      // the round trip swaps in the real message.
+      ...(replySnapshot ? {
+        reply_to_id: replySnapshot.id,
+        reply_to_content: replySnapshot.content,
+        reply_to_type: replySnapshot.type,
+        reply_to_sender_name: replySnapshot.sender_name,
+      } : {}),
     };
     setRealtimeMessages(prev => [...prev, optimistic]);
     requestAnimationFrame(() => scrollToBottom(true));
@@ -731,13 +845,18 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   // rather than socket-delivery order. Without this, an incoming reply that
   // arrives on the wire slightly before the user's own outbound echo would
   // render above the user's message, even though it was sent later.
-  const allMessages = [...fetchedMessages, ...realtimeMessages]
-    .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i)
-    .sort((a, b) => {
-      const ta = new Date(a.created_at || 0).getTime();
-      const tb = new Date(b.created_at || 0).getTime();
-      return ta - tb;
-    });
+  // Memoized: this list previously re-sorted/deduped on every render (hover,
+  // typing, emoji picker open/close, etc.), which got visibly slow in longer
+  // conversations. It now only recomputes when the message arrays change.
+  const allMessages = useMemo(() => {
+    return [...fetchedMessages, ...realtimeMessages]
+      .filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i)
+      .sort((a, b) => {
+        const ta = new Date(a.created_at || 0).getTime();
+        const tb = new Date(b.created_at || 0).getTime();
+        return ta - tb;
+      });
+  }, [fetchedMessages, realtimeMessages]);
 
   return (
     <div
@@ -983,7 +1102,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                     {/* Reply snippet */}
                     {msg.reply_to_id && msg.reply_to_content && (
                       <div className={`text-xs px-3 py-1.5 mb-0.5 rounded-lg border-l-2 border-primary/50 bg-secondary/60 text-muted-foreground max-w-full ${isOwn ? 'text-right border-l-0 border-r-2' : ''}`}>
-                        <span className="font-medium">{msg.reply_to_sender || 'User'}</span>: {msg.reply_to_content.slice(0, 80)}
+                        <span className="font-medium">{msg.reply_to_sender_name || 'User'}</span>: {msg.reply_to_content.slice(0, 80)}
                       </div>
                     )}
 
@@ -1032,15 +1151,25 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                           {Boolean(msg.is_edited) && <span className="text-[10px] opacity-50 ml-1.5">(edited)</span>}
                         </p>
                       )}
-                      {/* Reactions */}
+                      {/* Reactions — a floating chip (shadow, not a hard border)
+                          so it reads as part of the bubble's surface instead of
+                          a flat sticker dropped on top of it. */}
                       {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                        <div className="flex gap-1 mt-1.5 flex-wrap -mb-0.5">
+                        <div className="flex gap-1 mt-1.5 flex-wrap">
                           {Object.entries(msg.reactions).map(([emoji, users]: [string, any]) => (
                             <button key={emoji}
-                              onClick={() => api.post(`/chat/messages/${msg.id}/reaction`, { emoji }).catch(() => {})}
-                              className={`text-xs rounded-full px-2 py-0.5 flex items-center gap-0.5 ${isOwn ? 'bg-primary-foreground/15 hover:bg-primary-foreground/25' : 'bg-background/60 hover:bg-background border border-border/50'}`}>
-                              <span>{emoji}</span>
-                              <span className="font-medium">{Array.isArray(users) ? users.length : users}</span>
+                              onClick={() => reactMut.mutate({ id: msg.id, emoji })}
+                              className={`rounded-full pl-1.5 pr-2 py-1 flex items-center gap-1 leading-none shadow-sm transition-all hover:scale-105 ${
+                                isOwn
+                                  ? 'bg-primary-foreground/20 hover:bg-primary-foreground/30'
+                                  : 'bg-card text-foreground hover:shadow-md'
+                              }`}>
+                              {/* Emoji glyphs render visually larger than text at the
+                                  same font-size, so giving them their own size and
+                                  baselining both spans on leading-none keeps the
+                                  count from looking sunken/off-center next to it. */}
+                              <span className="text-sm leading-none">{emoji}</span>
+                              <span className="text-[11px] font-semibold leading-none translate-y-[0.5px] opacity-70">{Array.isArray(users) ? users.length : users}</span>
                             </button>
                           ))}
                         </div>
@@ -1110,7 +1239,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                                 onMouseDown={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  api.post(`/chat/messages/${msg.id}/reaction`, { emoji }).catch(() => {});
+                                  reactMut.mutate({ id: msg.id, emoji });
                                   setEmojiPickerMsgId(null);
                                 }}
                                 className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-secondary text-lg leading-none transition-transform hover:scale-125">

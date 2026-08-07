@@ -97,7 +97,7 @@ export default function RichTextEditor({
     },
     editorProps: {
       attributes: {
-        class: `rte-content prose prose-sm max-w-none focus:outline-none px-4 py-3 ${className}`,
+        class: `rte-content prose prose-sm max-w-none leading-relaxed focus:outline-none px-4 py-3.5 ${className}`,
         style: `min-height: ${minHeight}px;`,
       },
       handleKeyDown(_view, event) {
@@ -247,7 +247,7 @@ export default function RichTextEditor({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`p-1.5 rounded-md transition-colors disabled:opacity-30 ${
+      className={`p-2 rounded-lg transition-colors disabled:opacity-30 ${
         active
           ? 'bg-primary/15 text-primary'
           : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -258,36 +258,60 @@ export default function RichTextEditor({
   );
 
   return (
-    <div className="rounded-lg border border-border bg-background overflow-hidden flex flex-col">
+    <div className="rounded-xl border border-border bg-background shadow-sm overflow-hidden flex flex-col focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary/50 transition-all">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-1.5 py-1 border-b border-border bg-secondary/30 flex-wrap">
+      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border bg-secondary/30 flex-wrap">
+        <ToolbarBtn
+          title="Heading 1"
+          active={editor.isActive('heading', { level: 1 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        >
+          <span className="text-[11px] font-bold w-3.5 inline-block text-center">H1</span>
+        </ToolbarBtn>
+        <ToolbarBtn
+          title="Heading 2"
+          active={editor.isActive('heading', { level: 2 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        >
+          <span className="text-[11px] font-bold w-3.5 inline-block text-center">H2</span>
+        </ToolbarBtn>
+        <ToolbarBtn
+          title="Heading 3"
+          active={editor.isActive('heading', { level: 3 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        >
+          <span className="text-[11px] font-bold w-3.5 inline-block text-center">H3</span>
+        </ToolbarBtn>
+
+        <span className="w-px h-5 bg-border mx-1" />
+
         <ToolbarBtn
           title="Bold (Ctrl+B)"
           active={editor.isActive('bold')}
           onClick={() => editor.chain().focus().toggleBold().run()}
         >
-          <Bold size={14} />
+          <Bold size={15} />
         </ToolbarBtn>
         <ToolbarBtn
           title="Italic (Ctrl+I)"
           active={editor.isActive('italic')}
           onClick={() => editor.chain().focus().toggleItalic().run()}
         >
-          <Italic size={14} />
+          <Italic size={15} />
         </ToolbarBtn>
         <ToolbarBtn
           title="Strikethrough"
           active={editor.isActive('strike')}
           onClick={() => editor.chain().focus().toggleStrike().run()}
         >
-          <Strikethrough size={14} />
+          <Strikethrough size={15} />
         </ToolbarBtn>
         <ToolbarBtn
           title="Code"
           active={editor.isActive('code')}
           onClick={() => editor.chain().focus().toggleCode().run()}
         >
-          <Code size={14} />
+          <Code size={15} />
         </ToolbarBtn>
 
         <span className="w-px h-5 bg-border mx-1" />
@@ -297,30 +321,30 @@ export default function RichTextEditor({
           active={editor.isActive('bulletList')}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
         >
-          <List size={14} />
+          <List size={15} />
         </ToolbarBtn>
         <ToolbarBtn
           title="Numbered list"
           active={editor.isActive('orderedList')}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
         >
-          <ListOrdered size={14} />
+          <ListOrdered size={15} />
         </ToolbarBtn>
         <ToolbarBtn
           title="Quote"
           active={editor.isActive('blockquote')}
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
         >
-          <Quote size={14} />
+          <Quote size={15} />
         </ToolbarBtn>
 
         <span className="w-px h-5 bg-border mx-1" />
 
         <ToolbarBtn title="Insert link" active={editor.isActive('link')} onClick={insertLink}>
-          <Link2 size={14} />
+          <Link2 size={15} />
         </ToolbarBtn>
         <ToolbarBtn title="Insert image (or paste/drop)" onClick={triggerFilePicker}>
-          {uploadingRef.current ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+          {uploadingRef.current ? <Loader2 size={15} className="animate-spin" /> : <ImageIcon size={15} />}
         </ToolbarBtn>
 
         <div className="flex-1" />
@@ -330,14 +354,14 @@ export default function RichTextEditor({
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editor.can().undo()}
         >
-          <Undo2 size={14} />
+          <Undo2 size={15} />
         </ToolbarBtn>
         <ToolbarBtn
           title="Redo"
           onClick={() => editor.chain().focus().redo().run()}
           disabled={!editor.can().redo()}
         >
-          <Redo2 size={14} />
+          <Redo2 size={15} />
         </ToolbarBtn>
       </div>
 

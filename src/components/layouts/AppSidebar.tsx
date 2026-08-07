@@ -38,7 +38,6 @@ const adminNav: NavItem[] = [
   { label: 'Password Manager', path: '/admin/vault', icon: Lock, module: 'vault' },
   { label: 'Email', path: '/admin/email', icon: Mail },
   { label: 'Shared Inbox', path: '/admin/inbox', icon: Inbox, module: 'inbox' },
-  { label: 'Tickets', path: '/admin/tickets', icon: Ticket, module: 'tickets' },
   { label: 'Tracker', path: '/admin/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/admin/payroll', icon: Wallet, module: 'payroll' },
   {
@@ -69,7 +68,6 @@ const teamNav: NavItem[] = [
   { label: 'Password Manager', path: '/team/vault', icon: Lock, module: 'vault' },
   { label: 'Email', path: '/team/email', icon: Mail },
   { label: 'Shared Inbox', path: '/team/inbox', icon: Inbox, module: 'inbox' },
-  { label: 'Tickets', path: '/team/tickets', icon: Ticket, module: 'tickets' },
   { label: 'Tracker', path: '/team/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/team/payroll', icon: Wallet, module: 'payroll' },
   { label: 'Expenses', path: '/team/expenses', icon: Receipt, module: 'expenses' },
@@ -88,7 +86,6 @@ const salesNav: NavItem[] = [
   { label: 'Password Manager', path: '/sales/vault', icon: Lock, module: 'vault' },
   { label: 'Email', path: '/sales/email', icon: Mail },
   { label: 'Shared Inbox', path: '/sales/inbox', icon: Inbox, module: 'inbox' },
-  { label: 'Tickets', path: '/sales/tickets', icon: Ticket, module: 'tickets' },
   { label: 'Tracker', path: '/sales/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/sales/payroll', icon: Wallet, module: 'payroll' },
   { label: 'Reports', path: '/sales/reports', icon: BarChart3, module: 'reports' },
@@ -132,6 +129,22 @@ function PulsingDot() {
     <span className="relative flex h-2 w-2 ml-auto shrink-0">
       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
       <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
+    </span>
+  );
+}
+
+function UnreadBadge({ count, inline }: { count: number; inline?: boolean }) {
+  const label = count > 99 ? '99+' : count;
+  if (inline) {
+    return (
+      <span className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+      {label}
     </span>
   );
 }
@@ -261,8 +274,10 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
       }
 
       // Leaf
-      const itemModule  = pathToModule(item.path);
-      const hasUnread   = itemModule ? (counts[itemModule] || 0) > 0 : false;
+      const itemModule   = pathToModule(item.path);
+      const unreadCount  = itemModule ? (counts[itemModule] || 0) : 0;
+      const hasUnread    = unreadCount > 0;
+      const showAsCount  = itemModule === 'email' || itemModule === 'chat';
       const link = (
         <NavLink key={item.path} to={item.path} end={rootPaths.includes(item.path)} onClick={onClick}
           className={`relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
@@ -270,9 +285,9 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
           } ${!showLabels ? 'justify-center' : ''}`}>
           <item.icon className={`h-4 w-4 flex-shrink-0 ${active ? 'text-primary' : ''}`} />
           {showLabels && <span className="flex-1 truncate">{item.label}</span>}
-          {showLabels && hasUnread && <PulsingDot />}
+          {showLabels && hasUnread && (showAsCount ? <UnreadBadge count={unreadCount} inline /> : <PulsingDot />)}
           {!showLabels && hasUnread && (
-            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-orange-500" />
+            showAsCount ? <UnreadBadge count={unreadCount} /> : <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-orange-500" />
           )}
         </NavLink>
       );
