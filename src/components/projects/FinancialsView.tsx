@@ -4,8 +4,14 @@ import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { Pencil, Save, X, Plus, Link as LinkIcon, Unlink, IndianRupee, TrendingUp, CheckCircle, AlertTriangle } from 'lucide-react';
 
-const fmtINR = (n: number) =>
-  `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+const CURRENCY_OPTIONS = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'CAD', 'AUD'];
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  INR: '₹', USD: '$', EUR: '€', GBP: '£', AED: 'AED ', SGD: 'S$', CAD: 'C$', AUD: 'A$',
+};
+
+const fmtMoney = (n: number, currency: string) =>
+  `${CURRENCY_SYMBOLS[currency] ?? currency + ' '}${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 const fmtDate = (s?: string) =>
   s ? new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -18,6 +24,7 @@ export default function FinancialsView({ projectId }: Props) {
   const qc = useQueryClient();
   const [editCost, setEditCost] = useState(false);
   const [costVal, setCostVal] = useState('');
+  const [currencyVal, setCurrencyVal] = useState('INR');
   const [showLink, setShowLink] = useState(false);
   const [pickInvoice, setPickInvoice] = useState('');
 
@@ -40,6 +47,7 @@ export default function FinancialsView({ projectId }: Props) {
 
   const f = financials || {};
   const linkedInvoices: any[] = Array.isArray(f.invoices) ? f.invoices : [];
+  const projectCurrency = f.currency || 'INR';
   const totalCost = Number(f.total_cost || 0);
   const invoiced = Number(f.invoiced_amount || 0);
   const collected = Number(f.collected_amount || 0);
@@ -54,7 +62,7 @@ export default function FinancialsView({ projectId }: Props) {
   }, [allInvoices, linkedInvoices]);
 
   const updateCost = useMutation({
-    mutationFn: () => api.put(`/projects/${projectId}/cost`, { total_cost: Number(costVal) || 0 }),
+    mutationFn: () => api.put(`/projects/${projectId}/cost`, { total_cost: Number(costVal) || 0, currency: currencyVal }),
     onSuccess: () => {
       toast.success('Budget updated');
       qc.invalidateQueries({ queryKey: ['project-financials', projectId] });
@@ -99,13 +107,13 @@ export default function FinancialsView({ projectId }: Props) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Budget"
-          value={editCost ? null : fmtINR(totalCost)}
+          value={editCost ? null : fmtMoney(totalCost, projectCurrency)}
           icon={IndianRupee}
           accent="text-primary"
           action={
             !editCost ? (
               <button
-                onClick={() => { setEditCost(true); setCostVal(String(totalCost || '')); }}
+                onClick={() => { setEditCost(true); setCostVal(String(totalCost || '')); setCurrencyVal(projectCurrency); }}
                 className="p-1 rounded hover:bg-secondary text-muted-foreground"
                 aria-label="Edit budget"
               >
@@ -116,6 +124,13 @@ export default function FinancialsView({ projectId }: Props) {
         >
           {editCost && (
             <div className="flex items-center gap-1 mt-2">
+              <select
+                value={currencyVal}
+                onChange={e => setCurrencyVal(e.target.value)}
+                className="px-1.5 py-1 rounded bg-secondary border border-border text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+              >
+                {CURRENCY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
               <input
                 type="number"
                 value={costVal}
@@ -139,9 +154,9 @@ export default function FinancialsView({ projectId }: Props) {
             </div>
           )}
         </StatCard>
-        <StatCard label="Invoiced" value={fmtINR(invoiced)} icon={TrendingUp} accent="text-info" />
-        <StatCard label="Collected" value={fmtINR(collected)} icon={CheckCircle} accent="text-success" />
-        <StatCard label="Outstanding" value={fmtINR(outstanding)} icon={AlertTriangle} accent="text-destructive" />
+        <StatCard label="Invoiced" value={fmtMoney(invoiced, projectCurrency)} icon={TrendingUp} accent="text-info" />
+        <StatCard label="Collected" value={fmtMoney(collected, projectCurrency)} icon={CheckCircle} accent="text-success" />
+        <StatCard label="Outstanding" value={fmtMoney(outstanding, projectCurrency)} icon={AlertTriangle} accent="text-destructive" />
       </div>
 
       {/* Budget utilisation */}
@@ -159,7 +174,7 @@ export default function FinancialsView({ projectId }: Props) {
           />
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          {fmtINR(invoiced)} invoiced of {fmtINR(totalCost)} budget
+          {fmtMoney(invoiced, projectCurrency)} invoiced of {fmtMoney(totalCost, projectCurrency)} budget
         </p>
       </div>
 
@@ -197,8 +212,8 @@ export default function FinancialsView({ projectId }: Props) {
                 linkedInvoices.map((inv: any) => (
                   <tr key={inv.id} className="border-t border-border hover:bg-secondary/20 transition-colors">
                     <td className="px-4 py-3 font-medium">{inv.invoice_number || inv.id?.slice(0, 8)}</td>
-                    <td className="px-4 py-3 text-right">{fmtINR(Number(inv.total_amount || inv.total || 0))}</td>
-                    <td className="px-4 py-3 text-right text-success">{fmtINR(Number(inv.amount_paid || 0))}</td>
+                    <td className="px-4 py-3 text-right">{fmtMoney(Number(inv.total_amount || inv.total || 0), inv.currency || projectCurrency)}</td>
+                    <td className="px-4 py-3 text-right text-success">{fmtMoney(Number(inv.amount_paid || 0), inv.currency || projectCurrency)}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={inv.status} />
                     </td>
@@ -245,7 +260,7 @@ export default function FinancialsView({ projectId }: Props) {
                 <option value="">Select an invoice…</option>
                 {available.map((inv: any) => (
                   <option key={inv.id} value={inv.id}>
-                    {(inv.invoice_number || inv.id?.slice(0, 8))} — {inv.client_name || inv.company_name || '—'} — {fmtINR(Number(inv.total_amount || inv.total || 0))}
+                    {(inv.invoice_number || inv.id?.slice(0, 8))} — {inv.client_name || inv.company_name || '—'} — {fmtMoney(Number(inv.total_amount || inv.total || 0), inv.currency || projectCurrency)}
                   </option>
                 ))}
               </select>
