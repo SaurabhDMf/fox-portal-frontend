@@ -89,6 +89,10 @@ export default function Invoicing() {
   const [period, setPeriod] = useState<Period>('all');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
+  const [emailSearch, setEmailSearch] = useState('');
+  const [invoiceFrom, setInvoiceFrom] = useState('');
+  const [invoiceTo, setInvoiceTo] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [showPrint, setShowPrint] = useState<any>(null);
@@ -163,13 +167,35 @@ export default function Invoicing() {
   // June-issued invoice paid in July belongs to July, both in the listing
   // and in the stat tiles.
   const range = periodRange(period, customFrom, customTo);
-  const filteredInvoices = range
+  const periodFiltered = range
     ? allInvoices.filter((inv: any) => {
         const d = new Date(inv.paid_at || inv.issue_date || inv.created_at);
         if (isNaN(d.getTime())) return false;
         return d >= range[0] && d < range[1];
       })
     : allInvoices;
+
+  const clientQuery = clientSearch.trim().toLowerCase();
+  const emailQuery = emailSearch.trim().toLowerCase();
+  const invoiceFromDate = invoiceFrom ? new Date(invoiceFrom + 'T00:00:00') : null;
+  const invoiceToDate = invoiceTo ? new Date(new Date(invoiceTo + 'T00:00:00').getTime() + 86400000) : null;
+  const filteredInvoices = periodFiltered.filter((inv: any) => {
+    if (clientQuery) {
+      const name = (inv.client_name || inv.company_name || inv.billing_name || '').toLowerCase();
+      if (!name.includes(clientQuery)) return false;
+    }
+    if (emailQuery) {
+      const email = (inv.billing_email || inv.client_email || inv.client?.email || '').toLowerCase();
+      if (!email.includes(emailQuery)) return false;
+    }
+    if (invoiceFromDate || invoiceToDate) {
+      const issued = new Date(inv.issue_date || inv.created_at);
+      if (isNaN(issued.getTime())) return false;
+      if (invoiceFromDate && issued < invoiceFromDate) return false;
+      if (invoiceToDate && issued >= invoiceToDate) return false;
+    }
+    return true;
+  });
 
   // Sort
   const STATUS_ORDER: Record<string, number> = {
@@ -283,6 +309,29 @@ export default function Invoicing() {
           {statusTabs.map(s => (
             <button key={s} onClick={() => setTab(s)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>{s}</button>
           ))}
+        </div>
+        <input
+          type="text"
+          value={clientSearch}
+          onChange={e => setClientSearch(e.target.value)}
+          placeholder="Search client name…"
+          className="text-xs px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none w-40"
+        />
+        <input
+          type="text"
+          value={emailSearch}
+          onChange={e => setEmailSearch(e.target.value)}
+          placeholder="Search email…"
+          className="text-xs px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none w-40"
+        />
+        <div className="flex items-center gap-1.5">
+          <input type="date" value={invoiceFrom} onChange={e => setInvoiceFrom(e.target.value)}
+            title="Invoice date from"
+            className="text-xs px-2 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none" />
+          <span className="text-xs text-muted-foreground">→</span>
+          <input type="date" value={invoiceTo} onChange={e => setInvoiceTo(e.target.value)}
+            title="Invoice date to"
+            className="text-xs px-2 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none" />
         </div>
         <div className="flex items-center gap-2 ml-auto">
           <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}

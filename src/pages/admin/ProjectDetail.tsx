@@ -58,7 +58,7 @@ export default function ProjectDetail() {
     if (t.id === 'members') return !isClient;
     return true;
   });
-  const [activeTab, setActiveTab] = useState<TabId>('tasks');
+  const [activeTab, setActiveTab] = useState<TabId>(canViewFinancials ? 'financials' : 'tasks');
   const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
   const [createTaskDefaults, setCreateTaskDefaults] = useState<{ status?: string; sprint_id?: string; epic_id?: string } | null>(null);
   const [showEdit, setShowEdit] = useState(false);
