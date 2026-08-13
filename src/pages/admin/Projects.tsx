@@ -53,8 +53,11 @@ const DEADLINE_TEXT: Record<'red' | 'orange' | 'green', string> = {
   green: 'text-emerald-500',
 };
 
+const projectTabs = ['Active', 'Completed'] as const;
+
 export default function Projects() {
   const perm = useModulePermission('projects');
+  const [tab, setTab] = useState<typeof projectTabs[number]>('Active');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', client_id: '', description: '', status: 'Active', priority: 'Medium', due_date: '', start_date: '', color: '#3B82F6', categories: [] as string[], service_types: [] as string[] });
@@ -107,7 +110,9 @@ export default function Projects() {
   });
 
   const rawProjects = Array.isArray(data) ? data : [];
-  const projects: Project[] = rawProjects;
+  const projects: Project[] = tab === 'Completed'
+    ? rawProjects.filter(p => p.status === 'Completed')
+    : rawProjects.filter(p => p.status !== 'Completed');
   const clientsArr = Array.isArray(clients) ? clients : [];
   const basePath = window.location.pathname.startsWith('/emp') ? '/emp' : '/admin';
 
@@ -120,6 +125,12 @@ export default function Projects() {
             <Plus className="h-4 w-4" /> New Project
           </button>
         )}
+      </div>
+
+      <div className="flex gap-1">
+        {projectTabs.map(t => (
+          <button key={t} onClick={() => setTab(t)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>{t}</button>
+        ))}
       </div>
 
       <div className="relative max-w-sm">
@@ -181,8 +192,8 @@ export default function Projects() {
         })}
         {projects.length === 0 && !isLoading && (
           <div className="col-span-full text-center py-16">
-            <p className="text-muted-foreground text-sm mb-3">No projects found</p>
-            {perm.canCreate && <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first project →</button>}
+            <p className="text-muted-foreground text-sm mb-3">{tab === 'Completed' ? 'No completed projects yet' : 'No projects found'}</p>
+            {tab === 'Active' && perm.canCreate && <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first project →</button>}
           </div>
         )}
       </div>
