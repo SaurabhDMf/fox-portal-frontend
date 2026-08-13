@@ -304,36 +304,38 @@ export default function Invoicing() {
         })()}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1 overflow-x-auto">
-          {statusTabs.map(s => (
-            <button key={s} onClick={() => setTab(s)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>{s}</button>
-          ))}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 overflow-x-auto">
+            {statusTabs.map(s => (
+              <button key={s} onClick={() => setTab(s)} className={`text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === s ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>{s}</button>
+            ))}
+          </div>
+          <input
+            type="text"
+            value={clientSearch}
+            onChange={e => setClientSearch(e.target.value)}
+            placeholder="Search client name…"
+            className="text-xs px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none w-40"
+          />
+          <input
+            type="text"
+            value={emailSearch}
+            onChange={e => setEmailSearch(e.target.value)}
+            placeholder="Search email…"
+            className="text-xs px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none w-40"
+          />
+          <div className="flex items-center gap-1.5">
+            <input type="date" value={invoiceFrom} onChange={e => setInvoiceFrom(e.target.value)}
+              title="Invoice date from"
+              className="text-xs px-2 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none" />
+            <span className="text-xs text-muted-foreground">→</span>
+            <input type="date" value={invoiceTo} onChange={e => setInvoiceTo(e.target.value)}
+              title="Invoice date to"
+              className="text-xs px-2 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none" />
+          </div>
         </div>
-        <input
-          type="text"
-          value={clientSearch}
-          onChange={e => setClientSearch(e.target.value)}
-          placeholder="Search client name…"
-          className="text-xs px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none w-40"
-        />
-        <input
-          type="text"
-          value={emailSearch}
-          onChange={e => setEmailSearch(e.target.value)}
-          placeholder="Search email…"
-          className="text-xs px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none w-40"
-        />
-        <div className="flex items-center gap-1.5">
-          <input type="date" value={invoiceFrom} onChange={e => setInvoiceFrom(e.target.value)}
-            title="Invoice date from"
-            className="text-xs px-2 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none" />
-          <span className="text-xs text-muted-foreground">→</span>
-          <input type="date" value={invoiceTo} onChange={e => setInvoiceTo(e.target.value)}
-            title="Invoice date to"
-            className="text-xs px-2 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none" />
-        </div>
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex flex-wrap items-center gap-2">
           <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
             className="text-xs px-3 py-2 rounded-lg bg-background border border-border focus:border-primary focus:outline-none">
             <option value="date_desc">Newest first</option>
