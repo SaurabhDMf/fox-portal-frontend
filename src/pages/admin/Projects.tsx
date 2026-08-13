@@ -24,6 +24,35 @@ const extractProjects = (payload: any): Project[] => {
 
 const extractProject = (payload: any) => payload?.project || payload?.data?.project || payload?.data || payload;
 
+// Deadline urgency: % of the start_date→due_date timeline still remaining.
+// >=40% left → green, 20-40% → orange, <20% or already past due_date → red.
+const getDeadlineColor = (p: Project): 'red' | 'orange' | 'green' | null => {
+  if (!p.due_date) return null;
+  const due = new Date(p.due_date).getTime();
+  const now = Date.now();
+  if (now > due) return 'red';
+  if (!p.start_date) return null;
+  const start = new Date(p.start_date).getTime();
+  const total = due - start;
+  if (total <= 0) return null;
+  const pctRemaining = ((due - now) / total) * 100;
+  if (pctRemaining >= 40) return 'green';
+  if (pctRemaining >= 20) return 'orange';
+  return 'red';
+};
+
+const DEADLINE_RING: Record<'red' | 'orange' | 'green', string> = {
+  red: 'ring-2 ring-red-500/70',
+  orange: 'ring-2 ring-orange-500/70',
+  green: 'ring-2 ring-emerald-500/70',
+};
+
+const DEADLINE_TEXT: Record<'red' | 'orange' | 'green', string> = {
+  red: 'text-red-500',
+  orange: 'text-orange-500',
+  green: 'text-emerald-500',
+};
+
 export default function Projects() {
   const perm = useModulePermission('projects');
   const [search, setSearch] = useState('');
@@ -100,8 +129,10 @@ export default function Projects() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? [...Array(6)].map((_, i) => <div key={i} className="glass-card h-48 animate-pulse" />) :
-        projects.map((p) => (
-          <div key={p.id} onClick={() => navigate(`${basePath}/projects/${p.id}`)} className="glass-card-hover p-5 space-y-3 cursor-pointer">
+        projects.map((p) => {
+          const deadlineColor = getDeadlineColor(p);
+          return (
+          <div key={p.id} onClick={() => navigate(`${basePath}/projects/${p.id}`)} className={`glass-card-hover p-5 space-y-3 cursor-pointer ${deadlineColor ? DEADLINE_RING[deadlineColor] : ''}`}>
             {/* Header */}
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
@@ -143,10 +174,11 @@ export default function Projects() {
                   {p.members.length > 4 && <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground border-2 border-card">+{p.members.length - 4}</div>}
                 </div>
               )}
-              {p.due_date && <span className="text-xs text-muted-foreground">Due: {new Date(p.due_date).toLocaleDateString()}</span>}
+              {p.due_date && <span className={`text-xs ${deadlineColor ? DEADLINE_TEXT[deadlineColor] : 'text-muted-foreground'}`}>Due: {new Date(p.due_date).toLocaleDateString()}</span>}
             </div>
           </div>
-        ))}
+          );
+        })}
         {projects.length === 0 && !isLoading && (
           <div className="col-span-full text-center py-16">
             <p className="text-muted-foreground text-sm mb-3">No projects found</p>
