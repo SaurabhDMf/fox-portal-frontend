@@ -228,9 +228,14 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
   // handlers, edits, and deletes can patch it without going through the query).
   useEffect(() => {
     if (!roomId) return;
-    // Reset realtime buffer when entering a room; fetchedMessages will be
-    // repopulated from the query below.
+    // Reset both buffers when entering a room. fetchedMessages MUST be
+    // cleared here too (not just realtimeMessages) — the merge effect below
+    // appends onto whatever is already in fetchedMessages so pagination/
+    // socket patches don't wipe history, but that same merge would otherwise
+    // leave the previous room's messages sitting in the array forever,
+    // mixed in with the new room's once its query resolves.
     setRealtimeMessages([]);
+    setFetchedMessages([]);
     initialScrollDoneRef.current = false;
     setIsScrollReady(false);
   }, [roomId]);
