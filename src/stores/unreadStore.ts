@@ -11,6 +11,11 @@ export const typeToModule: Record<string, string> = {
   leave:   'payroll',
   ticket:  'tickets',
   email:   'email',
+  sales_ticket:               'sales',
+  sales_customer_replied:     'sales',
+  sales_followup:             'sales',
+  sales_customer_transferred: 'sales',
+  sales_review_queue:         'sales',
 };
 
 interface UnreadState {

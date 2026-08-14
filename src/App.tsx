@@ -36,6 +36,13 @@ import EmailPage from "./pages/admin/Email";
 import SharedInbox from "./pages/admin/SharedInbox";
 import InboxFormPage from "./pages/admin/InboxFormPage";
 import InboxMembersPage from "./pages/admin/InboxMembersPage";
+import SalesIncomingLeads from "./pages/admin/SalesIncomingLeads";
+import SalesCustomers from "./pages/admin/SalesCustomers";
+import SalesCustomerDetail from "./pages/admin/SalesCustomerDetail";
+import SalesTickets from "./pages/admin/SalesTickets";
+import SalesTicketDetail from "./pages/admin/SalesTicketDetail";
+import SalesReviewQueue from "./pages/admin/SalesReviewQueue";
+import SalesReports from "./pages/admin/SalesReports";
 import Expenses from "./pages/admin/Expenses";
 import BalanceSheet from "./pages/admin/BalanceSheet";
 import Subscriptions from "./pages/admin/Subscriptions";
@@ -143,6 +150,13 @@ const App = () => (
           <Route path="inbox/:inboxId/members" element={<InboxMembersPage />} />
           <Route path="tickets" element={<Tickets />} />
           <Route path="tickets/:id" element={<TicketDetail />} />
+          <Route path="incoming-leads" element={<SalesIncomingLeads />} />
+          <Route path="sales-customers" element={<SalesCustomers />} />
+          <Route path="sales-customers/:id" element={<SalesCustomerDetail />} />
+          <Route path="sales-tickets" element={<SalesTickets />} />
+          <Route path="sales-tickets/:id" element={<SalesTicketDetail />} />
+          <Route path="review-queue" element={<SalesReviewQueue />} />
+          <Route path="sales-reports" element={<SalesReports />} />
           <Route path="tracker" element={<Tracker />} />
           <Route path="payroll" element={<Payroll />} />
           <Route path="expenses" element={<Expenses />} />
@@ -179,6 +193,13 @@ const App = () => (
           <Route path="inbox/:inboxId/members" element={<InboxMembersPage />} />
           <Route path="tickets" element={<Tickets />} />
           <Route path="tickets/:id" element={<TicketDetail />} />
+          <Route path="incoming-leads" element={<SalesIncomingLeads />} />
+          <Route path="sales-customers" element={<SalesCustomers />} />
+          <Route path="sales-customers/:id" element={<SalesCustomerDetail />} />
+          <Route path="sales-tickets" element={<SalesTickets />} />
+          <Route path="sales-tickets/:id" element={<SalesTicketDetail />} />
+          <Route path="review-queue" element={<SalesReviewQueue />} />
+          <Route path="sales-reports" element={<SalesReports />} />
           <Route path="tracker" element={<Tracker />} />
           <Route path="payroll" element={<Payroll />} />
           <Route path="reports" element={<Reports />} />
