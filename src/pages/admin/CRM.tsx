@@ -188,7 +188,14 @@ export default function CRM() {
   const perm = useModulePermission('crm');
   const [view, setView] = useState<'list' | 'kanban'>('list');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  // Debounce search so every keystroke doesn't fire a fresh /leads query —
+  // on large lead tables this was the single biggest source of load.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
   const [statusFilter, setStatusFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
   const [assignedFilter, setAssignedFilter] = useState('');
@@ -433,7 +440,7 @@ export default function CRM() {
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search leads..." className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+          <input value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Search leads..." className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
         </div>
         <select value={countryFilter} onChange={e => setCountryFilter(e.target.value)} className={inputCls}>
           <option value="">All Countries</option>
