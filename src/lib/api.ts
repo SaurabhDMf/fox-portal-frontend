@@ -137,43 +137,6 @@ api.interceptors.response.use(
   }
 );
 
-export const emailApi = {
-  // Accounts
-  getAccounts:   ()              => api.get('/email/accounts'),
-  addAccount:    (data: any)     => api.post('/email/accounts', data),
-  updateAccount: (id: string, data: any) => api.put(`/email/accounts/${id}`, data),
-  deleteAccount: (id: string)    => api.delete(`/email/accounts/${id}`),
-  testAccount:   (id: string)    => api.post(`/email/accounts/${id}/test`),
-  syncAccount:   (id: string, folder = 'INBOX', full = false) =>
-    api.post(`/email/accounts/${id}/sync`, { folder, full }),
-  hardResyncAccount: (id: string, folder = 'INBOX', limit = 200) =>
-    api.post(`/email/accounts/${id}/hard-resync`, { folder, limit }),
-  getFolders:    (id: string)    => api.get(`/email/accounts/${id}/folders`),
-  // Messages
-  getMessages:   (params: any)   => api.get('/email/messages', { params: { ...params, _t: Date.now() } }),
-  getMessage:    (id: string)    => api.get(`/email/messages/${id}`, { params: { _t: Date.now() } }),
-  patchMessage:  (id: string, data: any) => api.patch(`/email/messages/${id}`, data),
-  deleteMessage: (id: string)    => api.delete(`/email/messages/${id}`),
-  // Send
-  send:          (data: any)     => api.post('/email/send', data),
-  // Custom folders (user-defined categories — distinct from getFolders which lists IMAP folders)
-  getCustomFolders: () => api.get('/email/folders'),
-  createCustomFolder: (data: { name: string; color?: string | null }) =>
-    api.post('/email/folders', data),
-  updateCustomFolder: (id: string, data: { name?: string; color?: string | null; position?: number }) =>
-    api.put(`/email/folders/${id}`, data),
-  deleteCustomFolder: (id: string) => api.delete(`/email/folders/${id}`),
-  moveMessage: (id: string, custom_folder_id: string | null) =>
-    api.patch(`/email/messages/${id}`, { custom_folder_id }),
-  bulkMoveMessages: (ids: string[], custom_folder_id: string | null) =>
-    api.post('/email/messages/bulk-move', { ids, custom_folder_id }),
-  bulkDeleteMessages: (ids: string[], permanent = false) =>
-    api.post('/email/messages/bulk-delete', { ids, permanent }),
-  // AI compose — server returns { draft } on success
-  aiDraft: (data: { topic?: string; to?: string; subject?: string; reply_to_id?: string }) =>
-    api.post('/email/ai-draft', data),
-};
-
 export const inboxApi = {
   // Inboxes
   getInboxes:    ()                => api.get('/inbox'),
