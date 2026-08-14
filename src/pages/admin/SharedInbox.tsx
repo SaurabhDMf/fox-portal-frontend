@@ -135,11 +135,19 @@ function persistDrafts(all: Record<string, ReplyDraft>) {
   }
 }
 
+// Strips a leading Gmail-style "-- " signature delimiter line, if present —
+// common when a signature was copy-pasted from Gmail's own settings, which
+// exports that marker as literal text. We control signature placement
+// ourselves, so this redundant marker line should never show up.
+function stripSigDelimiter(s: string): string {
+  return s.replace(/^--\s*\r?\n+/, '');
+}
+
 function signatureToPlain(sig: string | null | undefined): string {
   if (!sig) return '';
   const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(sig);
-  if (!looksLikeHtml) return sig.replace(/\n{3,}/g, '\n\n').trim();
-  return sig
+  if (!looksLikeHtml) return stripSigDelimiter(sig.replace(/\n{3,}/g, '\n\n').trim());
+  return stripSigDelimiter(sig
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
     .replace(/<\/?p[^>]*>/gi, '')
@@ -149,7 +157,7 @@ function signatureToPlain(sig: string | null | undefined): string {
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/\n{3,}/g, '\n\n')
-    .trim();
+    .trim());
 }
 
 interface Thread {
