@@ -20,6 +20,7 @@ const DEFAULTS = {
   ai_followup_enabled: 1, ai_followup_delay_hr: 2, ai_followup_tone: 'professional',
   sync_history_days: 90,
   signature: '',
+  default_bcc: '',
 };
 
 export default function InboxFormPage() {
@@ -71,6 +72,7 @@ export default function InboxFormPage() {
         ai_followup_tone:     inbox.ai_followup_tone     ?? 'professional',
         sync_history_days:    inbox.sync_history_days    ?? 90,
         signature:            inbox.signature            ?? '',
+        default_bcc:          inbox.default_bcc          ?? '',
       });
       setInitialised(true);
     }
@@ -281,6 +283,21 @@ export default function InboxFormPage() {
               <option value={30}>Last 30 days</option>
               <option value={7}>Last 7 days</option>
             </select>
+          </div>
+        </div>
+
+        {/* ── Archive Copy (auto-BCC) ── */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Archive Copy</h3>
+          <p className="text-xs text-gray-400 mb-4">
+            Every reply and new email a sales rep sends from this inbox gets a silent BCC to this
+            address automatically, so you keep a full archive. Leave blank to disable.
+          </p>
+          <div className="max-w-sm">
+            <label className={LBL}>Default BCC address</label>
+            <input type="email" value={form.default_bcc}
+              onChange={e => set('default_bcc', e.target.value)}
+              placeholder="archive@yourcompany.com" className={INP} />
           </div>
         </div>
 
