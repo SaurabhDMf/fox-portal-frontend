@@ -83,8 +83,8 @@ const DATE_PRESETS: { label: string; key: string; from: () => string; to: () => 
   },
 ];
 
-const INP = 'w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-colors';
-const LBL = 'block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1';
+const INP = 'w-full text-sm border border-border rounded-lg px-3 py-2 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 transition-colors';
+const LBL = 'block text-xs font-medium text-muted-foreground mb-1';
 
 // ── types ──────────────────────────────────────────────────────────────────
 
@@ -178,20 +178,18 @@ interface Sender { id: string; email_address: string; display_name?: string; }
 
 function ThreadStatusBadge({ thread }: { thread: Thread }) {
   if (thread.status === 'dead')
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"><X size={10} /> Dead</span>;
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-destructive/10 text-destructive ring-1 ring-destructive/25"><X size={10} /> Dead</span>;
   if (thread.status === 'closed')
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"><Archive size={10} /> Closed</span>;
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground ring-1 ring-border"><Archive size={10} /> Closed</span>;
   if (thread.status === 'followup')
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"><Tag size={10} /> Follow-up ({thread.followup_count}/5)</span>;
-  return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"><Mail size={10} /> Open</span>;
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/25"><Tag size={10} /> Follow-up ({thread.followup_count}/5)</span>;
+  return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary ring-1 ring-primary/25"><Mail size={10} /> Open</span>;
 }
 
 function AvatarFallback({ name, size = 8 }: { name?: string; size?: number }) {
   const initials = (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  const colors = ['bg-violet-500', 'bg-blue-500', 'bg-emerald-500', 'bg-rose-500', 'bg-amber-500'];
-  const color = colors[(name?.charCodeAt(0) || 0) % colors.length];
   return (
-    <div className={`w-${size} h-${size} rounded-full ${color} flex items-center justify-center text-white text-xs font-semibold flex-shrink-0`}>
+    <div className={`w-${size} h-${size} rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-semibold flex-shrink-0`}>
       {initials}
     </div>
   );
@@ -410,7 +408,7 @@ export default function SharedInbox() {
               <p className="mb-2">{errMsg(e)}</p>
               <button
                 onClick={() => { toast.dismiss(t.id); retryAfterPause(); }}
-                className="px-2 py-1 rounded bg-violet-600 text-white text-xs font-medium">
+                className="px-2 py-1 rounded bg-primary text-primary-foreground text-xs font-medium">
                 Retry now
               </button>
             </div>
@@ -834,22 +832,22 @@ export default function SharedInbox() {
   };
 
   if (loadingInboxes) {
-    return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-gray-400" size={32} /></div>;
+    return <div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin text-muted-foreground" size={32} /></div>;
   }
 
   // ── Render ───────────────────────────────────────────────────
 
   return (
-    <div className="flex h-full overflow-hidden bg-gray-50 dark:bg-gray-900">
+    <div className="flex h-full overflow-hidden bg-background">
 
       {/* ── Left sidebar: inbox list ──────────────────────────── */}
-      <div className="w-52 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-gray-800">
-        <div className="p-3 flex items-center justify-between border-b border-gray-100 dark:border-gray-700">
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Inboxes</span>
+      <div className="w-52 flex-shrink-0 border-r border-border flex flex-col bg-card">
+        <div className="p-3 flex items-center justify-between border-b border-border">
+          <span className="text-sm font-semibold text-foreground">Inboxes</span>
           {isAdmin && (
             <button
               onClick={() => navigate(`${basePath}/new`)}
-              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
+              className="p-1 rounded hover:bg-secondary text-muted-foreground"
               title="Create new inbox"
             >
               <Plus size={16} />
@@ -859,7 +857,7 @@ export default function SharedInbox() {
         <div className="flex-1 overflow-y-auto py-1">
           {inboxes.length === 0 ? (
             <div className="px-3 py-4 text-center">
-              <p className="text-xs text-gray-400">No inboxes yet.</p>
+              <p className="text-xs text-muted-foreground">No inboxes yet.</p>
             </div>
           ) : inboxes.map(inbox => {
             const isSelected = selectedInboxId === inbox.id;
@@ -867,17 +865,17 @@ export default function SharedInbox() {
               <div key={inbox.id}>
                 <button
                   onClick={() => { setSelectedInboxId(inbox.id); setSelectedThreadId(null); }}
-                  className={`w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${isSelected ? 'bg-violet-50 dark:bg-violet-900/20 border-r-2 border-violet-500' : ''}`}
+                  className={`w-full text-left px-3 py-2.5 flex items-center gap-2 hover:bg-secondary/60 transition-colors ${isSelected ? 'bg-primary/10 border-r-2 border-primary' : ''}`}
                 >
-                  <Inbox size={15} className={`flex-shrink-0 ${isSelected ? 'text-violet-600' : 'text-gray-400'}`} />
-                  <p className={`text-xs font-medium truncate flex-1 ${isSelected ? 'text-violet-700 dark:text-violet-400' : 'text-gray-700 dark:text-gray-300'}`}>{inbox.name}</p>
+                  <Inbox size={15} className={`flex-shrink-0 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <p className={`text-xs font-medium truncate flex-1 ${isSelected ? 'text-primary' : 'text-foreground'}`}>{inbox.name}</p>
                   {Number(inbox.unread_count ?? inbox.thread_count ?? 0) > 0 && (
                     <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
                       Number(inbox.unread_count) > 0
-                        ? 'bg-violet-600 text-white font-semibold'
+                        ? 'bg-primary text-primary-foreground font-semibold'
                         : isSelected
-                          ? 'bg-violet-200 dark:bg-violet-800 text-violet-700 dark:text-violet-300'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500'
+                          ? 'bg-primary/20 text-primary'
+                          : 'bg-secondary text-muted-foreground'
                     }`}>
                       {inbox.unread_count ?? inbox.thread_count}
                     </span>
@@ -888,23 +886,23 @@ export default function SharedInbox() {
                 {isSelected && (
                   <div className="pl-5 pb-1">
                     <button onClick={() => { setSelectedFolderId(null); setShowSpam(false); }}
-                      className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded ${!selectedFolderId && !showSpam ? 'text-violet-600 dark:text-violet-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+                      className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-secondary/60 transition-colors rounded ${!selectedFolderId && !showSpam ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
                       <FolderOpen size={12} />All threads
                     </button>
                     <button onClick={() => { setShowSpam(true); setSelectedFolderId(null); setSelectedThreadId(null); }}
-                      className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded ${showSpam ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+                      className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-secondary/60 transition-colors rounded ${showSpam ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                       <ShieldAlert size={12} />Spam
                     </button>
                     {folders.map(f => (
-                      <div key={f.id} className={`group flex items-center rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${selectedFolderId === f.id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
+                      <div key={f.id} className={`group flex items-center rounded hover:bg-secondary/60 transition-colors ${selectedFolderId === f.id ? 'bg-primary/10' : ''}`}>
                         <button onClick={() => setSelectedFolderId(f.id)}
                           className="flex-1 text-left px-3 py-1.5 flex items-center gap-2 text-xs min-w-0">
                           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: f.color }} />
-                          <span className={`truncate ${selectedFolderId === f.id ? 'text-violet-700 dark:text-violet-300 font-medium' : 'text-gray-600 dark:text-gray-300'}`}>{f.name}</span>
+                          <span className={`truncate ${selectedFolderId === f.id ? 'text-primary font-medium' : 'text-muted-foreground'}`}>{f.name}</span>
                         </button>
                         {isAdmin && (
                           <button onClick={() => deleteFolderMut.mutate(f.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 mr-1 rounded text-gray-400 hover:text-red-500 transition-all">
+                            className="opacity-0 group-hover:opacity-100 p-1 mr-1 rounded text-muted-foreground hover:text-destructive transition-all">
                             <Trash2 size={11} />
                           </button>
                         )}
@@ -916,14 +914,14 @@ export default function SharedInbox() {
                           <input autoFocus value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter' && newFolderName.trim()) createFolderMut.mutate(newFolderName.trim()); if (e.key === 'Escape') setShowNewFolder(false); }}
                             placeholder="Folder name…"
-                            className="flex-1 text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                            className="flex-1 text-xs border border-border rounded px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
                           <button onClick={() => newFolderName.trim() && createFolderMut.mutate(newFolderName.trim())}
                             disabled={createFolderMut.isPending || !newFolderName.trim()}
-                            className="px-2 py-1 bg-violet-600 text-white text-xs rounded hover:bg-violet-700 disabled:opacity-50">Add</button>
+                            className="px-2 py-1 bg-primary text-primary-foreground text-xs rounded hover:opacity-90 disabled:opacity-50">Add</button>
                         </div>
                       ) : (
                         <button onClick={() => setShowNewFolder(true)}
-                          className="flex items-center gap-1 text-xs text-gray-400 hover:text-violet-600 transition-colors py-0.5">
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors py-0.5">
                           <FolderPlus size={11} /> New folder
                         </button>
                       )}
@@ -938,50 +936,50 @@ export default function SharedInbox() {
 
       {/* ── Middle: thread list ───────────────────────────────── */}
       {selectedInbox && (
-        <div className={`flex flex-col border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 ${selectedThreadId ? 'hidden lg:flex w-72 flex-shrink-0' : 'flex-1 max-w-sm'}`}>
-          <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+        <div className={`flex flex-col border-r border-border bg-card/40 ${selectedThreadId ? 'hidden lg:flex w-72 flex-shrink-0' : 'flex-1 max-w-sm'}`}>
+          <div className="p-3 border-b border-border">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 min-w-0">
-                <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{selectedInbox.name}</h2>
+                <h2 className="text-sm font-semibold text-foreground truncate">{selectedInbox.name}</h2>
                 {selectedInbox.ai_followup_enabled ? <span title="AI follow-up on" className="text-emerald-500 flex-shrink-0"><Zap size={12} /></span> : null}
               </div>
               <div className="flex items-center gap-0.5 flex-shrink-0">
                 <button onClick={() => syncMut.mutate()} disabled={syncMut.isPending} title="Sync IMAP"
-                  className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500">
+                  className="p-1.5 rounded hover:bg-secondary text-muted-foreground">
                   <RefreshCw size={14} className={syncMut.isPending ? 'animate-spin' : ''} />
                 </button>
                 {isAdmin && <>
                   <button
                     onClick={() => navigate(`${basePath}/${selectedInbox.id}/settings`)}
                     title="Edit IMAP / SMTP settings"
-                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500">
+                    className="p-1.5 rounded hover:bg-secondary text-muted-foreground">
                     <Settings size={14} />
                   </button>
                   <button
                     onClick={() => navigate(`${basePath}/${selectedInbox.id}/members`)}
                     title="Manage senders & members"
-                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500">
+                    className="p-1.5 rounded hover:bg-secondary text-muted-foreground">
                     <UserPlus size={14} />
                   </button>
                   <button onClick={() => setShowNewThread(true)} title="New outbound email"
-                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500">
+                    className="p-1.5 rounded hover:bg-secondary text-muted-foreground">
                     <Plus size={14} />
                   </button>
                 </>}
               </div>
             </div>
             <div className="relative mb-2">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search threads…"
-                className="w-full pl-7 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                className="w-full pl-7 pr-3 py-1.5 text-xs border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
             {selectedFolderId && (
               <div className="flex items-center gap-1.5 px-1 py-0.5 mb-1">
-                <span className="text-xs text-violet-600 dark:text-violet-400 flex items-center gap-1">
+                <span className="text-xs text-primary flex items-center gap-1">
                   <FolderOpen size={11} />
                   {folders.find(f => f.id === selectedFolderId)?.name || 'Folder'}
                 </span>
-                <button onClick={() => setSelectedFolderId(null)} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => setSelectedFolderId(null)} className="text-muted-foreground hover:text-foreground">
                   <X size={11} />
                 </button>
               </div>
@@ -989,85 +987,85 @@ export default function SharedInbox() {
             <div className="flex gap-1 flex-wrap">
               {['all', 'open', 'followup', 'closed', 'dead'].map(s => (
                 <button key={s} onClick={() => setFilterStatus(s)}
-                  className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${filterStatus === s ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                  className={`px-2 py-0.5 text-xs rounded-full font-medium transition-colors ${filterStatus === s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>
                   {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
               ))}
               {canManageInbox && (
                 <>
                   <button onClick={() => { setShowUnassigned(!showUnassigned); setShowAssignedToMe(false); }}
-                    className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${showUnassigned ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                    className={`px-2 py-0.5 text-xs rounded-full font-medium transition-colors ${showUnassigned ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>
                     Unassigned
                   </button>
                   <button onClick={() => { setShowAssignedToMe(!showAssignedToMe); setShowUnassigned(false); }}
-                    className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${showAssignedToMe ? 'bg-teal-500 text-white border-teal-500' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                    className={`px-2 py-0.5 text-xs rounded-full font-medium transition-colors ${showAssignedToMe ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>
                     Mine
                   </button>
                 </>
               )}
               <button onClick={() => setShowDateFilter(v => !v)}
-                className={`px-2 py-0.5 text-xs rounded-full border transition-colors flex items-center gap-1 ${(dateFrom || dateTo) ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                className={`px-2 py-0.5 text-xs rounded-full font-medium transition-colors flex items-center gap-1 ${(dateFrom || dateTo) ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>
                 <CalendarDays size={11} />Date
               </button>
               <button onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}
                 title={sortOrder === 'desc' ? 'Showing newest first' : 'Showing oldest first'}
-                className={`px-2 py-0.5 text-xs rounded-full border transition-colors flex items-center gap-1 ${sortOrder === 'asc' ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                className={`px-2 py-0.5 text-xs rounded-full font-medium transition-colors flex items-center gap-1 ${sortOrder === 'asc' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>
                 <ArrowUpDown size={11} />{sortOrder === 'asc' ? 'Oldest' : 'Newest'}
               </button>
             </div>
 
             {/* ── Date filter panel ── */}
             {showDateFilter && (
-              <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 space-y-2">
+              <div className="mt-2 pt-2 border-t border-border space-y-2">
                 <div className="flex flex-wrap gap-1">
                   {DATE_PRESETS.map(p => (
                     <button key={p.key} onClick={() => applyPreset(p.key)}
-                      className={`px-2 py-0.5 text-xs rounded-full border transition-colors ${datePreset === p.key ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                      className={`px-2 py-0.5 text-xs rounded-full font-medium transition-colors ${datePreset === p.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>
                       {p.label}
                     </button>
                   ))}
                   {(dateFrom || dateTo) && (
                     <button onClick={clearDate}
-                      className="px-2 py-0.5 text-xs rounded-full border border-red-200 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                      className="px-2 py-0.5 text-xs rounded-full font-medium text-destructive hover:bg-destructive/10 transition-colors">
                       Clear
                     </button>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   <div>
-                    <label className="text-xs text-gray-400 mb-0.5 block">From</label>
+                    <label className="text-xs text-muted-foreground mb-0.5 block">From</label>
                     <input type="date" value={dateFrom}
                       onChange={e => { setDatePreset('custom'); setDateFrom(e.target.value); }}
-                      className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                      className="w-full text-xs border border-border rounded px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 mb-0.5 block">To</label>
+                    <label className="text-xs text-muted-foreground mb-0.5 block">To</label>
                     <input type="date" value={dateTo}
                       onChange={e => { setDatePreset('custom'); setDateTo(e.target.value); }}
-                      className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                      className="w-full text-xs border border-border rounded px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
                   </div>
                 </div>
               </div>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+          <div className="flex-1 overflow-y-auto divide-y divide-border">
             {showSpam ? (
               loadingSpam ? (
-                <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
+                <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-muted-foreground" size={24} /></div>
               ) : !spamData?.messages?.length ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                  <ShieldAlert size={32} className="text-gray-200 mb-2" />
-                  <p className="text-sm text-gray-400">No spam emails in the last 30 days</p>
+                  <ShieldAlert size={32} className="text-muted-foreground/40 mb-2" />
+                  <p className="text-sm text-muted-foreground">No spam emails in the last 30 days</p>
                 </div>
               ) : spamData.messages.map((msg: any) => (
-                <div key={msg.uid} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                <div key={msg.uid} className="px-4 py-3 hover:bg-muted/60 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">
+                      <p className="text-xs font-semibold text-foreground truncate">
                         {msg.from_name ? `${msg.from_name} <${msg.from}>` : msg.from}
                       </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-300 truncate mt-0.5">{msg.subject}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-xs text-foreground/80 truncate mt-0.5">{msg.subject}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {msg.date ? new Date(msg.date).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'numeric', minute:'2-digit', hour12:true }) : ''}
                       </p>
                     </div>
@@ -1075,18 +1073,18 @@ export default function SharedInbox() {
                       onClick={() => moveToInboxMut.mutate(msg.uid)}
                       disabled={moveToInboxMut.isPending}
                       title="Move to Inbox"
-                      className="flex-shrink-0 flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/40 border border-violet-200 dark:border-violet-700 disabled:opacity-50 transition-colors">
+                      className="flex-shrink-0 flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-primary/10 text-primary hover:bg-primary/20 ring-1 ring-primary/25 disabled:opacity-50 transition-colors">
                       <MoveRight size={11} />Inbox
                     </button>
                   </div>
                 </div>
               ))
             ) : loadingThreads ? (
-              <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
+              <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-muted-foreground" size={24} /></div>
             ) : threads.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                <Mail size={32} className="text-gray-200 mb-2" />
-                <p className="text-sm text-gray-400">No threads{(dateFrom || dateTo) ? ' in this date range' : ''}</p>
+                <Mail size={32} className="text-muted-foreground/40 mb-2" />
+                <p className="text-sm text-muted-foreground">No threads{(dateFrom || dateTo) ? ' in this date range' : ''}</p>
               </div>
             ) : threads.map(thread => (
               <ThreadRow key={thread.id} thread={thread}
@@ -1101,19 +1099,19 @@ export default function SharedInbox() {
               />
             ))}
             {!showSpam && (
-              <div className="border-t border-gray-100 dark:border-gray-700 p-3 space-y-2">
+              <div className="border-t border-border p-3 space-y-2">
                 {threads.length > 0 && (
-                  <p className="text-xs text-center text-gray-400">Showing {threads.length} of {total} threads</p>
+                  <p className="text-xs text-center text-muted-foreground">Showing {threads.length} of {total} threads</p>
                 )}
                 {hasNextPage && (
                   <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium border border-violet-200 dark:border-violet-700 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 text-violet-600 dark:text-violet-400 disabled:opacity-50 transition-colors">
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium ring-1 ring-primary/25 rounded-lg hover:bg-primary/10 text-primary disabled:opacity-50 transition-colors">
                     <ChevronDown size={12} className={isFetchingNextPage ? 'animate-bounce' : ''} />
                     {isFetchingNextPage ? 'Loading…' : 'Load older threads'}
                   </button>
                 )}
                 <button onClick={() => pullOlderMut.mutate()} disabled={pullOlderMut.isPending}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 disabled:opacity-50 transition-colors">
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium border border-border rounded-lg hover:bg-secondary text-muted-foreground disabled:opacity-50 transition-colors">
                   <RefreshCw size={12} className={pullOlderMut.isPending ? 'animate-spin' : ''} />
                   {pullOlderMut.isPending ? 'Pulling from server…' : 'Pull older emails from mail server'}
                 </button>
@@ -1125,31 +1123,31 @@ export default function SharedInbox() {
 
       {/* ── Right: thread detail or empty state ──────────────── */}
       {selectedThreadId && threadDetail ? (
-        <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-gray-800">
-          <div className="flex items-start justify-between gap-4 px-5 py-3 border-b border-gray-100 dark:border-gray-700">
+        <div className="flex-1 flex flex-col min-w-0 bg-card/60">
+          <div className="flex items-start justify-between gap-4 px-5 py-3 border-b border-border backdrop-blur">
             <div className="flex items-center gap-3 min-w-0">
-              <button onClick={() => setSelectedThreadId(null)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 lg:hidden">
+              <button onClick={() => setSelectedThreadId(null)} className="p-1 rounded hover:bg-secondary text-muted-foreground lg:hidden">
                 <ArrowLeft size={16} />
               </button>
               <div className="min-w-0">
-                <h2 className="font-semibold text-gray-800 dark:text-gray-100 truncate">{threadDetail.thread.subject}</h2>
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <h2 className="font-semibold text-foreground truncate tracking-tight">{threadDetail.thread.subject}</h2>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   <ThreadStatusBadge thread={threadDetail.thread} />
                   {threadDetail.thread.ai_sent_at && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary ring-1 ring-primary/25">
                       <Bot size={10} /> AI sent
                     </span>
                   )}
                 </div>
-                <div className="mt-1 space-y-0.5">
-                  <p className="text-xs text-gray-500">
-                    <span className="font-medium text-gray-400 mr-1">From:</span>
+                <div className="mt-1.5 space-y-0.5">
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium text-muted-foreground/70 mr-1">From:</span>
                     {threadDetail.thread.client_name
                       ? <>{threadDetail.thread.client_name} &lt;{threadDetail.thread.client_email}&gt;</>
                       : threadDetail.thread.client_email}
                   </p>
-                  <p className="text-xs text-gray-500">
-                    <span className="font-medium text-gray-400 mr-1">To:</span>
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium text-muted-foreground/70 mr-1">To:</span>
                     {threadDetail.thread.received_on}
                   </p>
                 </div>
@@ -1158,20 +1156,20 @@ export default function SharedInbox() {
             <div className="flex items-center gap-2 flex-shrink-0">
               {canManageInbox && (
                 <button onClick={() => setShowAssign(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary text-muted-foreground">
                   <UserPlus size={13} />{threadDetail.thread.assignee_name || 'Assign'}
                 </button>
               )}
               {canManageInbox && threadDetail.thread.folder_id && (
                 <button onClick={() => { setMoveFolderThreadId(selectedThreadId); setShowMoveFolder(true); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary text-muted-foreground"
                   style={{ borderColor: threadDetail.thread.folder_color || undefined }}>
                   <FolderOpen size={13} />{threadDetail.thread.folder_name}
                 </button>
               )}
               {canManageInbox && !threadDetail.thread.folder_id && (
                 <button onClick={() => { setMoveFolderThreadId(selectedThreadId); setShowMoveFolder(true); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary text-muted-foreground">
                   <FolderPlus size={13} />Folder
                 </button>
               )}
@@ -1184,7 +1182,7 @@ export default function SharedInbox() {
           <div className="flex-1 overflow-y-auto min-h-0">
             <div className="p-4 space-y-4">
               {loadingThread ? (
-                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-gray-300" size={24} /></div>
+                <div className="flex justify-center py-8"><Loader2 className="animate-spin text-muted-foreground" size={24} /></div>
               ) : threadDetail.messages.map(msg => (
                 <MessageBubble key={msg.id} msg={msg}
                   canDelete={isAdmin}
@@ -1192,13 +1190,13 @@ export default function SharedInbox() {
               ))}
             </div>
           {threadDetail.thread.status !== 'closed' && threadDetail.thread.status !== 'dead' && (
-            <div className="border-t border-gray-100 dark:border-gray-700 p-4">
-              <div className="border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden">
-                <div className="flex flex-wrap gap-2 px-3 pt-3 pb-1 border-b border-gray-100 dark:border-gray-700">
+            <div className="border-t border-border p-4">
+              <div className="border border-border rounded-xl overflow-hidden bg-card/70">
+                <div className="flex flex-wrap gap-2 px-3 pt-3 pb-1 border-b border-border">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-gray-400 flex-shrink-0">From:</span>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">From:</span>
                     <select value={replyFrom} onChange={e => setReplyFrom(e.target.value)}
-                      className="text-xs text-gray-700 dark:text-gray-200 bg-transparent border-none outline-none cursor-pointer">
+                      className="text-xs text-foreground bg-transparent border-none outline-none cursor-pointer">
                       {threadDetail.thread.received_on &&
                         !threadDetail.senders.some((s: any) => s.email_address === threadDetail.thread.received_on) && (
                         <option value={threadDetail.thread.received_on}>{threadDetail.thread.received_on}</option>
@@ -1209,23 +1207,23 @@ export default function SharedInbox() {
                     </select>
                   </div>
                   <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <span className="text-xs text-gray-400 flex-shrink-0">CC:</span>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">CC:</span>
                     <input value={replyCC} onChange={e => onChangeReplyCC(e.target.value)} placeholder="optional"
-                      className="text-xs flex-1 bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400" />
+                      className="text-xs flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground" />
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-xs text-gray-400 flex-shrink-0">Subject:</span>
+                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border">
+                  <span className="text-xs text-muted-foreground flex-shrink-0">Subject:</span>
                   <input value={replySubject} onChange={e => onChangeReplySubject(e.target.value)}
                     placeholder={`Re: ${threadDetail.thread.subject || ''}`}
-                    className="text-xs flex-1 bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-400" />
+                    className="text-xs flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground" />
                 </div>
                 <textarea value={replyText} onChange={e => onChangeReplyText(e.target.value)}
                   placeholder="Write your reply…" rows={8}
-                  className="w-full px-3 py-2 text-sm bg-transparent outline-none resize-none text-gray-700 dark:text-gray-200 placeholder-gray-400 whitespace-pre-wrap" />
+                  className="w-full px-3 py-2 text-sm bg-transparent outline-none resize-none text-foreground placeholder:text-muted-foreground whitespace-pre-wrap" />
                 {selectedThreadId && threadHasDraft(selectedThreadId) && (
                   <div className="flex items-center justify-between gap-3 px-3 pb-2 -mt-1">
-                    <span className="inline-flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
+                    <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                       <Check size={11} /> Draft saved — it'll still be here after a refresh
                     </span>
                     <button
@@ -1236,40 +1234,40 @@ export default function SharedInbox() {
                         const ts = threadDetail?.thread?.subject || '';
                         setReplySubject(ts.toLowerCase().startsWith('re:') ? ts : `Re: ${ts}`);
                       }}
-                      className="text-xs text-gray-400 hover:text-red-500 transition-colors">
+                      className="text-xs text-muted-foreground hover:text-destructive transition-colors">
                       Discard draft
                     </button>
                   </div>
                 )}
                 {showPendingBanner && (
-                  <div className="flex items-center justify-between gap-3 px-3 py-2 mx-3 mb-2 rounded-lg border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/30">
-                    <div className="flex items-center gap-2 text-xs text-violet-700 dark:text-violet-200">
+                  <div className="flex items-center justify-between gap-3 px-3 py-2 mx-3 mb-2 rounded-lg ring-1 ring-primary/25 bg-primary/10">
+                    <div className="flex items-center gap-2 text-xs text-primary">
                       <Clock size={13} />
                       Sending in {secondsLeft}s — you can still edit it.
                     </div>
                     <button onClick={undoPendingSend}
-                      className="text-xs font-semibold text-violet-700 dark:text-violet-200 hover:text-violet-900 dark:hover:text-white">
+                      className="text-xs font-semibold text-primary hover:opacity-80">
                       Undo & Edit
                     </button>
                   </div>
                 )}
                 {aiReplyOpen && (
-                  <div className="mx-3 mb-2 rounded-lg border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 p-2 space-y-2">
+                  <div className="mx-3 mb-2 rounded-lg ring-1 ring-primary/25 bg-primary/5 p-2 space-y-2">
                     <input
                       autoFocus
                       value={aiReplyHints}
                       onChange={e => setAiReplyHints(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); aiDraftReply(); } if (e.key === 'Escape') setAiReplyOpen(false); }}
                       placeholder="Any specific angle? Leave blank to reply from the client's email."
-                      className="w-full text-xs px-2 py-1.5 rounded border border-violet-200 dark:border-violet-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-1 focus:ring-violet-400"
+                      className="w-full text-xs px-2 py-1.5 rounded border border-primary/25 bg-background text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring"
                     />
                     <div className="flex items-center justify-end gap-2">
                       <button type="button" onClick={() => { setAiReplyOpen(false); setAiReplyHints(''); }}
-                        className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                        className="text-xs text-muted-foreground hover:text-foreground">
                         Cancel
                       </button>
                       <button type="button" onClick={aiDraftReply} disabled={aiDrafting}
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-violet-600 text-white text-xs hover:bg-violet-700 disabled:opacity-50">
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-primary text-primary-foreground text-xs hover:opacity-90 disabled:opacity-50">
                         {aiDrafting ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
                         {aiDrafting ? 'Drafting…' : 'Generate'}
                       </button>
@@ -1279,9 +1277,9 @@ export default function SharedInbox() {
                 <div className="flex items-center justify-between px-3 pb-3 pt-1 gap-2">
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1.5">
-                      <Clock size={14} className="text-gray-400" />
+                      <Clock size={14} className="text-muted-foreground" />
                       <input type="datetime-local" value={sendLater} onChange={e => setSendLater(e.target.value)}
-                        className="text-xs bg-transparent outline-none text-gray-500 dark:text-gray-400 cursor-pointer"
+                        className="text-xs bg-transparent outline-none text-muted-foreground cursor-pointer"
                         title="Send later — leave blank for the 30 second undo window" />
                     </div>
                     <button
@@ -1289,13 +1287,13 @@ export default function SharedInbox() {
                       onClick={() => setAiReplyOpen(v => !v)}
                       disabled={aiDrafting || showPendingBanner}
                       title="Let AI draft a reply based on this thread"
-                      className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-violet-200 dark:border-violet-700 text-xs text-violet-700 dark:text-violet-200 hover:bg-violet-50 dark:hover:bg-violet-900/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-primary/40 text-xs font-medium text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed">
                       <Bot size={12} />
                       {aiReplyOpen ? 'Hide AI' : 'AI draft'}
                     </button>
                   </div>
                   <button onClick={sendReply} disabled={sendingReply || !replyText.trim() || showPendingBanner}
-                    className="flex items-center gap-1.5 px-4 py-1.5 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
                     {sendingReply ? <Loader2 size={14} className="animate-spin" /> : sendLater ? <Clock size={14} /> : <Send size={14} />}
                     {sendLater ? 'Schedule' : 'Send'}
                   </button>
@@ -1306,10 +1304,10 @@ export default function SharedInbox() {
           </div>
         </div>
       ) : (
-        <div className="hidden lg:flex flex-1 items-center justify-center text-gray-300 dark:text-gray-600">
+        <div className="hidden lg:flex flex-1 items-center justify-center text-muted-foreground/40">
           <div className="text-center">
             <Inbox size={48} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm">{selectedInboxId ? 'Select a thread to read' : 'Select an inbox'}</p>
+            <p className="text-sm text-muted-foreground">{selectedInboxId ? 'Select a thread to read' : 'Select an inbox'}</p>
           </div>
         </div>
       )}
@@ -1359,31 +1357,32 @@ function ThreadRow({ thread, selected, hasDraft, isAdmin, members, folders, onSe
   const unread = !!(thread as any).is_unread;
   return (
     <div onClick={onSelect}
-      className={`relative flex items-start gap-2.5 px-3 py-3 cursor-pointer transition-colors ${
+      className={`relative flex items-start gap-2.5 px-4 py-3.5 cursor-pointer transition-colors ${
         selected
-          ? 'bg-violet-50 dark:bg-violet-900/20'
+          ? 'bg-accent/60'
           : unread
-            ? 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/40'
-            : 'bg-gray-50/50 dark:bg-gray-900/30 hover:bg-gray-50 dark:hover:bg-gray-700/40'
+            ? 'bg-card hover:bg-muted/60'
+            : 'hover:bg-muted/60'
       }`}>
-      {unread && !selected && <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-violet-500" />}
+      {selected && <span className="absolute inset-y-0 left-0 w-[3px] bg-primary" />}
+      {unread && !selected && <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary" />}
       <AvatarFallback name={thread.client_name || thread.client_email} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
-          <span className={`text-xs truncate text-gray-800 dark:text-gray-100 ${unread ? 'font-bold' : 'font-medium'}`}>{thread.client_name || thread.client_email}</span>
-          <span className={`text-xs flex-shrink-0 ${unread ? 'text-violet-600 dark:text-violet-300 font-semibold' : 'text-gray-400'}`}>{fmtDateTime(thread.last_inbound_at || thread.updated_at)}</span>
+          <span className={`text-xs truncate text-foreground ${unread ? 'font-bold' : 'font-medium'}`}>{thread.client_name || thread.client_email}</span>
+          <span className={`text-[11px] flex-shrink-0 ${unread ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>{fmtDateTime(thread.last_inbound_at || thread.updated_at)}</span>
         </div>
-        <p className={`text-xs truncate mt-0.5 ${unread ? 'text-gray-800 dark:text-gray-100 font-semibold' : 'text-gray-600 dark:text-gray-400'}`}>{thread.subject}</p>
-        <p className={`text-xs truncate mt-0.5 ${unread ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400'}`}>{thread.last_body?.slice(0, 80)}</p>
+        <p className={`text-[13px] truncate mt-0.5 ${unread ? 'text-foreground font-semibold' : 'text-foreground/80'}`}>{thread.subject}</p>
+        <p className={`text-xs truncate mt-0.5 leading-relaxed ${unread ? 'text-foreground/80' : 'text-muted-foreground'}`}>{thread.last_body?.slice(0, 80)}</p>
         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
           <ThreadStatusBadge thread={thread} />
           {hasDraft && (
             <span title="You have an unsent reply saved for this thread"
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/25">
               <Mail size={10} /> Draft
             </span>
           )}
-          {thread.assignee_name && <span className="text-xs text-gray-400 truncate">→ {thread.assignee_name}</span>}
+          {thread.assignee_name && <span className="text-xs text-muted-foreground truncate">→ {thread.assignee_name}</span>}
           {thread.folder_name && (
             <span className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full"
               style={{ background: (thread.folder_color || '#6366f1') + '22', color: thread.folder_color || '#6366f1' }}>
@@ -1393,36 +1392,36 @@ function ThreadRow({ thread, selected, hasDraft, isAdmin, members, folders, onSe
         </div>
       </div>
       <div ref={menuRef} className="relative flex-shrink-0" onClick={e => e.stopPropagation()}>
-        <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400">
+        <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 rounded hover:bg-secondary text-muted-foreground">
           <MoreVertical size={14} />
         </button>
         {menuOpen && (
-          <div className="absolute right-0 top-6 z-20 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg py-1 text-xs">
+          <div className="absolute right-0 top-6 z-20 w-40 bg-popover border border-border rounded-lg shadow-lg py-1 text-xs">
             {['open', 'followup', 'closed', 'dead'].map(s => (
               <button key={s} onClick={() => { onStatusChange(s); setMenuOpen(false); }}
-                className={`w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 ${thread.status === s ? 'font-semibold' : ''}`}>
-                {thread.status === s ? <Check size={12} className="text-violet-500" /> : <span className="w-3" />}
+                className={`w-full flex items-center gap-2 px-3 py-2 hover:bg-accent text-popover-foreground ${thread.status === s ? 'font-semibold' : ''}`}>
+                {thread.status === s ? <Check size={12} className="text-primary" /> : <span className="w-3" />}
                 Mark {s}
               </button>
             ))}
             {isAdmin && (
               <button onClick={() => { onAssign(); setMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border-t border-gray-100 dark:border-gray-700 mt-1 pt-2">
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent text-popover-foreground border-t border-border mt-1 pt-2">
                 <UserPlus size={12} /> Assign
               </button>
             )}
             {isAdmin && folders && folders.length > 0 && (
-              <div className="border-t border-gray-100 dark:border-gray-700 mt-1 pt-1">
-                <p className="px-3 py-1 text-xs text-gray-400">Move to folder</p>
+              <div className="border-t border-border mt-1 pt-1">
+                <p className="px-3 py-1 text-xs text-muted-foreground">Move to folder</p>
                 <button onClick={() => { onMoveFolder(); setMenuOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs">
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent text-popover-foreground text-xs">
                   <FolderOpen size={12} /> Choose folder…
                 </button>
               </div>
             )}
             {onDelete && (
               <button onClick={(e) => { e.stopPropagation(); if (confirm('Delete this thread? All messages will be removed.')) { onDelete(); } setMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 border-t border-gray-100 dark:border-gray-700 mt-1 pt-2 text-xs">
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-destructive/10 text-destructive border-t border-border mt-1 pt-2 text-xs">
                 <Trash2 size={12} /> Delete thread
               </button>
             )}
@@ -1476,15 +1475,15 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
   const DeleteBtn = () => canDelete ? (
     confirmDelete ? (
       <div className="flex items-center gap-1">
-        <span className="text-xs text-red-500">Delete?</span>
+        <span className="text-xs text-destructive">Delete?</span>
         <button onClick={() => { onDelete?.(); setConfirmDelete(false); }}
-          className="text-xs text-red-500 hover:text-red-700 font-medium px-1">Yes</button>
+          className="text-xs text-destructive hover:opacity-80 font-medium px-1">Yes</button>
         <button onClick={() => setConfirmDelete(false)}
-          className="text-xs text-gray-400 hover:text-gray-600 px-1">No</button>
+          className="text-xs text-muted-foreground hover:text-foreground px-1">No</button>
       </div>
     ) : (
       <button onClick={() => setConfirmDelete(true)}
-        className={`p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-300 hover:text-red-400 transition-opacity ${hovered ? 'opacity-100' : 'opacity-0'}`}>
+        className={`p-1 rounded hover:bg-destructive/10 text-muted-foreground/60 hover:text-destructive transition-opacity ${hovered ? 'opacity-100' : 'opacity-0'}`}>
         <Trash2 size={12} />
       </button>
     )
@@ -1495,18 +1494,18 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
     return (
       <div className="flex flex-col gap-1.5" onMouseEnter={() => setHovered(true)} onMouseLeave={() => { setHovered(false); setConfirmDelete(false); }}>
         <div className="flex items-center gap-2 px-1 flex-wrap">
-          <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-semibold text-gray-600 dark:text-gray-300 flex-shrink-0">
+          <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-foreground flex-shrink-0">
             {(msg.from_name || msg.from_address || '?')[0].toUpperCase()}
           </div>
-          <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{msg.from_name || msg.from_address}</span>
-          {msg.from_name && <span className="text-xs text-gray-400">&lt;{msg.from_address}&gt;</span>}
-          <span className="text-xs text-gray-400">{fmtDateTime(msg.sent_at || msg.created_at)}</span>
+          <span className="text-xs font-medium text-foreground/90">{msg.from_name || msg.from_address}</span>
+          {msg.from_name && <span className="text-xs text-muted-foreground">&lt;{msg.from_address}&gt;</span>}
+          <span className="text-xs text-muted-foreground">{fmtDateTime(msg.sent_at || msg.created_at)}</span>
           <DeleteBtn />
         </div>
-        <div className="rounded-xl border border-gray-200 dark:border-gray-600 overflow-hidden bg-white">
+        <div className="rounded-xl border border-border overflow-hidden bg-card shadow-sm">
           <EmailHtmlFrame html={msg.body_html!} />
         </div>
-        {msg.cc_addresses && <span className="text-xs text-gray-400 px-1">CC: {msg.cc_addresses}</span>}
+        {msg.cc_addresses && <span className="text-xs text-muted-foreground px-1">CC: {msg.cc_addresses}</span>}
       </div>
     );
   }
@@ -1515,38 +1514,38 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
   return (
     <div className={`flex gap-3 ${isOut ? 'flex-row-reverse' : ''}`}
       onMouseEnter={() => setHovered(true)} onMouseLeave={() => { setHovered(false); setConfirmDelete(false); }}>
-      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${isOut ? 'bg-violet-500 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${isOut ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
         {isOut ? (msg.is_ai_generated ? <Bot size={14} /> : <Send size={12} />) : (msg.from_name || msg.from_address || '?')[0].toUpperCase()}
       </div>
       <div className={`max-w-[75%] flex flex-col gap-1 ${isOut ? 'items-end' : 'items-start'}`}>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+          <span className="text-xs font-medium text-foreground/80">
             {isOut ? (msg.is_ai_generated ? 'AI Auto-reply' : 'You') : (msg.from_name || msg.from_address)}
           </span>
-          {!isOut && msg.from_name && <span className="text-xs text-gray-400">&lt;{msg.from_address}&gt;</span>}
-          {isOut && <span className="text-xs text-gray-400">&lt;{msg.from_address}&gt;</span>}
-          <span className="text-xs text-gray-400">{fmtDateTime(msg.sent_at || msg.created_at)}</span>
+          {!isOut && msg.from_name && <span className="text-xs text-muted-foreground">&lt;{msg.from_address}&gt;</span>}
+          {isOut && <span className="text-xs text-muted-foreground">&lt;{msg.from_address}&gt;</span>}
+          <span className="text-xs text-muted-foreground">{fmtDateTime(msg.sent_at || msg.created_at)}</span>
           {isScheduled && (
-            <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full ring-1 ring-amber-500/25">
               <Clock size={10} /> Scheduled {fmtDateTime(msg.scheduled_at)}
             </span>
           )}
           {isFailed && (
             <span
               title={msg.last_send_error || 'Send failed'}
-              className="inline-flex items-center gap-1 text-xs text-rose-600 bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded-full">
+              className="inline-flex items-center gap-1 text-xs text-destructive bg-destructive/10 px-2 py-0.5 rounded-full ring-1 ring-destructive/25">
               <X size={10} /> Not sent — delivery failed
             </span>
           )}
           <DeleteBtn />
         </div>
-        <div className={`rounded-2xl px-4 py-3 text-sm ${isOut ? 'bg-violet-600 text-white rounded-tr-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded-tl-sm'}`}>
+        <div className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${isOut ? 'bg-primary text-primary-foreground rounded-tr-md' : 'border border-border bg-card text-card-foreground rounded-tl-md'}`}>
           <pre className="whitespace-pre-wrap font-sans">{msg.body_text}</pre>
         </div>
         {/* Show the mail server's own words inline. Keeping this in a tooltip
             meant a failed client email looked unexplained unless you knew to hover. */}
         {isFailed && msg.last_send_error && (
-          <div className="max-w-full text-xs rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20 px-3 py-2 text-rose-700 dark:text-rose-300">
+          <div className="max-w-full text-xs rounded-lg bg-destructive/10 px-3 py-2 text-destructive">
             <span className="font-medium">Mail server said:</span>{' '}
             <span className="break-words">{msg.last_send_error}</span>
             {typeof msg.send_attempts === 'number' && msg.send_attempts > 0 && (
@@ -1554,7 +1553,7 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
             )}
           </div>
         )}
-        {msg.cc_addresses && <span className="text-xs text-gray-400">CC: {msg.cc_addresses}</span>}
+        {msg.cc_addresses && <span className="text-xs text-muted-foreground">CC: {msg.cc_addresses}</span>}
       </div>
     </div>
   );
@@ -1573,10 +1572,10 @@ function StatusDropdown({ status, onChange }: { status: string; onChange: (s: st
   }, [open]);
   const labels: Record<string, string> = { open: 'Open', followup: 'Follow-up', closed: 'Closed', dead: 'Dead' };
   const colors: Record<string, string> = {
-    open: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    followup: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-    closed: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
-    dead: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+    open: 'bg-primary/10 text-primary ring-1 ring-primary/25',
+    followup: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/25',
+    closed: 'bg-muted text-muted-foreground ring-1 ring-border',
+    dead: 'bg-destructive/10 text-destructive ring-1 ring-destructive/25',
   };
   return (
     <div ref={ref} className="relative">
@@ -1585,11 +1584,11 @@ function StatusDropdown({ status, onChange }: { status: string; onChange: (s: st
         {labels[status] || status}<ChevronDown size={12} />
       </button>
       {open && (
-        <div className="absolute right-0 top-9 z-20 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg py-1">
+        <div className="absolute right-0 top-9 z-20 w-36 bg-popover border border-border rounded-lg shadow-lg py-1">
           {Object.entries(labels).map(([k, v]) => (
             <button key={k} onClick={() => { onChange(k); setOpen(false); }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 ${status === k ? 'font-semibold' : ''}`}>
-              {status === k ? <Check size={11} className="text-violet-500" /> : <span className="w-3" />}{v}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent text-popover-foreground ${status === k ? 'font-semibold' : ''}`}>
+              {status === k ? <Check size={11} className="text-primary" /> : <span className="w-3" />}{v}
             </button>
           ))}
         </div>
@@ -1605,30 +1604,30 @@ function AssignModal({ salesUsers, currentAssignee, onClose, onAssign }: {
 }) {
   const roleLabel: Record<string, string> = { sales_rep: 'Sales Rep', sales_manager: 'Sales Manager', pre_sales: 'Pre-Sales', marketing: 'Marketing' };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-80 max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-100">Assign to Sales</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+      <div className="bg-card border border-border rounded-xl shadow-2xl w-80 max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h3 className="font-semibold text-foreground">Assign to Sales</h3>
+          <button onClick={onClose} className="p-1 rounded hover:bg-secondary"><X size={16} /></button>
         </div>
         <div className="overflow-y-auto p-2">
           <button onClick={() => onAssign(null)}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-100 font-medium">
-            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-100"><X size={14} /></div>
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-secondary text-sm text-foreground font-medium">
+            <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-foreground"><X size={14} /></div>
             Unassign
           </button>
           {salesUsers.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-4">No sales users found.</p>
+            <p className="text-xs text-muted-foreground text-center py-4">No sales users found.</p>
           )}
           {salesUsers.map(u => (
             <button key={u.id} onClick={() => onAssign(u.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm ${currentAssignee === u.id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-secondary text-sm ${currentAssignee === u.id ? 'bg-accent' : ''}`}>
               <AvatarFallback name={u.full_name} />
               <div className="text-left min-w-0">
-                <p className="text-gray-800 dark:text-gray-100 font-medium truncate">{u.full_name}</p>
-                <p className="text-xs text-gray-400">{roleLabel[u.role] || u.role}</p>
+                <p className="text-foreground font-medium truncate">{u.full_name}</p>
+                <p className="text-xs text-muted-foreground">{roleLabel[u.role] || u.role}</p>
               </div>
-              {currentAssignee === u.id && <Check size={14} className="ml-auto flex-shrink-0 text-violet-500" />}
+              {currentAssignee === u.id && <Check size={14} className="ml-auto flex-shrink-0 text-primary" />}
             </button>
           ))}
         </div>
@@ -1643,33 +1642,33 @@ function MoveFolderModal({ folders, currentFolderId, onClose, onMove }: {
   folders: any[]; currentFolderId?: string; onClose: () => void; onMove: (fid: string | null) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-72 max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-100">Move to folder</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+      <div className="bg-card border border-border rounded-xl shadow-2xl w-72 max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h3 className="font-semibold text-foreground">Move to folder</h3>
+          <button onClick={onClose} className="p-1 rounded hover:bg-secondary"><X size={16} /></button>
         </div>
         <div className="overflow-y-auto p-2">
           <button onClick={() => onMove(null)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm ${!currentFolderId ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
-            <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-600 flex items-center justify-center">
-              <FolderOpen size={14} className="text-gray-500" />
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-secondary text-sm ${!currentFolderId ? 'bg-accent' : ''}`}>
+            <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center">
+              <FolderOpen size={14} className="text-muted-foreground" />
             </div>
-            <span className="text-gray-700 dark:text-gray-200">No folder</span>
-            {!currentFolderId && <Check size={14} className="ml-auto text-violet-500" />}
+            <span className="text-foreground">No folder</span>
+            {!currentFolderId && <Check size={14} className="ml-auto text-primary" />}
           </button>
           {folders.map(f => (
             <button key={f.id} onClick={() => onMove(f.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm ${currentFolderId === f.id ? 'bg-violet-50 dark:bg-violet-900/20' : ''}`}>
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-secondary text-sm ${currentFolderId === f.id ? 'bg-accent' : ''}`}>
               <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: (f.color || '#6366f1') + '22' }}>
                 <FolderOpen size={14} style={{ color: f.color || '#6366f1' }} />
               </div>
-              <span className="text-gray-700 dark:text-gray-200">{f.name}</span>
-              {currentFolderId === f.id && <Check size={14} className="ml-auto text-violet-500" />}
+              <span className="text-foreground">{f.name}</span>
+              {currentFolderId === f.id && <Check size={14} className="ml-auto text-primary" />}
             </button>
           ))}
           {folders.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-4">No folders yet. Create one from the sidebar.</p>
+            <p className="text-xs text-muted-foreground text-center py-4">No folders yet. Create one from the sidebar.</p>
           )}
         </div>
       </div>
@@ -1730,11 +1729,11 @@ function NewThreadModal({ inboxId, senders, onClose, onCreated }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg">
-        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-100">New Email</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h3 className="font-semibold text-foreground">New Email</h3>
+          <button onClick={onClose} className="p-1 rounded hover:bg-secondary"><X size={16} /></button>
         </div>
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -1755,18 +1754,18 @@ function NewThreadModal({ inboxId, senders, onClose, onCreated }: {
             <div className="flex items-center justify-between">
               <label className={LBL}>Message</label>
               <button type="button" onClick={() => setAiOpen(v => !v)}
-                className="flex items-center gap-1 text-[11px] text-violet-700 dark:text-violet-300 hover:underline">
+                className="flex items-center gap-1 text-[11px] text-primary hover:underline">
                 <Bot size={12} /> {aiOpen ? 'Hide AI draft' : 'Write with AI'}
               </button>
             </div>
             {aiOpen && (
-              <div className="mb-2 p-2 rounded-lg border border-violet-200 dark:border-violet-700 bg-violet-50 dark:bg-violet-900/20 space-y-2">
+              <div className="mb-2 p-2 rounded-lg ring-1 ring-primary/25 bg-primary/5 space-y-2">
                 <input value={aiTopic} onChange={e => setAiTopic(e.target.value)}
                   placeholder="What should this email cover? (e.g. follow up on our quote, ask for a meeting)"
-                  className="w-full text-xs px-2 py-1.5 rounded border border-violet-200 dark:border-violet-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-100 placeholder-gray-400 outline-none focus:ring-1 focus:ring-violet-400" />
+                  className="w-full text-xs px-2 py-1.5 rounded border border-primary/25 bg-background text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring" />
                 <div className="flex justify-end">
                   <button type="button" onClick={runAiDraft} disabled={aiDrafting}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-violet-600 text-white text-xs hover:bg-violet-700 disabled:opacity-50">
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-primary text-primary-foreground text-xs hover:opacity-90 disabled:opacity-50">
                     {aiDrafting ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
                     {aiDrafting ? 'Drafting…' : 'Generate draft'}
                   </button>
@@ -1776,16 +1775,16 @@ function NewThreadModal({ inboxId, senders, onClose, onCreated }: {
             <textarea value={body} onChange={e => setBody(e.target.value)} rows={6} placeholder="Write your email…" className={`${INP} resize-none whitespace-pre-wrap`} />
           </div>
           <div className="flex items-center gap-2">
-            <Clock size={14} className="text-gray-400" />
-            <label className="text-xs text-gray-500">Send later:</label>
+            <Clock size={14} className="text-muted-foreground" />
+            <label className="text-xs text-muted-foreground">Send later:</label>
             <input type="datetime-local" value={sendLater} onChange={e => setSendLater(e.target.value)}
-              className="text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 focus:outline-none" />
+              className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground focus:outline-none" />
           </div>
         </div>
         <div className="flex justify-end gap-3 px-4 pb-4">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:bg-secondary rounded-lg">Cancel</button>
           <button onClick={submit} disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50">
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50">
             {saving ? <Loader2 size={14} className="animate-spin" /> : sendLater ? <Clock size={14} /> : <Send size={14} />}
             {sendLater ? 'Schedule' : 'Send'}
           </button>

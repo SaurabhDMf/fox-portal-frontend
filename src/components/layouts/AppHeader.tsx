@@ -28,7 +28,6 @@ const sectionLabels: Record<string, string> = {
   chat: 'Chat',
   projects: 'Projects',
   vault: 'Password Manager',
-  email: 'Email',
   inbox: 'Shared Inbox',
   tickets: 'Support Tickets',
   tracker: 'HR & Tracker',

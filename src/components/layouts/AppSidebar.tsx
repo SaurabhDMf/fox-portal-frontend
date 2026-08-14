@@ -6,7 +6,7 @@ import { useSidebarCollapsed } from './PortalLayout';
 import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
-  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale, RefreshCw, Inbox, KeyRound
+  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Receipt, Scale, RefreshCw, Inbox, KeyRound
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -36,7 +36,6 @@ const adminNav: NavItem[] = [
   { label: 'Chat', path: '/admin/chat', icon: MessageSquare, module: 'chat' },
   { label: 'Projects', path: '/admin/projects', icon: FolderKanban, module: 'projects' },
   { label: 'Password Manager', path: '/admin/vault', icon: Lock, module: 'vault' },
-  { label: 'Email', path: '/admin/email', icon: Mail },
   { label: 'Shared Inbox', path: '/admin/inbox', icon: Inbox, module: 'inbox' },
   { label: 'Tracker', path: '/admin/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/admin/payroll', icon: Wallet, module: 'payroll' },
@@ -66,7 +65,6 @@ const teamNav: NavItem[] = [
   { label: 'Invoicing', path: '/team/invoicing', icon: FileText, module: 'invoicing' },
   { label: 'Chat', path: '/team/chat', icon: MessageSquare, module: 'chat' },
   { label: 'Password Manager', path: '/team/vault', icon: Lock, module: 'vault' },
-  { label: 'Email', path: '/team/email', icon: Mail },
   { label: 'Shared Inbox', path: '/team/inbox', icon: Inbox, module: 'inbox' },
   { label: 'Tracker', path: '/team/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/team/payroll', icon: Wallet, module: 'payroll' },
@@ -84,7 +82,6 @@ const salesNav: NavItem[] = [
   { label: 'Chat', path: '/sales/chat', icon: MessageSquare, module: 'chat' },
   { label: 'Projects', path: '/sales/projects', icon: FolderKanban, module: 'projects' },
   { label: 'Password Manager', path: '/sales/vault', icon: Lock, module: 'vault' },
-  { label: 'Email', path: '/sales/email', icon: Mail },
   { label: 'Shared Inbox', path: '/sales/inbox', icon: Inbox, module: 'inbox' },
   { label: 'Tracker', path: '/sales/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/sales/payroll', icon: Wallet, module: 'payroll' },
@@ -115,7 +112,6 @@ const rootPaths = ['/admin', '/sales', '/team', '/client', '/emp', '/portal', '/
 
 function pathToModule(path: string): string {
   if (path.includes('/chat'))      return 'chat';
-  if (path.includes('/email'))     return 'email';
   if (path.includes('/projects'))  return 'projects';
   if (path.includes('/crm'))       return 'crm';
   if (path.includes('/invoicing')) return 'invoicing';
@@ -277,7 +273,7 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
       const itemModule   = pathToModule(item.path);
       const unreadCount  = itemModule ? (counts[itemModule] || 0) : 0;
       const hasUnread    = unreadCount > 0;
-      const showAsCount  = itemModule === 'email' || itemModule === 'chat';
+      const showAsCount  = itemModule === 'chat';
       const link = (
         <NavLink key={item.path} to={item.path} end={rootPaths.includes(item.path)} onClick={onClick}
           className={`relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${

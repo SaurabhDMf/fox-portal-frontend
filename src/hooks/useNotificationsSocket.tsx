@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   Bell, MessageSquare, CheckSquare, FileText, Target,
-  Wallet, Calendar, Mail, Ticket, X, Send,
+  Wallet, Calendar, Ticket, X, Send,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useUnreadStore, typeToModule } from '@/stores/unreadStore';
@@ -66,7 +66,6 @@ async function fetchAndSeedUnreadCounts() {
     useUnreadStore.getState().setAll({
       notifications: data.notifications || 0,
       chat:          data.chat          || 0,
-      email:         data.email         || 0,
     });
   } catch {}
 }
@@ -82,7 +81,6 @@ function iconForType(type: string) {
     payroll: Wallet,
     leave: Calendar,
     ticket: Ticket,
-    email: Mail,
   };
   return map[type] || Bell;
 }
@@ -104,7 +102,6 @@ function fallbackLinkForType(type: string): string {
     case 'payroll': return `${base}/payroll`;
     case 'leave':   return `${base}/payroll`;
     case 'ticket':  return role === 'client' ? `${base}/support` : `${base}/tickets`;
-    case 'email':   return `${base}/email`;
     default:        return `${base}/notifications`;
   }
 }
@@ -114,7 +111,7 @@ function moduleLabel(type: string): string {
   const map: Record<string, string> = {
     task: 'Tasks', mention: 'Chat', message: 'Chat',
     lead: 'CRM', invoice: 'Invoicing', payroll: 'Payroll',
-    leave: 'Leave', ticket: 'Support', email: 'Email',
+    leave: 'Leave', ticket: 'Support',
   };
   return map[type] || 'Notification';
 }
@@ -297,8 +294,6 @@ export function useNotificationsSocket() {
 
     const handleNewNotification = (notif: any) => {
       qc.invalidateQueries({ queryKey: ['notifications'] });
-      qc.invalidateQueries({ queryKey: ['email-unread'] });
-      qc.invalidateQueries({ queryKey: ['emails'] });
       bump('notifications');
       const mod = typeToModule[notif?.type] || '';
       if (mod) bump(mod);
@@ -371,22 +366,12 @@ export function useNotificationsSocket() {
       }
     };
 
-    // new_email fires when IMAP sync saves fresh emails.
-    // new_notification (type:'email') is emitted at the same time and already
-    // handles sound + toast + badge bump — so here we only refresh query data.
-    const handleNewEmail = () => {
-      qc.invalidateQueries({ queryKey: ['emails'] });
-      qc.invalidateQueries({ queryKey: ['email-unread'] });
-    };
-
     socket.on('new_notification', handleNewNotification);
     socket.on('new_message',      handleNewMessage);
-    socket.on('new_email',        handleNewEmail);
 
     return () => {
       socket.off('new_notification', handleNewNotification);
       socket.off('new_message',      handleNewMessage);
-      socket.off('new_email',        handleNewEmail);
     };
   }, [qc, accessToken, isAuthenticated, userId, bump]);
 }
