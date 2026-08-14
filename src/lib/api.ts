@@ -218,36 +218,4 @@ export const inboxApi = {
     api.post(`/inbox/${id}/ai-compose`, data),
 };
 
-export const salesApi = {
-  // Incoming leads (manager review of lead@ intake)
-  getIncomingLeads: ()                => api.get('/sales/incoming-leads'),
-  ignoreLead:        (id: string)     => api.post(`/sales/incoming-leads/${id}/ignore`),
-  forwardLead:       (id: string, assign_to?: string) =>
-    api.post(`/sales/incoming-leads/${id}/forward`, assign_to ? { assign_to } : {}),
-  // Customers
-  getCustomers:  (params?: any)       => api.get('/sales/customers', { params }),
-  getCustomer:   (id: string)         => api.get(`/sales/customers/${id}`),
-  transferCustomer: (id: string, new_owner_user_id: string) =>
-    api.post(`/sales/customers/${id}/transfer`, { new_owner_user_id }),
-  // Tickets
-  getTickets:    (params?: any)       => api.get('/sales/tickets', { params }),
-  getTicket:     (id: string)         => api.get(`/sales/tickets/${id}`),
-  patchTicket:   (id: string, data: any) => api.patch(`/sales/tickets/${id}`, data),
-  sendTicketMessage: (id: string, data: { body_text: string; body_html?: string }) =>
-    api.post(`/sales/tickets/${id}/messages`, data),
-  addTicketNote: (id: string, note: string) => api.post(`/sales/tickets/${id}/notes`, { note }),
-  addFollowup:   (id: string, data: { due_date: string; due_time?: string; note?: string }) =>
-    api.post(`/sales/tickets/${id}/followups`, data),
-  attachmentUrl: (ticketId: string, attId: string) => `/sales/tickets/${ticketId}/attachments/${attId}`,
-  // Review queue
-  getReviewQueue: ()                  => api.get('/sales/review-queue'),
-  attachReview:   (id: string, ticket_id: string) => api.post(`/sales/review-queue/${id}/attach`, { ticket_id }),
-  createFromReview: (id: string, title?: string) => api.post(`/sales/review-queue/${id}/create`, { title }),
-  // Reports
-  reportBySource: ()                  => api.get('/sales/reports/by-source'),
-  reportByRep:    ()                  => api.get('/sales/reports/by-rep'),
-  // Audit
-  getAudit:       (entityType: string, id: string) => api.get(`/sales/audit/${entityType}/${id}`),
-};
-
 export default api;

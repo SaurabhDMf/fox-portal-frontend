@@ -6,8 +6,7 @@ import { useSidebarCollapsed } from './PortalLayout';
 import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
-  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale, RefreshCw, Inbox, KeyRound,
-  UserPlus, HelpCircle,
+  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Mail, Receipt, Scale, RefreshCw, Inbox, KeyRound
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -39,11 +38,6 @@ const adminNav: NavItem[] = [
   { label: 'Password Manager', path: '/admin/vault', icon: Lock, module: 'vault' },
   { label: 'Email', path: '/admin/email', icon: Mail },
   { label: 'Shared Inbox', path: '/admin/inbox', icon: Inbox, module: 'inbox' },
-  { label: 'Incoming Leads', path: '/admin/incoming-leads', icon: UserPlus, module: 'sales' },
-  { label: 'Sales Customers', path: '/admin/sales-customers', icon: Users, module: 'sales' },
-  { label: 'My Tickets', path: '/admin/sales-tickets', icon: Ticket, module: 'sales' },
-  { label: 'Review Queue', path: '/admin/review-queue', icon: HelpCircle, module: 'sales' },
-  { label: 'Sales Reports', path: '/admin/sales-reports', icon: BarChart3, module: 'sales' },
   { label: 'Tracker', path: '/admin/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/admin/payroll', icon: Wallet, module: 'payroll' },
   {
@@ -92,11 +86,6 @@ const salesNav: NavItem[] = [
   { label: 'Password Manager', path: '/sales/vault', icon: Lock, module: 'vault' },
   { label: 'Email', path: '/sales/email', icon: Mail },
   { label: 'Shared Inbox', path: '/sales/inbox', icon: Inbox, module: 'inbox' },
-  { label: 'Incoming Leads', path: '/sales/incoming-leads', icon: UserPlus, module: 'sales' },
-  { label: 'Sales Customers', path: '/sales/sales-customers', icon: Users, module: 'sales' },
-  { label: 'My Tickets', path: '/sales/sales-tickets', icon: Ticket, module: 'sales' },
-  { label: 'Review Queue', path: '/sales/review-queue', icon: HelpCircle, module: 'sales' },
-  { label: 'Sales Reports', path: '/sales/sales-reports', icon: BarChart3, module: 'sales' },
   { label: 'Tracker', path: '/sales/tracker', icon: Clock, module: 'tracker' },
   { label: 'Payroll', path: '/sales/payroll', icon: Wallet, module: 'payroll' },
   { label: 'Reports', path: '/sales/reports', icon: BarChart3, module: 'reports' },
