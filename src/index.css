@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -17,7 +17,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 8%;
 
-    --primary: 199 85% 42%;
+    --primary: 262 83% 58%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 95%;
@@ -34,7 +34,7 @@
 
     --border: 220 13% 88%;
     --input: 220 13% 88%;
-    --ring: 199 85% 42%;
+    --ring: 262 83% 58%;
 
     --radius: 0.625rem;
 
@@ -49,12 +49,12 @@
 
     --sidebar-background: 220 20% 97%;
     --sidebar-foreground: 220 10% 42%;
-    --sidebar-primary: 199 85% 42%;
+    --sidebar-primary: 262 83% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 14% 93%;
     --sidebar-accent-foreground: 222 47% 8%;
     --sidebar-border: 220 13% 90%;
-    --sidebar-ring: 199 85% 42%;
+    --sidebar-ring: 262 83% 58%;
   }
 
   .dark {
@@ -68,7 +68,7 @@
     --popover: 222 20% 12%;
     --popover-foreground: 210 20% 92%;
 
-    --primary: 199 85% 52%;
+    --primary: 262 83% 68%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 222 18% 17%;
@@ -85,7 +85,7 @@
 
     --border: 222 18% 20%;
     --input: 222 18% 20%;
-    --ring: 199 85% 52%;
+    --ring: 262 83% 68%;
 
     --radius: 0.625rem;
 
@@ -100,12 +100,12 @@
 
     --sidebar-background: 222 22% 7%;
     --sidebar-foreground: 215 14% 58%;
-    --sidebar-primary: 199 85% 52%;
+    --sidebar-primary: 262 83% 68%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 222 18% 17%;
     --sidebar-accent-foreground: 210 20% 92%;
     --sidebar-border: 222 18% 16%;
-    --sidebar-ring: 199 85% 52%;
+    --sidebar-ring: 262 83% 68%;
   }
 }
 
@@ -116,7 +116,7 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   }
 
   /* Custom scrollbar */
