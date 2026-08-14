@@ -274,6 +274,17 @@ export default function Subscriptions() {
     }
   };
 
+  const deleteSub = async (id: string) => {
+    if (!confirm('Delete this subscription? This cannot be undone.')) return;
+    try {
+      await api.delete(`/subscriptions/${id}`);
+      toast.success('Subscription deleted');
+      qc.invalidateQueries({ queryKey: ['subscriptions'] });
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to delete');
+    }
+  };
+
   const deletePlan = async (id: string) => {
     if (!confirm('Delete this plan?')) return;
     try {
@@ -371,12 +382,20 @@ export default function Subscriptions() {
                   </td>
                   <td className="p-3 text-muted-foreground">{fmtDate(s.next_billing_date)}</td>
                   <td className="p-3">
-                    {s.status !== 'cancelled' && (
-                      <button onClick={() => cancelSub(s.id)}
-                        className="inline-flex items-center gap-1 text-xs text-destructive hover:underline">
-                        <XCircle className="h-3.5 w-3.5" /> Cancel
-                      </button>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {s.status !== 'cancelled' && (
+                        <button onClick={() => cancelSub(s.id)}
+                          className="inline-flex items-center gap-1 text-xs text-destructive hover:underline">
+                          <XCircle className="h-3.5 w-3.5" /> Cancel
+                        </button>
+                      )}
+                      {s.status !== 'active' && (
+                        <button onClick={() => deleteSub(s.id)}
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive hover:underline">
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
