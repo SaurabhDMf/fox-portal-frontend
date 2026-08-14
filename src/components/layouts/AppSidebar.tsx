@@ -224,13 +224,13 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
       // Parent with children
       if (hasChildren) {
         const headerClass = `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 cursor-pointer ${
-          groupActive ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+          groupActive ? 'bg-sidebar-primary/15 text-sidebar-primary font-medium' : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
         } ${!showLabels ? 'justify-center' : ''}`;
 
         const header = showLabels ? (
           <button onClick={() => toggleGroup(item.path)} className={`${headerClass} w-full justify-between`}>
             <span className="flex items-center gap-3 min-w-0">
-              <item.icon className={`h-4 w-4 flex-shrink-0 ${groupActive ? 'text-primary' : ''}`} />
+              <item.icon className={`h-4 w-4 flex-shrink-0 ${groupActive ? 'text-sidebar-primary' : ''}`} />
               <span className="truncate">{item.label}</span>
             </span>
             <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? '' : '-rotate-90'}`} />
@@ -239,7 +239,7 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <NavLink to={item.path} end={rootPaths.includes(item.path)} onClick={onClick} className={headerClass}>
-                <item.icon className={`h-4 w-4 ${groupActive ? 'text-primary' : ''}`} />
+                <item.icon className={`h-4 w-4 ${groupActive ? 'text-sidebar-primary' : ''}`} />
               </NavLink>
             </TooltipTrigger>
             <TooltipContent side="right" sideOffset={8}>{item.label}</TooltipContent>
@@ -250,15 +250,15 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
           <div key={item.path}>
             {header}
             {showLabels && isOpen && (
-              <div className="mt-1 ml-4 pl-3 border-l border-border space-y-1">
+              <div className="mt-1 ml-4 pl-3 border-l border-sidebar-border space-y-1">
                 {item.children!.map((child) => {
                   const childActive = isItemActive(child.path);
                   return (
                     <NavLink key={child.path} to={child.path} onClick={onClick}
                       className={`flex items-center gap-2.5 px-3 py-1.5 rounded-md text-xs transition-all duration-150 ${
-                        childActive ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                        childActive ? 'bg-sidebar-primary/15 text-sidebar-primary font-medium' : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
                       }`}>
-                      <child.icon className={`h-3.5 w-3.5 flex-shrink-0 ${childActive ? 'text-primary' : ''}`} />
+                      <child.icon className={`h-3.5 w-3.5 flex-shrink-0 ${childActive ? 'text-sidebar-primary' : ''}`} />
                       <span className="truncate">{child.label}</span>
                     </NavLink>
                   );
@@ -277,9 +277,9 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
       const link = (
         <NavLink key={item.path} to={item.path} end={rootPaths.includes(item.path)} onClick={onClick}
           className={`relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
-            active ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+            active ? 'bg-sidebar-primary/15 text-sidebar-primary font-medium' : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
           } ${!showLabels ? 'justify-center' : ''}`}>
-          <item.icon className={`h-4 w-4 flex-shrink-0 ${active ? 'text-primary' : ''}`} />
+          <item.icon className={`h-4 w-4 flex-shrink-0 ${active ? 'text-sidebar-primary' : ''}`} />
           {showLabels && <span className="flex-1 truncate">{item.label}</span>}
           {showLabels && hasUnread && (showAsCount ? <UnreadBadge count={unreadCount} inline /> : <PulsingDot />)}
           {!showLabels && hasUnread && (
@@ -298,27 +298,27 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
 
   return (
     <>
-      <aside className={`hidden md:flex flex-col fixed left-0 top-0 h-screen bg-[hsl(var(--sidebar-background))] border-r border-border z-40 transition-all duration-300 ${collapsed ? 'w-16' : 'w-60'}`}>
-        <div className={`flex items-center h-14 border-b border-border flex-shrink-0 ${collapsed ? 'justify-center px-2' : 'justify-between px-3'}`}>
-          {!collapsed && <ThemeLogo className="h-7 flex-shrink-0" />}
-          <button onClick={() => setCollapsed(!collapsed)} className="p-1.5 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
+      <aside className={`hidden md:flex flex-col fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border z-40 transition-all duration-300 ${collapsed ? 'w-16' : 'w-60'}`}>
+        <div className={`flex items-center h-14 border-b border-sidebar-border flex-shrink-0 ${collapsed ? 'justify-center px-2' : 'justify-between px-3'}`}>
+          {!collapsed && <ThemeLogo className="h-7 flex-shrink-0" forceVariant="dark" />}
+          <button onClick={() => setCollapsed(!collapsed)} className="p-1.5 rounded-md hover:bg-sidebar-accent transition-colors text-sidebar-foreground/70 hover:text-sidebar-foreground">
             <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} />
           </button>
         </div>
         <TooltipProvider delayDuration={0} skipDelayDuration={0}>
           <nav className="flex-1 overflow-y-auto overflow-x-visible py-3 px-2 space-y-1.5">{renderNavItems(!collapsed)}</nav>
         </TooltipProvider>
-        <div className="border-t border-border p-3 flex-shrink-0">
+        <div className="border-t border-sidebar-border p-3 flex-shrink-0">
           {!collapsed && (
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary flex-shrink-0">{user?.full_name?.[0] || 'U'}</div>
+              <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-xs font-bold text-sidebar-primary flex-shrink-0">{user?.full_name?.[0] || 'U'}</div>
               <div className="min-w-0">
-                <div className="text-sm font-medium truncate">{user?.full_name}</div>
-                <div className="text-xs text-muted-foreground truncate capitalize">{user?.role?.replace('_', ' ')}</div>
+                <div className="text-sm font-medium truncate text-sidebar-foreground">{user?.full_name}</div>
+                <div className="text-xs text-sidebar-foreground/60 truncate capitalize">{user?.role?.replace('_', ' ')}</div>
               </div>
             </div>
           )}
-          <button onClick={handleLogout} className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
+          <button onClick={handleLogout} className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-all">
             <LogOut className="h-4 w-4 flex-shrink-0" />{!collapsed && <span>Logout</span>}
           </button>
         </div>
@@ -327,21 +327,21 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onMobileClose} />
-          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-[hsl(var(--sidebar-background))] border-r border-border flex flex-col animate-slide-up">
-            <div className="flex items-center justify-between h-14 px-3 border-b border-border flex-shrink-0">
-              <ThemeLogo className="h-7" />
-              <button onClick={onMobileClose} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground"><X className="h-4 w-4" /></button>
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-sidebar border-r border-sidebar-border flex flex-col animate-slide-up">
+            <div className="flex items-center justify-between h-14 px-3 border-b border-sidebar-border flex-shrink-0">
+              <ThemeLogo className="h-7" forceVariant="dark" />
+              <button onClick={onMobileClose} className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/70"><X className="h-4 w-4" /></button>
             </div>
             <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1.5">{renderNavItems(true, onMobileClose)}</nav>
-            <div className="border-t border-border p-3">
+            <div className="border-t border-sidebar-border p-3">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">{user?.full_name?.[0] || 'U'}</div>
+                <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-xs font-bold text-sidebar-primary">{user?.full_name?.[0] || 'U'}</div>
                 <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{user?.full_name}</div>
-                  <div className="text-xs text-muted-foreground truncate capitalize">{user?.role?.replace('_', ' ')}</div>
+                  <div className="text-sm font-medium truncate text-sidebar-foreground">{user?.full_name}</div>
+                  <div className="text-xs text-sidebar-foreground/60 truncate capitalize">{user?.role?.replace('_', ' ')}</div>
                 </div>
               </div>
-              <button onClick={handleLogout} className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all">
+              <button onClick={handleLogout} className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-all">
                 <LogOut className="h-4 w-4" /><span>Logout</span>
               </button>
             </div>
@@ -349,12 +349,12 @@ export default function AppSidebar({ mobileOpen, onMobileClose }: SidebarProps) 
         </div>
       )}
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[hsl(var(--sidebar-background))] border-t border-border z-40 flex items-center justify-around px-1 py-1.5">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-sidebar border-t border-sidebar-border z-40 flex items-center justify-around px-1 py-1.5">
         {visibleItems.slice(0, 5).map((item) => {
           const active = isItemActive(item.path);
           return (
             <NavLink key={item.path} to={item.path} end={rootPaths.includes(item.path)}
-              className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] transition-colors ${active ? 'text-primary' : 'text-muted-foreground'}`}>
+              className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] transition-colors ${active ? 'text-sidebar-primary' : 'text-sidebar-foreground/70'}`}>
               <item.icon className="h-5 w-5" /><span>{item.label}</span>
             </NavLink>
           );
