@@ -47,14 +47,16 @@
     --info: 213 90% 54%;
     --info-foreground: 0 0% 100%;
 
-    --sidebar-background: 220 20% 97%;
-    --sidebar-foreground: 220 10% 42%;
-    --sidebar-primary: 262 83% 58%;
+    /* Sidebar stays dark even in light mode, by design — matches the app's
+       fixed dark icon rail regardless of the light/dark theme toggle. */
+    --sidebar-background: 222 22% 7%;
+    --sidebar-foreground: 215 14% 68%;
+    --sidebar-primary: 262 83% 68%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 93%;
-    --sidebar-accent-foreground: 222 47% 8%;
-    --sidebar-border: 220 13% 90%;
-    --sidebar-ring: 262 83% 58%;
+    --sidebar-accent: 222 18% 17%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 222 18% 16%;
+    --sidebar-ring: 262 83% 68%;
   }
 
   .dark {
