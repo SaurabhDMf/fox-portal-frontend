@@ -1634,7 +1634,7 @@ function EmailHtmlFrame({ html }: { html: string }) {
   // started repainting this unstyled iframe doc too, muddying contrast instead
   // of leaving it on its natural white background. Force light explicitly so
   // it's never auto-inverted, regardless of the surrounding page's theme.
-  const sanitized = '<style>:root{color-scheme:light}body{background:#fff;color:#202124;margin:0}</style>' + html
+  const sanitized = '<style>:root{color-scheme:light}body{background:#fff;color:#202124;margin:0;padding:16px;box-sizing:border-box}</style>' + html
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/javascript:/gi, '');
 
