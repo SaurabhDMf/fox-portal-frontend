@@ -1769,7 +1769,12 @@ function EmailHtmlFrame({ html }: { html: string }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(200);
 
-  const sanitized = html
+  // Real emails assume a white page and set little or no color of their own —
+  // once the app shell went dark, Chrome's auto-dark-for-web-content heuristic
+  // started repainting this unstyled iframe doc too, muddying contrast instead
+  // of leaving it on its natural white background. Force light explicitly so
+  // it's never auto-inverted, regardless of the surrounding page's theme.
+  const sanitized = '<style>:root{color-scheme:light}body{background:#fff;color:#202124;margin:0}</style>' + html
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/javascript:/gi, '');
 
