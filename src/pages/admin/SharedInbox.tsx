@@ -39,6 +39,28 @@ const fmtDateTime = (iso?: string) => {
 const errMsg = (e: any) =>
   e?.response?.data?.error || e?.response?.data?.message || 'Something went wrong';
 
+// datetime-local wants "YYYY-MM-DDTHH:mm" in local time — toISOString() would
+// shift to UTC and silently pick the wrong hour for the preset.
+const toLocalDateTimeValue = (d: Date) => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+function sendLaterPresets(): Array<{ label: string; value: string }> {
+  const now = new Date();
+  const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
+  const tomorrowMorning = new Date(tomorrow); tomorrowMorning.setHours(8, 0, 0, 0);
+  const tomorrowAfternoon = new Date(tomorrow); tomorrowAfternoon.setHours(13, 0, 0, 0);
+  const nextMonday = new Date(now);
+  nextMonday.setDate(now.getDate() + ((8 - now.getDay()) % 7 || 7));
+  nextMonday.setHours(8, 0, 0, 0);
+  return [
+    { label: 'Tomorrow morning, 8:00 AM', value: toLocalDateTimeValue(tomorrowMorning) },
+    { label: 'Tomorrow afternoon, 1:00 PM', value: toLocalDateTimeValue(tomorrowAfternoon) },
+    { label: 'Monday morning, 8:00 AM', value: toLocalDateTimeValue(nextMonday) },
+  ];
+}
+
 const ADMIN_ROLES = ['super_admin', 'admin'];
 
 // ── date preset helpers ────────────────────────────────────────────────────
@@ -589,7 +611,19 @@ export default function SharedInbox() {
   const [aiDrafting, setAiDrafting] = useState(false);
   const [aiReplyOpen, setAiReplyOpen] = useState(false);
   const [aiReplyHints, setAiReplyHints] = useState('');
+  const [showSendMenu, setShowSendMenu] = useState(false);
+  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+  const sendMenuRef = useRef<HTMLDivElement>(null);
   const replyFromInitialised = useRef<string | null>(null);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (sendMenuRef.current && !sendMenuRef.current.contains(e.target as Node)) setShowSendMenu(false);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
   // Drafts keyed by thread id, hydrated from localStorage on mount. Lets each
   // thread remember the user's edits to subject / body / cc across a refresh or
   // leaving the page, instead of resetting to "Re: <thread.subject>".
@@ -1389,12 +1423,18 @@ export default function SharedInbox() {
                 )}
                 <div className="flex items-center justify-between px-3 pb-3 pt-1 gap-2">
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <Clock size={14} className="text-muted-foreground" />
-                      <input type="datetime-local" value={sendLater} onChange={e => setSendLater(e.target.value)}
-                        className="text-xs bg-transparent outline-none text-muted-foreground cursor-pointer"
-                        title="Send later — leave blank for the 30 second undo window" />
-                    </div>
+                    {sendLater && (
+                      <span className="inline-flex items-center gap-1 text-xs text-primary bg-primary/10 px-2 py-1 rounded-md ring-1 ring-primary/25">
+                        <Clock size={12} />{fmtDateTime(sendLater)}
+                        <button onClick={() => setSendLater('')} className="hover:text-destructive"><X size={11} /></button>
+                      </span>
+                    )}
+                    {showDateTimePicker && (
+                      <input type="datetime-local" value={sendLater} autoFocus
+                        onChange={e => { setSendLater(e.target.value); setShowDateTimePicker(false); }}
+                        onBlur={() => setShowDateTimePicker(false)}
+                        className="text-xs bg-transparent outline-none text-muted-foreground cursor-pointer" />
+                    )}
                     <button
                       type="button"
                       onClick={() => setAiReplyOpen(v => !v)}
@@ -1405,11 +1445,33 @@ export default function SharedInbox() {
                       {aiReplyOpen ? 'Hide AI' : 'AI draft'}
                     </button>
                   </div>
-                  <button onClick={sendReply} disabled={sendingReply || !replyText.trim() || showPendingBanner}
-                    className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
-                    {sendingReply ? <Loader2 size={14} className="animate-spin" /> : sendLater ? <Clock size={14} /> : <Send size={14} />}
-                    {sendLater ? 'Schedule' : 'Send'}
-                  </button>
+                  <div ref={sendMenuRef} className="relative flex items-stretch">
+                    <button onClick={sendReply} disabled={sendingReply || !replyText.trim() || showPendingBanner}
+                      className="flex items-center gap-1.5 pl-4 pr-3 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-l-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {sendingReply ? <Loader2 size={14} className="animate-spin" /> : sendLater ? <Clock size={14} /> : <Send size={14} />}
+                      {sendLater ? 'Schedule' : 'Send'}
+                    </button>
+                    <button type="button" onClick={() => setShowSendMenu(v => !v)}
+                      disabled={sendingReply || !replyText.trim() || showPendingBanner}
+                      className="flex items-center px-1.5 bg-primary text-primary-foreground rounded-r-lg border-l border-primary-foreground/20 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
+                      <ChevronDown size={14} />
+                    </button>
+                    {showSendMenu && (
+                      <div className="absolute bottom-full right-0 mb-2 w-56 rounded-lg border border-border bg-card shadow-lg py-1.5 z-10">
+                        <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Send Later</p>
+                        {sendLaterPresets().map(p => (
+                          <button key={p.label} onClick={() => { setSendLater(p.value); setShowSendMenu(false); }}
+                            className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-secondary/60 transition-colors">
+                            {p.label}
+                          </button>
+                        ))}
+                        <button onClick={() => { setShowDateTimePicker(true); setShowSendMenu(false); }}
+                          className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-secondary/60 transition-colors">
+                          Pick date &amp; time…
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
