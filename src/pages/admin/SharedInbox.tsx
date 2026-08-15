@@ -607,6 +607,7 @@ export default function SharedInbox() {
   const [aiReplyOpen, setAiReplyOpen] = useState(false);
   const [aiReplyHints, setAiReplyHints] = useState('');
   const [showSendMenu, setShowSendMenu] = useState(false);
+  const [tagInput, setTagInput] = useState('');
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
   const sendMenuRef = useRef<HTMLDivElement>(null);
   const replyFromInitialised = useRef<string | null>(null);
@@ -1291,6 +1292,32 @@ export default function SharedInbox() {
                     <span className="font-medium text-muted-foreground/70 mr-1">To:</span>
                     {threadDetail.thread.received_on}
                   </p>
+                </div>
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  {(threadDetail.thread.tags || []).map(tag => (
+                    <span key={tag} className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">
+                      {tag}
+                      {canManageInbox && (
+                        <button onClick={() => patchThreadMut.mutate({ tid: selectedThreadId, data: { tags: (threadDetail.thread.tags || []).filter(t => t !== tag) } })}
+                          className="hover:text-destructive">
+                          <X size={9} />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                  {canManageInbox && (
+                    <input value={tagInput} onChange={e => setTagInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && tagInput.trim()) {
+                          e.preventDefault();
+                          const next = Array.from(new Set([...(threadDetail.thread.tags || []), tagInput.trim()]));
+                          patchThreadMut.mutate({ tid: selectedThreadId, data: { tags: next } });
+                          setTagInput('');
+                        }
+                      }}
+                      placeholder="+ add tag"
+                      className="text-xs w-20 bg-transparent outline-none text-foreground placeholder:text-muted-foreground border-b border-dashed border-border focus:border-primary" />
+                  )}
                 </div>
               </div>
             </div>
