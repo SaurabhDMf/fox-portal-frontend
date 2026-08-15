@@ -173,6 +173,13 @@ interface Thread {
   tags?: string[] | null;
   deal_value?: number | null; deal_currency?: string;
   ticket_ref?: string | null;
+  client_phone?: string | null; client_country?: string | null;
+  created_at?: string;
+}
+
+interface ActivityEntry {
+  id: string; event: string; detail?: string | null;
+  actor_name?: string | null; created_at: string;
 }
 
 // Only shows a countdown/overdue label while the thread is actively awaiting
@@ -256,6 +263,8 @@ export default function SharedInbox() {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showSpam, setShowSpam] = useState(false);
+  const [slaAtRiskOnly, setSlaAtRiskOnly] = useState(false);
+  const [filterTag, setFilterTag] = useState<string | null>(null);
 
   // Persist folder selection per inbox in localStorage
   const setSelectedFolderId = (fid: string | null) => {
@@ -303,8 +312,6 @@ export default function SharedInbox() {
 
   const [showNewThread, setShowNewThread] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
-  const [tagInput, setTagInput] = useState('');
-  const [dealValueInput, setDealValueInput] = useState('');
 
   const anyOverlayOpen = showNewThread || showAssign || showMoveFolder;
 
@@ -353,6 +360,12 @@ export default function SharedInbox() {
   const threads = threadPages?.pages.flatMap(p => p.threads) ?? [];
   const total   = threadPages?.pages[0]?.total ?? 0;
 
+  const slaAtRiskCount = threads.filter(t => slaStatus(t, selectedInbox?.sla_hours)?.overdue).length;
+  const allTags = Array.from(new Set(threads.flatMap(t => t.tags || []))).sort();
+  const visibleThreads = threads
+    .filter(t => !slaAtRiskOnly || slaStatus(t, selectedInbox?.sla_hours)?.overdue)
+    .filter(t => !filterTag || (t.tags || []).includes(filterTag));
+
   const { data: threadDetail, isLoading: loadingThread } = useQuery<{ thread: Thread; messages: Message[]; senders: Sender[] }>({
     queryKey: ['inbox-thread', selectedInboxId, selectedThreadId],
     queryFn: () => inboxApi.getThread(selectedInboxId!, selectedThreadId!).then(r => r.data),
@@ -360,10 +373,6 @@ export default function SharedInbox() {
     staleTime: 30_000, refetchOnWindowFocus: false,
     refetchInterval: anyOverlayOpen ? false : 30_000,
   });
-
-  useEffect(() => {
-    setDealValueInput(threadDetail?.thread.deal_value != null ? String(threadDetail.thread.deal_value) : '');
-  }, [threadDetail?.thread.id, threadDetail?.thread.deal_value]);
 
   const { data: members = [] } = useQuery<any[]>({
     queryKey: ['inbox-members', selectedInboxId],
@@ -886,7 +895,7 @@ export default function SharedInbox() {
   // ── Render ───────────────────────────────────────────────────
 
   return (
-    <div className="flex h-full overflow-hidden bg-background">
+    <div className="dark flex h-full overflow-hidden bg-background text-foreground">
 
       {/* ── Left sidebar: inbox list ──────────────────────────── */}
       <div className="w-52 flex-shrink-0 border-r border-border flex flex-col bg-card">
@@ -941,6 +950,38 @@ export default function SharedInbox() {
                       className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-secondary/60 transition-colors rounded ${showSpam ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                       <ShieldAlert size={12} />Spam
                     </button>
+
+                    <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Ticket Queues</p>
+                    {canManageInbox && (
+                      <button onClick={() => { setShowSpam(false); setSelectedFolderId(null); setShowUnassigned(!showUnassigned); setShowAssignedToMe(false); setSlaAtRiskOnly(false); }}
+                        className={`w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 text-xs hover:bg-secondary/60 transition-colors rounded ${showUnassigned ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                        <span className="flex items-center gap-2"><UserPlus size={12} />Unassigned</span>
+                      </button>
+                    )}
+                    <button onClick={() => { setShowSpam(false); setSelectedFolderId(null); setSlaAtRiskOnly(!slaAtRiskOnly); }}
+                      className={`w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 text-xs hover:bg-secondary/60 transition-colors rounded ${slaAtRiskOnly ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                      <span className="flex items-center gap-2"><Clock size={12} />SLA at risk</span>
+                      {slaAtRiskCount > 0 && <span className="text-[10px] px-1.5 rounded-full bg-destructive/15 text-destructive">{slaAtRiskCount}</span>}
+                    </button>
+                    <button onClick={() => { setShowSpam(false); setSelectedFolderId(null); setShowAssignedToMe(!showAssignedToMe); setShowUnassigned(false); setSlaAtRiskOnly(false); }}
+                      className={`w-full text-left px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-secondary/60 transition-colors rounded ${showAssignedToMe ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                      <Inbox size={12} />My tickets
+                    </button>
+
+                    {allTags.length > 0 && (
+                      <>
+                        <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Tags</p>
+                        <div className="flex flex-wrap gap-1 px-3 pb-1">
+                          {allTags.map(tag => (
+                            <button key={tag} onClick={() => setFilterTag(filterTag === tag ? null : tag)}
+                              className={`text-[11px] px-2 py-0.5 rounded-full transition-colors ${filterTag === tag ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>
+                              {tag}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
                     {folders.map(f => (
                       <div key={f.id} className={`group flex items-center rounded hover:bg-secondary/60 transition-colors ${selectedFolderId === f.id ? 'bg-primary/10' : ''}`}>
                         <button onClick={() => setSelectedFolderId(f.id)}
@@ -1129,12 +1170,12 @@ export default function SharedInbox() {
               ))
             ) : loadingThreads ? (
               <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-muted-foreground" size={24} /></div>
-            ) : threads.length === 0 ? (
+            ) : visibleThreads.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                 <Mail size={32} className="text-muted-foreground/40 mb-2" />
                 <p className="text-sm text-muted-foreground">No threads{(dateFrom || dateTo) ? ' in this date range' : ''}</p>
               </div>
-            ) : threads.map(thread => (
+            ) : visibleThreads.map(thread => (
               <ThreadRow key={thread.id} thread={thread}
                 selected={selectedThreadId === thread.id}
                 hasDraft={threadHasDraft(thread.id)}
@@ -1172,6 +1213,7 @@ export default function SharedInbox() {
 
       {/* ── Right: thread detail or empty state ──────────────── */}
       {selectedThreadId && threadDetail ? (
+        <>
         <div className="flex-1 flex flex-col min-w-0 bg-card/60">
           <div className="flex items-start justify-between gap-4 px-5 py-3 border-b border-border backdrop-blur">
             <div className="flex items-center gap-3 min-w-0">
@@ -1221,48 +1263,6 @@ export default function SharedInbox() {
                     <span className="font-medium text-muted-foreground/70 mr-1">To:</span>
                     {threadDetail.thread.received_on}
                   </p>
-                </div>
-                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                  {(threadDetail.thread.tags || []).map(tag => (
-                    <span key={tag} className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">
-                      {tag}
-                      {canManageInbox && (
-                        <button onClick={() => patchThreadMut.mutate({ tid: selectedThreadId, data: { tags: (threadDetail.thread.tags || []).filter(t => t !== tag) } })}
-                          className="hover:text-destructive">
-                          <X size={9} />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                  {canManageInbox && (
-                    <input value={tagInput} onChange={e => setTagInput(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && tagInput.trim()) {
-                          e.preventDefault();
-                          const next = Array.from(new Set([...(threadDetail.thread.tags || []), tagInput.trim()]));
-                          patchThreadMut.mutate({ tid: selectedThreadId, data: { tags: next } });
-                          setTagInput('');
-                        }
-                      }}
-                      placeholder="+ add tag"
-                      className="text-xs w-20 bg-transparent outline-none text-foreground placeholder:text-muted-foreground border-b border-dashed border-border focus:border-primary" />
-                  )}
-                  {canManageInbox ? (
-                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground ml-1">
-                      Deal:
-                      <input value={dealValueInput} onChange={e => setDealValueInput(e.target.value)}
-                        onBlur={() => {
-                          if (dealValueInput.trim() !== (threadDetail.thread.deal_value != null ? String(threadDetail.thread.deal_value) : '')) {
-                            patchThreadMut.mutate({ tid: selectedThreadId, data: { deal_value: dealValueInput.trim() === '' ? null : Number(dealValueInput) } });
-                          }
-                        }}
-                        placeholder="—" inputMode="decimal"
-                        className="text-xs w-16 bg-transparent outline-none text-foreground placeholder:text-muted-foreground border-b border-dashed border-border focus:border-primary" />
-                      {threadDetail.thread.deal_currency}
-                    </span>
-                  ) : threadDetail.thread.deal_value != null ? (
-                    <span className="text-xs text-muted-foreground ml-1">Deal: {threadDetail.thread.deal_value} {threadDetail.thread.deal_currency}</span>
-                  ) : null}
                 </div>
               </div>
             </div>
@@ -1416,6 +1416,10 @@ export default function SharedInbox() {
           )}
           </div>
         </div>
+        <LeadDetailsPanel thread={threadDetail.thread} inboxId={selectedInboxId!}
+          canManage={canManageInbox}
+          onPatch={data => patchThreadMut.mutate({ tid: selectedThreadId!, data })} />
+        </>
       ) : (
         <div className="hidden lg:flex flex-1 items-center justify-center text-muted-foreground/40">
           <div className="text-center">
@@ -1451,6 +1455,136 @@ export default function SharedInbox() {
 }
 
 // ── ThreadRow ──────────────────────────────────────────────────────────────
+
+function ACTIVITY_LABEL(event: string): string {
+  return ({
+    ticket_created: 'Ticket created',
+    assigned: 'Assignment changed',
+    status_changed: 'Status changed',
+    priority_changed: 'Priority changed',
+    tags_changed: 'Tags updated',
+    deal_value_changed: 'Deal value updated',
+  } as Record<string, string>)[event] || event;
+}
+
+function LeadDetailsPanel({ thread, inboxId, canManage, onPatch }: {
+  thread: Thread; inboxId: string; canManage: boolean; onPatch: (data: any) => void;
+}) {
+  const [tagInput, setTagInput] = useState('');
+  const [dealValueInput, setDealValueInput] = useState(thread.deal_value != null ? String(thread.deal_value) : '');
+  const [phoneInput, setPhoneInput] = useState(thread.client_phone || '');
+  const [countryInput, setCountryInput] = useState(thread.client_country || '');
+
+  useEffect(() => {
+    setDealValueInput(thread.deal_value != null ? String(thread.deal_value) : '');
+    setPhoneInput(thread.client_phone || '');
+    setCountryInput(thread.client_country || '');
+  }, [thread.id, thread.deal_value, thread.client_phone, thread.client_country]);
+
+  const { data: activity = [] } = useQuery<ActivityEntry[]>({
+    queryKey: ['inbox-thread-activity', inboxId, thread.id],
+    queryFn: () => inboxApi.getThreadActivity(inboxId, thread.id).then(r => r.data.activity),
+    staleTime: 15_000,
+  });
+
+  return (
+    <div className="hidden xl:flex flex-col w-72 flex-shrink-0 border-l border-border bg-card/40 overflow-y-auto">
+      <div className="p-4 border-b border-border">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70 mb-3">Lead Details</p>
+        <div className="flex items-center gap-2.5">
+          <AvatarFallback name={thread.client_name || thread.client_email} size={10} />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate">{thread.client_name || thread.client_email}</p>
+            <p className="text-xs text-muted-foreground">Email thread</p>
+          </div>
+        </div>
+        <div className="mt-3 space-y-2 text-xs">
+          <p className="text-foreground/80 truncate">{thread.client_email}</p>
+          {canManage ? (
+            <input value={phoneInput} onChange={e => setPhoneInput(e.target.value)}
+              onBlur={() => phoneInput !== (thread.client_phone || '') && onPatch({ client_phone: phoneInput || null })}
+              placeholder="Phone number"
+              className="w-full text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground border-b border-dashed border-border focus:border-primary py-0.5" />
+          ) : thread.client_phone ? <p className="text-foreground/80">{thread.client_phone}</p> : null}
+          {canManage ? (
+            <input value={countryInput} onChange={e => setCountryInput(e.target.value)}
+              onBlur={() => countryInput !== (thread.client_country || '') && onPatch({ client_country: countryInput || null })}
+              placeholder="Country"
+              className="w-full text-xs bg-transparent outline-none text-foreground placeholder:text-muted-foreground border-b border-dashed border-border focus:border-primary py-0.5" />
+          ) : thread.client_country ? <p className="text-foreground/80">{thread.client_country}</p> : null}
+        </div>
+      </div>
+
+      <div className="p-4 border-b border-border">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70 mb-2">Deal Value</p>
+        {canManage ? (
+          <div className="flex items-center gap-1.5 text-sm">
+            <input value={dealValueInput} onChange={e => setDealValueInput(e.target.value)}
+              onBlur={() => {
+                if (dealValueInput.trim() !== (thread.deal_value != null ? String(thread.deal_value) : '')) {
+                  onPatch({ deal_value: dealValueInput.trim() === '' ? null : Number(dealValueInput) });
+                }
+              }}
+              placeholder="0" inputMode="decimal"
+              className="w-24 bg-transparent outline-none text-foreground placeholder:text-muted-foreground border-b border-dashed border-border focus:border-primary" />
+            <span className="text-muted-foreground">{thread.deal_currency || 'INR'}</span>
+          </div>
+        ) : (
+          <p className="text-sm text-foreground">{thread.deal_value != null ? `${thread.deal_value} ${thread.deal_currency}` : '—'}</p>
+        )}
+      </div>
+
+      <div className="p-4 border-b border-border">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70 mb-2">Tags</p>
+        <div className="flex flex-wrap gap-1.5">
+          {(thread.tags || []).map(tag => (
+            <span key={tag} className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">
+              {tag}
+              {canManage && (
+                <button onClick={() => onPatch({ tags: (thread.tags || []).filter(t => t !== tag) })} className="hover:text-destructive">
+                  <X size={9} />
+                </button>
+              )}
+            </span>
+          ))}
+          {canManage && (
+            <input value={tagInput} onChange={e => setTagInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && tagInput.trim()) {
+                  e.preventDefault();
+                  onPatch({ tags: Array.from(new Set([...(thread.tags || []), tagInput.trim()])) });
+                  setTagInput('');
+                }
+              }}
+              placeholder="+ add tag"
+              className="text-xs w-20 bg-transparent outline-none text-foreground placeholder:text-muted-foreground border-b border-dashed border-border focus:border-primary" />
+          )}
+        </div>
+      </div>
+
+      <div className="p-4 flex-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70 mb-2">Activity</p>
+        <div className="space-y-3">
+          {activity.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No activity yet.</p>
+          ) : activity.map(a => (
+            <div key={a.id} className="flex gap-2">
+              <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-foreground">{ACTIVITY_LABEL(a.event)}</p>
+                {a.detail && <p className="text-xs text-muted-foreground">{a.detail}</p>}
+                <p className="text-[10px] text-muted-foreground/70">
+                  {new Date(a.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}
+                  {a.actor_name ? ` · ${a.actor_name}` : ''}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const PRIORITY_STYLES: Record<Thread['priority'], string> = {
   URGENT: 'bg-destructive/10 text-destructive ring-1 ring-destructive/25',
