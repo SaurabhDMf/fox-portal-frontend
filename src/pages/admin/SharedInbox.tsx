@@ -97,6 +97,7 @@ interface SharedInbox {
   smtp_host: string; smtp_port: number; smtp_secure: number;
   smtp_user: string; smtp_password?: string;
   signature?: string | null;
+  sla_hours?: number | null;
 }
 
 // Backend stores the signature as HTML or plain text. For the textarea we want
@@ -168,6 +169,30 @@ interface Thread {
   followup_count: number; last_inbound_at?: string; last_outbound_at?: string;
   ai_sent_at?: string; updated_at: string; message_count: number; last_body?: string;
   folder_id?: string; folder_name?: string; folder_color?: string;
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  tags?: string[] | null;
+  deal_value?: number | null; deal_currency?: string;
+  ticket_ref?: string | null;
+}
+
+// Only shows a countdown/overdue label while the thread is actively awaiting
+// our reply (last inbound after last outbound) — we don't track a separate
+// "first replied at" timestamp, so once we've answered there's nothing to
+// show rather than guessing a "met in Xm" figure we can't actually verify.
+function slaStatus(thread: Thread, slaHours?: number | null): { text: string; overdue: boolean } | null {
+  if (!slaHours || thread.status === 'closed' || thread.status === 'dead') return null;
+  const inbound = thread.last_inbound_at ? new Date(thread.last_inbound_at).getTime() : null;
+  if (!inbound) return null;
+  const outbound = thread.last_outbound_at ? new Date(thread.last_outbound_at).getTime() : null;
+  if (outbound && outbound >= inbound) return null;
+
+  const diffMs = (inbound + slaHours * 3600_000) - Date.now();
+  const mins = Math.round(Math.abs(diffMs) / 60_000);
+  const h = Math.floor(mins / 60);
+  const label = h > 0 ? `${h}h ${mins % 60}m` : `${mins}m`;
+  return diffMs >= 0
+    ? { text: `First response in ${label}`, overdue: false }
+    : { text: `Reply overdue by ${label}`, overdue: true };
 }
 
 interface Message {
@@ -259,6 +284,12 @@ export default function SharedInbox() {
   const [dateTo, setDateTo] = useState('');
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  // Ticks every minute so SLA countdown/overdue text stays fresh without a full refetch.
+  const [, setSlaTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setSlaTick(t => t + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const applyPreset = (key: string) => {
     const preset = DATE_PRESETS.find(p => p.key === key);
@@ -272,6 +303,8 @@ export default function SharedInbox() {
 
   const [showNewThread, setShowNewThread] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+  const [dealValueInput, setDealValueInput] = useState('');
 
   const anyOverlayOpen = showNewThread || showAssign || showMoveFolder;
 
@@ -327,6 +360,10 @@ export default function SharedInbox() {
     staleTime: 30_000, refetchOnWindowFocus: false,
     refetchInterval: anyOverlayOpen ? false : 30_000,
   });
+
+  useEffect(() => {
+    setDealValueInput(threadDetail?.thread.deal_value != null ? String(threadDetail.thread.deal_value) : '');
+  }, [threadDetail?.thread.id, threadDetail?.thread.deal_value]);
 
   const { data: members = [] } = useQuery<any[]>({
     queryKey: ['inbox-members', selectedInboxId],
@@ -446,7 +483,10 @@ export default function SharedInbox() {
   const patchThreadMut = useMutation({
     mutationFn: ({ tid, data }: { tid: string; data: any }) =>
       inboxApi.patchThread(selectedInboxId!, tid, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
+      qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
+    },
     onError: (e: any) => toast.error(errMsg(e)),
   });
 
@@ -1098,6 +1138,7 @@ export default function SharedInbox() {
               <ThreadRow key={thread.id} thread={thread}
                 selected={selectedThreadId === thread.id}
                 hasDraft={threadHasDraft(thread.id)}
+                slaHours={selectedInbox?.sla_hours}
                 isAdmin={canManageInbox} members={members} folders={folders}
                 onSelect={() => openThread(thread.id)}
                 onStatusChange={status => patchThreadMut.mutate({ tid: thread.id, data: { status } })}
@@ -1138,14 +1179,36 @@ export default function SharedInbox() {
                 <ArrowLeft size={16} />
               </button>
               <div className="min-w-0">
-                <h2 className="font-semibold text-foreground truncate tracking-tight">{threadDetail.thread.subject}</h2>
+                <div className="flex items-center gap-2 min-w-0">
+                  {threadDetail.thread.ticket_ref && (
+                    <span className="text-xs font-semibold text-primary flex-shrink-0">{threadDetail.thread.ticket_ref}</span>
+                  )}
+                  <h2 className="font-semibold text-foreground truncate tracking-tight">{threadDetail.thread.subject}</h2>
+                </div>
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   <ThreadStatusBadge thread={threadDetail.thread} />
+                  {canManageInbox ? (
+                    <select value={threadDetail.thread.priority}
+                      onChange={e => patchThreadMut.mutate({ tid: selectedThreadId, data: { priority: e.target.value } })}
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium border-none outline-none cursor-pointer ${PRIORITY_STYLES[threadDetail.thread.priority]}`}>
+                      {(['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  ) : (
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PRIORITY_STYLES[threadDetail.thread.priority]}`}>{threadDetail.thread.priority}</span>
+                  )}
                   {threadDetail.thread.ai_sent_at && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary ring-1 ring-primary/25">
                       <Bot size={10} /> AI sent
                     </span>
                   )}
+                  {(() => {
+                    const sla = slaStatus(threadDetail.thread, selectedInbox?.sla_hours);
+                    return sla ? (
+                      <span className={`inline-flex items-center gap-1 text-xs ${sla.overdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        <Clock size={11} />{sla.text}
+                      </span>
+                    ) : null;
+                  })()}
                 </div>
                 <div className="mt-1.5 space-y-0.5">
                   <p className="text-xs text-muted-foreground">
@@ -1158,6 +1221,48 @@ export default function SharedInbox() {
                     <span className="font-medium text-muted-foreground/70 mr-1">To:</span>
                     {threadDetail.thread.received_on}
                   </p>
+                </div>
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  {(threadDetail.thread.tags || []).map(tag => (
+                    <span key={tag} className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">
+                      {tag}
+                      {canManageInbox && (
+                        <button onClick={() => patchThreadMut.mutate({ tid: selectedThreadId, data: { tags: (threadDetail.thread.tags || []).filter(t => t !== tag) } })}
+                          className="hover:text-destructive">
+                          <X size={9} />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                  {canManageInbox && (
+                    <input value={tagInput} onChange={e => setTagInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && tagInput.trim()) {
+                          e.preventDefault();
+                          const next = Array.from(new Set([...(threadDetail.thread.tags || []), tagInput.trim()]));
+                          patchThreadMut.mutate({ tid: selectedThreadId, data: { tags: next } });
+                          setTagInput('');
+                        }
+                      }}
+                      placeholder="+ add tag"
+                      className="text-xs w-20 bg-transparent outline-none text-foreground placeholder:text-muted-foreground border-b border-dashed border-border focus:border-primary" />
+                  )}
+                  {canManageInbox ? (
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground ml-1">
+                      Deal:
+                      <input value={dealValueInput} onChange={e => setDealValueInput(e.target.value)}
+                        onBlur={() => {
+                          if (dealValueInput.trim() !== (threadDetail.thread.deal_value != null ? String(threadDetail.thread.deal_value) : '')) {
+                            patchThreadMut.mutate({ tid: selectedThreadId, data: { deal_value: dealValueInput.trim() === '' ? null : Number(dealValueInput) } });
+                          }
+                        }}
+                        placeholder="—" inputMode="decimal"
+                        className="text-xs w-16 bg-transparent outline-none text-foreground placeholder:text-muted-foreground border-b border-dashed border-border focus:border-primary" />
+                      {threadDetail.thread.deal_currency}
+                    </span>
+                  ) : threadDetail.thread.deal_value != null ? (
+                    <span className="text-xs text-muted-foreground ml-1">Deal: {threadDetail.thread.deal_value} {threadDetail.thread.deal_currency}</span>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -1347,8 +1452,15 @@ export default function SharedInbox() {
 
 // ── ThreadRow ──────────────────────────────────────────────────────────────
 
-function ThreadRow({ thread, selected, hasDraft, isAdmin, members, folders, onSelect, onStatusChange, onAssign, onMoveFolder, onDelete }: {
-  thread: Thread; selected: boolean; hasDraft?: boolean; isAdmin: boolean; members: any[]; folders: any[];
+const PRIORITY_STYLES: Record<Thread['priority'], string> = {
+  URGENT: 'bg-destructive/10 text-destructive ring-1 ring-destructive/25',
+  HIGH:   'bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/25',
+  NORMAL: 'bg-muted text-muted-foreground ring-1 ring-border',
+  LOW:    'bg-muted text-muted-foreground ring-1 ring-border',
+};
+
+function ThreadRow({ thread, selected, hasDraft, slaHours, isAdmin, members, folders, onSelect, onStatusChange, onAssign, onMoveFolder, onDelete }: {
+  thread: Thread; selected: boolean; hasDraft?: boolean; slaHours?: number | null; isAdmin: boolean; members: any[]; folders: any[];
   onSelect: () => void; onStatusChange: (s: string) => void; onAssign: () => void; onMoveFolder: () => void;
   onDelete?: () => void;
 }) {
@@ -1377,13 +1489,17 @@ function ThreadRow({ thread, selected, hasDraft, isAdmin, members, folders, onSe
       <AvatarFallback name={thread.client_name || thread.client_email} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
-          <span className={`text-xs truncate text-foreground ${unread ? 'font-bold' : 'font-medium'}`}>{thread.client_name || thread.client_email}</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {thread.ticket_ref && <span className="text-[11px] font-semibold text-primary flex-shrink-0">{thread.ticket_ref}</span>}
+            <span className={`text-xs truncate text-foreground ${unread ? 'font-bold' : 'font-medium'}`}>{thread.client_name || thread.client_email}</span>
+          </div>
           <span className={`text-[11px] flex-shrink-0 ${unread ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>{fmtDateTime(thread.last_inbound_at || thread.updated_at)}</span>
         </div>
         <p className={`text-[13px] truncate mt-0.5 ${unread ? 'text-foreground font-semibold' : 'text-foreground/80'}`}>{thread.subject}</p>
         <p className={`text-xs truncate mt-0.5 leading-relaxed ${unread ? 'text-foreground/80' : 'text-muted-foreground'}`}>{thread.last_body?.slice(0, 80)}</p>
         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
           <ThreadStatusBadge thread={thread} />
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PRIORITY_STYLES[thread.priority]}`}>{thread.priority}</span>
           {hasDraft && (
             <span title="You have an unsent reply saved for this thread"
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/25">
@@ -1397,7 +1513,18 @@ function ThreadRow({ thread, selected, hasDraft, isAdmin, members, folders, onSe
               <FolderOpen size={9} />{thread.folder_name}
             </span>
           )}
+          {(thread.tags || []).map(tag => (
+            <span key={tag} className="text-xs px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">{tag}</span>
+          ))}
         </div>
+        {(() => {
+          const sla = slaStatus(thread, slaHours);
+          return sla ? (
+            <p className={`mt-1 inline-flex items-center gap-1 text-[11px] ${sla.overdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+              <Clock size={11} />{sla.text}
+            </p>
+          ) : null;
+        })()}
       </div>
       <div ref={menuRef} className="relative flex-shrink-0" onClick={e => e.stopPropagation()}>
         <button onClick={() => setMenuOpen(!menuOpen)} className="p-1 rounded hover:bg-secondary text-muted-foreground">
