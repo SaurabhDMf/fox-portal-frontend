@@ -1297,27 +1297,23 @@ export default function SharedInbox() {
                   {(threadDetail.thread.tags || []).map(tag => (
                     <span key={tag} className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">
                       {tag}
-                      {canManageInbox && (
-                        <button onClick={() => patchThreadMut.mutate({ tid: selectedThreadId, data: { tags: (threadDetail.thread.tags || []).filter(t => t !== tag) } })}
-                          className="hover:text-destructive">
-                          <X size={9} />
-                        </button>
-                      )}
+                      <button onClick={() => patchThreadMut.mutate({ tid: selectedThreadId, data: { tags: (threadDetail.thread.tags || []).filter(t => t !== tag) } })}
+                        className="hover:text-destructive">
+                        <X size={9} />
+                      </button>
                     </span>
                   ))}
-                  {canManageInbox && (
-                    <input value={tagInput} onChange={e => setTagInput(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && tagInput.trim()) {
-                          e.preventDefault();
-                          const next = Array.from(new Set([...(threadDetail.thread.tags || []), tagInput.trim()]));
-                          patchThreadMut.mutate({ tid: selectedThreadId, data: { tags: next } });
-                          setTagInput('');
-                        }
-                      }}
-                      placeholder="+ add tag"
-                      className="text-xs w-20 bg-transparent outline-none text-foreground placeholder:text-muted-foreground border-b border-dashed border-border focus:border-primary" />
-                  )}
+                  <input value={tagInput} onChange={e => setTagInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && tagInput.trim()) {
+                        e.preventDefault();
+                        const next = Array.from(new Set([...(threadDetail.thread.tags || []), tagInput.trim()]));
+                        patchThreadMut.mutate({ tid: selectedThreadId, data: { tags: next } });
+                        setTagInput('');
+                      }
+                    }}
+                    placeholder="+ add tag"
+                    className="text-xs w-20 bg-transparent outline-none text-foreground placeholder:text-muted-foreground border-b border-dashed border-border focus:border-primary" />
                 </div>
               </div>
             </div>
@@ -1328,14 +1324,13 @@ export default function SharedInbox() {
                   <UserPlus size={13} />{threadDetail.thread.assignee_name || 'Assign'}
                 </button>
               )}
-              {canManageInbox && threadDetail.thread.folder_id && (
+              {threadDetail.thread.folder_id ? (
                 <button onClick={() => { setMoveFolderThreadId(selectedThreadId); setShowMoveFolder(true); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary text-muted-foreground"
                   style={{ borderColor: threadDetail.thread.folder_color || undefined }}>
                   <FolderOpen size={13} />{threadDetail.thread.folder_name}
                 </button>
-              )}
-              {canManageInbox && !threadDetail.thread.folder_id && (
+              ) : (
                 <button onClick={() => { setMoveFolderThreadId(selectedThreadId); setShowMoveFolder(true); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-lg hover:bg-secondary text-muted-foreground">
                   <FolderPlus size={13} />Folder
