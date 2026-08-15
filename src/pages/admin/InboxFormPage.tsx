@@ -21,6 +21,7 @@ const DEFAULTS = {
   sync_history_days: 90,
   signature: '',
   default_bcc: '',
+  sla_hours: '',
 };
 
 export default function InboxFormPage() {
@@ -73,6 +74,7 @@ export default function InboxFormPage() {
         sync_history_days:    inbox.sync_history_days    ?? 90,
         signature:            inbox.signature            ?? '',
         default_bcc:          inbox.default_bcc          ?? '',
+        sla_hours:            inbox.sla_hours            ?? '',
       });
       setInitialised(true);
     }
@@ -90,6 +92,7 @@ export default function InboxFormPage() {
         const payload: any = { ...form };
         if (!payload.imap_password) delete payload.imap_password;
         if (!payload.smtp_password) delete payload.smtp_password;
+        if (payload.sla_hours === '') payload.sla_hours = null;
         const { data: updated } = await inboxApi.updateInbox(inbox!.id, payload);
         savedId = inbox!.id;
         qc.setQueryData(['shared-inboxes'], (old: any[] | undefined) =>
@@ -99,7 +102,9 @@ export default function InboxFormPage() {
         navigate(basePath);
         return;
       } else {
-        const r = await inboxApi.createInbox(form);
+        const payload: any = { ...form };
+        if (payload.sla_hours === '') payload.sla_hours = null;
+        const r = await inboxApi.createInbox(payload);
         savedId = r.data.id;
         toast.success('Inbox created — now add senders and team members');
       }
@@ -298,6 +303,21 @@ export default function InboxFormPage() {
             <input type="email" value={form.default_bcc}
               onChange={e => set('default_bcc', e.target.value)}
               placeholder="archive@yourcompany.com" className={INP} />
+          </div>
+        </div>
+
+        {/* ── SLA ── */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Response SLA</h3>
+          <p className="text-xs text-gray-400 mb-4">
+            Threads with no reply within this many hours of the customer's last message show as
+            overdue in the thread list. Leave blank to turn off SLA tracking for this inbox.
+          </p>
+          <div className="max-w-xs">
+            <label className={LBL}>Hours to first response</label>
+            <input type="number" min="1" value={form.sla_hours}
+              onChange={e => set('sla_hours', e.target.value)}
+              placeholder="e.g. 4" className={INP} />
           </div>
         </div>
 
