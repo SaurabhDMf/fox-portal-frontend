@@ -378,7 +378,6 @@ export default function SharedInbox() {
   const total   = threadPages?.pages[0]?.total ?? 0;
 
   const slaAtRiskCount = threads.filter(t => slaStatus(t, selectedInbox?.sla_hours)?.overdue).length;
-  const allTags = Array.from(new Set(threads.flatMap(t => t.tags || []))).sort();
   const visibleThreads = threads
     .filter(t => !slaAtRiskOnly || slaStatus(t, selectedInbox?.sla_hours)?.overdue)
     .filter(t => !filterTag || (t.tags || []).includes(filterTag));
@@ -396,6 +395,13 @@ export default function SharedInbox() {
     queryFn: () => inboxApi.getMembers(selectedInboxId!).then(r => r.data),
     enabled: !!selectedInboxId,
     staleTime: 60_000, refetchOnWindowFocus: false,
+  });
+
+  // Shared with CRM — same tag vocabulary across both modules.
+  const { data: allTags = [] } = useQuery<string[]>({
+    queryKey: ['tags-all'],
+    queryFn: () => api.get('/tags').then(r => r.data.tags).catch(() => []),
+    staleTime: 30_000,
   });
 
   const { data: salesUsers = [] } = useQuery<any[]>({
