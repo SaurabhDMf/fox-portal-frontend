@@ -199,6 +199,7 @@ export default function CRM() {
   const [statusFilter, setStatusFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
   const [assignedFilter, setAssignedFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -232,7 +233,7 @@ export default function CRM() {
     hasNextPage,
     fetchNextPage,
   } = useInfiniteQuery({
-    queryKey: ['leads', search, statusFilter, countryFilter, assignedFilter, dateFrom, dateTo],
+    queryKey: ['leads', search, statusFilter, countryFilter, assignedFilter, dateFrom, dateTo, tagFilter],
     initialPageParam: 1,
     queryFn: ({ pageParam = 1 }) => api.get('/leads', {
       params: {
@@ -244,6 +245,7 @@ export default function CRM() {
         assigned_to: assignedFilter || undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
+        tags: tagFilter || undefined,
       },
     }).then(r => r.data),
     getNextPageParam: (lastPage: any, allPages: any[]) =>
@@ -292,6 +294,13 @@ export default function CRM() {
       console.log('[CRM] Users list from API:', list);
       return Array.isArray(list) ? list : [];
     }).catch(() => []),
+  });
+
+  // Shared with Shared Inbox — same tag vocabulary across both modules.
+  const { data: allTags = [] } = useQuery<string[]>({
+    queryKey: ['tags-all'],
+    queryFn: () => api.get('/tags').then(r => r.data.tags).catch(() => []),
+    staleTime: 30_000,
   });
 
   // Empty strings break MySQL datetime columns — send null instead.
@@ -454,6 +463,12 @@ export default function CRM() {
           <option value="">All Assigned</option>
           {usersArr.map((u: any) => <option key={u.id} value={u.id}>{u.full_name}</option>)}
         </select>
+        {allTags.length > 0 && (
+          <select value={tagFilter} onChange={e => setTagFilter(e.target.value)} className={inputCls}>
+            <option value="">All Tags</option>
+            {allTags.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        )}
         <div className="flex items-center gap-1.5">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={`${inputCls} w-36`} title="From Date" />
@@ -508,7 +523,16 @@ export default function CRM() {
                     <td className={`px-3 py-4 text-muted-foreground whitespace-nowrap ${stale && !isDead ? 'text-destructive font-medium' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>
                       {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—'}
                     </td>
-                    <td className={`px-3 py-4 font-medium ${stale && !isDead ? 'text-destructive' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={lead.full_name || ''}><div className="truncate max-w-[160px]">{lead.full_name}</div></td>
+                    <td className={`px-3 py-4 font-medium ${stale && !isDead ? 'text-destructive' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={lead.full_name || ''}>
+                      <div className="truncate max-w-[160px]">{lead.full_name}</div>
+                      {Array.isArray(lead.tags) && lead.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {lead.tags.map((tag: string) => (
+                            <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground font-normal">{tag}</span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={lead.email || ''}><div className="truncate max-w-[200px]">{lead.email || '—'}</div></td>
                     <td className="px-3 py-4 text-muted-foreground whitespace-nowrap" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.phone || '—'}</td>
                     <td className="px-3 py-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={getLeadCountry(lead) || ''}><div className="truncate max-w-[120px]">{getLeadCountry(lead) || '—'}</div></td>
@@ -605,6 +629,13 @@ export default function CRM() {
                         </div>
                         {getLeadPurpose(lead) && <div className="text-xs text-muted-foreground">{getLeadPurpose(lead)}</div>}
                         {getLeadCountry(lead) && <div className="text-xs text-muted-foreground">{getLeadCountry(lead)}</div>}
+                        {Array.isArray(lead.tags) && lead.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {lead.tags.map((tag: string) => (
+                              <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">{tag}</span>
+                            ))}
+                          </div>
+                        )}
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                           {resolveAssignedTo(lead) && <span>→ {resolveAssignedTo(lead)}</span>}
                           {lead.created_at && <span>{new Date(lead.created_at).toLocaleDateString()}</span>}

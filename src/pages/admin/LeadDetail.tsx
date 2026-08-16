@@ -27,6 +27,7 @@ export default function LeadDetail() {
   const [showActivity, setShowActivity] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
   const [actForm, setActForm] = useState({ type: 'Call', title: '', description: '', duration_mins: 0, outcome: '' });
+  const [tagInput, setTagInput] = useState('');
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ['lead', id],
@@ -41,6 +42,12 @@ export default function LeadDetail() {
       setShowActivity(false);
       toast.success('Activity logged');
     },
+  });
+
+  const tagsMut = useMutation({
+    mutationFn: (tags: string[]) => api.put(`/leads/${id}`, { tags }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['lead', id] }),
+    onError: () => toast.error('Could not update tags'),
   });
 
   if (isLoading) return <div className="page-container"><div className="glass-card h-64 animate-pulse" /></div>;
@@ -85,6 +92,31 @@ export default function LeadDetail() {
                 <span className={priorities[lead.priority] || 'badge-neutral'}>{lead.priority}</span>
                 <span className="badge-info">{lead.status}</span>
               </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 mb-4">
+              {(lead.tags || []).map((tag: string) => (
+                <span key={tag} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+                  {tag}
+                  {perm.canEdit && (
+                    <button onClick={() => tagsMut.mutate((lead.tags || []).filter((t: string) => t !== tag))} className="hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </span>
+              ))}
+              {perm.canEdit && (
+                <input value={tagInput} onChange={e => setTagInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && tagInput.trim()) {
+                      e.preventDefault();
+                      tagsMut.mutate(Array.from(new Set([...(lead.tags || []), tagInput.trim()])));
+                      setTagInput('');
+                    }
+                  }}
+                  placeholder="+ add tag"
+                  className="text-xs w-24 bg-transparent outline-none text-foreground placeholder:text-muted-foreground border-b border-dashed border-border focus:border-primary" />
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
