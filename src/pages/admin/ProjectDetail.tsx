@@ -4,7 +4,8 @@ import api from '@/lib/api';
 import { dependencyDelete } from '@/lib/dependencyDelete';
 import { useAuthStore } from '@/stores/authStore';
 import { useState } from 'react';
-import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2, IndianRupee, FolderOpen, MessageSquare, CalendarDays } from 'lucide-react';
+import { ArrowLeft, List, Zap, Timer, Users, Pencil, Trash2, X, Archive, ChevronDown, Settings2, IndianRupee, FolderOpen, MessageSquare, CalendarDays, Plus } from 'lucide-react';
+import { useCustomProjectStatuses } from '@/hooks/useCustomProjectStatuses';
 import { extractProjectEntity } from '@/lib/projectResponse';
 import type { Project, ProjectTask } from '@/lib/projectTypes';
 import TasksListView from '@/components/projects/TasksListView';
@@ -37,7 +38,6 @@ const ALL_TABS = [
 
 type TabId = typeof ALL_TABS[number]['id'];
 
-const statusOptions = ['Active', 'On Hold', 'Completed', 'Cancelled'];
 const priorityOptions = ['Critical', 'High', 'Medium', 'Low'];
 const COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
 
@@ -46,7 +46,11 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const userRole = useAuthStore((s) => s.user?.role);
+  const userId = useAuthStore((s) => s.user?.id);
   const userGrants = useAuthStore((s) => s.grants);
+  const { allStatuses, addStatus } = useCustomProjectStatuses(userId);
+  const [showAddStatus, setShowAddStatus] = useState(false);
+  const [newStatusInput, setNewStatusInput] = useState('');
   const isAdmin = userRole === 'admin' || userRole === 'super_admin' || userRole === 'supervisor';
   const isClient = userRole === 'client';
   const canViewFinancials = userRole === 'admin' || userRole === 'super_admin' || (Array.isArray(userGrants) && userGrants.includes('project_finance'));
@@ -386,9 +390,22 @@ export default function ProjectDetail() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <select value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-                {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <select value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+                    {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button type="button" onClick={() => setShowAddStatus(v => !v)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground" title="Add custom status"><Plus className="h-4 w-4" /></button>
+                </div>
+                {showAddStatus && (
+                  <div className="flex gap-1">
+                    <input placeholder="New status..." value={newStatusInput} onChange={e => setNewStatusInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && newStatusInput.trim() && (addStatus(newStatusInput.trim()), setEditForm(f => ({ ...f, status: newStatusInput.trim() })), setNewStatusInput(''), setShowAddStatus(false))}
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none" />
+                    <button type="button" onClick={() => { if (newStatusInput.trim()) { addStatus(newStatusInput.trim()); setEditForm(f => ({ ...f, status: newStatusInput.trim() })); setNewStatusInput(''); setShowAddStatus(false); } }} className="px-2 py-1 rounded-lg bg-primary text-primary-foreground text-xs">Add</button>
+                  </div>
+                )}
+              </div>
               <select value={editForm.priority} onChange={e => setEditForm(f => ({ ...f, priority: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
                 {priorityOptions.map(p => <option key={p} value={p}>{p}</option>)}
               </select>

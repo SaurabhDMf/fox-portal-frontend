@@ -36,6 +36,13 @@ const employmentTypes = [
 ];
 const tabs = ['All', 'Active', 'Inactive', 'On Leave'];
 
+// `u.status` is the chat/presence column (online/offline) — not employment
+// state, and the /users list endpoint doesn't even select it. The real
+// employment status is `is_active` (deactivation only flips this) layered
+// with `employment_status` for on_leave/terminated while still active.
+const getEmploymentStatus = (u: any): string =>
+  (u.is_active === 0 || u.is_active === false) ? 'inactive' : (u.employment_status || 'active');
+
 const emptyForm = {
   full_name: '', email: '', phone: '', role: 'sales_rep', employment_type: 'full_time',
   employment_status: 'active',
@@ -214,26 +221,27 @@ export default function AdminUsers() {
   // Backend already excludes role=client from /users, but filter defensively for legacy rows.
   const teamUsers = rawUsers.filter((u: any) => u.role !== 'client');
   const users = teamUsers.filter((u: any) => {
+    const s = getEmploymentStatus(u);
     if (tab === 'All') return true;
-    if (tab === 'Active') return u.status === 'active';
-    if (tab === 'Inactive') return u.status === 'inactive' || u.status === 'terminated';
-    if (tab === 'On Leave') return u.status === 'on_leave';
+    if (tab === 'Active') return s === 'active';
+    if (tab === 'Inactive') return s === 'inactive' || s === 'terminated';
+    if (tab === 'On Leave') return s === 'on_leave';
     return true;
   });
 
   // Stats from /users/stats — used for Team tab badge counts
   const counts = {
     All: userStats?.total ?? teamUsers.length,
-    Active: userStats?.active ?? teamUsers.filter((u: any) => u.status === 'active').length,
-    Inactive: userStats?.inactive ?? teamUsers.filter((u: any) => u.status === 'inactive' || u.status === 'terminated').length,
-    'On Leave': userStats?.on_leave ?? teamUsers.filter((u: any) => u.status === 'on_leave').length,
+    Active: userStats?.active ?? teamUsers.filter((u: any) => getEmploymentStatus(u) === 'active').length,
+    Inactive: userStats?.inactive ?? teamUsers.filter((u: any) => ['inactive', 'terminated'].includes(getEmploymentStatus(u))).length,
+    'On Leave': userStats?.on_leave ?? teamUsers.filter((u: any) => getEmploymentStatus(u) === 'on_leave').length,
   };
 
   const populateForm = (u: any) => {
     setForm({
       full_name: u.full_name || '', email: u.email || '', phone: u.phone || '', role: u.role || 'sales_rep',
       employment_type: u.employment_type || 'full_time',
-      employment_status: u.employment_status || u.status || 'active',
+      employment_status: getEmploymentStatus(u),
       department: u.department || '', job_title: u.job_title || '',
       password: '', date_of_joining: u.date_of_joining ? u.date_of_joining.substring(0, 10) : '',
       reporting_to: u.manager_id || u.reporting_to || '',
@@ -487,9 +495,14 @@ export default function AdminUsers() {
                   )}
                 </td>
                 <td className="p-4">
-                  <span className={u.status === 'active' ? 'badge-success' : u.status === 'on_leave' ? 'badge-warning' : 'badge-danger'}>
-                    {u.status?.replace(/_/g, ' ')}
-                  </span>
+                  {(() => {
+                    const s = getEmploymentStatus(u);
+                    return (
+                      <span className={s === 'active' ? 'badge-success' : s === 'on_leave' ? 'badge-warning' : 'badge-danger'}>
+                        {s.replace(/_/g, ' ')}
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td className="p-4">
                   <div className="flex items-center gap-1">
@@ -502,7 +515,7 @@ export default function AdminUsers() {
                           <button className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground" title="More actions"><MoreVertical className="h-4 w-4" /></button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {(u.status === 'inactive' || u.status === 'terminated' || u.is_active === 0) ? (
+                          {['inactive', 'terminated'].includes(getEmploymentStatus(u)) ? (
                             <DropdownMenuItem onClick={() => activateMut.mutate(u.id)} className="gap-2">
                               <Power className="h-4 w-4 text-[hsl(var(--success))]" /> Activate
                             </DropdownMenuItem>
@@ -652,7 +665,7 @@ export default function AdminUsers() {
               <div>
                 <h3 className="text-lg font-bold">{showView.full_name}</h3>
                 <p className="text-sm text-muted-foreground">{showView.email}</p>
-                <span className={showView.status === 'active' ? 'badge-success' : showView.status === 'on_leave' ? 'badge-warning' : 'badge-danger'}>{showView.status?.replace(/_/g, ' ')}</span>
+                <span className={getEmploymentStatus(showView) === 'active' ? 'badge-success' : getEmploymentStatus(showView) === 'on_leave' ? 'badge-warning' : 'badge-danger'}>{getEmploymentStatus(showView).replace(/_/g, ' ')}</span>
               </div>
             </div>
 
