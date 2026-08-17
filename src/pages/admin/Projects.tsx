@@ -1,14 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search, X, LayoutGrid, List } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
+import { useCustomProjectStatuses } from '@/hooks/useCustomProjectStatuses';
+import { useAuthStore } from '@/stores/authStore';
 
 import type { Project } from '@/lib/projectTypes';
 
-const statusOptions = ['Active', 'On Hold', 'Completed', 'Cancelled'];
 const priorityOptions = ['Critical', 'High', 'Medium', 'Low'];
 const COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
 
@@ -58,9 +59,14 @@ const projectTabs = ['Active', 'Completed'] as const;
 export default function Projects() {
   const perm = useModulePermission('projects');
   const [tab, setTab] = useState<typeof projectTabs[number]>('Active');
+  const [view, setView] = useState<'card' | 'table'>(() => (localStorage.getItem('projectsView') as 'card' | 'table') || 'card');
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', client_id: '', description: '', status: 'Active', priority: 'Medium', due_date: '', start_date: '', color: '#3B82F6', categories: [] as string[], service_types: [] as string[] });
+  const user = useAuthStore(s => s.user);
+  const { allStatuses, addStatus } = useCustomProjectStatuses(user?.id);
+  const [showAddStatus, setShowAddStatus] = useState(false);
+  const [newStatusInput, setNewStatusInput] = useState('');
 
   // Master checklist templates — drives the Category + Services pickers and the
   // auto-creation of checklist tasks on the backend after the project is created.
@@ -109,6 +115,8 @@ export default function Projects() {
     onError: (e: any) => toast.error(e.response?.data?.message || 'Error'),
   });
 
+  const changeView = (v: 'card' | 'table') => { setView(v); localStorage.setItem('projectsView', v); };
+
   const rawProjects = Array.isArray(data) ? data : [];
   const projects: Project[] = tab === 'Completed'
     ? rawProjects.filter(p => p.status === 'Completed')
@@ -133,11 +141,83 @@ export default function Projects() {
         ))}
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects..." className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+      <div className="flex items-center gap-3">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search projects..." className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+        </div>
+        <div className="flex items-center rounded-lg border border-border overflow-hidden flex-shrink-0">
+          <button onClick={() => changeView('card')} className={`p-2 ${view === 'card' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`} title="Card view"><LayoutGrid className="h-4 w-4" /></button>
+          <button onClick={() => changeView('table')} className={`p-2 ${view === 'table' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`} title="Table view"><List className="h-4 w-4" /></button>
+        </div>
       </div>
 
+      {view === 'table' ? (
+        <div className="glass-card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
+                <th className="px-3 py-4">Name</th>
+                <th className="px-3 py-4">Client</th>
+                <th className="px-3 py-4">Status</th>
+                <th className="px-3 py-4">Priority</th>
+                <th className="px-3 py-4">Progress</th>
+                <th className="px-3 py-4">Members</th>
+                <th className="px-3 py-4 whitespace-nowrap">Due Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={7} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
+              projects.map(p => {
+                const deadlineColor = getDeadlineColor(p);
+                return (
+                  <tr key={p.id} onClick={() => navigate(`${basePath}/projects/${p.id}`)}
+                    className="border-b border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer">
+                    <td className="px-3 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-6 rounded-full flex-shrink-0" style={{ background: p.color || 'hsl(var(--primary))' }} />
+                        <span className="font-medium">{p.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-4 text-muted-foreground">{p.client_name || '—'}</td>
+                    <td className="px-3 py-4"><span className={p.status === 'Active' ? 'badge-success' : p.status === 'Completed' ? 'badge-info' : p.status === 'On Hold' ? 'badge-warning' : 'badge-neutral'}>{p.status}</span></td>
+                    <td className="px-3 py-4"><span className={p.priority === 'Critical' ? 'badge-danger' : p.priority === 'High' ? 'badge-warning' : 'badge-neutral'}>{p.priority}</span></td>
+                    <td className="px-3 py-4">
+                      {p.progress != null ? (
+                        <div className="flex items-center gap-2 w-32">
+                          <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${p.progress}%`, background: p.color || 'hsl(var(--primary))' }} />
+                          </div>
+                          <span className="text-xs text-muted-foreground">{p.progress}%</span>
+                        </div>
+                      ) : '—'}
+                    </td>
+                    <td className="px-3 py-4">
+                      {p.members && p.members.length > 0 ? (
+                        <div className="flex -space-x-1.5">
+                          {p.members.slice(0, 4).map(m => (
+                            <div key={m.id} className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center text-[10px] font-bold text-primary border-2 border-card" title={m.full_name}>{m.full_name?.[0]}</div>
+                          ))}
+                          {p.members.length > 4 && <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground border-2 border-card">+{p.members.length - 4}</div>}
+                        </div>
+                      ) : '—'}
+                    </td>
+                    <td className={`px-3 py-4 whitespace-nowrap ${deadlineColor ? DEADLINE_TEXT[deadlineColor] : 'text-muted-foreground'}`}>
+                      {p.due_date ? new Date(p.due_date).toLocaleDateString() : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {projects.length === 0 && !isLoading && (
+            <div className="text-center py-16">
+              <p className="text-muted-foreground text-sm mb-3">{tab === 'Completed' ? 'No completed projects yet' : 'No projects found'}</p>
+              {tab === 'Active' && perm.canCreate && <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first project →</button>}
+            </div>
+          )}
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? [...Array(6)].map((_, i) => <div key={i} className="glass-card h-48 animate-pulse" />) :
         projects.map((p) => {
@@ -197,6 +277,7 @@ export default function Projects() {
           </div>
         )}
       </div>
+      )}
 
       {/* Create Modal */}
       {showCreate && (
@@ -224,9 +305,22 @@ export default function Projects() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
-                {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <div className="space-y-1">
+                <div className="flex items-center gap-1">
+                  <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className="flex-1 px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
+                    {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button type="button" onClick={() => setShowAddStatus(v => !v)} className="p-2 rounded-lg hover:bg-secondary text-muted-foreground" title="Add custom status"><Plus className="h-4 w-4" /></button>
+                </div>
+                {showAddStatus && (
+                  <div className="flex gap-1">
+                    <input placeholder="New status..." value={newStatusInput} onChange={e => setNewStatusInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && newStatusInput.trim() && (addStatus(newStatusInput.trim()), setForm(f => ({ ...f, status: newStatusInput.trim() })), setNewStatusInput(''), setShowAddStatus(false))}
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none" />
+                    <button type="button" onClick={() => { if (newStatusInput.trim()) { addStatus(newStatusInput.trim()); setForm(f => ({ ...f, status: newStatusInput.trim() })); setNewStatusInput(''); setShowAddStatus(false); } }} className="px-2 py-1 rounded-lg bg-primary text-primary-foreground text-xs">Add</button>
+                  </div>
+                )}
+              </div>
               <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none">
                 {priorityOptions.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
