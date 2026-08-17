@@ -408,7 +408,7 @@ export default function SharedInbox() {
     queryKey: ['sales-users'],
     queryFn: () => api.get('/users/active').then(r => {
       const all: any[] = r.data?.data || r.data || [];
-      return all.filter((u: any) => ['sales_rep', 'sales_manager', 'pre_sales', 'marketing'].includes(u.role));
+      return all.filter((u: any) => ['sales_rep', 'sales_manager', 'pre_sales', 'marketing', 'admin'].includes(u.role));
     }),
     staleTime: 120_000, refetchOnWindowFocus: false,
   });
