@@ -1,0 +1,2 @@
+# Tauri desktop app shell — not needed to build the web app, only bloats deploy uploads
+src-tauri/
