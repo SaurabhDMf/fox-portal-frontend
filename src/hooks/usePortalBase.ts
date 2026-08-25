@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom';
 
-const PORTALS = ['/admin', '/sales', '/team', '/client'] as const;
+const PORTALS = ['/admin', '/sales', '/team', '/client', '/app'] as const;
 
 /**
  * Returns the current portal prefix based on the URL — '/admin', '/sales',
