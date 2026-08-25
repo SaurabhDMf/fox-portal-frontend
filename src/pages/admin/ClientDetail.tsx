@@ -39,6 +39,12 @@ export default function ClientDetail() {
     enabled: !!id,
   });
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ['client-projects', id],
+    queryFn: () => api.get('/projects', { params: { client_id: id } }).then(r => r.data?.data || r.data || []),
+    enabled: !!id,
+  });
+
   const { data: users = [] } = useQuery({
     queryKey: ['users-active'],
     queryFn: () => api.get('/users/active').then(r => extractProjectArray<any>(r.data, ['users'])),
@@ -85,6 +91,7 @@ export default function ClientDetail() {
   const invoicesArr = Array.isArray(invoices) ? invoices : [];
   const leadsArr = Array.isArray(leads) ? leads : [];
   const usersArr = Array.isArray(users) ? users : [];
+  const projectsArr = Array.isArray(projects) ? projects : [];
   const contacts = client.contacts || [];
   const address = [client.address_line1, client.address_line2, client.city, client.state, client.postal_code, client.country].filter(Boolean).join(', ');
 
@@ -154,6 +161,18 @@ export default function ClientDetail() {
               </div>
             </div>
           )}
+
+          {/* Projects */}
+          <div className="glass-card p-5">
+            <h2 className="text-sm font-semibold mb-3">Projects</h2>
+            {projectsArr.length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">No projects</p> : (
+              <div className="space-y-2">
+                {projectsArr.map((p: any) => (
+                  <ClientProjectRow key={p.id} project={p} onClick={() => navigate(`${base}/projects/${p.id}`)} />
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Invoice History */}
           <div className="glass-card p-5">
@@ -233,6 +252,32 @@ export default function ClientDetail() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ClientProjectRow({ project, onClick }: { project: any; onClick: () => void }) {
+  const { data: financials } = useQuery({
+    queryKey: ['project-financials', project.id],
+    queryFn: () => api.get(`/projects/${project.id}/financials`).then(r => r.data?.data ?? r.data ?? {}),
+  });
+
+  const f = financials || {};
+  const totalCost = Number(f.total_cost || 0);
+  const collected = Number(f.collected_amount || 0);
+  const paidPct = totalCost > 0 ? Math.min(Math.round((collected / totalCost) * 100), 100) : 0;
+  const deadline = project.due_date ? new Date(project.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+  return (
+    <div onClick={onClick} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 cursor-pointer">
+      <div>
+        <div className="text-sm font-medium">{project.name}</div>
+        <div className="text-xs text-muted-foreground">Due {deadline}</div>
+      </div>
+      <div className="text-right">
+        <div className="text-sm font-medium">${totalCost.toLocaleString()}</div>
+        <div className="text-xs text-muted-foreground">{totalCost > 0 ? `${paidPct}% paid` : '—'}</div>
+      </div>
     </div>
   );
 }
