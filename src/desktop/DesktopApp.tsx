@@ -52,6 +52,9 @@ const DesktopApp = () => (
       <PermissionsLoader>
         <Routes>
           <Route path="/" element={<RootRedirect />} />
+          {/* Tauri's devUrl/frontendDist point at desktop.html directly, so the
+              window's very first load reports that as the path, not "/". */}
+          <Route path="/desktop.html" element={<RootRedirect />} />
           <Route path="/login" element={<DesktopLogin />} />
 
           <Route path="/app" element={<ProtectedRoute><DesktopLayout /></ProtectedRoute>}>
