@@ -85,13 +85,20 @@ function iconForType(type: string) {
   return map[type] || Bell;
 }
 
+// The desktop (Tauri) app runs everything under /app, distinct from the
+// web app's role-based portal prefixes — check for it first so notification
+// links resolve correctly there instead of 404ing on /admin, /emp, etc.
+function currentBase(roleBasedBase: string): string {
+  return window.location.pathname.startsWith('/app') ? '/app' : roleBasedBase;
+}
+
 // Resolve a deep link if backend didn't provide one — best-effort fallback
 function fallbackLinkForType(type: string): string {
   const role = useAuthStore.getState().user?.role;
   const adminRoles = ['super_admin', 'admin', 'sales_manager', 'sales_rep'];
-  const base = role === 'client'
+  const base = currentBase(role === 'client'
     ? '/client-portal'
-    : adminRoles.includes(role || '') ? '/admin' : '/emp';
+    : adminRoles.includes(role || '') ? '/admin' : '/emp');
 
   switch (type) {
     case 'task':    return `${base}/projects`;
@@ -332,9 +339,9 @@ export function useNotificationsSocket() {
         const preview    = (msg?.content || msg?.body || '').slice(0, 140);
         const role       = useAuthStore.getState().user?.role;
         const adminRoles = ['super_admin', 'admin', 'sales_manager', 'sales_rep'];
-        const base       = role === 'client'
+        const base       = currentBase(role === 'client'
           ? '/client-portal'
-          : adminRoles.includes(role || '') ? '/admin' : '/emp';
+          : adminRoles.includes(role || '') ? '/admin' : '/emp');
         const link = msg?.room_id ? `${base}/chat?room=${msg.room_id}` : `${base}/chat`;
         showNotificationToast({
           title:  senderName,

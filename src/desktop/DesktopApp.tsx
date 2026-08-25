@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { usePermissionsRefresh } from "@/hooks/usePermissionsRefresh";
 import { ConfirmDialogHost } from "@/lib/confirmDialog";
 import { DependencyDeleteHost } from "@/lib/dependencyDelete";
+import NotificationsSocketBridge from "@/hooks/useNotificationsSocket";
 
 import ProtectedRoute from "@/components/ProtectedRoute";
 import DesktopLogin from "./DesktopLogin";
@@ -15,6 +16,9 @@ import LeadDetail from "@/pages/admin/LeadDetail";
 import Invoicing from "@/pages/admin/Invoicing";
 import Vault from "@/pages/admin/Vault";
 import Chat from "@/pages/admin/Chat";
+import SharedInbox from "@/pages/admin/SharedInbox";
+import InboxFormPage from "@/pages/admin/InboxFormPage";
+import InboxMembersPage from "@/pages/admin/InboxMembersPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -51,6 +55,7 @@ const DesktopApp = () => (
     <DependencyDeleteHost />
     <BrowserRouter>
       <PermissionsLoader>
+        <NotificationsSocketBridge />
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           {/* Tauri's devUrl/frontendDist point at desktop.html directly, so the
@@ -64,6 +69,10 @@ const DesktopApp = () => (
             <Route path="crm/:id" element={<LeadDetail />} />
             <Route path="invoicing" element={<Invoicing />} />
             <Route path="chat" element={<Chat />} />
+            <Route path="inbox" element={<SharedInbox />} />
+            <Route path="inbox/new" element={<InboxFormPage />} />
+            <Route path="inbox/:inboxId/settings" element={<InboxFormPage />} />
+            <Route path="inbox/:inboxId/members" element={<InboxMembersPage />} />
             <Route path="vault" element={<Vault />} />
           </Route>
 
