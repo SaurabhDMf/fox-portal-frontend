@@ -700,12 +700,13 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     });
   };
 
-  // Backend (multer) caps uploads at 20MB — reject oversized files here
+  // Backend (multer) caps uploads at 500MB — reject oversized files here
   // instead of letting the browser spend minutes uploading something the
   // server was always going to reject. Especially matters on a slow
   // connection, where the failure would otherwise surface as a generic
   // timeout well after the user's given up watching it.
-  const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+  const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
+  const MAX_UPLOAD_MB = MAX_UPLOAD_BYTES / (1024 * 1024);
 
   const stageFiles = (files: File[]) => {
     if (!files.length) return;
@@ -714,8 +715,8 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     if (tooBig.length) {
       toast.error(
         tooBig.length === 1
-          ? `"${tooBig[0].name}" is over the 20MB limit`
-          : `${tooBig.length} files are over the 20MB limit`
+          ? `"${tooBig[0].name}" is over the ${MAX_UPLOAD_MB}MB limit`
+          : `${tooBig.length} files are over the ${MAX_UPLOAD_MB}MB limit`
       );
     }
     if (!ok.length) return;
