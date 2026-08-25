@@ -14,6 +14,7 @@ import CRM from "@/pages/admin/CRM";
 import LeadDetail from "@/pages/admin/LeadDetail";
 import Invoicing from "@/pages/admin/Invoicing";
 import Vault from "@/pages/admin/Vault";
+import Chat from "@/pages/admin/Chat";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -62,6 +63,7 @@ const DesktopApp = () => (
             <Route path="crm" element={<CRM />} />
             <Route path="crm/:id" element={<LeadDetail />} />
             <Route path="invoicing" element={<Invoicing />} />
+            <Route path="chat" element={<Chat />} />
             <Route path="vault" element={<Vault />} />
           </Route>
 

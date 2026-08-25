@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Users, FileText, Lock, LogOut } from 'lucide-react';
+import { Users, FileText, MessageSquare, Lock, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -8,6 +8,7 @@ import ThemeLogo from '@/components/ThemeLogo';
 const navItems = [
   { label: 'Leads', path: '/app/crm', icon: Users },
   { label: 'Invoicing', path: '/app/invoicing', icon: FileText },
+  { label: 'Chat', path: '/app/chat', icon: MessageSquare },
   { label: 'Password Manager', path: '/app/vault', icon: Lock },
 ];
 
