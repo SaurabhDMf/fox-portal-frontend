@@ -19,7 +19,6 @@ import Chat from "@/pages/admin/Chat";
 import SharedInbox from "@/pages/admin/SharedInbox";
 import InboxFormPage from "@/pages/admin/InboxFormPage";
 import InboxMembersPage from "@/pages/admin/InboxMembersPage";
-import Notifications from "@/pages/admin/Notifications";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -75,7 +74,6 @@ const DesktopApp = () => (
             <Route path="inbox/:inboxId/settings" element={<InboxFormPage />} />
             <Route path="inbox/:inboxId/members" element={<InboxMembersPage />} />
             <Route path="vault" element={<Vault />} />
-            <Route path="notifications" element={<Notifications />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />

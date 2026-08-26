@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Users, FileText, MessageSquare, Inbox, Lock, Bell, LogOut } from 'lucide-react';
+import { Users, FileText, MessageSquare, Inbox, Lock, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -11,7 +11,6 @@ const navItems = [
   { label: 'Chat', path: '/app/chat', icon: MessageSquare },
   { label: 'Shared Inbox', path: '/app/inbox', icon: Inbox },
   { label: 'Password Manager', path: '/app/vault', icon: Lock },
-  { label: 'Notifications', path: '/app/notifications', icon: Bell },
 ];
 
 export default function DesktopSidebar() {
