@@ -45,9 +45,12 @@ function fmtRelative(iso?: string) {
 
 function fallbackLinkForType(type: string, role?: string): string {
   const adminRoles = ['super_admin', 'admin', 'sales_manager', 'sales_rep'];
-  const base = role === 'client'
+  const roleBasedBase = role === 'client'
     ? '/client-portal'
     : adminRoles.includes(role || '') ? '/admin' : '/emp';
+  // The desktop (Tauri) app runs everything under /app, distinct from the
+  // web app's role-based portal prefixes.
+  const base = window.location.pathname.startsWith('/app') ? '/app' : roleBasedBase;
 
   switch (type) {
     case 'task':    return `${base}/projects`;
