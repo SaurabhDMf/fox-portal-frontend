@@ -6,7 +6,8 @@ import { useSidebarCollapsed } from './PortalLayout';
 import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Shield, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
-  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Receipt, Scale, RefreshCw, Inbox, KeyRound
+  ChevronLeft, ChevronDown, LogOut, ListChecks, BookOpen, X, Receipt, Scale, RefreshCw, Inbox, KeyRound,
+  CalendarClock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -24,7 +25,13 @@ interface NavItem {
 
 const adminNav: NavItem[] = [
   { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
-  { label: 'CRM', path: '/admin/crm', icon: Users, module: 'crm' },
+  {
+    label: 'CRM', path: '/admin/crm', icon: Users, module: 'crm',
+    children: [
+      { label: 'Leads',              path: '/admin/crm',          icon: Users,         module: 'crm' },
+      { label: 'Upcoming Payments',  path: '/admin/crm/payments', icon: CalendarClock, module: 'crm' },
+    ],
+  },
   {
     label: 'Invoicing', path: '/admin/invoicing', icon: FileText, module: 'invoicing',
     children: [
@@ -61,7 +68,13 @@ const adminNav: NavItem[] = [
 const teamNav: NavItem[] = [
   { label: 'Dashboard', path: '/team', icon: LayoutDashboard },
   { label: 'Projects', path: '/team/projects', icon: FolderKanban, module: 'projects' },
-  { label: 'CRM', path: '/team/crm', icon: Users, module: 'crm' },
+  {
+    label: 'CRM', path: '/team/crm', icon: Users, module: 'crm',
+    children: [
+      { label: 'Leads',              path: '/team/crm',          icon: Users,         module: 'crm' },
+      { label: 'Upcoming Payments',  path: '/team/crm/payments', icon: CalendarClock, module: 'crm' },
+    ],
+  },
   { label: 'Invoicing', path: '/team/invoicing', icon: FileText, module: 'invoicing' },
   { label: 'Chat', path: '/team/chat', icon: MessageSquare, module: 'chat' },
   { label: 'Password Manager', path: '/team/vault', icon: Lock, module: 'vault' },
@@ -76,7 +89,13 @@ const teamNav: NavItem[] = [
 // per-role permissions (Roles & Permissions page), not by a hardcoded trim.
 const salesNav: NavItem[] = [
   { label: 'Dashboard', path: '/sales', icon: LayoutDashboard },
-  { label: 'CRM', path: '/sales/crm', icon: Users, module: 'crm' },
+  {
+    label: 'CRM', path: '/sales/crm', icon: Users, module: 'crm',
+    children: [
+      { label: 'Leads',              path: '/sales/crm',          icon: Users,         module: 'crm' },
+      { label: 'Upcoming Payments',  path: '/sales/crm/payments', icon: CalendarClock, module: 'crm' },
+    ],
+  },
   { label: 'Invoicing', path: '/sales/invoicing', icon: FileText, module: 'invoicing' },
   { label: 'Clients', path: '/sales/clients', icon: Building2, module: 'clients' },
   { label: 'Chat', path: '/sales/chat', icon: MessageSquare, module: 'chat' },

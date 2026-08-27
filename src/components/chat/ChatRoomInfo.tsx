@@ -160,8 +160,8 @@ export default function ChatRoomInfo({ roomId, onClose }: Props) {
                   {m.job_title && <span className="text-[10px] text-muted-foreground truncate block">{m.job_title}</span>}
                   {Number(m.is_admin) === 1 && <span className="text-[10px] text-primary font-medium">Admin</span>}
                 </div>
-                {isAdmin && m.id !== user?.id && (
-                  <button onClick={() => setConfirmRemove({ id: m.id, name: m.full_name || m.email || 'this member' })}
+                {isAdmin && m.user_id !== user?.id && (
+                  <button onClick={() => setConfirmRemove({ id: m.user_id, name: m.full_name || m.email || 'this member' })}
                     className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive transition-all">
                     <Trash2 className="h-3 w-3" />
                   </button>
