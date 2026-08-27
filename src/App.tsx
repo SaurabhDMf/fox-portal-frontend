@@ -16,6 +16,7 @@ import PortalLayout from "./components/layouts/PortalLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import CRM from "./pages/admin/CRM";
 import LeadDetail from "./pages/admin/LeadDetail";
+import LeadPayments from "./pages/admin/LeadPayments";
 import Invoicing from "./pages/admin/Invoicing";
 import Clients from "./pages/admin/Clients";
 import ClientDetail from "./pages/admin/ClientDetail";
@@ -127,6 +128,7 @@ const App = () => (
         <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']}><PortalLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="crm" element={<CRM />} />
+          <Route path="crm/payments" element={<LeadPayments />} />
           <Route path="crm/:id" element={<LeadDetail />} />
           <Route path="invoicing" element={<Invoicing />} />
           <Route path="clients" element={<Clients />} />
@@ -162,6 +164,7 @@ const App = () => (
         <Route path="/sales" element={<ProtectedRoute allowedRoles={['sales_manager', 'sales_rep', 'presales']}><PortalLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="crm" element={<CRM />} />
+          <Route path="crm/payments" element={<LeadPayments />} />
           <Route path="crm/:id" element={<LeadDetail />} />
           <Route path="clients" element={<Clients />} />
           <Route path="clients/:id" element={<ClientDetail />} />
@@ -189,6 +192,7 @@ const App = () => (
           <Route path="projects" element={<Projects />} />
           <Route path="projects/:id" element={<ProjectDetail />} />
           <Route path="crm" element={<CRM />} />
+          <Route path="crm/payments" element={<LeadPayments />} />
           <Route path="crm/:id" element={<LeadDetail />} />
           <Route path="invoicing" element={<Invoicing />} />
           <Route path="chat" element={<Chat />} />
