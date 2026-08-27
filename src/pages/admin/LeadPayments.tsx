@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useModulePermission } from '@/hooks/usePermission';
 import { useCompanyCurrency } from '@/hooks/useCompanyCurrency';
-import { Plus, Search, X, Calendar, Trash2, Pencil, CheckCircle2, Repeat } from 'lucide-react';
+import { Plus, Search, X, Calendar, Trash2, Pencil, CheckCircle2, Repeat, Wallet, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const inputCls = "px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
@@ -87,6 +87,21 @@ function LeadSearchSelect({ value, onChange, disabled }: { value: any; onChange:
   );
 }
 
+function StatCard({ label, value, icon: Icon, tone }: { label: string; value: string; icon: any; tone?: 'success' | 'warning' | 'danger' }) {
+  const iconCls = tone === 'success' ? 'text-success' : tone === 'warning' ? 'text-warning' : tone === 'danger' ? 'text-destructive' : 'text-muted-foreground';
+  return (
+    <div className="glass-card p-4 flex items-center justify-between">
+      <div>
+        <div className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</div>
+        <div className="text-xl font-semibold mt-1">{value}</div>
+      </div>
+      <div className={`h-9 w-9 rounded-lg bg-secondary flex items-center justify-center ${iconCls}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+    </div>
+  );
+}
+
 const emptyForm = { lead: null as any, payment_type: 'one_time', amount: '', currency: 'USD', expected_date: '', notes: '' };
 
 export default function LeadPayments() {
@@ -122,6 +137,25 @@ export default function LeadPayments() {
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['lead-payments'] });
+
+  // Totals for the currently filtered list, grouped by currency — payments
+  // in different currencies are never summed together, only shown side by
+  // side, so the numbers stay meaningful when more than one is in use.
+  const totalsByCurrency = useMemo(() => {
+    const byCurrency: Record<string, { total: number; pending: number; received: number; overdue: number }> = {};
+    for (const p of payments as any[]) {
+      const cur = (p.currency || 'USD').toUpperCase();
+      const amt = Number(p.amount || 0);
+      const bucket = byCurrency[cur] ?? (byCurrency[cur] = { total: 0, pending: 0, received: 0, overdue: 0 });
+      bucket.total += amt;
+      if (p.status === 'Received') bucket.received += amt;
+      else if (p.status === 'Pending') {
+        if (isOverdue(p)) bucket.overdue += amt;
+        else bucket.pending += amt;
+      }
+    }
+    return byCurrency;
+  }, [payments]);
 
   const createMut = useMutation({
     mutationFn: (d: typeof form) => api.post('/lead-payments', {
@@ -195,6 +229,16 @@ export default function LeadPayments() {
           </button>
         )}
       </div>
+
+      {/* Totals — one row per currency in use */}
+      {Object.entries(totalsByCurrency).map(([cur, t]) => (
+        <div key={cur} className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <StatCard label={Object.keys(totalsByCurrency).length > 1 ? `Total (${cur})` : 'Total'} value={fmtAmount(t.total, cur)} icon={Wallet} />
+          <StatCard label="Pending" value={fmtAmount(t.pending, cur)} icon={Clock} tone="warning" />
+          <StatCard label="Received" value={fmtAmount(t.received, cur)} icon={CheckCircle} tone="success" />
+          <StatCard label="Overdue" value={fmtAmount(t.overdue, cur)} icon={AlertTriangle} tone="danger" />
+        </div>
+      ))}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
