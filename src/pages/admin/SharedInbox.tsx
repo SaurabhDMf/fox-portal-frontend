@@ -1752,6 +1752,14 @@ function ThreadRow({ thread, selected, hasDraft, slaHours, isAdmin, members, fol
           </div>
           <span className={`text-[11px] flex-shrink-0 ${unread ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>{fmtDateTime(thread.last_inbound_at || thread.updated_at)}</span>
         </div>
+        {thread.client_name && thread.client_email && (
+          <p className="text-[11px] truncate mt-0.5 text-muted-foreground">{thread.client_email}</p>
+        )}
+        {(thread.client_phone || thread.client_country) && (
+          <p className="text-[11px] truncate mt-0.5 text-muted-foreground">
+            {[thread.client_phone, thread.client_country].filter(Boolean).join(' · ')}
+          </p>
+        )}
         <p className={`text-[13px] truncate mt-0.5 ${unread ? 'text-foreground font-semibold' : 'text-foreground/80'}`}>{thread.subject}</p>
         <p className={`text-xs truncate mt-0.5 leading-relaxed ${unread ? 'text-foreground/80' : 'text-muted-foreground'}`}>{thread.last_body?.slice(0, 80)}</p>
         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
