@@ -169,6 +169,7 @@ export const inboxApi = {
   patchThread:   (id: string, tid: string, data: any) => api.patch(`/inbox/${id}/threads/${tid}`, data),
   getThreadActivity: (id: string, tid: string) => api.get(`/inbox/${id}/threads/${tid}/activity`),
   replyThread:   (id: string, tid: string, data: any) => api.post(`/inbox/${id}/threads/${tid}/reply`, data),
+  addNote:       (id: string, tid: string, body_text: string) => api.post(`/inbox/${id}/threads/${tid}/note`, { body_text }),
   newThread:       (id: string, data: any) => api.post(`/inbox/${id}/threads`, data),
   deleteMessage:   (id: string, tid: string, mid: string) => api.delete(`/inbox/${id}/threads/${tid}/messages/${mid}`),
   deleteThread:    (id: string, tid: string) => api.delete(`/inbox/${id}/threads/${tid}`),

@@ -10,7 +10,7 @@ import {
   ArrowLeft, UserPlus, Loader2, Bot, ChevronDown, CalendarDays,
   FolderOpen, FolderPlus, Trash2, ArrowUpDown, ShieldAlert, MoveRight,
   Paperclip, File as FileIcon,
-  ChevronLeft, ChevronRight, Phone, MapPin, Wallet, History,
+  ChevronLeft, ChevronRight, Phone, MapPin, Wallet, History, CornerUpLeft, Lock, UserCheck,
 } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -230,6 +230,7 @@ interface Message {
   scheduled_at?: string; sent_at?: string; status: string; created_at: string;
   send_attempts?: number; last_send_error?: string;
   attachments?: { id: string; file_name: string; file_size?: number; url: string }[];
+  is_internal?: number;
 }
 
 interface Sender { id: string; email_address: string; display_name?: string; }
@@ -333,6 +334,18 @@ export default function SharedInbox() {
   const [showNewThread, setShowNewThread] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [showLeadDetails, setShowLeadDetails] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
+  const [noteText, setNoteText] = useState('');
+  const [sendingNote, setSendingNote] = useState(false);
+
+  // Collapse the composer back to the Reply / Internal note entry point
+  // whenever the selected thread changes.
+  useEffect(() => {
+    setComposerOpen(false);
+    setComposerMode('reply');
+    setNoteText('');
+  }, [selectedThreadId]);
 
   const anyOverlayOpen = showNewThread || showAssign || showMoveFolder;
 
@@ -930,6 +943,23 @@ export default function SharedInbox() {
     }
   };
 
+  const sendNote = async () => {
+    if (!noteText.trim() || !selectedInboxId || !selectedThreadId) return;
+    setSendingNote(true);
+    try {
+      await inboxApi.addNote(selectedInboxId, selectedThreadId, noteText.trim());
+      setNoteText('');
+      setComposerOpen(false);
+      qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
+      qc.invalidateQueries({ queryKey: ['inbox-thread-activity', selectedInboxId, selectedThreadId] });
+      toast.success('Note added');
+    } catch (e: any) {
+      toast.error(errMsg(e));
+    } finally {
+      setSendingNote(false);
+    }
+  };
+
   const undoPendingSend = async () => {
     if (!pendingMsgId || !selectedInboxId || !selectedThreadId) return;
     try {
@@ -1409,8 +1439,51 @@ export default function SharedInbox() {
               ))}
             </div>
           {threadDetail.thread.status !== 'closed' && threadDetail.thread.status !== 'dead' && (
+            !composerOpen ? (
+              <div className="border-t border-border bg-card/70 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button onClick={() => { setComposerMode('reply'); setComposerOpen(true); }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+                    <CornerUpLeft size={15} /> Reply
+                  </button>
+                  <button onClick={() => { setComposerMode('note'); setComposerOpen(true); }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400 text-sm font-medium hover:bg-amber-500/10 transition-colors">
+                    <Lock size={15} /> Internal note
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="border-t border-border p-4">
               <div className="border border-border rounded-xl overflow-hidden bg-card/70">
+                <div className="flex items-center gap-1 mx-3 mt-3 rounded-lg bg-secondary p-1 text-xs">
+                  <button onClick={() => setComposerMode('reply')}
+                    className={`flex-1 rounded-md px-3 py-1.5 font-medium transition-colors ${composerMode === 'reply' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                    Reply to lead
+                  </button>
+                  <button onClick={() => setComposerMode('note')}
+                    className={`flex-1 rounded-md px-3 py-1.5 font-medium transition-colors ${composerMode === 'note' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                    Internal note
+                  </button>
+                  <button onClick={() => setComposerOpen(false)} title="Close composer"
+                    className="grid place-items-center w-7 h-7 rounded-md text-muted-foreground hover:bg-background hover:text-foreground transition-colors">
+                    <X size={14} />
+                  </button>
+                </div>
+                {composerMode === 'note' ? (
+                  <>
+                    <textarea value={noteText} onChange={e => setNoteText(e.target.value)}
+                      placeholder="Visible to your team only — qualification notes, next steps…" rows={4}
+                      className="mt-3 mx-3 w-[calc(100%-1.5rem)] px-3 py-2 text-sm rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 outline-none resize-none text-foreground placeholder:text-muted-foreground/70" />
+                    <div className="flex items-center justify-end px-3 pb-3 pt-2">
+                      <button onClick={sendNote} disabled={sendingNote || !noteText.trim()}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm font-medium hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        {sendingNote ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+                        Add note
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                <>
                 <div className="flex flex-wrap gap-2 px-3 pt-3 pb-1 border-b border-border">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground flex-shrink-0">From:</span>
@@ -1569,8 +1642,11 @@ export default function SharedInbox() {
                     )}
                   </div>
                 </div>
+                </>
+                )}
               </div>
             </div>
+            )
           )}
           </div>
         </div>
@@ -1799,6 +1875,23 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
     )
   ) : null;
 
+  // Internal note: never sent to the client — visually distinct so it can
+  // never be mistaken for a real reply.
+  if (msg.is_internal) {
+    return (
+      <div className="rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 px-4 py-3"
+        onMouseEnter={() => setHovered(true)} onMouseLeave={() => { setHovered(false); setConfirmDelete(false); }}>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+            <Lock size={12} /> Internal note · {msg.sender_name || 'You'} · {fmtDateTime(msg.sent_at || msg.created_at)}
+          </span>
+          <DeleteBtn />
+        </div>
+        <p className="mt-1.5 text-sm text-foreground/90 whitespace-pre-wrap">{msg.body_text}</p>
+      </div>
+    );
+  }
+
   // Inbound HTML emails: full-width card
   if (hasHtml) {
     return (
@@ -1933,101 +2026,126 @@ const ACTIVITY_LABEL: Record<string, string> = {
   deal_value_changed: 'Deal value changed',
 };
 
+// A read-style row (icon + text) that becomes an inline input on click —
+// matches the reference's plain "icon + value" rows while still allowing
+// the edit the backend already supports, instead of always-visible input
+// boxes that don't match the reference at rest.
+function LeadDetailRow({ icon: Icon, value, placeholder, canEdit, onSave, type = 'text' }: {
+  icon: React.ElementType; value: string; placeholder: string; canEdit: boolean;
+  onSave: (v: string) => void; type?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+
+  if (editing) {
+    return (
+      <div className="flex items-start gap-2">
+        <Icon size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+        <input
+          autoFocus type={type} value={draft} onChange={e => setDraft(e.target.value)}
+          onBlur={() => { setEditing(false); if (draft !== value) onSave(draft); }}
+          onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
+          className="flex-1 min-w-0 text-xs bg-secondary rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+    );
+  }
+  return (
+    <button
+      onClick={() => canEdit && setEditing(true)}
+      disabled={!canEdit}
+      className={`flex items-start gap-2 text-left w-full ${canEdit ? 'hover:text-foreground' : ''}`}
+    >
+      <Icon size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+      <span className={`text-xs break-words ${value ? 'text-foreground/85' : 'text-muted-foreground/60 italic'}`}>
+        {value || placeholder}
+      </span>
+    </button>
+  );
+}
+
 function LeadDetailsRail({ thread, open, onToggle, activity, canEdit, onPatch }: {
   thread: Thread; open: boolean; onToggle: () => void; activity: any[];
   canEdit: boolean; onPatch: (data: any) => void;
 }) {
-  const [phone, setPhone] = useState(thread.client_phone || '');
-  const [country, setCountry] = useState(thread.client_country || '');
-  const [dealValue, setDealValue] = useState(thread.deal_value != null ? String(thread.deal_value) : '');
-  const [dealCurrency, setDealCurrency] = useState(thread.deal_currency || 'USD');
-
-  // Re-sync local edit buffers whenever the underlying thread changes
-  // (switching threads, or a patch round-tripping back from the server).
-  useEffect(() => {
-    setPhone(thread.client_phone || '');
-    setCountry(thread.client_country || '');
-    setDealValue(thread.deal_value != null ? String(thread.deal_value) : '');
-    setDealCurrency(thread.deal_currency || 'USD');
-  }, [thread.id, thread.client_phone, thread.client_country, thread.deal_value, thread.deal_currency]);
-
   if (!open) {
     return (
       <button
         onClick={onToggle}
-        title="Lead Details"
+        title="Lead details"
         className="w-9 flex-shrink-0 border-l border-border flex flex-col items-center justify-center gap-2 py-4 hover:bg-secondary/40 transition-colors text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft size={13} />
-        <span className="text-[10px] font-semibold uppercase tracking-widest [writing-mode:vertical-rl]">Lead Details</span>
+        <span className="text-[10px] font-semibold uppercase tracking-widest [writing-mode:vertical-rl]">Lead details</span>
       </button>
     );
   }
 
-  const inputCls = "w-full px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60";
+  const initials = (thread.client_name || thread.client_email || '?')[0]?.toUpperCase() || '?';
+  const dealValueLabel = thread.deal_value != null
+    ? `Deal value ${thread.deal_currency || 'USD'} ${Number(thread.deal_value).toLocaleString()}`
+    : '';
 
   return (
     <div className="w-64 flex-shrink-0 border-l border-border flex flex-col bg-card/60 overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border flex-shrink-0">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lead Details</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lead details</span>
         <button onClick={onToggle} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground">
           <ChevronRight size={14} />
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
-        <div className="space-y-2">
-          <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            <Wallet size={11} /> Deal value
-          </label>
-          <div className="flex gap-1.5">
-            <select value={dealCurrency} disabled={!canEdit}
-              onChange={e => { setDealCurrency(e.target.value); onPatch({ deal_currency: e.target.value }); }}
-              className={`${inputCls} w-16 flex-shrink-0`}>
-              {['USD', 'EUR', 'GBP', 'INR', 'JOD', 'AED'].map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <input value={dealValue} disabled={!canEdit} type="number" placeholder="0"
-              onChange={e => setDealValue(e.target.value)}
-              onBlur={() => onPatch({ deal_value: dealValue === '' ? null : dealValue })}
-              onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-              className={inputCls} />
+        <div className="flex items-center gap-3">
+          <span className="grid place-items-center w-10 h-10 rounded-full bg-primary/15 font-display text-xs font-semibold text-primary flex-shrink-0">
+            {initials}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{thread.client_name || thread.client_email}</p>
+            <p className="truncate text-[11px] text-muted-foreground">Email</p>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            <Phone size={11} /> Phone
-          </label>
-          <input value={phone} disabled={!canEdit} placeholder="Not set"
-            onChange={e => setPhone(e.target.value)}
-            onBlur={() => onPatch({ client_phone: phone })}
-            onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-            className={inputCls} />
+        <div className="space-y-2.5">
+          <LeadDetailRow icon={Mail} value={thread.client_email} placeholder="No email" canEdit={false} onSave={() => {}} />
+          <LeadDetailRow icon={Phone} value={thread.client_phone || ''} placeholder="Add phone" canEdit={canEdit}
+            onSave={v => onPatch({ client_phone: v })} type="tel" />
+          <LeadDetailRow icon={MapPin} value={thread.client_country || ''} placeholder="Add country" canEdit={canEdit}
+            onSave={v => onPatch({ client_country: v })} />
+          <LeadDetailRow icon={Wallet} value={dealValueLabel} placeholder="Add deal value" canEdit={canEdit}
+            onSave={v => onPatch({ deal_value: v.replace(/[^0-9.]/g, '') || null })} type="text" />
+          {thread.assignee_name && (
+            <div className="flex items-start gap-2">
+              <UserCheck size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+              <span className="text-xs text-foreground/85">Owner {thread.assignee_name}</span>
+            </div>
+          )}
         </div>
 
-        <div className="space-y-2">
-          <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            <MapPin size={11} /> Country
-          </label>
-          <input value={country} disabled={!canEdit} placeholder="Not set"
-            onChange={e => setCountry(e.target.value)}
-            onBlur={() => onPatch({ client_country: country })}
-            onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-            className={inputCls} />
-        </div>
+        {thread.tags && thread.tags.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Tags</p>
+            <div className="flex flex-wrap gap-1.5">
+              {thread.tags.map(t => (
+                <span key={t} className="px-2 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px]">{t}</span>
+              ))}
+            </div>
+          </div>
+        )}
 
-        <div className="space-y-2 pt-1">
-          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
             <History size={11} /> Activity
-          </span>
+          </p>
           {activity.length === 0 ? (
             <p className="text-xs text-muted-foreground/70">No activity yet</p>
           ) : (
             <div className="space-y-3 border-l border-border ml-1 pl-3">
               {activity.map(a => (
                 <div key={a.id} className="relative">
-                  <span className="absolute -left-[15px] top-1 w-1.5 h-1.5 rounded-full bg-border" />
-                  <p className="text-xs text-foreground/90">{a.detail || ACTIVITY_LABEL[a.event] || a.event}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                  <span className="absolute -left-[15px] top-1 w-1.5 h-1.5 rounded-full bg-primary" />
+                  <p className="text-[11px] text-muted-foreground">{a.detail || ACTIVITY_LABEL[a.event] || a.event}</p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">
                     {a.actor_name || 'System'} · {fmtRelative(a.created_at)}
                   </p>
                 </div>
