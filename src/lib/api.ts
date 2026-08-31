@@ -180,6 +180,12 @@ export const inboxApi = {
   // AI: draft a fresh outbound email — topic is what the sender wants to say.
   aiCompose:       (id: string, data: { topic: string; to?: string; subject?: string }) =>
     api.post(`/inbox/${id}/ai-compose`, data),
+  // Stage a file to attach to a reply/compose message — returns the upload row.
+  uploadAttachment: (id: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post(`/inbox/${id}/upload`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
 };
 
 export default api;

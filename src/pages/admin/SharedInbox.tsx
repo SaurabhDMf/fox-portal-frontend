@@ -9,6 +9,7 @@ import {
   Settings, Mail, Tag, Zap, Archive,
   ArrowLeft, UserPlus, Loader2, Bot, ChevronDown, CalendarDays,
   FolderOpen, FolderPlus, Trash2, ArrowUpDown, ShieldAlert, MoveRight,
+  Paperclip, File as FileIcon,
 } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -227,6 +228,7 @@ interface Message {
   sender_name?: string; is_ai_generated: number;
   scheduled_at?: string; sent_at?: string; status: string; created_at: string;
   send_attempts?: number; last_send_error?: string;
+  attachments?: { id: string; file_name: string; file_size?: number; url: string }[];
 }
 
 interface Sender { id: string; email_address: string; display_name?: string; }
@@ -618,6 +620,35 @@ export default function SharedInbox() {
   const sendMenuRef = useRef<HTMLDivElement>(null);
   const replyFromInitialised = useRef<string | null>(null);
 
+  // ── Attachments ─────────────────────────────────────────────
+  // Uploaded eagerly on pick (not on send) so the composer can show progress
+  // and the user can remove one before sending; ids ride along with the reply.
+  const [stagedAttachments, setStagedAttachments] = useState<{ id: string; file_name: string; file_size: number; uploading?: boolean; tempKey?: string }[]>([]);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+
+  const stageAttachments = async (files: FileList | File[]) => {
+    if (!selectedInboxId) return;
+    for (const file of Array.from(files)) {
+      const tempKey = `${file.name}-${Date.now()}-${Math.random()}`;
+      setStagedAttachments(prev => [...prev, { id: tempKey, file_name: file.name, file_size: file.size, uploading: true, tempKey }]);
+      try {
+        const res = await inboxApi.uploadAttachment(selectedInboxId, file);
+        setStagedAttachments(prev => prev.map(a => a.tempKey === tempKey
+          ? { id: res.data.id, file_name: res.data.file_name, file_size: res.data.file_size }
+          : a));
+      } catch (e: any) {
+        toast.error(`${file.name}: ${errMsg(e)}`);
+        setStagedAttachments(prev => prev.filter(a => a.tempKey !== tempKey));
+      }
+    }
+  };
+  const removeStagedAttachment = (id: string) => setStagedAttachments(prev => prev.filter(a => a.id !== id));
+  const formatFileSize = (bytes: number) => {
+    if (!bytes) return '';
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  };
+
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (sendMenuRef.current && !sendMenuRef.current.contains(e.target as Node)) setShowSendMenu(false);
@@ -649,6 +680,7 @@ export default function SharedInbox() {
   const [pendingCC, setPendingCC] = useState('');
   const [pendingFrom, setPendingFrom] = useState('');
   const [pendingSubject, setPendingSubject] = useState('');
+  const [pendingAttachments, setPendingAttachments] = useState<{ id: string; file_name: string; file_size: number }[]>([]);
   const [secondsLeft, setSecondsLeft] = useState(0);
   // The banner is only relevant on the thread the message was sent from.
   const showPendingBanner = !!pendingMsgId && pendingThreadId === selectedThreadId;
@@ -802,6 +834,7 @@ export default function SharedInbox() {
           setPendingCC('');
           setPendingFrom('');
           setPendingSubject('');
+          setPendingAttachments([]);
           if (selectedInboxId && selectedThreadId) {
             qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
             qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
@@ -816,6 +849,7 @@ export default function SharedInbox() {
 
   const sendReply = async () => {
     if (!replyText.trim() || !selectedInboxId || !selectedThreadId) return;
+    if (stagedAttachments.some(a => a.uploading)) { toast.error('Still uploading — wait a moment'); return; }
 
     // "Send later" picks a specific date — bypass the undo flow in that case
     // because the user is explicitly scheduling, not sending now.
@@ -828,10 +862,11 @@ export default function SharedInbox() {
           cc: replyCC || undefined,
           subject: replySubject || undefined,
           scheduled_at: sendLater,
+          attachment_ids: stagedAttachments.map(a => a.id),
         });
         toast.success('Scheduled!');
         clearThreadDraft(selectedThreadId);
-        setReplyText(''); setReplyCC(''); setSendLater('');
+        setReplyText(''); setReplyCC(''); setSendLater(''); setStagedAttachments([]);
         // Reset the subject to the default for the next message in this thread
         const ts = threadDetail?.thread?.subject || '';
         setReplySubject(ts.toLowerCase().startsWith('re:') ? ts : `Re: ${ts}`);
@@ -852,12 +887,14 @@ export default function SharedInbox() {
     const subjectCopy = replySubject;
     try {
       const scheduledAt = new Date(Date.now() + UNDO_WINDOW_MS).toISOString();
+      const attachmentIds = stagedAttachments.map(a => a.id);
       const res = await inboxApi.replyThread(selectedInboxId, selectedThreadId, {
         body_text: bodyCopy,
         from_address: fromCopy,
         cc: ccCopy || undefined,
         subject: replySubject || undefined,
         scheduled_at: scheduledAt,
+        attachment_ids: attachmentIds,
       });
       const newMsgId = res.data?.id;
       if (!newMsgId) throw new Error('Server did not return a message id');
@@ -867,6 +904,7 @@ export default function SharedInbox() {
       setPendingCC(ccCopy);
       setPendingFrom(fromCopy);
       setPendingSubject(subjectCopy);
+      setPendingAttachments(stagedAttachments);
       // Successful send — drop the draft for this thread so the next reply
       // starts fresh, and reset the subject back to the default.
       clearThreadDraft(selectedThreadId);
@@ -875,6 +913,7 @@ export default function SharedInbox() {
       // Clear the composer so the user can write the next reply if they want
       setReplyText(signatureText ? `\n\n${signatureText}` : '');
       setReplyCC('');
+      setStagedAttachments([]);
     } catch (e: any) {
       toast.error(errMsg(e));
     } finally {
@@ -893,6 +932,7 @@ export default function SharedInbox() {
       setReplyCC(pendingCC);
       setReplyFrom(pendingFrom);
       setReplySubject(pendingSubject);
+      setStagedAttachments(pendingAttachments);
       if (selectedThreadId) {
         writeDraft(selectedThreadId, {
           subject: pendingSubject,
@@ -906,6 +946,7 @@ export default function SharedInbox() {
       setPendingCC('');
       setPendingFrom('');
       setPendingSubject('');
+      setPendingAttachments([]);
       toast.success('Send cancelled — you can edit and resend');
     } catch (e: any) {
       toast.error(errMsg(e));
@@ -1443,8 +1484,32 @@ export default function SharedInbox() {
                     </div>
                   </div>
                 )}
+                {stagedAttachments.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+                    {stagedAttachments.map(a => (
+                      <span key={a.id} className="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-md bg-secondary border border-border text-xs">
+                        {a.uploading ? <Loader2 size={12} className="animate-spin text-muted-foreground" /> : <FileIcon size={12} className="text-muted-foreground" />}
+                        <span className="max-w-[160px] truncate">{a.file_name}</span>
+                        {!a.uploading && <span className="text-muted-foreground">{formatFileSize(a.file_size)}</span>}
+                        <button onClick={() => removeStagedAttachment(a.id)} className="p-0.5 rounded hover:bg-background text-muted-foreground hover:text-destructive">
+                          <X size={11} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-center justify-between px-3 pb-3 pt-1 gap-2">
                   <div className="flex items-center gap-2">
+                    <input ref={attachmentInputRef} type="file" multiple className="hidden"
+                      onChange={e => { if (e.target.files?.length) stageAttachments(e.target.files); e.target.value = ''; }} />
+                    <button
+                      type="button"
+                      onClick={() => attachmentInputRef.current?.click()}
+                      disabled={showPendingBanner}
+                      title="Attach a file"
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-border text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
+                      <Paperclip size={12} />
+                    </button>
                     {sendLater && (
                       <span className="inline-flex items-center gap-1 text-xs text-primary bg-primary/10 px-2 py-1 rounded-md ring-1 ring-primary/25">
                         <Clock size={12} />{fmtDateTime(sendLater)}
@@ -1468,13 +1533,13 @@ export default function SharedInbox() {
                     </button>
                   </div>
                   <div ref={sendMenuRef} className="relative flex items-stretch">
-                    <button onClick={sendReply} disabled={sendingReply || !replyText.trim() || showPendingBanner}
+                    <button onClick={sendReply} disabled={sendingReply || !replyText.trim() || showPendingBanner || stagedAttachments.some(a => a.uploading)}
                       className="flex items-center gap-1.5 pl-4 pr-3 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-l-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
                       {sendingReply ? <Loader2 size={14} className="animate-spin" /> : sendLater ? <Clock size={14} /> : <Send size={14} />}
                       {sendLater ? 'Schedule' : 'Send'}
                     </button>
                     <button type="button" onClick={() => setShowSendMenu(v => !v)}
-                      disabled={sendingReply || !replyText.trim() || showPendingBanner}
+                      disabled={sendingReply || !replyText.trim() || showPendingBanner || stagedAttachments.some(a => a.uploading)}
                       className="flex items-center px-1.5 bg-primary text-primary-foreground rounded-r-lg border-l border-primary-foreground/20 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
                       <ChevronDown size={14} />
                     </button>
@@ -1766,6 +1831,17 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
         <div className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${isOut ? 'bg-primary text-primary-foreground rounded-tr-md' : 'border border-border bg-card text-card-foreground rounded-tl-md'}`}>
           <pre className="whitespace-pre-wrap font-sans">{msg.body_text}</pre>
         </div>
+        {msg.attachments && msg.attachments.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {msg.attachments.map(a => (
+              <a key={a.id} href={a.url} target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-md bg-secondary border border-border text-xs hover:bg-secondary/70 transition-colors">
+                <FileIcon size={12} className="text-muted-foreground" />
+                <span className="max-w-[160px] truncate">{a.file_name}</span>
+              </a>
+            ))}
+          </div>
+        )}
         {/* Show the mail server's own words inline. Keeping this in a tooltip
             meant a failed client email looked unexplained unless you knew to hover. */}
         {isFailed && msg.last_send_error && (
