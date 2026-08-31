@@ -10,6 +10,7 @@ import {
   ArrowLeft, UserPlus, Loader2, Bot, ChevronDown, CalendarDays,
   FolderOpen, FolderPlus, Trash2, ArrowUpDown, ShieldAlert, MoveRight,
   Paperclip, File as FileIcon,
+  ChevronLeft, ChevronRight, Phone, MapPin, Wallet, History,
 } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
@@ -331,6 +332,7 @@ export default function SharedInbox() {
 
   const [showNewThread, setShowNewThread] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [showLeadDetails, setShowLeadDetails] = useState(false);
 
   const anyOverlayOpen = showNewThread || showAssign || showMoveFolder;
 
@@ -520,8 +522,15 @@ export default function SharedInbox() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
       qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
+      qc.invalidateQueries({ queryKey: ['inbox-thread-activity', selectedInboxId, selectedThreadId] });
     },
     onError: (e: any) => toast.error(errMsg(e)),
+  });
+
+  const { data: threadActivity = [] } = useQuery<any[]>({
+    queryKey: ['inbox-thread-activity', selectedInboxId, selectedThreadId],
+    queryFn: () => inboxApi.getThreadActivity(selectedInboxId!, selectedThreadId!).then(r => r.data?.activity || []),
+    enabled: !!selectedInboxId && !!selectedThreadId && showLeadDetails,
   });
 
   const assignMut = useMutation({
@@ -972,7 +981,7 @@ export default function SharedInbox() {
   // ── Render ───────────────────────────────────────────────────
 
   return (
-    <div className="dark flex h-full overflow-hidden bg-background text-foreground">
+    <div className="flex h-full overflow-hidden bg-background text-foreground">
 
       {/* ── Left sidebar: inbox list ──────────────────────────── */}
       <div className="w-52 flex-shrink-0 border-r border-border flex flex-col bg-card">
@@ -1574,6 +1583,18 @@ export default function SharedInbox() {
         </div>
       )}
 
+      {/* ── Far right: collapsible Lead Details rail ───────────── */}
+      {selectedThreadId && threadDetail && (
+        <LeadDetailsRail
+          thread={threadDetail.thread}
+          open={showLeadDetails}
+          onToggle={() => setShowLeadDetails(v => !v)}
+          activity={threadActivity}
+          canEdit={canManageInbox}
+          onPatch={data => patchThreadMut.mutate({ tid: selectedThreadId, data })}
+        />
+      )}
+
       {/* ── Small overlay modals ───────────────────────────────── */}
       {showNewThread && selectedInboxId && (
         <NewThreadModal inboxId={selectedInboxId} senders={senders}
@@ -1893,6 +1914,128 @@ function StatusDropdown({ status, onChange }: { status: string; onChange: (s: st
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── LeadDetailsRail ─────────────────────────────────────────────────────────
+// Collapsed by default: a thin vertical strip with a rotated label. All the
+// fields here (deal value/currency, phone, country) and the activity feed
+// were already fully wired on the backend (PATCH .../threads/:tid,
+// GET .../threads/:tid/activity) — this is just the UI that was missing.
+
+const ACTIVITY_LABEL: Record<string, string> = {
+  ticket_created: 'Ticket created',
+  assigned: 'Assigned',
+  status_changed: 'Status changed',
+  priority_changed: 'Priority changed',
+  tags_changed: 'Tags changed',
+  deal_value_changed: 'Deal value changed',
+};
+
+function LeadDetailsRail({ thread, open, onToggle, activity, canEdit, onPatch }: {
+  thread: Thread; open: boolean; onToggle: () => void; activity: any[];
+  canEdit: boolean; onPatch: (data: any) => void;
+}) {
+  const [phone, setPhone] = useState(thread.client_phone || '');
+  const [country, setCountry] = useState(thread.client_country || '');
+  const [dealValue, setDealValue] = useState(thread.deal_value != null ? String(thread.deal_value) : '');
+  const [dealCurrency, setDealCurrency] = useState(thread.deal_currency || 'USD');
+
+  // Re-sync local edit buffers whenever the underlying thread changes
+  // (switching threads, or a patch round-tripping back from the server).
+  useEffect(() => {
+    setPhone(thread.client_phone || '');
+    setCountry(thread.client_country || '');
+    setDealValue(thread.deal_value != null ? String(thread.deal_value) : '');
+    setDealCurrency(thread.deal_currency || 'USD');
+  }, [thread.id, thread.client_phone, thread.client_country, thread.deal_value, thread.deal_currency]);
+
+  if (!open) {
+    return (
+      <button
+        onClick={onToggle}
+        title="Lead Details"
+        className="w-9 flex-shrink-0 border-l border-border flex flex-col items-center justify-center gap-2 py-4 hover:bg-secondary/40 transition-colors text-muted-foreground hover:text-foreground"
+      >
+        <ChevronLeft size={13} />
+        <span className="text-[10px] font-semibold uppercase tracking-widest [writing-mode:vertical-rl]">Lead Details</span>
+      </button>
+    );
+  }
+
+  const inputCls = "w-full px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-60";
+
+  return (
+    <div className="w-64 flex-shrink-0 border-l border-border flex flex-col bg-card/60 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border flex-shrink-0">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lead Details</span>
+        <button onClick={onToggle} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground">
+          <ChevronRight size={14} />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-4">
+        <div className="space-y-2">
+          <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <Wallet size={11} /> Deal value
+          </label>
+          <div className="flex gap-1.5">
+            <select value={dealCurrency} disabled={!canEdit}
+              onChange={e => { setDealCurrency(e.target.value); onPatch({ deal_currency: e.target.value }); }}
+              className={`${inputCls} w-16 flex-shrink-0`}>
+              {['USD', 'EUR', 'GBP', 'INR', 'JOD', 'AED'].map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <input value={dealValue} disabled={!canEdit} type="number" placeholder="0"
+              onChange={e => setDealValue(e.target.value)}
+              onBlur={() => onPatch({ deal_value: dealValue === '' ? null : dealValue })}
+              onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              className={inputCls} />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <Phone size={11} /> Phone
+          </label>
+          <input value={phone} disabled={!canEdit} placeholder="Not set"
+            onChange={e => setPhone(e.target.value)}
+            onBlur={() => onPatch({ client_phone: phone })}
+            onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            className={inputCls} />
+        </div>
+
+        <div className="space-y-2">
+          <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <MapPin size={11} /> Country
+          </label>
+          <input value={country} disabled={!canEdit} placeholder="Not set"
+            onChange={e => setCountry(e.target.value)}
+            onBlur={() => onPatch({ client_country: country })}
+            onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            className={inputCls} />
+        </div>
+
+        <div className="space-y-2 pt-1">
+          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <History size={11} /> Activity
+          </span>
+          {activity.length === 0 ? (
+            <p className="text-xs text-muted-foreground/70">No activity yet</p>
+          ) : (
+            <div className="space-y-3 border-l border-border ml-1 pl-3">
+              {activity.map(a => (
+                <div key={a.id} className="relative">
+                  <span className="absolute -left-[15px] top-1 w-1.5 h-1.5 rounded-full bg-border" />
+                  <p className="text-xs text-foreground/90">{a.detail || ACTIVITY_LABEL[a.event] || a.event}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {a.actor_name || 'System'} · {fmtRelative(a.created_at)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
