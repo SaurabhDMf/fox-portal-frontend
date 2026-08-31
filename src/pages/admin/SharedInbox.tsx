@@ -1077,7 +1077,7 @@ export default function SharedInbox() {
                       <ShieldAlert size={12} />Spam
                     </button>
 
-                    <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Ticket Queues</p>
+                    <p className="px-3 pt-2 pb-1 font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">Ticket Queues</p>
                     {canManageInbox && (
                       <button onClick={() => { setShowSpam(false); setSelectedFolderId(null); setShowUnassigned(!showUnassigned); setShowAssignedToMe(false); setSlaAtRiskOnly(false); }}
                         className={`w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 text-xs hover:bg-secondary/60 transition-colors rounded ${showUnassigned ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
@@ -1096,7 +1096,7 @@ export default function SharedInbox() {
 
                     {allTags.length > 0 && (
                       <>
-                        <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Tags</p>
+                        <p className="px-3 pt-2 pb-1 font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">Tags</p>
                         <div className="flex flex-wrap gap-1 px-3 pb-1">
                           {allTags.map(tag => (
                             <button key={tag} onClick={() => setFilterTag(filterTag === tag ? null : tag)}
@@ -1155,7 +1155,7 @@ export default function SharedInbox() {
           <div className="p-3 border-b border-border">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 min-w-0">
-                <h2 className="text-sm font-semibold text-foreground truncate">{selectedInbox.name}</h2>
+                <h2 className="font-display text-base font-semibold tracking-tight text-foreground truncate">{selectedInbox.name}</h2>
                 {selectedInbox.ai_followup_enabled ? <span title="AI follow-up on" className="text-emerald-500 flex-shrink-0"><Zap size={12} /></span> : null}
               </div>
               <div className="flex items-center gap-0.5 flex-shrink-0">
@@ -1348,9 +1348,9 @@ export default function SharedInbox() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
                   {threadDetail.thread.ticket_ref && (
-                    <span className="text-xs font-semibold text-primary flex-shrink-0">{threadDetail.thread.ticket_ref}</span>
+                    <span className="rounded-md bg-primary/15 px-2 py-0.5 font-display text-[11px] font-semibold text-primary flex-shrink-0">{threadDetail.thread.ticket_ref}</span>
                   )}
-                  <h2 className="font-semibold text-foreground truncate tracking-tight">{threadDetail.thread.subject}</h2>
+                  <h2 className="font-display text-lg font-semibold text-foreground truncate tracking-tight">{threadDetail.thread.subject}</h2>
                 </div>
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   <ThreadStatusBadge thread={threadDetail.thread} />
@@ -1483,7 +1483,7 @@ export default function SharedInbox() {
                   <>
                     <textarea value={noteText} onChange={e => setNoteText(e.target.value)}
                       placeholder="Visible to your team only — qualification notes, next steps…" rows={4}
-                      className="mt-3 mx-3 w-[calc(100%-1.5rem)] px-3 py-2 text-sm rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 outline-none resize-none text-foreground placeholder:text-muted-foreground/70" />
+                      className="mt-3 mx-3 w-[calc(100%-1.5rem)] px-3 py-2 text-[13.5px] leading-relaxed rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 outline-none resize-none text-foreground placeholder:text-muted-foreground/70" />
                     <div className="flex items-center justify-end px-3 pb-3 pt-2">
                       <button onClick={sendNote} disabled={sendingNote || !noteText.trim()}
                         className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm font-medium hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
@@ -1522,7 +1522,7 @@ export default function SharedInbox() {
                 </div>
                 <textarea value={replyText} onChange={e => onChangeReplyText(e.target.value)}
                   placeholder="Write your reply…" rows={8}
-                  className="w-full px-3 py-2 text-sm bg-transparent outline-none resize-none text-foreground placeholder:text-muted-foreground whitespace-pre-wrap" />
+                  className="w-full px-3 py-2 text-[13.5px] leading-relaxed bg-transparent outline-none resize-none text-foreground placeholder:text-muted-foreground whitespace-pre-wrap" />
                 {selectedThreadId && threadHasDraft(selectedThreadId) && (
                   <div className="flex items-center justify-between gap-3 px-3 pb-2 -mt-1">
                     <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
@@ -1637,7 +1637,7 @@ export default function SharedInbox() {
                     </button>
                     {showSendMenu && (
                       <div className="absolute bottom-full right-0 mb-2 w-56 rounded-lg border border-border bg-card shadow-lg py-1.5 z-10">
-                        <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Send Later</p>
+                        <p className="px-3 pb-1 font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">Send Later</p>
                         {sendLaterPresets().map(p => (
                           <button key={p.label} onClick={() => { setSendLater(p.value); setShowSendMenu(false); }}
                             className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-secondary/60 transition-colors">
@@ -1748,7 +1748,7 @@ function ThreadRow({ thread, selected, hasDraft, slaHours, isAdmin, members, fol
         <div className="flex items-center justify-between gap-1">
           <div className="flex items-center gap-1.5 min-w-0">
             {thread.ticket_ref && <span className="text-[11px] font-semibold text-primary flex-shrink-0">{thread.ticket_ref}</span>}
-            <span className={`text-xs truncate text-foreground ${unread ? 'font-bold' : 'font-medium'}`}>{thread.client_name || thread.client_email}</span>
+            <span className={`text-sm truncate text-foreground ${unread ? 'font-semibold' : 'font-medium'}`}>{thread.client_name || thread.client_email}</span>
           </div>
           <span className={`text-[11px] flex-shrink-0 ${unread ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>{fmtDateTime(thread.last_inbound_at || thread.updated_at)}</span>
         </div>
@@ -1893,12 +1893,12 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
       <div className="rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 px-4 py-3"
         onMouseEnter={() => setHovered(true)} onMouseLeave={() => { setHovered(false); setConfirmDelete(false); }}>
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
             <Lock size={12} /> Internal note · {msg.sender_name || 'You'} · {fmtDateTime(msg.sent_at || msg.created_at)}
           </span>
           <DeleteBtn />
         </div>
-        <p className="mt-1.5 text-sm text-foreground/90 whitespace-pre-wrap">{msg.body_text}</p>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-foreground/90 whitespace-pre-wrap">{msg.body_text}</p>
       </div>
     );
   }
@@ -1953,7 +1953,7 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
           )}
           <DeleteBtn />
         </div>
-        <div className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${isOut ? 'bg-primary text-primary-foreground rounded-tr-md' : 'border border-border bg-card text-card-foreground rounded-tl-md'}`}>
+        <div className={`rounded-2xl px-4 py-3 text-[13.5px] leading-relaxed shadow-sm ${isOut ? 'bg-primary text-primary-foreground rounded-tr-md' : 'border border-border bg-card text-card-foreground rounded-tl-md'}`}>
           <pre className="whitespace-pre-wrap font-sans">{msg.body_text}</pre>
         </div>
         {msg.attachments && msg.attachments.length > 0 && (
@@ -2091,7 +2091,7 @@ function LeadDetailsRail({ thread, linkedLead, open, onToggle, activity, canEdit
         className="w-9 flex-shrink-0 border-l border-border flex flex-col items-center justify-center gap-2 py-4 hover:bg-secondary/40 transition-colors text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft size={13} />
-        <span className="text-[10px] font-semibold uppercase tracking-widest [writing-mode:vertical-rl]">Lead details</span>
+        <span className="font-display text-[11px] font-semibold uppercase tracking-[0.14em] [writing-mode:vertical-rl]">Lead details</span>
       </button>
     );
   }
@@ -2107,7 +2107,7 @@ function LeadDetailsRail({ thread, linkedLead, open, onToggle, activity, canEdit
   return (
     <div className="w-64 flex-shrink-0 border-l border-border flex flex-col bg-card/60 overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border flex-shrink-0">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lead details</span>
+        <span className="font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Lead details</span>
         <button onClick={onToggle} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground">
           <ChevronRight size={14} />
         </button>
@@ -2185,7 +2185,7 @@ function LeadDetailsRail({ thread, linkedLead, open, onToggle, activity, canEdit
 
         {tags && tags.length > 0 && (
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Tags</p>
+            <p className="font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-2">Tags</p>
             <div className="flex flex-wrap gap-1.5">
               {tags.map(t => (
                 <span key={t} className="px-2 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px]">{t}</span>
@@ -2195,7 +2195,7 @@ function LeadDetailsRail({ thread, linkedLead, open, onToggle, activity, canEdit
         )}
 
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+          <p className="font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-2 flex items-center gap-1.5">
             <History size={11} /> Activity
           </p>
           {activity.length === 0 ? (
