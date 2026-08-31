@@ -209,6 +209,7 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
             </p>
           </div>
         )}
+        <div className="px-2 py-1 space-y-0.5">
         {filtered.map((room) => {
           const displayName = getDisplayName(room);
           return (
@@ -216,7 +217,7 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
               key={room.id}
               onClick={() => onSelectRoom(room.id)}
               onMouseEnter={() => prefetchRoomMessages(room.id)}
-              className={`w-full flex items-center gap-3 p-3 text-left hover:bg-secondary/50 transition-colors ${activeRoom === room.id ? 'bg-secondary' : ''}`}
+              className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors ${activeRoom === room.id ? 'bg-accent' : 'hover:bg-secondary/50'}`}
             >
               <RoomAvatar room={room} displayName={displayName} />
               <div className="min-w-0 flex-1">
@@ -250,6 +251,7 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
             </button>
           );
         })}
+        </div>
       </ScrollArea>
     </div>
   );

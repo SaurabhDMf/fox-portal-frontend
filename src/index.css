@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -17,7 +17,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 8%;
 
-    --primary: 262 83% 58%;
+    --primary: 175 84% 32%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 95%;
@@ -26,17 +26,17 @@
     --muted: 220 14% 95%;
     --muted-foreground: 220 10% 48%;
 
-    --accent: 220 14% 93%;
-    --accent-foreground: 222 47% 8%;
+    --accent: 167 85% 89%;
+    --accent-foreground: 175 77% 26%;
 
     --destructive: 4 86% 58%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 220 13% 88%;
     --input: 220 13% 88%;
-    --ring: 262 83% 58%;
+    --ring: 175 84% 32%;
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;
 
     --surface: 220 20% 98%;
     --surface-2: 220 14% 95%;
@@ -51,12 +51,12 @@
        fixed dark icon rail regardless of the light/dark theme toggle. */
     --sidebar-background: 222 22% 7%;
     --sidebar-foreground: 215 14% 68%;
-    --sidebar-primary: 262 83% 68%;
+    --sidebar-primary: 172 66% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 222 18% 17%;
     --sidebar-accent-foreground: 210 20% 92%;
     --sidebar-border: 222 18% 16%;
-    --sidebar-ring: 262 83% 68%;
+    --sidebar-ring: 172 66% 50%;
   }
 
   .dark {
@@ -70,7 +70,7 @@
     --popover: 222 20% 12%;
     --popover-foreground: 210 20% 92%;
 
-    --primary: 262 83% 68%;
+    --primary: 173 80% 40%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 222 18% 17%;
@@ -79,17 +79,17 @@
     --muted: 222 18% 17%;
     --muted-foreground: 215 14% 62%;
 
-    --accent: 222 18% 20%;
-    --accent-foreground: 210 20% 92%;
+    --accent: 176 61% 19%;
+    --accent-foreground: 171 77% 64%;
 
     --destructive: 4 86% 60%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 222 18% 20%;
     --input: 222 18% 20%;
-    --ring: 262 83% 68%;
+    --ring: 173 80% 40%;
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;
 
     --surface: 222 20% 12%;
     --surface-2: 222 18% 17%;
@@ -102,12 +102,12 @@
 
     --sidebar-background: 222 22% 7%;
     --sidebar-foreground: 215 14% 58%;
-    --sidebar-primary: 262 83% 68%;
+    --sidebar-primary: 172 66% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 222 18% 17%;
     --sidebar-accent-foreground: 210 20% 92%;
     --sidebar-border: 222 18% 16%;
-    --sidebar-ring: 262 83% 68%;
+    --sidebar-ring: 172 66% 50%;
   }
 }
 
@@ -118,7 +118,7 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
   }
 
   /* Custom scrollbar */
@@ -173,7 +173,7 @@
     @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4;
   }
   .page-title {
-    @apply text-xl md:text-2xl font-bold tracking-tight;
+    @apply text-xl md:text-2xl font-bold tracking-tight font-display;
   }
   .page-subtitle {
     @apply text-sm text-muted-foreground;

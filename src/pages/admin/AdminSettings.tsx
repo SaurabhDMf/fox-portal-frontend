@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { User, Shield, Bell, Pencil, X, Building2, Plug, Mail, FileText, Sparkles } from 'lucide-react';
+import { User, Shield, Bell, Pencil, X, Building2, Plug, Mail, FileText, Sparkles, Search } from 'lucide-react';
 import CompanySettings from '@/components/settings/CompanySettings';
 import IntegrationsSettings from '@/components/settings/IntegrationsSettings';
 import EmailSettings from '@/components/settings/EmailSettings';
@@ -11,16 +11,18 @@ import ChangePasswordSection from '@/components/settings/ChangePasswordSection';
 import InvoiceSettings from '@/components/settings/InvoiceSettings';
 import AiSettings from '@/components/settings/AiSettings';
 
+const GROUP_ORDER = ['Workspace', 'Communication', 'Finance', 'Operations'] as const;
+
 const tabs = [
-  { id: 'profile',      label: 'Profile',      icon: User                             },
-  { id: 'company',      label: 'Company',       icon: Building2                        },
-  { id: 'invoice',      label: 'Invoice',       icon: FileText,  adminOnly: true       },
-  { id: 'integrations', label: 'Integrations',  icon: Plug,      adminOnly: true       },
-  { id: 'email',        label: 'Email',         icon: Mail,      adminOnly: true       },
+  { id: 'profile',       label: 'Profile',       icon: User,      group: 'Workspace'                       },
+  { id: 'company',       label: 'Company',       icon: Building2, group: 'Workspace'                       },
+  { id: 'security',      label: 'Security',      icon: Shield,    group: 'Workspace'                       },
+  { id: 'email',         label: 'Email',         icon: Mail,      group: 'Communication', adminOnly: true  },
+  { id: 'notifications', label: 'Notifications', icon: Bell,      group: 'Communication'                   },
+  { id: 'invoice',       label: 'Invoice',       icon: FileText,  group: 'Finance',       adminOnly: true  },
+  { id: 'integrations',  label: 'Integrations',  icon: Plug,      group: 'Operations',    adminOnly: true  },
   // Holds the Anthropic API key — super_admin only, not plain admin.
-  { id: 'ai',           label: 'AI',            icon: Sparkles,  superAdminOnly: true  },
-  { id: 'security',     label: 'Security',      icon: Shield                           },
-  { id: 'notifications',label: 'Notifications', icon: Bell                             },
+  { id: 'ai',            label: 'AI',            icon: Sparkles,  group: 'Operations',    superAdminOnly: true },
 ];
 
 const notificationSettings = [
@@ -38,8 +40,13 @@ export default function AdminSettings() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'profile');
+  const [navSearch, setNavSearch] = useState('');
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
   const isSuperAdmin = user?.role === 'super_admin';
+  const visibleTabs = tabs.filter(t => (!t.adminOnly || isAdmin) && (!t.superAdminOnly || isSuperAdmin));
+  const filteredTabs = navSearch.trim()
+    ? visibleTabs.filter(t => t.label.toLowerCase().includes(navSearch.trim().toLowerCase()))
+    : visibleTabs;
   const [saving, setSaving] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: user?.full_name || '', department: user?.department || '', job_title: user?.job_title || '' });
@@ -58,14 +65,49 @@ export default function AdminSettings() {
         <div><h1 className="page-title">Settings</h1><p className="page-subtitle">Manage your preferences</p></div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 overflow-x-auto">
-        {tabs.filter(t => (!t.adminOnly || isAdmin) && (!t.superAdminOnly || isSuperAdmin)).map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
-            <t.icon className="h-3.5 w-3.5" /> {t.label}
-          </button>
-        ))}
-      </div>
+      <div className="flex flex-col md:flex-row gap-6">
+
+        {/* Mobile: horizontal pill bar */}
+        <div className="flex md:hidden gap-1 overflow-x-auto -mx-1 px-1">
+          {visibleTabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-2 text-xs px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${tab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+              <t.icon className="h-3.5 w-3.5" /> {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Desktop: grouped sidebar nav */}
+        <div className="hidden md:block md:w-56 shrink-0">
+          <div className="sticky top-4 space-y-4">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input value={navSearch} onChange={e => setNavSearch(e.target.value)} placeholder="Search settings..."
+                className="w-full pl-8 pr-3 py-2 rounded-lg bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            </div>
+            {GROUP_ORDER.map(group => {
+              const groupTabs = filteredTabs.filter(t => t.group === group);
+              if (groupTabs.length === 0) return null;
+              return (
+                <div key={group}>
+                  <div className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group}</div>
+                  <div className="space-y-0.5">
+                    {groupTabs.map(t => (
+                      <button key={t.id} onClick={() => setTab(t.id)}
+                        className={`w-full flex items-center gap-2 text-xs px-3 py-2 rounded-lg transition-colors ${tab === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary'}`}>
+                        <t.icon className="h-3.5 w-3.5" /> {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {filteredTabs.length === 0 && (
+              <p className="px-3 text-xs text-muted-foreground">No settings match "{navSearch}"</p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex-1 min-w-0 space-y-4">
 
       {/* Profile */}
       {tab === 'profile' && (
@@ -175,6 +217,9 @@ export default function AdminSettings() {
           </div>
         </div>
       )}
+
+        </div>
+      </div>
 
     </div>
   );

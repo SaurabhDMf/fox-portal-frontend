@@ -7,7 +7,7 @@ import { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { usePortalBase } from '@/hooks/usePortalBase';
 
-const INP = 'w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-colors';
+const INP = 'w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors';
 const LBL = 'block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1';
 
 const errMsg = (e: any) =>
@@ -195,7 +195,7 @@ export default function InboxFormPage() {
             Used to pull new emails from your Gmail inbox.
             Use an <strong>App Password</strong> — not your account password.{' '}
             <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer"
-              className="text-violet-500 hover:underline">
+              className="text-primary hover:underline">
               Create App Password →
             </a>
           </p>
@@ -224,7 +224,7 @@ export default function InboxFormPage() {
               <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
                 <input type="checkbox" checked={!!form.imap_secure}
                   onChange={e => set('imap_secure', e.target.checked ? 1 : 0)}
-                  className="rounded border-gray-300 text-violet-600" />
+                  className="rounded border-gray-300 text-primary" />
                 SSL / TLS
               </label>
             </div>
@@ -262,7 +262,7 @@ export default function InboxFormPage() {
               <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
                 <input type="checkbox" checked={!!form.smtp_secure}
                   onChange={e => set('smtp_secure', e.target.checked ? 1 : 0)}
-                  className="rounded border-gray-300 text-violet-600" />
+                  className="rounded border-gray-300 text-primary" />
                 SSL / TLS
               </label>
             </div>
@@ -332,7 +332,7 @@ export default function InboxFormPage() {
             <label className="flex items-center gap-3 cursor-pointer select-none">
               <input type="checkbox" checked={!!form.ai_followup_enabled}
                 onChange={e => set('ai_followup_enabled', e.target.checked ? 1 : 0)}
-                className="w-4 h-4 rounded border-gray-300 text-violet-600" />
+                className="w-4 h-4 rounded border-gray-300 text-primary" />
               <span className="text-sm text-gray-700 dark:text-gray-200">Enable AI auto follow-up</span>
             </label>
             {!!form.ai_followup_enabled && (
@@ -374,7 +374,7 @@ export default function InboxFormPage() {
         {/* ── Actions ── */}
         <div className="flex items-center gap-3 pb-8">
           <button onClick={submit} disabled={saving}
-            className="flex items-center gap-2 px-6 py-2.5 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 transition-colors">
+            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors">
             {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
             {isEdit ? 'Save Changes' : 'Create Inbox'}
           </button>

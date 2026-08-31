@@ -18,7 +18,7 @@ import toast from 'react-hot-toast';
 
 function Avatar({ name, avatarUrl, size = 8 }: { name?: string; avatarUrl?: string; size?: number }) {
   const initials = (name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-  const colors = ['bg-violet-500','bg-blue-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-amber-500','bg-rose-500'];
+  const colors = ['bg-primary','bg-blue-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-amber-500','bg-rose-500'];
   const color = colors[(name?.charCodeAt(0) || 0) % colors.length];
   return avatarUrl
     ? <img src={avatarUrl} alt={name} className={`w-${size} h-${size} rounded-full object-cover shrink-0`} />

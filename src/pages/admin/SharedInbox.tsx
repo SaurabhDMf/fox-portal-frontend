@@ -1593,7 +1593,7 @@ function ThreadRow({ thread, selected, hasDraft, slaHours, isAdmin, members, fol
           {thread.assignee_name && <span className="text-xs text-muted-foreground truncate">→ {thread.assignee_name}</span>}
           {thread.folder_name && (
             <span className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full"
-              style={{ background: (thread.folder_color || '#6366f1') + '22', color: thread.folder_color || '#6366f1' }}>
+              style={{ background: (thread.folder_color || '#0d9488') + '22', color: thread.folder_color || '#0d9488' }}>
               <FolderOpen size={9} />{thread.folder_name}
             </span>
           )}
@@ -1884,8 +1884,8 @@ function MoveFolderModal({ folders, currentFolderId, onClose, onMove }: {
           {folders.map(f => (
             <button key={f.id} onClick={() => onMove(f.id)}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-secondary text-sm ${currentFolderId === f.id ? 'bg-accent' : ''}`}>
-              <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: (f.color || '#6366f1') + '22' }}>
-                <FolderOpen size={14} style={{ color: f.color || '#6366f1' }} />
+              <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: (f.color || '#0d9488') + '22' }}>
+                <FolderOpen size={14} style={{ color: f.color || '#0d9488' }} />
               </div>
               <span className="text-foreground">{f.name}</span>
               {currentFolderId === f.id && <Check size={14} className="ml-auto text-primary" />}

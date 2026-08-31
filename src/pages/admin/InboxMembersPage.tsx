@@ -6,7 +6,7 @@ import { ArrowLeft, Plus, Trash2, Loader2, Pencil, X, Check } from 'lucide-react
 import api, { inboxApi } from '@/lib/api';
 import { usePortalBase } from '@/hooks/usePortalBase';
 
-const INP = 'w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-violet-400/50 transition-colors';
+const INP = 'w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors';
 const LBL = 'block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1';
 
 const errMsg = (e: any) =>
@@ -14,7 +14,7 @@ const errMsg = (e: any) =>
 
 function AvatarFallback({ name }: { name?: string }) {
   const initials = (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  const colors = ['bg-violet-500', 'bg-blue-500', 'bg-emerald-500', 'bg-rose-500', 'bg-amber-500'];
+  const colors = ['bg-primary', 'bg-blue-500', 'bg-emerald-500', 'bg-rose-500', 'bg-amber-500'];
   const color = colors[(name?.charCodeAt(0) || 0) % colors.length];
   return (
     <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center text-white text-xs font-semibold flex-shrink-0`}>
@@ -166,7 +166,7 @@ export default function InboxMembersPage() {
           <button key={t} onClick={() => setTab(t)}
             className={`px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors capitalize ${
               tab === t
-                ? 'border-violet-500 text-violet-600 dark:text-violet-400'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
             }`}>
             {t}
@@ -205,7 +205,7 @@ export default function InboxMembersPage() {
                 <div className="flex items-end">
                   <button onClick={addSender}
                     disabled={addingSender || !newSender.email_address.trim()}
-                    className="px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap">
+                    className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap">
                     {addingSender ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                     Add
                   </button>
@@ -221,7 +221,7 @@ export default function InboxMembersPage() {
                   {senders.map((s: any) => (
                     <div key={s.id}>
                       {editingSenderId === s.id ? (
-                        <div className="px-5 py-4 space-y-3 bg-violet-50/40 dark:bg-violet-900/10">
+                        <div className="px-5 py-4 space-y-3 bg-accent/40">
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className={LBL}>Email address</label>
@@ -262,7 +262,7 @@ export default function InboxMembersPage() {
                               <X size={13} /> Cancel
                             </button>
                             <button onClick={() => saveEdit(s.id)} disabled={savingSender}
-                              className="px-3 py-1.5 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-1.5">
+                              className="px-3 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5">
                               {savingSender ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                               Save
                             </button>
@@ -277,7 +277,7 @@ export default function InboxMembersPage() {
                           </div>
                           <div className="flex items-center gap-1">
                             <button onClick={() => startEdit(s)}
-                              className="p-1.5 text-gray-400 hover:text-violet-600 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors">
+                              className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-accent transition-colors">
                               <Pencil size={14} />
                             </button>
                             <button onClick={() => removeSender(s.id)}
@@ -317,7 +317,7 @@ export default function InboxMembersPage() {
                   </select>
                 </div>
                 <button onClick={addMember} disabled={addingMember || !selectedUser}
-                  className="px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap">
+                  className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap">
                   {addingMember ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                   Add
                 </button>
