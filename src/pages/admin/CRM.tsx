@@ -499,7 +499,7 @@ export default function CRM() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <div><h1 className="page-title">Sales CRM</h1><p className="page-subtitle">Manage your sales pipeline</p></div>
+        <div><h1 className="page-title !text-3xl md:!text-4xl">Sales CRM</h1><p className="page-subtitle">Manage your sales pipeline</p></div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg overflow-hidden border border-border">
             <button onClick={() => setView('list')} className={`p-2 ${view === 'list' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`} title="List View"><List className="h-4 w-4" /></button>
@@ -517,22 +517,22 @@ export default function CRM() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="glass-card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0"><Users className="h-4 w-4" /></div>
-          <div className="min-w-0"><div className="text-lg font-semibold font-display">{stats.total}</div><div className="text-xs text-muted-foreground truncate">{hasNextPage ? 'Leads loaded' : 'Total leads'}</div></div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="glass-card p-5 space-y-3">
+          <span className="block w-2.5 h-2.5 rounded-full bg-primary" />
+          <div><div className="text-3xl font-bold font-display">{stats.total}</div><div className="text-sm text-muted-foreground">{hasNextPage ? 'Leads loaded' : 'Total leads'}</div></div>
         </div>
-        <div className="glass-card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-info/10 text-info flex items-center justify-center flex-shrink-0"><Sparkles className="h-4 w-4" /></div>
-          <div className="min-w-0"><div className="text-lg font-semibold font-display">{stats.newLeads}</div><div className="text-xs text-muted-foreground truncate">New</div></div>
+        <div className="glass-card p-5 space-y-3">
+          <span className="block w-2.5 h-2.5 rounded-full bg-info" />
+          <div><div className="text-3xl font-bold font-display">{stats.newLeads}</div><div className="text-sm text-muted-foreground">New</div></div>
         </div>
-        <div className="glass-card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-success/10 text-success flex items-center justify-center flex-shrink-0"><CheckCircle2 className="h-4 w-4" /></div>
-          <div className="min-w-0"><div className="text-lg font-semibold font-display">{stats.closedWon}</div><div className="text-xs text-muted-foreground truncate">Closed Won</div></div>
+        <div className="glass-card p-5 space-y-3">
+          <span className="block w-2.5 h-2.5 rounded-full bg-success" />
+          <div><div className="text-3xl font-bold font-display">{stats.closedWon}</div><div className="text-sm text-muted-foreground">Closed Won</div></div>
         </div>
-        <div className="glass-card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center flex-shrink-0"><AlertCircle className="h-4 w-4" /></div>
-          <div className="min-w-0"><div className="text-lg font-semibold font-display">{stats.overdue}</div><div className="text-xs text-muted-foreground truncate">Overdue follow-ups</div></div>
+        <div className="glass-card p-5 space-y-3">
+          <span className="block w-2.5 h-2.5 rounded-full bg-warning" />
+          <div><div className="text-3xl font-bold font-display">{stats.overdue}</div><div className="text-sm text-muted-foreground">Overdue follow-ups</div></div>
         </div>
       </div>
 

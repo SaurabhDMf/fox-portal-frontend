@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useUnreadStore } from '@/stores/unreadStore';
-import { Bell, Search, Menu, Palette, Check } from 'lucide-react';
-import { useSidebarCollapsed } from './PortalLayout';
+import { Bell, Search, Palette, Check, LogOut, ChevronDown } from 'lucide-react';
+import AppMenuPopover from './AppMenuPopover';
 import ThemeToggle from '@/components/ThemeToggle';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusPicker from '@/components/chat/StatusPicker';
 import api from '@/lib/api';
+import toast from 'react-hot-toast';
 
 const accentColors = [
   { name: 'Indigo',   value: '244 94% 62%' },
@@ -86,12 +87,8 @@ function getBreadcrumbs(pathname: string) {
   return crumbs;
 }
 
-interface Props {
-  onMobileMenuOpen?: () => void;
-}
-
-export default function AppHeader({ onMobileMenuOpen }: Props) {
-  const user = useAuthStore(s => s.user);
+export default function AppHeader() {
+  const { user, logout, refreshToken } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   const notifCount  = useUnreadStore((s) => s.counts.notifications || 0);
@@ -104,11 +101,29 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
   const [myStatusText, setMyStatusText] = useState('');
   const [myStatusEmoji, setMyStatusEmoji] = useState('');
   const [showAppearance, setShowAppearance] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [selectedAccent, setSelectedAccent] = useState('244 94% 62%');
   const appearanceRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const isAdmin = ['super_admin', 'admin'].includes(user?.role || '');
   const crumbs = getBreadcrumbs(location.pathname);
   const pageTitle = crumbs[crumbs.length - 1]?.label || '';
+
+  const handleLogout = async () => {
+    try { await api.post('/auth/logout', { refreshToken }); } catch {}
+    logout();
+    toast.success('Logged out');
+    navigate('/login');
+  };
+
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setShowUserMenu(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showUserMenu]);
 
   // Fetch own status on mount
   useEffect(() => {
@@ -148,9 +163,6 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
       <div className="flex items-center justify-between h-14 px-4 md:px-6 lg:px-8">
         {/* Left: breadcrumbs */}
         <div className="flex items-center gap-3 min-w-0">
-          <button onClick={onMobileMenuOpen} className="md:hidden p-1.5 rounded-md hover:bg-secondary text-muted-foreground">
-            <Menu className="h-5 w-5" />
-          </button>
           <nav className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground min-w-0">
             {crumbs.map((crumb, i) => (
               <span key={crumb.path} className="flex items-center gap-1 min-w-0">
@@ -164,8 +176,10 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
           <span className="sm:hidden text-sm font-medium truncate">{pageTitle}</span>
         </div>
 
-        {/* Right: search + notifications + user */}
+        {/* Right: menu + search + notifications + user */}
         <div className="flex items-center gap-2">
+          <AppMenuPopover />
+
           {/* Search */}
           {showSearch ? (
             <div className="relative">
@@ -247,8 +261,8 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
             )}
           </button>
 
-          {/* User avatar with status */}
-          <div className="hidden sm:flex items-center gap-2 ml-1 pl-3 border-l border-border">
+          {/* User avatar with status + dropdown */}
+          <div ref={userMenuRef} className="hidden sm:flex items-center gap-2 ml-1 pl-3 border-l border-border relative">
             <StatusPicker
               currentStatus={myStatus}
               currentStatusText={myStatusText}
@@ -262,12 +276,26 @@ export default function AppHeader({ onMobileMenuOpen }: Props) {
                 <StatusDot status={myStatus} className="absolute -bottom-0.5 -right-0.5 w-2 h-2" />
               </button>
             </StatusPicker>
-            <div className="hidden lg:block min-w-0">
-              <div className="text-xs font-medium truncate leading-tight">{user?.full_name}</div>
-              <div className="text-[10px] text-muted-foreground truncate leading-tight">
-                {myStatusText ? `${myStatusEmoji} ${myStatusText}` : <span className="capitalize">{user?.role?.replace('_', ' ')}</span>}
+            <button onClick={() => setShowUserMenu(v => !v)} className="hidden lg:flex items-center gap-1 min-w-0 text-left">
+              <div className="min-w-0">
+                <div className="text-xs font-medium truncate leading-tight">{user?.full_name}</div>
+                <div className="text-[10px] text-muted-foreground truncate leading-tight">
+                  {myStatusText ? `${myStatusEmoji} ${myStatusText}` : <span className="capitalize">{user?.role?.replace('_', ' ')}</span>}
+                </div>
               </div>
-            </div>
+              <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            </button>
+
+            {showUserMenu && (
+              <div className="absolute right-0 top-11 z-50 w-44 bg-popover border border-border rounded-xl shadow-xl p-1.5">
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-sm text-foreground/80 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <LogOut className="h-4 w-4" /> Logout
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
