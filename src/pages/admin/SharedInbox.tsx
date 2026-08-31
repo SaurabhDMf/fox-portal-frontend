@@ -201,6 +201,16 @@ interface Thread {
   created_at?: string;
 }
 
+// The real CRM lead for this thread's client email, when one exists —
+// matched server-side by email since threads aren't explicitly linked to a
+// lead_id. Shown in Lead Details instead of asking the sender to re-enter
+// phone/country/deal value that's already sitting in CRM.
+interface LinkedLead {
+  id: string; full_name: string; email: string; phone?: string; country?: string;
+  purpose?: string; status: string; deal_value?: number | null; currency?: string;
+  tags?: string[] | null; assigned_name?: string; added_by_name?: string; created_at?: string;
+}
+
 // Only shows a countdown/overdue label while the thread is actively awaiting
 // our reply (last inbound after last outbound) — we don't track a separate
 // "first replied at" timestamp, so once we've answered there's nothing to
@@ -399,7 +409,7 @@ export default function SharedInbox() {
     .filter(t => !slaAtRiskOnly || slaStatus(t, selectedInbox?.sla_hours)?.overdue)
     .filter(t => !filterTag || (t.tags || []).includes(filterTag));
 
-  const { data: threadDetail, isLoading: loadingThread } = useQuery<{ thread: Thread; messages: Message[]; senders: Sender[] }>({
+  const { data: threadDetail, isLoading: loadingThread } = useQuery<{ thread: Thread; messages: Message[]; senders: Sender[]; linked_lead: LinkedLead | null }>({
     queryKey: ['inbox-thread', selectedInboxId, selectedThreadId],
     queryFn: () => inboxApi.getThread(selectedInboxId!, selectedThreadId!).then(r => r.data),
     enabled: !!(selectedInboxId && selectedThreadId),
@@ -1663,6 +1673,7 @@ export default function SharedInbox() {
       {selectedThreadId && threadDetail && (
         <LeadDetailsRail
           thread={threadDetail.thread}
+          linkedLead={threadDetail.linked_lead}
           open={showLeadDetails}
           onToggle={() => setShowLeadDetails(v => !v)}
           activity={threadActivity}
@@ -2065,10 +2076,13 @@ function LeadDetailRow({ icon: Icon, value, placeholder, canEdit, onSave, type =
   );
 }
 
-function LeadDetailsRail({ thread, open, onToggle, activity, canEdit, onPatch }: {
-  thread: Thread; open: boolean; onToggle: () => void; activity: any[];
+function LeadDetailsRail({ thread, linkedLead, open, onToggle, activity, canEdit, onPatch }: {
+  thread: Thread; linkedLead: LinkedLead | null; open: boolean; onToggle: () => void; activity: any[];
   canEdit: boolean; onPatch: (data: any) => void;
 }) {
+  const navigate = useNavigate();
+  const portalBase = usePortalBase();
+
   if (!open) {
     return (
       <button
@@ -2082,10 +2096,13 @@ function LeadDetailsRail({ thread, open, onToggle, activity, canEdit, onPatch }:
     );
   }
 
-  const initials = (thread.client_name || thread.client_email || '?')[0]?.toUpperCase() || '?';
-  const dealValueLabel = thread.deal_value != null
-    ? `Deal value ${thread.deal_currency || 'USD'} ${Number(thread.deal_value).toLocaleString()}`
-    : '';
+  const initials = (linkedLead?.full_name || thread.client_name || thread.client_email || '?')[0]?.toUpperCase() || '?';
+  const dealValueLabel = linkedLead?.deal_value != null
+    ? `Deal value ${linkedLead.currency || 'USD'} ${Number(linkedLead.deal_value).toLocaleString()}`
+    : thread.deal_value != null
+      ? `Deal value ${thread.deal_currency || 'USD'} ${Number(thread.deal_value).toLocaleString()}`
+      : '';
+  const tags = linkedLead?.tags?.length ? linkedLead.tags : thread.tags;
 
   return (
     <div className="w-64 flex-shrink-0 border-l border-border flex flex-col bg-card/60 overflow-hidden">
@@ -2101,32 +2118,76 @@ function LeadDetailsRail({ thread, open, onToggle, activity, canEdit, onPatch }:
             {initials}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{thread.client_name || thread.client_email}</p>
-            <p className="truncate text-[11px] text-muted-foreground">Email</p>
+            <p className="truncate text-sm font-medium">{linkedLead?.full_name || thread.client_name || thread.client_email}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{linkedLead ? `CRM lead · ${linkedLead.status}` : 'Email'}</p>
           </div>
         </div>
 
-        <div className="space-y-2.5">
-          <LeadDetailRow icon={Mail} value={thread.client_email} placeholder="No email" canEdit={false} onSave={() => {}} />
-          <LeadDetailRow icon={Phone} value={thread.client_phone || ''} placeholder="Add phone" canEdit={canEdit}
-            onSave={v => onPatch({ client_phone: v })} type="tel" />
-          <LeadDetailRow icon={MapPin} value={thread.client_country || ''} placeholder="Add country" canEdit={canEdit}
-            onSave={v => onPatch({ client_country: v })} />
-          <LeadDetailRow icon={Wallet} value={dealValueLabel} placeholder="Add deal value" canEdit={canEdit}
-            onSave={v => onPatch({ deal_value: v.replace(/[^0-9.]/g, '') || null })} type="text" />
-          {thread.assignee_name && (
+        {linkedLead ? (
+          // A real CRM lead already exists for this email — show its actual
+          // data (read-only here; it's edited in CRM, not duplicated here)
+          // instead of the thread's own separate, likely-empty fields.
+          <div className="space-y-2.5">
             <div className="flex items-start gap-2">
-              <UserCheck size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
-              <span className="text-xs text-foreground/85">Owner {thread.assignee_name}</span>
+              <Mail size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+              <span className="text-xs text-foreground/85 break-words">{linkedLead.email}</span>
             </div>
-          )}
-        </div>
+            {linkedLead.phone && (
+              <div className="flex items-start gap-2">
+                <Phone size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs text-foreground/85">{linkedLead.phone}</span>
+              </div>
+            )}
+            {linkedLead.country && (
+              <div className="flex items-start gap-2">
+                <MapPin size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs text-foreground/85">{linkedLead.country}</span>
+              </div>
+            )}
+            {linkedLead.purpose && (
+              <div className="flex items-start gap-2">
+                <Tag size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs text-foreground/85">{linkedLead.purpose}</span>
+              </div>
+            )}
+            {dealValueLabel && (
+              <div className="flex items-start gap-2">
+                <Wallet size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs text-foreground/85">{dealValueLabel}</span>
+              </div>
+            )}
+            {linkedLead.assigned_name && (
+              <div className="flex items-start gap-2">
+                <UserCheck size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs text-foreground/85">Owner {linkedLead.assigned_name}</span>
+              </div>
+            )}
+            <button onClick={() => navigate(`${portalBase}/crm/${linkedLead.id}`)}
+              className="text-xs text-primary hover:underline pt-1">View in CRM →</button>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            <LeadDetailRow icon={Mail} value={thread.client_email} placeholder="No email" canEdit={false} onSave={() => {}} />
+            <LeadDetailRow icon={Phone} value={thread.client_phone || ''} placeholder="Add phone" canEdit={canEdit}
+              onSave={v => onPatch({ client_phone: v })} type="tel" />
+            <LeadDetailRow icon={MapPin} value={thread.client_country || ''} placeholder="Add country" canEdit={canEdit}
+              onSave={v => onPatch({ client_country: v })} />
+            <LeadDetailRow icon={Wallet} value={dealValueLabel} placeholder="Add deal value" canEdit={canEdit}
+              onSave={v => onPatch({ deal_value: v.replace(/[^0-9.]/g, '') || null })} type="text" />
+            {thread.assignee_name && (
+              <div className="flex items-start gap-2">
+                <UserCheck size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs text-foreground/85">Owner {thread.assignee_name}</span>
+              </div>
+            )}
+          </div>
+        )}
 
-        {thread.tags && thread.tags.length > 0 && (
+        {tags && tags.length > 0 && (
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Tags</p>
             <div className="flex flex-wrap gap-1.5">
-              {thread.tags.map(t => (
+              {tags.map(t => (
                 <span key={t} className="px-2 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px]">{t}</span>
               ))}
             </div>
