@@ -4,7 +4,6 @@ import api from '@/lib/api';
 import { Plus, MessageSquare, Search, Hash, User, Bell } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import StatusDot from '@/components/chat/StatusDot';
-import StatusBadge from '@/components/chat/StatusBadge';
 import StatusPicker from '@/components/chat/StatusPicker';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useAuthStore } from '@/stores/authStore';
@@ -42,7 +41,6 @@ function getDisplayName(room: ChatRoom) {
 export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, onCreateDM, hideCreateGroup = false }: Props) {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'dm' | 'group'>('all');
   const user = useAuthStore(s => s.user);
   const [myStatus, setMyStatus] = useState('online');
   const [myStatusText, setMyStatusText] = useState('');
@@ -94,26 +92,18 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
     (rooms as ChatRoom[]).slice(0, 8).forEach(r => prefetchRoomMessages(r.id));
   }, [rooms]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dmUnread = typedRooms.filter(r => r.type === '1-to-1' && Number(r.unread_count) > 0).length;
-  const grpUnread = typedRooms.filter(r => r.type === 'Group' && Number(r.unread_count) > 0).length;
+  const matchesSearch = (r: ChatRoom) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    const name = getDisplayName(r).toLowerCase();
+    const lastMsg = r.last_message?.toLowerCase() || '';
+    return name.includes(q) || lastMsg.includes(q);
+  };
 
-  const tabs = [
-    { key: 'all' as const, label: 'All', unread: dmUnread + grpUnread },
-    { key: 'dm' as const, label: 'Direct', unread: dmUnread },
-    { key: 'group' as const, label: 'Groups', unread: grpUnread },
-  ];
-
-  const filtered = typedRooms.filter(r => {
-    if (activeTab === 'dm' && r.type !== '1-to-1') return false;
-    if (activeTab === 'group' && r.type !== 'Group') return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const name = getDisplayName(r).toLowerCase();
-      const lastMsg = r.last_message?.toLowerCase() || '';
-      return name.includes(q) || lastMsg.includes(q);
-    }
-    return true;
-  });
+  const groupRooms = typedRooms.filter(r => r.type === 'Group' && matchesSearch(r));
+  const dmRooms = typedRooms.filter(r => r.type === '1-to-1' && matchesSearch(r));
+  const groupUnread = groupRooms.filter(r => Number(r.unread_count) > 0).length;
+  const dmUnread = dmRooms.filter(r => Number(r.unread_count) > 0).length;
 
   return (
     <div className="flex flex-col h-full">
@@ -153,107 +143,108 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
         </div>
       </div>
 
-      <div className="p-3 border-b border-border space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-sm">Messages</h2>
-          <div className="flex gap-1">
-            <button onClick={onCreateDM} title="New Message"
-              className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
-              <MessageSquare className="h-4 w-4" />
-            </button>
-            {!hideCreateGroup && (
-              <button onClick={onCreateGroup} title="New Group"
-                className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
-                <Plus className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </div>
+      <div className="p-3 border-b border-border">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search conversations..."
+            placeholder="Search chats..."
             className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-secondary border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
         </div>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex border-b border-border mx-3">
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`relative flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
-              activeTab === tab.key
-                ? 'text-foreground border-b-2 border-primary'
-                : 'text-muted-foreground hover:text-foreground border-b-2 border-transparent'
-            }`}
-          >
-            {tab.label}
-            {tab.unread > 0 && (
-              <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
-            )}
-          </button>
-        ))}
-      </div>
-
       <ScrollArea className="flex-1">
-        {filtered.length === 0 && (
+        {groupRooms.length === 0 && dmRooms.length === 0 && (
           <div className="text-center py-12 px-4">
             <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
-            <p className="text-xs text-muted-foreground">
-              {search ? 'No results' : activeTab === 'dm' ? 'No direct messages yet' : activeTab === 'group' ? 'No group rooms yet' : 'No conversations yet'}
-            </p>
+            <p className="text-xs text-muted-foreground">{search ? 'No results' : 'No conversations yet'}</p>
           </div>
         )}
-        <div className="px-2 py-1 space-y-0.5">
-        {filtered.map((room) => {
-          const displayName = getDisplayName(room);
-          return (
-            <button
-              key={room.id}
-              onClick={() => onSelectRoom(room.id)}
-              onMouseEnter={() => prefetchRoomMessages(room.id)}
-              className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors ${activeRoom === room.id ? 'bg-accent' : 'hover:bg-secondary/50'}`}
-            >
-              <RoomAvatar room={room} displayName={displayName} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium truncate">{displayName}</span>
-                  {room.type === '1-to-1' && (
-                    <StatusBadge
-                      status={room.dm_other_user_status ?? 'offline'}
-                      statusText={room.dm_other_user_status_text}
-                      showLabel={room.dm_other_user_status !== 'online'}
-                      size="xs"
-                    />
-                  )}
-                  {room.last_message_at && (
-                    <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
-                      {formatTime(room.last_message_at)}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground truncate">
-                    {room.last_message ? room.last_message.slice(0, 40) + (room.last_message.length > 40 ? '…' : '') : 'No messages'}
-                  </span>
-                  {Number(room.unread_count) > 0 && (
-                    <span className="w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center flex-shrink-0 ml-1">
-                      {room.unread_count}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-          );
-        })}
-        </div>
+
+        <RoomSection
+          title="Groups"
+          unread={groupUnread}
+          onAdd={!hideCreateGroup ? onCreateGroup : undefined}
+          addLabel="New Group"
+        >
+          {groupRooms.map(room => (
+            <RoomRow key={room.id} room={room} active={activeRoom === room.id}
+              onSelect={() => onSelectRoom(room.id)} onHover={() => prefetchRoomMessages(room.id)} />
+          ))}
+        </RoomSection>
+
+        <RoomSection title="Direct Messages" unread={dmUnread} onAdd={onCreateDM} addLabel="New Message">
+          {dmRooms.map(room => (
+            <RoomRow key={room.id} room={room} active={activeRoom === room.id}
+              onSelect={() => onSelectRoom(room.id)} onHover={() => prefetchRoomMessages(room.id)} />
+          ))}
+        </RoomSection>
       </ScrollArea>
     </div>
+  );
+}
+
+function RoomSection({ title, unread, onAdd, addLabel, children }: {
+  title: string; unread: number; onAdd?: () => void; addLabel: string; children: React.ReactNode;
+}) {
+  const hasChildren = Array.isArray(children) ? children.length > 0 : !!children;
+  if (!hasChildren && !onAdd) return null;
+  return (
+    <div className="px-3 pt-3">
+      <div className="flex items-center justify-between px-1 pb-1">
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+          {unread > 0 && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+        </span>
+        {onAdd && (
+          <button onClick={onAdd} title={addLabel}
+            className="p-1 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      <div className="space-y-0.5 pb-1">{children}</div>
+    </div>
+  );
+}
+
+function RoomRow({ room, active, onSelect, onHover }: {
+  room: ChatRoom; active: boolean; onSelect: () => void; onHover: () => void;
+}) {
+  const displayName = getDisplayName(room);
+  return (
+    <button
+      onClick={onSelect}
+      onMouseEnter={onHover}
+      className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors ${active ? 'bg-accent' : 'hover:bg-secondary/50'}`}
+    >
+      <RoomAvatar room={room} displayName={displayName} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium truncate flex items-center gap-1">
+            {room.type === 'Group' && <Hash className="h-3 w-3 text-muted-foreground shrink-0" />}
+            {displayName}
+          </span>
+          {room.last_message_at && (
+            <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
+              {formatTime(room.last_message_at)}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground truncate">
+            {room.last_message ? room.last_message.slice(0, 40) + (room.last_message.length > 40 ? '…' : '') : 'No messages'}
+          </span>
+          {Number(room.unread_count) > 0 && (
+            <span className="w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center flex-shrink-0 ml-1">
+              {room.unread_count}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
   );
 }
 
