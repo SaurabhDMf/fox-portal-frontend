@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Plus, MessageSquare, Search, Hash, User, Bell } from 'lucide-react';
+import { Plus, MessageSquare, Search, Hash, User, Bell, ChevronDown, GripVertical } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusPicker from '@/components/chat/StatusPicker';
@@ -38,9 +38,34 @@ function getDisplayName(room: ChatRoom) {
     : (room.name ?? 'Unnamed Room');
 }
 
+const SECTION_ORDER_KEY = 'foxportal:chat:section-order:v1';
+const SECTION_COLLAPSED_KEY = 'foxportal:chat:section-collapsed:v1';
+const DEFAULT_SECTION_ORDER = ['groups', 'direct'];
+
+function loadSectionOrder(): string[] {
+  try {
+    const saved: string[] = JSON.parse(localStorage.getItem(SECTION_ORDER_KEY) || 'null');
+    if (!Array.isArray(saved)) return DEFAULT_SECTION_ORDER;
+    // Keep any sections that vanished from a future build, and append new
+    // ones that weren't in a stale saved order, so the list never drops a
+    // section just because localStorage predates it.
+    const merged = saved.filter(s => DEFAULT_SECTION_ORDER.includes(s));
+    for (const s of DEFAULT_SECTION_ORDER) if (!merged.includes(s)) merged.push(s);
+    return merged;
+  } catch { return DEFAULT_SECTION_ORDER; }
+}
+
+function loadCollapsed(): Record<string, boolean> {
+  try { return JSON.parse(localStorage.getItem(SECTION_COLLAPSED_KEY) || '{}') || {}; }
+  catch { return {}; }
+}
+
 export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, onCreateDM, hideCreateGroup = false }: Props) {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
+  const [sectionOrder, setSectionOrder] = useState<string[]>(loadSectionOrder);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed);
+  const [dragSection, setDragSection] = useState<string | null>(null);
   const user = useAuthStore(s => s.user);
   const [myStatus, setMyStatus] = useState('online');
   const [myStatusText, setMyStatusText] = useState('');
@@ -105,6 +130,26 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
   const groupUnread = groupRooms.filter(r => Number(r.unread_count) > 0).length;
   const dmUnread = dmRooms.filter(r => Number(r.unread_count) > 0).length;
 
+  const toggleCollapsed = (key: string) => {
+    const next = { ...collapsed, [key]: !collapsed[key] };
+    setCollapsed(next);
+    localStorage.setItem(SECTION_COLLAPSED_KEY, JSON.stringify(next));
+  };
+
+  const reorderSection = (dragged: string, target: string) => {
+    if (dragged === target) return;
+    const next = [...sectionOrder];
+    next.splice(next.indexOf(dragged), 1);
+    next.splice(next.indexOf(target), 0, dragged);
+    setSectionOrder(next);
+    localStorage.setItem(SECTION_ORDER_KEY, JSON.stringify(next));
+  };
+
+  const sections: Record<string, { title: string; unread: number; onAdd?: () => void; addLabel: string; rooms: ChatRoom[] }> = {
+    groups: { title: 'Groups', unread: groupUnread, onAdd: !hideCreateGroup ? onCreateGroup : undefined, addLabel: 'New Group', rooms: groupRooms },
+    direct: { title: 'Direct Messages', unread: dmUnread, onAdd: onCreateDM, addLabel: 'New Message', rooms: dmRooms },
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Mobile user profile & status section */}
@@ -163,41 +208,70 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
           </div>
         )}
 
-        <RoomSection
-          title="Groups"
-          unread={groupUnread}
-          onAdd={!hideCreateGroup ? onCreateGroup : undefined}
-          addLabel="New Group"
-        >
-          {groupRooms.map(room => (
-            <RoomRow key={room.id} room={room} active={activeRoom === room.id}
-              onSelect={() => onSelectRoom(room.id)} onHover={() => prefetchRoomMessages(room.id)} />
-          ))}
-        </RoomSection>
-
-        <RoomSection title="Direct Messages" unread={dmUnread} onAdd={onCreateDM} addLabel="New Message">
-          {dmRooms.map(room => (
-            <RoomRow key={room.id} room={room} active={activeRoom === room.id}
-              onSelect={() => onSelectRoom(room.id)} onHover={() => prefetchRoomMessages(room.id)} />
-          ))}
-        </RoomSection>
+        {sectionOrder.map(key => {
+          const s = sections[key];
+          if (!s) return null;
+          return (
+            <RoomSection
+              key={key}
+              sectionKey={key}
+              title={s.title}
+              unread={s.unread}
+              onAdd={s.onAdd}
+              addLabel={s.addLabel}
+              collapsed={!!collapsed[key]}
+              onToggleCollapsed={() => toggleCollapsed(key)}
+              dragging={dragSection === key}
+              onDragStart={() => setDragSection(key)}
+              onDragEnd={() => setDragSection(null)}
+              onDropOn={() => dragSection && reorderSection(dragSection, key)}
+            >
+              {s.rooms.map(room => (
+                <RoomRow key={room.id} room={room} active={activeRoom === room.id}
+                  onSelect={() => onSelectRoom(room.id)} onHover={() => prefetchRoomMessages(room.id)} />
+              ))}
+            </RoomSection>
+          );
+        })}
       </ScrollArea>
     </div>
   );
 }
 
-function RoomSection({ title, unread, onAdd, addLabel, children }: {
+function RoomSection({ title, unread, onAdd, addLabel, children, collapsed, onToggleCollapsed, dragging, onDragStart, onDragEnd, onDropOn }: {
   title: string; unread: number; onAdd?: () => void; addLabel: string; children: React.ReactNode;
+  collapsed: boolean; onToggleCollapsed: () => void;
+  dragging: boolean; onDragStart: () => void; onDragEnd: () => void; onDropOn: () => void;
 }) {
   const hasChildren = Array.isArray(children) ? children.length > 0 : !!children;
   if (!hasChildren && !onAdd) return null;
   return (
-    <div className="px-3 pt-3">
-      <div className="flex items-center justify-between px-1 pb-1">
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div
+      className={`px-3 pt-3 transition-opacity ${dragging ? 'opacity-40' : ''}`}
+      onDragOver={e => e.preventDefault()}
+      onDrop={e => { e.preventDefault(); onDropOn(); }}
+    >
+      <div className="group flex items-center justify-between px-1 pb-1">
+        <button
+          onClick={onToggleCollapsed}
+          className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <GripVertical
+            draggable
+            onDragStart={e => { e.stopPropagation(); onDragStart(); }}
+            onDragEnd={onDragEnd}
+            className="h-3 w-3 opacity-0 group-hover:opacity-60 cursor-grab transition-opacity -ml-1"
+          />
+          <ChevronDown className={`h-3 w-3 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
           {title}
-          {unread > 0 && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
-        </span>
+          {/* Shown regardless of collapsed state so a shrunk section never
+              hides that it has something new. */}
+          {unread > 0 && (
+            <span className="min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
+              {unread}
+            </span>
+          )}
+        </button>
         {onAdd && (
           <button onClick={onAdd} title={addLabel}
             className="p-1 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
@@ -205,7 +279,7 @@ function RoomSection({ title, unread, onAdd, addLabel, children }: {
           </button>
         )}
       </div>
-      <div className="space-y-0.5 pb-1">{children}</div>
+      {!collapsed && <div className="space-y-0.5 pb-1">{children}</div>}
     </div>
   );
 }

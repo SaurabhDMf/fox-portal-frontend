@@ -408,7 +408,7 @@ export default function SharedInbox() {
     queryKey: ['sales-users'],
     queryFn: () => api.get('/users/active').then(r => {
       const all: any[] = r.data?.data || r.data || [];
-      return all.filter((u: any) => ['sales_rep', 'sales_manager', 'pre_sales', 'marketing', 'admin'].includes(u.role));
+      return all.filter((u: any) => ['sales_rep', 'sales_manager', 'admin', 'pre_sales', 'sales_executive', 'sales_intern'].includes(u.role));
     }),
     staleTime: 120_000, refetchOnWindowFocus: false,
   });
@@ -1826,7 +1826,10 @@ function StatusDropdown({ status, onChange }: { status: string; onChange: (s: st
 function AssignModal({ salesUsers, currentAssignee, onClose, onAssign }: {
   salesUsers: any[]; currentAssignee?: string; onClose: () => void; onAssign: (uid: string | null) => void;
 }) {
-  const roleLabel: Record<string, string> = { sales_rep: 'Sales Rep', sales_manager: 'Sales Manager', pre_sales: 'Pre-Sales', marketing: 'Marketing' };
+  const roleLabel: Record<string, string> = {
+    sales_rep: 'Sales Rep', sales_manager: 'Sales Manager', admin: 'Admin',
+    pre_sales: 'Pre-Sales', sales_executive: 'Sales Executive', sales_intern: 'Sales Intern',
+  };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div className="bg-card border border-border rounded-xl shadow-2xl w-80 max-h-[80vh] flex flex-col">
