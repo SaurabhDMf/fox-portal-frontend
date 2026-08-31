@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
+import RichTextEditor from '@/components/RichTextEditor';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -167,6 +168,40 @@ function persistDrafts(all: Record<string, ReplyDraft>) {
 function stripSigDelimiter(s: string): string {
   return s.replace(/^--\s*\r?\n+/, '');
 }
+
+// The reply composer is now rich-text (RichTextEditor, HTML in/out) — these
+// two convert between that and the plain-text world the rest of this file
+// still works in (drafts, AI-draft steering, the "is there anything typed"
+// check, and the body_text fallback the backend/other mail clients want).
+function htmlToPlain(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+    .replace(/<\/?p[^>]*>/gi, '')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .trim();
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function plainToHtml(text: string): string {
+  if (!text.trim()) return '';
+  return text.split(/\n{2,}/).map(para =>
+    `<p>${para.split('\n').map(escapeHtml).join('<br>') || '<br>'}</p>`
+  ).join('');
+}
+
+const isEmptyHtml = (html: string) => !htmlToPlain(html).trim();
 
 function signatureToPlain(sig: string | null | undefined): string {
   if (!sig) return '';
@@ -766,7 +801,7 @@ export default function SharedInbox() {
 
   useEffect(() => {
     if (!threadDetail?.senders?.length || !selectedThreadId) return;
-    const seed = signatureText ? `\n\n${signatureText}` : '';
+    const seed = signatureText ? plainToHtml(signatureText) : '';
     const threadSubject = threadDetail.thread.subject || '';
     const defaultSubject = threadSubject.toLowerCase().startsWith('re:')
       ? threadSubject
@@ -781,7 +816,7 @@ export default function SharedInbox() {
       setReplySubject(draft.subject ?? defaultSubject);
       setReplyText(draft.body ?? seed);
       setReplyCC(draft.cc ?? replyAllCC);
-    } else if (seed && !replyText.trim() && draftsRef.current[selectedThreadId]?.body === undefined) {
+    } else if (seed && isEmptyHtml(replyText) && draftsRef.current[selectedThreadId]?.body === undefined) {
       // The thread was opened before the inbox (and its signature) finished
       // loading — drop the signature in now since the composer is still blank
       // AND the user hasn't started editing this thread's draft.
@@ -811,7 +846,7 @@ export default function SharedInbox() {
     void draftTick; // re-evaluated whenever a draft is written
     const d = draftsRef.current[tid];
     if (!d) return false;
-    const body = (d.body ?? '').trim();
+    const body = htmlToPlain(d.body ?? '').trim();
     const sig = signatureText.trim();
     const bodyIsUserContent = !!body && (!sig || body !== sig);
     return bodyIsUserContent || !!(d.cc ?? '').trim();
@@ -837,8 +872,8 @@ export default function SharedInbox() {
         return;
       }
       // Drop the AI body above the signature so the user can read and tweak.
-      const tail = signatureText ? `\n\n${signatureText}` : '';
-      onChangeReplyText(`${draft}${tail}`);
+      const tail = signatureText ? plainToHtml(signatureText) : '';
+      onChangeReplyText(`${plainToHtml(draft)}${tail}`);
       setAiReplyOpen(false);
       setAiReplyHints('');
       toast.success('Draft ready — read it through before sending');
@@ -880,7 +915,7 @@ export default function SharedInbox() {
   }, [pendingMsgId, qc, selectedInboxId, selectedThreadId]);
 
   const sendReply = async () => {
-    if (!replyText.trim() || !selectedInboxId || !selectedThreadId) return;
+    if (isEmptyHtml(replyText) || !selectedInboxId || !selectedThreadId) return;
     if (stagedAttachments.some(a => a.uploading)) { toast.error('Still uploading — wait a moment'); return; }
 
     // "Send later" picks a specific date — bypass the undo flow in that case
@@ -889,7 +924,8 @@ export default function SharedInbox() {
       setSendingReply(true);
       try {
         await inboxApi.replyThread(selectedInboxId, selectedThreadId, {
-          body_text: replyText,
+          body_text: htmlToPlain(replyText),
+          body_html: replyText,
           from_address: replyFrom,
           cc: replyCC || undefined,
           subject: replySubject || undefined,
@@ -921,7 +957,8 @@ export default function SharedInbox() {
       const scheduledAt = new Date(Date.now() + UNDO_WINDOW_MS).toISOString();
       const attachmentIds = stagedAttachments.map(a => a.id);
       const res = await inboxApi.replyThread(selectedInboxId, selectedThreadId, {
-        body_text: bodyCopy,
+        body_text: htmlToPlain(bodyCopy),
+        body_html: bodyCopy,
         from_address: fromCopy,
         cc: ccCopy || undefined,
         subject: replySubject || undefined,
@@ -943,7 +980,7 @@ export default function SharedInbox() {
       const ts = threadDetail?.thread?.subject || '';
       setReplySubject(ts.toLowerCase().startsWith('re:') ? ts : `Re: ${ts}`);
       // Clear the composer so the user can write the next reply if they want
-      setReplyText(signatureText ? `\n\n${signatureText}` : '');
+      setReplyText(signatureText ? plainToHtml(signatureText) : '');
       setReplyCC('');
       setStagedAttachments([]);
     } catch (e: any) {
@@ -1520,9 +1557,10 @@ export default function SharedInbox() {
                     placeholder={`Re: ${threadDetail.thread.subject || ''}`}
                     className="text-xs flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground" />
                 </div>
-                <textarea value={replyText} onChange={e => onChangeReplyText(e.target.value)}
-                  placeholder="Write your reply…" rows={8}
-                  className="w-full px-3 py-2 text-[13.5px] leading-relaxed bg-transparent outline-none resize-none text-foreground placeholder:text-muted-foreground whitespace-pre-wrap" />
+                <div className="px-3 pt-2">
+                  <RichTextEditor value={replyText} onChange={onChangeReplyText}
+                    placeholder="Write your reply…" minHeight={140} className="text-[13.5px]" />
+                </div>
                 {selectedThreadId && threadHasDraft(selectedThreadId) && (
                   <div className="flex items-center justify-between gap-3 px-3 pb-2 -mt-1">
                     <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
@@ -1531,7 +1569,7 @@ export default function SharedInbox() {
                     <button
                       onClick={() => {
                         clearThreadDraft(selectedThreadId);
-                        setReplyText(signatureText ? `\n\n${signatureText}` : '');
+                        setReplyText(signatureText ? plainToHtml(signatureText) : '');
                         setReplyCC('');
                         const ts = threadDetail?.thread?.subject || '';
                         setReplySubject(ts.toLowerCase().startsWith('re:') ? ts : `Re: ${ts}`);
@@ -1625,13 +1663,13 @@ export default function SharedInbox() {
                     </button>
                   </div>
                   <div ref={sendMenuRef} className="relative flex items-stretch">
-                    <button onClick={sendReply} disabled={sendingReply || !replyText.trim() || showPendingBanner || stagedAttachments.some(a => a.uploading)}
+                    <button onClick={sendReply} disabled={sendingReply || isEmptyHtml(replyText) || showPendingBanner || stagedAttachments.some(a => a.uploading)}
                       className="flex items-center gap-1.5 pl-4 pr-3 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-l-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
                       {sendingReply ? <Loader2 size={14} className="animate-spin" /> : sendLater ? <Clock size={14} /> : <Send size={14} />}
                       {sendLater ? 'Schedule' : 'Send'}
                     </button>
                     <button type="button" onClick={() => setShowSendMenu(v => !v)}
-                      disabled={sendingReply || !replyText.trim() || showPendingBanner || stagedAttachments.some(a => a.uploading)}
+                      disabled={sendingReply || isEmptyHtml(replyText) || showPendingBanner || stagedAttachments.some(a => a.uploading)}
                       className="flex items-center px-1.5 bg-primary text-primary-foreground rounded-r-lg border-l border-primary-foreground/20 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
                       <ChevronDown size={14} />
                     </button>
