@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import {
   Send, Paperclip, Search, Pin, Info, ArrowLeft, MessageSquare, Hash,
   Smile, Reply, Pencil, Trash2, X, Check, CheckCheck, MoreVertical,
-  Image as ImageIcon, Loader2,
+  Image as ImageIcon, Loader2, Download,
 } from 'lucide-react';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusBadge from '@/components/chat/StatusBadge';
@@ -1130,17 +1130,18 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                             <span className="truncate max-w-[200px]">{msg.file_name}</span>
                           </div>
                         ) : (
-                          <a href={msg.file_url} target="_blank" rel="noreferrer"
+                          <a href={msg.file_url} target="_blank" rel="noreferrer" download={msg.file_name || true}
                             className={`flex items-center gap-2 text-xs mb-1 ${isOwn ? 'text-primary-foreground/80 hover:text-primary-foreground' : 'text-primary hover:underline'}`}>
                             <div className={`p-1.5 rounded ${isOwn ? 'bg-primary-foreground/10' : 'bg-primary/10'}`}>
                               <Paperclip className="h-3.5 w-3.5" />
                             </div>
-                            <span className="truncate max-w-[200px]">{msg.file_name || 'Download file'}</span>
+                            <span className="truncate max-w-[200px] flex-1">{msg.file_name || 'Download file'}</span>
+                            <Download className="h-3.5 w-3.5 shrink-0 opacity-70" />
                           </a>
                         )
                       )}
                       {msg.type === 'image' && msg.file_url && (
-                        <div className="relative">
+                        <div className="relative group/img">
                           <img
                             src={msg.file_url} alt=""
                             className="max-w-full rounded-xl mb-1 max-h-64 object-contain cursor-zoom-in"
@@ -1150,6 +1151,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl mb-1">
                               <Loader2 className="h-6 w-6 animate-spin text-white" />
                             </div>
+                          )}
+                          {!msg._uploading && (
+                            <a
+                              href={msg.file_url} download target="_blank" rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="absolute top-1.5 right-1.5 p-1.5 rounded-lg bg-black/50 text-white opacity-0 group-hover/img:opacity-100 transition-opacity"
+                              title="Download image"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </a>
                           )}
                         </div>
                       )}
@@ -1474,9 +1485,19 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center"
           onClick={() => setLightboxUrl(null)}
         >
-          <button className="absolute top-4 right-4 text-white/80 hover:text-white p-2">
-            <X className="h-6 w-6" />
-          </button>
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            <a
+              href={lightboxUrl} download target="_blank" rel="noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="text-white/80 hover:text-white p-2"
+              title="Download image"
+            >
+              <Download className="h-6 w-6" />
+            </a>
+            <button className="text-white/80 hover:text-white p-2" onClick={() => setLightboxUrl(null)}>
+              <X className="h-6 w-6" />
+            </button>
+          </div>
           <img
             src={lightboxUrl} alt=""
             className="max-w-[90vw] max-h-[90vh] rounded-lg object-contain"
