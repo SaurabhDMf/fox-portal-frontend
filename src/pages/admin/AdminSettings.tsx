@@ -3,7 +3,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { User, Shield, Bell, Pencil, X, Building2, Plug, Mail, FileText, Sparkles, Search } from 'lucide-react';
+import { User, Shield, Bell, Pencil, X, Building2, Plug, Mail, FileText, Sparkles, Search, Settings as SettingsIcon } from 'lucide-react';
+import GeneralSettings from '@/components/settings/GeneralSettings';
 import CompanySettings from '@/components/settings/CompanySettings';
 import IntegrationsSettings from '@/components/settings/IntegrationsSettings';
 import EmailSettings from '@/components/settings/EmailSettings';
@@ -14,6 +15,7 @@ import AiSettings from '@/components/settings/AiSettings';
 const GROUP_ORDER = ['Workspace', 'Communication', 'Finance', 'Operations'] as const;
 
 const tabs = [
+  { id: 'general',       label: 'General',       icon: SettingsIcon, group: 'Workspace',   adminOnly: true },
   { id: 'profile',       label: 'Profile',       icon: User,      group: 'Workspace'                       },
   { id: 'company',       label: 'Company',       icon: Building2, group: 'Workspace'                       },
   { id: 'security',      label: 'Security',      icon: Shield,    group: 'Workspace'                       },
@@ -39,9 +41,9 @@ export default function AdminSettings() {
   const setAuth = useAuthStore(s => s.setAuth);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState(() => searchParams.get('tab') || 'profile');
-  const [navSearch, setNavSearch] = useState('');
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
+  const [tab, setTab] = useState(() => searchParams.get('tab') || (isAdmin ? 'general' : 'profile'));
+  const [navSearch, setNavSearch] = useState('');
   const isSuperAdmin = user?.role === 'super_admin';
   const visibleTabs = tabs.filter(t => (!t.adminOnly || isAdmin) && (!t.superAdminOnly || isSuperAdmin));
   const filteredTabs = navSearch.trim()
@@ -175,6 +177,9 @@ export default function AdminSettings() {
         </div>
         </div>
       )}
+
+      {/* General (workspace-wide preferences) */}
+      {tab === 'general' && isAdmin && <GeneralSettings />}
 
       {/* Company Profile */}
       {tab === 'company' && <CompanySettings />}
