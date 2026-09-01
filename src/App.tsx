@@ -66,6 +66,7 @@ import CPSubscriptions from "./pages/client-portal/CPSubscriptions";
 
 import NotFound from "./pages/NotFound";
 import PublicInvoice from "./pages/PublicInvoice";
+import Privacy from "./pages/Privacy";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -123,6 +124,7 @@ const App = () => (
         <Route path="/login" element={<Login />} />
         <Route path="/client-login" element={<ClientLogin />} />
         <Route path="/invoice/:token" element={<PublicInvoice />} />
+        <Route path="/privacy" element={<Privacy />} />
 
         {/* Admin Portal — super_admin + admin only */}
         <Route path="/admin" element={<ProtectedRoute allowedRoles={['super_admin', 'admin']}><PortalLayout /></ProtectedRoute>}>
