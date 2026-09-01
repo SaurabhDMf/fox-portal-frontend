@@ -4,12 +4,13 @@ import { useAuthStore } from '@/stores/authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import {
-  ArrowRight, Check, Eye, EyeOff, KeyRound, Loader2, Lock, Mail,
+  ArrowRight, Check, ChevronLeft, Eye, EyeOff, KeyRound, Loader2, Lock, Mail,
   ShieldCheck, Sparkles, AlertCircle, Users, Briefcase,
 } from 'lucide-react';
 import { initPushNotifications } from '@/lib/pushNotifications';
 
 type LoginMode = 'team' | 'client';
+type Step = 'credentials' | 'otp';
 
 const TEAM_HIGHLIGHTS = [
   { icon: Sparkles, title: 'One workspace', desc: 'CRM, shared inbox, invoicing and chat under a single login.' },
@@ -23,7 +24,12 @@ const CLIENT_HIGHLIGHTS = [
   { icon: KeyRound, title: 'Direct support', desc: 'Message your team straight from the portal.' },
 ];
 
+const RESEND_COOLDOWN = 30;
+const OTP_LENGTH = 6;
+
 export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
+  const [activeMode, setActiveMode] = useState<LoginMode>(mode);
+  const [step, setStep] = useState<Step>('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
@@ -31,10 +37,16 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
   const [caps, setCaps] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [challengeId, setChallengeId] = useState<string | null>(null);
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [code, setCode] = useState<string[]>(Array(OTP_LENGTH).fill(''));
+  const [resendCooldown, setResendCooldown] = useState(0);
+
   const setAuth = useAuthStore((s) => s.setAuth);
   const navigate = useNavigate();
 
-  const isClient = mode === 'client';
+  const isClient = activeMode === 'client';
   const highlights = isClient ? CLIENT_HIGHLIGHTS : TEAM_HIGHLIGHTS;
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
@@ -48,6 +60,26 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
     return s;
   }, [password]);
 
+  const startResendCooldown = () => {
+    setResendCooldown(RESEND_COOLDOWN);
+    const timer = setInterval(() => {
+      setResendCooldown((v) => {
+        if (v <= 1) { clearInterval(timer); return 0; }
+        return v - 1;
+      });
+    }, 1000);
+  };
+
+  const switchMode = (next: LoginMode) => {
+    if (next === activeMode) return;
+    setActiveMode(next);
+    setStep('credentials');
+    setError(null);
+    setPassword('');
+    setCode(Array(OTP_LENGTH).fill(''));
+    navigate(next === 'client' ? '/client-login' : '/login', { replace: true });
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) { setError('Please fill in all fields'); return; }
@@ -55,19 +87,61 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
     setLoading(true);
     try {
       const endpoint = isClient ? '/auth/portal-login' : '/auth/login';
-      const res = await api.post(endpoint, { email, password });
+      const res = await api.post(endpoint, { email, password, remember });
       const data = res.data;
-      setAuth(data);
-      toast.success(`Welcome back, ${data.user?.full_name || 'User'}!`);
-      initPushNotifications();
-      setTimeout(() => {
-        const path = useAuthStore.getState().getRedirectPath();
-        navigate(path);
-      }, 100);
+      if (data.requiresOtp) {
+        setChallengeId(data.challengeId);
+        setMaskedEmail(data.email || email);
+        setCode(Array(OTP_LENGTH).fill(''));
+        setStep('otp');
+        startResendCooldown();
+      } else {
+        // Backward-compatible fallback if a deploy ever skips the OTP step.
+        completeLogin(data);
+      }
     } catch (err: any) {
       setError(err?.response?.data?.error || err?.response?.data?.detail || err.message || 'Invalid credentials');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const completeLogin = (data: any) => {
+    setAuth(data);
+    toast.success(`Welcome back, ${data.user?.full_name || 'User'}!`);
+    initPushNotifications();
+    setTimeout(() => {
+      const path = useAuthStore.getState().getRedirectPath();
+      navigate(path);
+    }, 100);
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = code.join('');
+    if (value.length !== OTP_LENGTH) { setError('Enter the 6-digit code'); return; }
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await api.post('/auth/verify-login-otp', { challengeId, code: value });
+      completeLogin(res.data);
+    } catch (err: any) {
+      setError(err?.response?.data?.error || err.message || 'Incorrect code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown > 0 || !challengeId) return;
+    setError(null);
+    try {
+      await api.post('/auth/resend-login-otp', { challengeId });
+      setCode(Array(OTP_LENGTH).fill(''));
+      toast.success('Verification code resent');
+      startResendCooldown();
+    } catch (err: any) {
+      setError(err?.response?.data?.error || err.message || 'Could not resend the code');
     }
   };
 
@@ -139,123 +213,203 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
           </div>
 
           <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-10">
-            <div className={`inline-flex items-center gap-2 mb-6 self-start px-3 py-1.5 rounded-full border text-xs font-semibold ${isClient ? 'border-primary/30 bg-primary/5 text-primary' : 'border-border bg-secondary text-foreground'}`}>
-              {isClient ? <Users className="h-3.5 w-3.5" /> : <Briefcase className="h-3.5 w-3.5" />}
-              {isClient ? 'Client Portal' : 'Team Login'}
-            </div>
+            {step === 'credentials' && (
+              <div className="mb-6 grid grid-cols-2 gap-1 self-start rounded-full border border-border bg-secondary p-1">
+                <button
+                  type="button"
+                  onClick={() => switchMode('team')}
+                  className={`flex items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                    !isClient ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Briefcase className="h-3.5 w-3.5" /> Team Login
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode('client')}
+                  className={`flex items-center justify-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                    isClient ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5" /> Client Portal
+                </button>
+              </div>
+            )}
 
-            <form onSubmit={handleLogin} noValidate>
-              <h2 className="text-3xl font-black tracking-tight">Welcome back</h2>
-              <p className="mt-1.5 text-sm text-muted-foreground">
-                {isClient ? 'Sign in to view your invoices, projects & support tickets.' : 'Sign in to your Fox Portal workspace.'}
-              </p>
+            {step === 'otp' ? (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => { setStep('credentials'); setError(null); }}
+                  className="mb-6 flex items-center gap-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+                >
+                  <ChevronLeft className="size-3.5" /> Back
+                </button>
+                <span className="grid size-11 place-items-center rounded-xl bg-primary/12 text-primary">
+                  <ShieldCheck className="size-5" />
+                </span>
+                <h2 className="mt-4 text-2xl font-black tracking-tight">Check your email</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Enter the 6-digit code we sent to <span className="font-medium text-foreground">{maskedEmail}</span>.
+                </p>
 
-              <div className="mt-6 space-y-4">
-                <div>
-                  <label htmlFor="email" className="mb-1.5 block text-xs font-semibold text-muted-foreground">Work email</label>
-                  <div className="relative">
-                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      id="email"
-                      type="email"
-                      autoComplete="email"
-                      value={email}
-                      onChange={(e) => { setEmail(e.target.value); setError(null); }}
-                      placeholder="you@company.com"
-                      className="w-full rounded-xl bg-secondary py-3 pl-10 pr-10 text-sm border border-border outline-none transition focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                    />
-                    {emailValid && (
-                      <Check className="absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-emerald-500" />
-                    )}
+                <form onSubmit={handleVerifyOtp}>
+                  <div className="mt-7 flex gap-2">
+                    {code.map((c, idx) => (
+                      <input
+                        key={idx}
+                        id={`otp-${idx}`}
+                        value={c}
+                        inputMode="numeric"
+                        maxLength={1}
+                        aria-label={`Digit ${idx + 1}`}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, '').slice(-1);
+                          setCode((prev) => prev.map((x, i) => (i === idx ? v : x)));
+                          setError(null);
+                          if (v && idx < OTP_LENGTH - 1) document.getElementById(`otp-${idx + 1}`)?.focus();
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Backspace' && !code[idx] && idx > 0)
+                            document.getElementById(`otp-${idx - 1}`)?.focus();
+                        }}
+                        className="h-14 flex-1 rounded-xl bg-secondary text-center text-xl font-semibold border border-border outline-none transition focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                      />
+                    ))}
                   </div>
-                </div>
 
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <label htmlFor="password" className="text-xs font-semibold text-muted-foreground">Password</label>
-                  </div>
-                  <div className="relative">
-                    <Lock className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      id="password"
-                      type={show ? 'text' : 'password'}
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(e) => { setPassword(e.target.value); setError(null); }}
-                      onKeyUp={(e) => setCaps(e.getModifierState?.('CapsLock') ?? false)}
-                      placeholder="••••••••"
-                      className="w-full rounded-xl bg-secondary py-3 pl-10 pr-11 text-sm border border-border outline-none transition focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShow((v) => !v)}
-                      aria-label={show ? 'Hide password' : 'Show password'}
-                      className="absolute right-3 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                    >
-                      {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    </button>
-                  </div>
-
-                  {password.length > 0 && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <div className="flex h-1 flex-1 gap-1">
-                        {[0, 1, 2, 3, 4].map((i) => (
-                          <span
-                            key={i}
-                            className={`h-full flex-1 rounded-full transition-colors ${
-                              i < strength
-                                ? strength <= 2 ? 'bg-destructive' : strength === 3 ? 'bg-amber-500' : 'bg-emerald-500'
-                                : 'bg-muted'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-[11px] font-medium text-muted-foreground">
-                        {strength <= 2 ? 'Weak' : strength === 3 ? 'Fair' : 'Strong'}
-                      </span>
+                  {error && (
+                    <div className="mt-4 flex items-start gap-2 rounded-xl bg-destructive/10 px-3 py-2.5 text-xs font-medium text-destructive border border-destructive/20">
+                      <AlertCircle className="mt-0.5 size-3.5 shrink-0" /> {error}
                     </div>
                   )}
-                  {caps && (
-                    <p className="mt-1.5 text-[11px] font-medium text-amber-600">Caps Lock is on</p>
-                  )}
-                </div>
 
-                <label className="flex cursor-pointer items-center gap-2.5 text-xs text-muted-foreground">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+                    {loading ? 'Verifying…' : 'Verify & sign in'}
+                  </button>
                   <button
                     type="button"
-                    role="switch"
-                    aria-checked={remember}
-                    onClick={() => setRemember((v) => !v)}
-                    className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${remember ? 'bg-primary' : 'bg-muted border border-border'}`}
+                    onClick={handleResend}
+                    disabled={resendCooldown > 0}
+                    className="mt-3 w-full text-center text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-60"
                   >
-                    <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition-all ${remember ? 'left-[18px]' : 'left-0.5'}`} />
+                    {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend code'}
                   </button>
-                  Keep me signed in on this device
-                </label>
+                </form>
               </div>
+            ) : (
+              <form onSubmit={handleLogin} noValidate>
+                <h2 className="text-3xl font-black tracking-tight">Welcome back</h2>
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  {isClient ? 'Sign in to view your invoices, projects & support tickets.' : 'Sign in to your Fox Portal workspace.'}
+                </p>
 
-              {error && (
-                <div className="mt-4 flex items-start gap-2 rounded-xl bg-destructive/10 px-3 py-2.5 text-xs font-medium text-destructive border border-destructive/20">
-                  <AlertCircle className="mt-0.5 size-3.5 shrink-0" /> {error}
+                <div className="mt-6 space-y-4">
+                  <div>
+                    <label htmlFor="email" className="mb-1.5 block text-xs font-semibold text-muted-foreground">Work email</label>
+                    <div className="relative">
+                      <Mail className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        id="email"
+                        type="email"
+                        autoComplete="email"
+                        value={email}
+                        onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                        placeholder="you@company.com"
+                        className="w-full rounded-xl bg-secondary py-3 pl-10 pr-10 text-sm border border-border outline-none transition focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                      />
+                      {emailValid && (
+                        <Check className="absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-emerald-500" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label htmlFor="password" className="text-xs font-semibold text-muted-foreground">Password</label>
+                    </div>
+                    <div className="relative">
+                      <Lock className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        id="password"
+                        type={show ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                        onKeyUp={(e) => setCaps(e.getModifierState?.('CapsLock') ?? false)}
+                        placeholder="••••••••"
+                        className="w-full rounded-xl bg-secondary py-3 pl-10 pr-11 text-sm border border-border outline-none transition focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShow((v) => !v)}
+                        aria-label={show ? 'Hide password' : 'Show password'}
+                        className="absolute right-3 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                      >
+                        {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+
+                    {password.length > 0 && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="flex h-1 flex-1 gap-1">
+                          {[0, 1, 2, 3, 4].map((i) => (
+                            <span
+                              key={i}
+                              className={`h-full flex-1 rounded-full transition-colors ${
+                                i < strength
+                                  ? strength <= 2 ? 'bg-destructive' : strength === 3 ? 'bg-amber-500' : 'bg-emerald-500'
+                                  : 'bg-muted'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[11px] font-medium text-muted-foreground">
+                          {strength <= 2 ? 'Weak' : strength === 3 ? 'Fair' : 'Strong'}
+                        </span>
+                      </div>
+                    )}
+                    {caps && (
+                      <p className="mt-1.5 text-[11px] font-medium text-amber-600">Caps Lock is on</p>
+                    )}
+                  </div>
+
+                  <label className="flex cursor-pointer items-center gap-2.5 text-xs text-muted-foreground">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={remember}
+                      onClick={() => setRemember((v) => !v)}
+                      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${remember ? 'bg-primary' : 'bg-muted border border-border'}`}
+                    >
+                      <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition-all ${remember ? 'left-[18px]' : 'left-0.5'}`} />
+                    </button>
+                    Keep me signed in for 7 days
+                  </label>
                 </div>
-              )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="group mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="size-4 animate-spin" /> : null}
-                {loading ? 'Signing in…' : (isClient ? 'Sign In to Client Portal' : 'Sign In')}
-                {!loading && <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />}
-              </button>
+                {error && (
+                  <div className="mt-4 flex items-start gap-2 rounded-xl bg-destructive/10 px-3 py-2.5 text-xs font-medium text-destructive border border-destructive/20">
+                    <AlertCircle className="mt-0.5 size-3.5 shrink-0" /> {error}
+                  </div>
+                )}
 
-              <p className="mt-5 text-center text-xs text-muted-foreground">
-                {isClient
-                  ? <a href="/login" className="font-medium text-primary hover:underline">Team / Staff login</a>
-                  : <a href="/client-login" className="font-medium text-primary hover:underline">Client portal login</a>}
-              </p>
-            </form>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="group mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+                  {loading ? 'Signing in…' : (isClient ? 'Sign In to Client Portal' : 'Sign In')}
+                  {!loading && <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />}
+                </button>
+              </form>
+            )}
           </div>
         </main>
       </div>
