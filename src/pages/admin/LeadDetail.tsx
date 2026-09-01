@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '@/lib/api';
 import { useState } from 'react';
-import { ArrowLeft, Phone, Mail, Building2, Plus, X, UserCheck } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, Building2, Plus, X, UserCheck, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
 import ConvertLeadModal from '@/components/crm/ConvertLeadModal';
@@ -164,6 +164,26 @@ export default function LeadDetail() {
               )}
             </div>
           </div>
+
+          {/* Internal notes left on this lead's Shared Inbox thread(s) — matched by email */}
+          {(lead.inbox_notes || []).length > 0 && (
+            <div className="glass-card p-6">
+              <h2 className="font-semibold flex items-center gap-2 mb-4"><Lock className="h-4 w-4 text-amber-500" /> Notes from Shared Inbox</h2>
+              <div className="space-y-3">
+                {lead.inbox_notes.map((n: any) => (
+                  <div key={n.id} className="rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-4 py-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                        {n.author_name || 'Team'} · {n.created_at ? new Date(n.created_at).toLocaleString() : ''}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground truncate">{n.thread_subject}</span>
+                    </div>
+                    <p className="mt-1.5 text-sm text-foreground/90 whitespace-pre-wrap">{n.body_text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sidebar */}

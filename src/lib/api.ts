@@ -169,6 +169,7 @@ export const inboxApi = {
   patchThread:   (id: string, tid: string, data: any) => api.patch(`/inbox/${id}/threads/${tid}`, data),
   getThreadActivity: (id: string, tid: string) => api.get(`/inbox/${id}/threads/${tid}/activity`),
   replyThread:   (id: string, tid: string, data: any) => api.post(`/inbox/${id}/threads/${tid}/reply`, data),
+  addNote:       (id: string, tid: string, body_text: string) => api.post(`/inbox/${id}/threads/${tid}/note`, { body_text }),
   newThread:       (id: string, data: any) => api.post(`/inbox/${id}/threads`, data),
   deleteMessage:   (id: string, tid: string, mid: string) => api.delete(`/inbox/${id}/threads/${tid}/messages/${mid}`),
   deleteThread:    (id: string, tid: string) => api.delete(`/inbox/${id}/threads/${tid}`),
@@ -180,6 +181,12 @@ export const inboxApi = {
   // AI: draft a fresh outbound email — topic is what the sender wants to say.
   aiCompose:       (id: string, data: { topic: string; to?: string; subject?: string }) =>
     api.post(`/inbox/${id}/ai-compose`, data),
+  // Stage a file to attach to a reply/compose message — returns the upload row.
+  uploadAttachment: (id: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post(`/inbox/${id}/upload`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
 };
 
 export default api;

@@ -9,9 +9,12 @@ import {
   Settings, Mail, Tag, Zap, Archive,
   ArrowLeft, UserPlus, Loader2, Bot, ChevronDown, CalendarDays,
   FolderOpen, FolderPlus, Trash2, ArrowUpDown, ShieldAlert, MoveRight,
+  Paperclip, File as FileIcon,
+  ChevronLeft, ChevronRight, Phone, MapPin, Wallet, History, CornerUpLeft, Lock, UserCheck,
 } from 'lucide-react';
 import api, { inboxApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
+import RichTextEditor from '@/components/RichTextEditor';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -166,6 +169,40 @@ function stripSigDelimiter(s: string): string {
   return s.replace(/^--\s*\r?\n+/, '');
 }
 
+// The reply composer is now rich-text (RichTextEditor, HTML in/out) — these
+// two convert between that and the plain-text world the rest of this file
+// still works in (drafts, AI-draft steering, the "is there anything typed"
+// check, and the body_text fallback the backend/other mail clients want).
+function htmlToPlain(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+    .replace(/<\/?p[^>]*>/gi, '')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .trim();
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function plainToHtml(text: string): string {
+  if (!text.trim()) return '';
+  return text.split(/\n{2,}/).map(para =>
+    `<p>${para.split('\n').map(escapeHtml).join('<br>') || '<br>'}</p>`
+  ).join('');
+}
+
+const isEmptyHtml = (html: string) => !htmlToPlain(html).trim();
+
 function signatureToPlain(sig: string | null | undefined): string {
   if (!sig) return '';
   const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(sig);
@@ -199,6 +236,16 @@ interface Thread {
   created_at?: string;
 }
 
+// The real CRM lead for this thread's client email, when one exists —
+// matched server-side by email since threads aren't explicitly linked to a
+// lead_id. Shown in Lead Details instead of asking the sender to re-enter
+// phone/country/deal value that's already sitting in CRM.
+interface LinkedLead {
+  id: string; full_name: string; email: string; phone?: string; country?: string;
+  purpose?: string; status: string; deal_value?: number | null; currency?: string;
+  tags?: string[] | null; assigned_name?: string; added_by_name?: string; created_at?: string;
+}
+
 // Only shows a countdown/overdue label while the thread is actively awaiting
 // our reply (last inbound after last outbound) — we don't track a separate
 // "first replied at" timestamp, so once we've answered there's nothing to
@@ -227,6 +274,8 @@ interface Message {
   sender_name?: string; is_ai_generated: number;
   scheduled_at?: string; sent_at?: string; status: string; created_at: string;
   send_attempts?: number; last_send_error?: string;
+  attachments?: { id: string; file_name: string; file_size?: number; url: string }[];
+  is_internal?: number;
 }
 
 interface Sender { id: string; email_address: string; display_name?: string; }
@@ -329,6 +378,19 @@ export default function SharedInbox() {
 
   const [showNewThread, setShowNewThread] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [showLeadDetails, setShowLeadDetails] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
+  const [noteText, setNoteText] = useState('');
+  const [sendingNote, setSendingNote] = useState(false);
+
+  // Collapse the composer back to the Reply / Internal note entry point
+  // whenever the selected thread changes.
+  useEffect(() => {
+    setComposerOpen(false);
+    setComposerMode('reply');
+    setNoteText('');
+  }, [selectedThreadId]);
 
   const anyOverlayOpen = showNewThread || showAssign || showMoveFolder;
 
@@ -382,7 +444,7 @@ export default function SharedInbox() {
     .filter(t => !slaAtRiskOnly || slaStatus(t, selectedInbox?.sla_hours)?.overdue)
     .filter(t => !filterTag || (t.tags || []).includes(filterTag));
 
-  const { data: threadDetail, isLoading: loadingThread } = useQuery<{ thread: Thread; messages: Message[]; senders: Sender[] }>({
+  const { data: threadDetail, isLoading: loadingThread } = useQuery<{ thread: Thread; messages: Message[]; senders: Sender[]; linked_lead: LinkedLead | null }>({
     queryKey: ['inbox-thread', selectedInboxId, selectedThreadId],
     queryFn: () => inboxApi.getThread(selectedInboxId!, selectedThreadId!).then(r => r.data),
     enabled: !!(selectedInboxId && selectedThreadId),
@@ -408,7 +470,7 @@ export default function SharedInbox() {
     queryKey: ['sales-users'],
     queryFn: () => api.get('/users/active').then(r => {
       const all: any[] = r.data?.data || r.data || [];
-      return all.filter((u: any) => ['sales_rep', 'sales_manager', 'pre_sales', 'marketing', 'admin'].includes(u.role));
+      return all.filter((u: any) => ['sales_rep', 'sales_manager', 'admin', 'pre_sales', 'sales_executive', 'sales_intern'].includes(u.role));
     }),
     staleTime: 120_000, refetchOnWindowFocus: false,
   });
@@ -518,8 +580,15 @@ export default function SharedInbox() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
       qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
+      qc.invalidateQueries({ queryKey: ['inbox-thread-activity', selectedInboxId, selectedThreadId] });
     },
     onError: (e: any) => toast.error(errMsg(e)),
+  });
+
+  const { data: threadActivity = [] } = useQuery<any[]>({
+    queryKey: ['inbox-thread-activity', selectedInboxId, selectedThreadId],
+    queryFn: () => inboxApi.getThreadActivity(selectedInboxId!, selectedThreadId!).then(r => r.data?.activity || []),
+    enabled: !!selectedInboxId && !!selectedThreadId && showLeadDetails,
   });
 
   const assignMut = useMutation({
@@ -618,6 +687,35 @@ export default function SharedInbox() {
   const sendMenuRef = useRef<HTMLDivElement>(null);
   const replyFromInitialised = useRef<string | null>(null);
 
+  // ── Attachments ─────────────────────────────────────────────
+  // Uploaded eagerly on pick (not on send) so the composer can show progress
+  // and the user can remove one before sending; ids ride along with the reply.
+  const [stagedAttachments, setStagedAttachments] = useState<{ id: string; file_name: string; file_size: number; uploading?: boolean; tempKey?: string }[]>([]);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+
+  const stageAttachments = async (files: FileList | File[]) => {
+    if (!selectedInboxId) return;
+    for (const file of Array.from(files)) {
+      const tempKey = `${file.name}-${Date.now()}-${Math.random()}`;
+      setStagedAttachments(prev => [...prev, { id: tempKey, file_name: file.name, file_size: file.size, uploading: true, tempKey }]);
+      try {
+        const res = await inboxApi.uploadAttachment(selectedInboxId, file);
+        setStagedAttachments(prev => prev.map(a => a.tempKey === tempKey
+          ? { id: res.data.id, file_name: res.data.file_name, file_size: res.data.file_size }
+          : a));
+      } catch (e: any) {
+        toast.error(`${file.name}: ${errMsg(e)}`);
+        setStagedAttachments(prev => prev.filter(a => a.tempKey !== tempKey));
+      }
+    }
+  };
+  const removeStagedAttachment = (id: string) => setStagedAttachments(prev => prev.filter(a => a.id !== id));
+  const formatFileSize = (bytes: number) => {
+    if (!bytes) return '';
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  };
+
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (sendMenuRef.current && !sendMenuRef.current.contains(e.target as Node)) setShowSendMenu(false);
@@ -649,6 +747,7 @@ export default function SharedInbox() {
   const [pendingCC, setPendingCC] = useState('');
   const [pendingFrom, setPendingFrom] = useState('');
   const [pendingSubject, setPendingSubject] = useState('');
+  const [pendingAttachments, setPendingAttachments] = useState<{ id: string; file_name: string; file_size: number }[]>([]);
   const [secondsLeft, setSecondsLeft] = useState(0);
   // The banner is only relevant on the thread the message was sent from.
   const showPendingBanner = !!pendingMsgId && pendingThreadId === selectedThreadId;
@@ -702,7 +801,7 @@ export default function SharedInbox() {
 
   useEffect(() => {
     if (!threadDetail?.senders?.length || !selectedThreadId) return;
-    const seed = signatureText ? `\n\n${signatureText}` : '';
+    const seed = signatureText ? plainToHtml(signatureText) : '';
     const threadSubject = threadDetail.thread.subject || '';
     const defaultSubject = threadSubject.toLowerCase().startsWith('re:')
       ? threadSubject
@@ -717,7 +816,7 @@ export default function SharedInbox() {
       setReplySubject(draft.subject ?? defaultSubject);
       setReplyText(draft.body ?? seed);
       setReplyCC(draft.cc ?? replyAllCC);
-    } else if (seed && !replyText.trim() && draftsRef.current[selectedThreadId]?.body === undefined) {
+    } else if (seed && isEmptyHtml(replyText) && draftsRef.current[selectedThreadId]?.body === undefined) {
       // The thread was opened before the inbox (and its signature) finished
       // loading — drop the signature in now since the composer is still blank
       // AND the user hasn't started editing this thread's draft.
@@ -747,7 +846,7 @@ export default function SharedInbox() {
     void draftTick; // re-evaluated whenever a draft is written
     const d = draftsRef.current[tid];
     if (!d) return false;
-    const body = (d.body ?? '').trim();
+    const body = htmlToPlain(d.body ?? '').trim();
     const sig = signatureText.trim();
     const bodyIsUserContent = !!body && (!sig || body !== sig);
     return bodyIsUserContent || !!(d.cc ?? '').trim();
@@ -773,8 +872,8 @@ export default function SharedInbox() {
         return;
       }
       // Drop the AI body above the signature so the user can read and tweak.
-      const tail = signatureText ? `\n\n${signatureText}` : '';
-      onChangeReplyText(`${draft}${tail}`);
+      const tail = signatureText ? plainToHtml(signatureText) : '';
+      onChangeReplyText(`${plainToHtml(draft)}${tail}`);
       setAiReplyOpen(false);
       setAiReplyHints('');
       toast.success('Draft ready — read it through before sending');
@@ -802,6 +901,7 @@ export default function SharedInbox() {
           setPendingCC('');
           setPendingFrom('');
           setPendingSubject('');
+          setPendingAttachments([]);
           if (selectedInboxId && selectedThreadId) {
             qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
             qc.invalidateQueries({ queryKey: ['inbox-threads', selectedInboxId] });
@@ -815,7 +915,8 @@ export default function SharedInbox() {
   }, [pendingMsgId, qc, selectedInboxId, selectedThreadId]);
 
   const sendReply = async () => {
-    if (!replyText.trim() || !selectedInboxId || !selectedThreadId) return;
+    if (isEmptyHtml(replyText) || !selectedInboxId || !selectedThreadId) return;
+    if (stagedAttachments.some(a => a.uploading)) { toast.error('Still uploading — wait a moment'); return; }
 
     // "Send later" picks a specific date — bypass the undo flow in that case
     // because the user is explicitly scheduling, not sending now.
@@ -823,15 +924,17 @@ export default function SharedInbox() {
       setSendingReply(true);
       try {
         await inboxApi.replyThread(selectedInboxId, selectedThreadId, {
-          body_text: replyText,
+          body_text: htmlToPlain(replyText),
+          body_html: replyText,
           from_address: replyFrom,
           cc: replyCC || undefined,
           subject: replySubject || undefined,
           scheduled_at: sendLater,
+          attachment_ids: stagedAttachments.map(a => a.id),
         });
         toast.success('Scheduled!');
         clearThreadDraft(selectedThreadId);
-        setReplyText(''); setReplyCC(''); setSendLater('');
+        setReplyText(''); setReplyCC(''); setSendLater(''); setStagedAttachments([]);
         // Reset the subject to the default for the next message in this thread
         const ts = threadDetail?.thread?.subject || '';
         setReplySubject(ts.toLowerCase().startsWith('re:') ? ts : `Re: ${ts}`);
@@ -852,12 +955,15 @@ export default function SharedInbox() {
     const subjectCopy = replySubject;
     try {
       const scheduledAt = new Date(Date.now() + UNDO_WINDOW_MS).toISOString();
+      const attachmentIds = stagedAttachments.map(a => a.id);
       const res = await inboxApi.replyThread(selectedInboxId, selectedThreadId, {
-        body_text: bodyCopy,
+        body_text: htmlToPlain(bodyCopy),
+        body_html: bodyCopy,
         from_address: fromCopy,
         cc: ccCopy || undefined,
         subject: replySubject || undefined,
         scheduled_at: scheduledAt,
+        attachment_ids: attachmentIds,
       });
       const newMsgId = res.data?.id;
       if (!newMsgId) throw new Error('Server did not return a message id');
@@ -867,18 +973,37 @@ export default function SharedInbox() {
       setPendingCC(ccCopy);
       setPendingFrom(fromCopy);
       setPendingSubject(subjectCopy);
+      setPendingAttachments(stagedAttachments);
       // Successful send — drop the draft for this thread so the next reply
       // starts fresh, and reset the subject back to the default.
       clearThreadDraft(selectedThreadId);
       const ts = threadDetail?.thread?.subject || '';
       setReplySubject(ts.toLowerCase().startsWith('re:') ? ts : `Re: ${ts}`);
       // Clear the composer so the user can write the next reply if they want
-      setReplyText(signatureText ? `\n\n${signatureText}` : '');
+      setReplyText(signatureText ? plainToHtml(signatureText) : '');
       setReplyCC('');
+      setStagedAttachments([]);
     } catch (e: any) {
       toast.error(errMsg(e));
     } finally {
       setSendingReply(false);
+    }
+  };
+
+  const sendNote = async () => {
+    if (!noteText.trim() || !selectedInboxId || !selectedThreadId) return;
+    setSendingNote(true);
+    try {
+      await inboxApi.addNote(selectedInboxId, selectedThreadId, noteText.trim());
+      setNoteText('');
+      setComposerOpen(false);
+      qc.invalidateQueries({ queryKey: ['inbox-thread', selectedInboxId, selectedThreadId] });
+      qc.invalidateQueries({ queryKey: ['inbox-thread-activity', selectedInboxId, selectedThreadId] });
+      toast.success('Note added');
+    } catch (e: any) {
+      toast.error(errMsg(e));
+    } finally {
+      setSendingNote(false);
     }
   };
 
@@ -893,6 +1018,7 @@ export default function SharedInbox() {
       setReplyCC(pendingCC);
       setReplyFrom(pendingFrom);
       setReplySubject(pendingSubject);
+      setStagedAttachments(pendingAttachments);
       if (selectedThreadId) {
         writeDraft(selectedThreadId, {
           subject: pendingSubject,
@@ -906,6 +1032,7 @@ export default function SharedInbox() {
       setPendingCC('');
       setPendingFrom('');
       setPendingSubject('');
+      setPendingAttachments([]);
       toast.success('Send cancelled — you can edit and resend');
     } catch (e: any) {
       toast.error(errMsg(e));
@@ -931,7 +1058,7 @@ export default function SharedInbox() {
   // ── Render ───────────────────────────────────────────────────
 
   return (
-    <div className="dark flex h-full overflow-hidden bg-background text-foreground">
+    <div className="flex h-full overflow-hidden bg-background text-foreground">
 
       {/* ── Left sidebar: inbox list ──────────────────────────── */}
       <div className="w-52 flex-shrink-0 border-r border-border flex flex-col bg-card">
@@ -987,7 +1114,7 @@ export default function SharedInbox() {
                       <ShieldAlert size={12} />Spam
                     </button>
 
-                    <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Ticket Queues</p>
+                    <p className="px-3 pt-2 pb-1 font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">Ticket Queues</p>
                     {canManageInbox && (
                       <button onClick={() => { setShowSpam(false); setSelectedFolderId(null); setShowUnassigned(!showUnassigned); setShowAssignedToMe(false); setSlaAtRiskOnly(false); }}
                         className={`w-full text-left px-3 py-1.5 flex items-center justify-between gap-2 text-xs hover:bg-secondary/60 transition-colors rounded ${showUnassigned ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
@@ -1006,7 +1133,7 @@ export default function SharedInbox() {
 
                     {allTags.length > 0 && (
                       <>
-                        <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Tags</p>
+                        <p className="px-3 pt-2 pb-1 font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">Tags</p>
                         <div className="flex flex-wrap gap-1 px-3 pb-1">
                           {allTags.map(tag => (
                             <button key={tag} onClick={() => setFilterTag(filterTag === tag ? null : tag)}
@@ -1065,7 +1192,7 @@ export default function SharedInbox() {
           <div className="p-3 border-b border-border">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 min-w-0">
-                <h2 className="text-sm font-semibold text-foreground truncate">{selectedInbox.name}</h2>
+                <h2 className="font-display text-base font-semibold tracking-tight text-foreground truncate">{selectedInbox.name}</h2>
                 {selectedInbox.ai_followup_enabled ? <span title="AI follow-up on" className="text-emerald-500 flex-shrink-0"><Zap size={12} /></span> : null}
               </div>
               <div className="flex items-center gap-0.5 flex-shrink-0">
@@ -1258,9 +1385,9 @@ export default function SharedInbox() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 min-w-0">
                   {threadDetail.thread.ticket_ref && (
-                    <span className="text-xs font-semibold text-primary flex-shrink-0">{threadDetail.thread.ticket_ref}</span>
+                    <span className="rounded-md bg-primary/15 px-2 py-0.5 font-display text-[11px] font-semibold text-primary flex-shrink-0">{threadDetail.thread.ticket_ref}</span>
                   )}
-                  <h2 className="font-semibold text-foreground truncate tracking-tight">{threadDetail.thread.subject}</h2>
+                  <h2 className="font-display text-lg font-semibold text-foreground truncate tracking-tight">{threadDetail.thread.subject}</h2>
                 </div>
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   <ThreadStatusBadge thread={threadDetail.thread} />
@@ -1359,8 +1486,51 @@ export default function SharedInbox() {
               ))}
             </div>
           {threadDetail.thread.status !== 'closed' && threadDetail.thread.status !== 'dead' && (
+            !composerOpen ? (
+              <div className="border-t border-border bg-card/70 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button onClick={() => { setComposerMode('reply'); setComposerOpen(true); }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+                    <CornerUpLeft size={15} /> Reply
+                  </button>
+                  <button onClick={() => { setComposerMode('note'); setComposerOpen(true); }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400 text-sm font-medium hover:bg-amber-500/10 transition-colors">
+                    <Lock size={15} /> Internal note
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="border-t border-border p-4">
               <div className="border border-border rounded-xl overflow-hidden bg-card/70">
+                <div className="flex items-center gap-1 mx-3 mt-3 rounded-lg bg-secondary p-1 text-xs">
+                  <button onClick={() => setComposerMode('reply')}
+                    className={`flex-1 rounded-md px-3 py-1.5 font-medium transition-colors ${composerMode === 'reply' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                    Reply to lead
+                  </button>
+                  <button onClick={() => setComposerMode('note')}
+                    className={`flex-1 rounded-md px-3 py-1.5 font-medium transition-colors ${composerMode === 'note' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                    Internal note
+                  </button>
+                  <button onClick={() => setComposerOpen(false)} title="Close composer"
+                    className="grid place-items-center w-7 h-7 rounded-md text-muted-foreground hover:bg-background hover:text-foreground transition-colors">
+                    <X size={14} />
+                  </button>
+                </div>
+                {composerMode === 'note' ? (
+                  <>
+                    <textarea value={noteText} onChange={e => setNoteText(e.target.value)}
+                      placeholder="Visible to your team only — qualification notes, next steps…" rows={4}
+                      className="mt-3 mx-3 w-[calc(100%-1.5rem)] px-3 py-2 text-[13.5px] leading-relaxed rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 outline-none resize-none text-foreground placeholder:text-muted-foreground/70" />
+                    <div className="flex items-center justify-end px-3 pb-3 pt-2">
+                      <button onClick={sendNote} disabled={sendingNote || !noteText.trim()}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm font-medium hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        {sendingNote ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+                        Add note
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                <>
                 <div className="flex flex-wrap gap-2 px-3 pt-3 pb-1 border-b border-border">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground flex-shrink-0">From:</span>
@@ -1378,7 +1548,7 @@ export default function SharedInbox() {
                   <div className="flex items-center gap-1.5 flex-1 min-w-0">
                     <span className="text-xs text-muted-foreground flex-shrink-0">CC:</span>
                     <input value={replyCC} onChange={e => onChangeReplyCC(e.target.value)} placeholder="optional"
-                      className="text-xs flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground" />
+                      className="text-xs flex-1 min-w-0 bg-transparent outline-none text-foreground placeholder:text-muted-foreground" />
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border">
@@ -1387,9 +1557,10 @@ export default function SharedInbox() {
                     placeholder={`Re: ${threadDetail.thread.subject || ''}`}
                     className="text-xs flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground" />
                 </div>
-                <textarea value={replyText} onChange={e => onChangeReplyText(e.target.value)}
-                  placeholder="Write your reply…" rows={8}
-                  className="w-full px-3 py-2 text-sm bg-transparent outline-none resize-none text-foreground placeholder:text-muted-foreground whitespace-pre-wrap" />
+                <div className="px-3 pt-2">
+                  <RichTextEditor value={replyText} onChange={onChangeReplyText}
+                    placeholder="Write your reply…" minHeight={140} className="text-[13.5px]" />
+                </div>
                 {selectedThreadId && threadHasDraft(selectedThreadId) && (
                   <div className="flex items-center justify-between gap-3 px-3 pb-2 -mt-1">
                     <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
@@ -1398,7 +1569,7 @@ export default function SharedInbox() {
                     <button
                       onClick={() => {
                         clearThreadDraft(selectedThreadId);
-                        setReplyText(signatureText ? `\n\n${signatureText}` : '');
+                        setReplyText(signatureText ? plainToHtml(signatureText) : '');
                         setReplyCC('');
                         const ts = threadDetail?.thread?.subject || '';
                         setReplySubject(ts.toLowerCase().startsWith('re:') ? ts : `Re: ${ts}`);
@@ -1443,8 +1614,32 @@ export default function SharedInbox() {
                     </div>
                   </div>
                 )}
+                {stagedAttachments.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+                    {stagedAttachments.map(a => (
+                      <span key={a.id} className="inline-flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-md bg-secondary border border-border text-xs">
+                        {a.uploading ? <Loader2 size={12} className="animate-spin text-muted-foreground" /> : <FileIcon size={12} className="text-muted-foreground" />}
+                        <span className="max-w-[160px] truncate">{a.file_name}</span>
+                        {!a.uploading && <span className="text-muted-foreground">{formatFileSize(a.file_size)}</span>}
+                        <button onClick={() => removeStagedAttachment(a.id)} className="p-0.5 rounded hover:bg-background text-muted-foreground hover:text-destructive">
+                          <X size={11} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-center justify-between px-3 pb-3 pt-1 gap-2">
                   <div className="flex items-center gap-2">
+                    <input ref={attachmentInputRef} type="file" multiple className="hidden"
+                      onChange={e => { if (e.target.files?.length) stageAttachments(e.target.files); e.target.value = ''; }} />
+                    <button
+                      type="button"
+                      onClick={() => attachmentInputRef.current?.click()}
+                      disabled={showPendingBanner}
+                      title="Attach a file"
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-border text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed">
+                      <Paperclip size={12} />
+                    </button>
                     {sendLater && (
                       <span className="inline-flex items-center gap-1 text-xs text-primary bg-primary/10 px-2 py-1 rounded-md ring-1 ring-primary/25">
                         <Clock size={12} />{fmtDateTime(sendLater)}
@@ -1468,19 +1663,19 @@ export default function SharedInbox() {
                     </button>
                   </div>
                   <div ref={sendMenuRef} className="relative flex items-stretch">
-                    <button onClick={sendReply} disabled={sendingReply || !replyText.trim() || showPendingBanner}
+                    <button onClick={sendReply} disabled={sendingReply || isEmptyHtml(replyText) || showPendingBanner || stagedAttachments.some(a => a.uploading)}
                       className="flex items-center gap-1.5 pl-4 pr-3 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-l-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
                       {sendingReply ? <Loader2 size={14} className="animate-spin" /> : sendLater ? <Clock size={14} /> : <Send size={14} />}
                       {sendLater ? 'Schedule' : 'Send'}
                     </button>
                     <button type="button" onClick={() => setShowSendMenu(v => !v)}
-                      disabled={sendingReply || !replyText.trim() || showPendingBanner}
+                      disabled={sendingReply || isEmptyHtml(replyText) || showPendingBanner || stagedAttachments.some(a => a.uploading)}
                       className="flex items-center px-1.5 bg-primary text-primary-foreground rounded-r-lg border-l border-primary-foreground/20 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">
                       <ChevronDown size={14} />
                     </button>
                     {showSendMenu && (
                       <div className="absolute bottom-full right-0 mb-2 w-56 rounded-lg border border-border bg-card shadow-lg py-1.5 z-10">
-                        <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">Send Later</p>
+                        <p className="px-3 pb-1 font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">Send Later</p>
                         {sendLaterPresets().map(p => (
                           <button key={p.label} onClick={() => { setSendLater(p.value); setShowSendMenu(false); }}
                             className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-secondary/60 transition-colors">
@@ -1495,8 +1690,11 @@ export default function SharedInbox() {
                     )}
                   </div>
                 </div>
+                </>
+                )}
               </div>
             </div>
+            )
           )}
           </div>
         </div>
@@ -1507,6 +1705,19 @@ export default function SharedInbox() {
             <p className="text-sm text-muted-foreground">{selectedInboxId ? 'Select a thread to read' : 'Select an inbox'}</p>
           </div>
         </div>
+      )}
+
+      {/* ── Far right: collapsible Lead Details rail ───────────── */}
+      {selectedThreadId && threadDetail && (
+        <LeadDetailsRail
+          thread={threadDetail.thread}
+          linkedLead={threadDetail.linked_lead}
+          open={showLeadDetails}
+          onToggle={() => setShowLeadDetails(v => !v)}
+          activity={threadActivity}
+          canEdit={canManageInbox}
+          onPatch={data => patchThreadMut.mutate({ tid: selectedThreadId, data })}
+        />
       )}
 
       {/* ── Small overlay modals ───────────────────────────────── */}
@@ -1575,10 +1786,18 @@ function ThreadRow({ thread, selected, hasDraft, slaHours, isAdmin, members, fol
         <div className="flex items-center justify-between gap-1">
           <div className="flex items-center gap-1.5 min-w-0">
             {thread.ticket_ref && <span className="text-[11px] font-semibold text-primary flex-shrink-0">{thread.ticket_ref}</span>}
-            <span className={`text-xs truncate text-foreground ${unread ? 'font-bold' : 'font-medium'}`}>{thread.client_name || thread.client_email}</span>
+            <span className={`text-sm truncate text-foreground ${unread ? 'font-semibold' : 'font-medium'}`}>{thread.client_name || thread.client_email}</span>
           </div>
           <span className={`text-[11px] flex-shrink-0 ${unread ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>{fmtDateTime(thread.last_inbound_at || thread.updated_at)}</span>
         </div>
+        {thread.client_name && thread.client_email && (
+          <p className="text-[11px] truncate mt-0.5 text-muted-foreground">{thread.client_email}</p>
+        )}
+        {(thread.client_phone || thread.client_country) && (
+          <p className="text-[11px] truncate mt-0.5 text-muted-foreground">
+            {[thread.client_phone, thread.client_country].filter(Boolean).join(' · ')}
+          </p>
+        )}
         <p className={`text-[13px] truncate mt-0.5 ${unread ? 'text-foreground font-semibold' : 'text-foreground/80'}`}>{thread.subject}</p>
         <p className={`text-xs truncate mt-0.5 leading-relaxed ${unread ? 'text-foreground/80' : 'text-muted-foreground'}`}>{thread.last_body?.slice(0, 80)}</p>
         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -1593,7 +1812,7 @@ function ThreadRow({ thread, selected, hasDraft, slaHours, isAdmin, members, fol
           {thread.assignee_name && <span className="text-xs text-muted-foreground truncate">→ {thread.assignee_name}</span>}
           {thread.folder_name && (
             <span className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full"
-              style={{ background: (thread.folder_color || '#6366f1') + '22', color: thread.folder_color || '#6366f1' }}>
+              style={{ background: (thread.folder_color || '#0d9488') + '22', color: thread.folder_color || '#0d9488' }}>
               <FolderOpen size={9} />{thread.folder_name}
             </span>
           )}
@@ -1713,6 +1932,23 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
     )
   ) : null;
 
+  // Internal note: never sent to the client — visually distinct so it can
+  // never be mistaken for a real reply.
+  if (msg.is_internal) {
+    return (
+      <div className="rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 px-4 py-3"
+        onMouseEnter={() => setHovered(true)} onMouseLeave={() => { setHovered(false); setConfirmDelete(false); }}>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+            <Lock size={12} /> Internal note · {msg.sender_name || 'You'} · {fmtDateTime(msg.sent_at || msg.created_at)}
+          </span>
+          <DeleteBtn />
+        </div>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-foreground/90 whitespace-pre-wrap">{msg.body_text}</p>
+      </div>
+    );
+  }
+
   // Inbound HTML emails: full-width card
   if (hasHtml) {
     return (
@@ -1763,9 +1999,20 @@ function MessageBubble({ msg, canDelete, onDelete }: { msg: Message; canDelete?:
           )}
           <DeleteBtn />
         </div>
-        <div className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${isOut ? 'bg-primary text-primary-foreground rounded-tr-md' : 'border border-border bg-card text-card-foreground rounded-tl-md'}`}>
+        <div className={`rounded-2xl px-4 py-3 text-[13.5px] leading-relaxed shadow-sm ${isOut ? 'bg-primary text-primary-foreground rounded-tr-md' : 'border border-border bg-card text-card-foreground rounded-tl-md'}`}>
           <pre className="whitespace-pre-wrap font-sans">{msg.body_text}</pre>
         </div>
+        {msg.attachments && msg.attachments.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {msg.attachments.map(a => (
+              <a key={a.id} href={a.url} target="_blank" rel="noreferrer"
+                className="inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-md bg-secondary border border-border text-xs hover:bg-secondary/70 transition-colors">
+                <FileIcon size={12} className="text-muted-foreground" />
+                <span className="max-w-[160px] truncate">{a.file_name}</span>
+              </a>
+            ))}
+          </div>
+        )}
         {/* Show the mail server's own words inline. Keeping this in a tooltip
             meant a failed client email looked unexplained unless you knew to hover. */}
         {isFailed && msg.last_send_error && (
@@ -1821,12 +2068,212 @@ function StatusDropdown({ status, onChange }: { status: string; onChange: (s: st
   );
 }
 
+// ── LeadDetailsRail ─────────────────────────────────────────────────────────
+// Collapsed by default: a thin vertical strip with a rotated label. All the
+// fields here (deal value/currency, phone, country) and the activity feed
+// were already fully wired on the backend (PATCH .../threads/:tid,
+// GET .../threads/:tid/activity) — this is just the UI that was missing.
+
+const ACTIVITY_LABEL: Record<string, string> = {
+  ticket_created: 'Ticket created',
+  assigned: 'Assigned',
+  status_changed: 'Status changed',
+  priority_changed: 'Priority changed',
+  tags_changed: 'Tags changed',
+  deal_value_changed: 'Deal value changed',
+};
+
+// A read-style row (icon + text) that becomes an inline input on click —
+// matches the reference's plain "icon + value" rows while still allowing
+// the edit the backend already supports, instead of always-visible input
+// boxes that don't match the reference at rest.
+function LeadDetailRow({ icon: Icon, value, placeholder, canEdit, onSave, type = 'text' }: {
+  icon: React.ElementType; value: string; placeholder: string; canEdit: boolean;
+  onSave: (v: string) => void; type?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+
+  if (editing) {
+    return (
+      <div className="flex items-start gap-2">
+        <Icon size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+        <input
+          autoFocus type={type} value={draft} onChange={e => setDraft(e.target.value)}
+          onBlur={() => { setEditing(false); if (draft !== value) onSave(draft); }}
+          onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
+          className="flex-1 min-w-0 text-xs bg-secondary rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+    );
+  }
+  return (
+    <button
+      onClick={() => canEdit && setEditing(true)}
+      disabled={!canEdit}
+      className={`flex items-start gap-2 text-left w-full ${canEdit ? 'hover:text-foreground' : ''}`}
+    >
+      <Icon size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+      <span className={`text-xs break-words ${value ? 'text-foreground/85' : 'text-muted-foreground/60 italic'}`}>
+        {value || placeholder}
+      </span>
+    </button>
+  );
+}
+
+function LeadDetailsRail({ thread, linkedLead, open, onToggle, activity, canEdit, onPatch }: {
+  thread: Thread; linkedLead: LinkedLead | null; open: boolean; onToggle: () => void; activity: any[];
+  canEdit: boolean; onPatch: (data: any) => void;
+}) {
+  const navigate = useNavigate();
+  const portalBase = usePortalBase();
+
+  if (!open) {
+    return (
+      <button
+        onClick={onToggle}
+        title="Lead details"
+        className="w-9 flex-shrink-0 border-l border-border flex flex-col items-center justify-center gap-2 py-4 hover:bg-secondary/40 transition-colors text-muted-foreground hover:text-foreground"
+      >
+        <ChevronLeft size={13} />
+        <span className="font-display text-[11px] font-semibold uppercase tracking-[0.14em] [writing-mode:vertical-rl]">Lead details</span>
+      </button>
+    );
+  }
+
+  const initials = (linkedLead?.full_name || thread.client_name || thread.client_email || '?')[0]?.toUpperCase() || '?';
+  const dealValueLabel = linkedLead?.deal_value != null
+    ? `Deal value ${linkedLead.currency || 'USD'} ${Number(linkedLead.deal_value).toLocaleString()}`
+    : thread.deal_value != null
+      ? `Deal value ${thread.deal_currency || 'USD'} ${Number(thread.deal_value).toLocaleString()}`
+      : '';
+  const tags = linkedLead?.tags?.length ? linkedLead.tags : thread.tags;
+
+  return (
+    <div className="w-64 flex-shrink-0 border-l border-border flex flex-col bg-card/60 overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border flex-shrink-0">
+        <span className="font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Lead details</span>
+        <button onClick={onToggle} className="p-1 rounded hover:bg-secondary text-muted-foreground hover:text-foreground">
+          <ChevronRight size={14} />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3 space-y-4">
+        <div className="flex items-center gap-3">
+          <span className="grid place-items-center w-10 h-10 rounded-full bg-primary/15 font-display text-xs font-semibold text-primary flex-shrink-0">
+            {initials}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{linkedLead?.full_name || thread.client_name || thread.client_email}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{linkedLead ? `CRM lead · ${linkedLead.status}` : 'Email'}</p>
+          </div>
+        </div>
+
+        {linkedLead ? (
+          // A real CRM lead already exists for this email — show its actual
+          // data (read-only here; it's edited in CRM, not duplicated here)
+          // instead of the thread's own separate, likely-empty fields.
+          <div className="space-y-2.5">
+            <div className="flex items-start gap-2">
+              <Mail size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+              <span className="text-xs text-foreground/85 break-words">{linkedLead.email}</span>
+            </div>
+            {linkedLead.phone && (
+              <div className="flex items-start gap-2">
+                <Phone size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs text-foreground/85">{linkedLead.phone}</span>
+              </div>
+            )}
+            {linkedLead.country && (
+              <div className="flex items-start gap-2">
+                <MapPin size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs text-foreground/85">{linkedLead.country}</span>
+              </div>
+            )}
+            {linkedLead.purpose && (
+              <div className="flex items-start gap-2">
+                <Tag size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs text-foreground/85">{linkedLead.purpose}</span>
+              </div>
+            )}
+            {dealValueLabel && (
+              <div className="flex items-start gap-2">
+                <Wallet size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs text-foreground/85">{dealValueLabel}</span>
+              </div>
+            )}
+            {linkedLead.assigned_name && (
+              <div className="flex items-start gap-2">
+                <UserCheck size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs text-foreground/85">Owner {linkedLead.assigned_name}</span>
+              </div>
+            )}
+            <button onClick={() => navigate(`${portalBase}/crm/${linkedLead.id}`)}
+              className="text-xs text-primary hover:underline pt-1">View in CRM →</button>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            <LeadDetailRow icon={Mail} value={thread.client_email} placeholder="No email" canEdit={false} onSave={() => {}} />
+            <LeadDetailRow icon={Phone} value={thread.client_phone || ''} placeholder="Add phone" canEdit={canEdit}
+              onSave={v => onPatch({ client_phone: v })} type="tel" />
+            <LeadDetailRow icon={MapPin} value={thread.client_country || ''} placeholder="Add country" canEdit={canEdit}
+              onSave={v => onPatch({ client_country: v })} />
+            <LeadDetailRow icon={Wallet} value={dealValueLabel} placeholder="Add deal value" canEdit={canEdit}
+              onSave={v => onPatch({ deal_value: v.replace(/[^0-9.]/g, '') || null })} type="text" />
+            {thread.assignee_name && (
+              <div className="flex items-start gap-2">
+                <UserCheck size={13} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <span className="text-xs text-foreground/85">Owner {thread.assignee_name}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tags && tags.length > 0 && (
+          <div>
+            <p className="font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-2">Tags</p>
+            <div className="flex flex-wrap gap-1.5">
+              {tags.map(t => (
+                <span key={t} className="px-2 py-0.5 rounded-full bg-accent text-accent-foreground text-[11px]">{t}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <p className="font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground mb-2 flex items-center gap-1.5">
+            <History size={11} /> Activity
+          </p>
+          {activity.length === 0 ? (
+            <p className="text-xs text-muted-foreground/70">No activity yet</p>
+          ) : (
+            <div className="space-y-3 border-l border-border ml-1 pl-3">
+              {activity.map(a => (
+                <div key={a.id} className="relative">
+                  <span className="absolute -left-[15px] top-1 w-1.5 h-1.5 rounded-full bg-primary" />
+                  <p className="text-[11px] text-muted-foreground">{a.detail || ACTIVITY_LABEL[a.event] || a.event}</p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                    {a.actor_name || 'System'} · {fmtRelative(a.created_at)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── AssignModal ────────────────────────────────────────────────────────────
 
 function AssignModal({ salesUsers, currentAssignee, onClose, onAssign }: {
   salesUsers: any[]; currentAssignee?: string; onClose: () => void; onAssign: (uid: string | null) => void;
 }) {
-  const roleLabel: Record<string, string> = { sales_rep: 'Sales Rep', sales_manager: 'Sales Manager', pre_sales: 'Pre-Sales', marketing: 'Marketing' };
+  const roleLabel: Record<string, string> = {
+    sales_rep: 'Sales Rep', sales_manager: 'Sales Manager', admin: 'Admin',
+    pre_sales: 'Pre-Sales', sales_executive: 'Sales Executive', sales_intern: 'Sales Intern',
+  };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div className="bg-card border border-border rounded-xl shadow-2xl w-80 max-h-[80vh] flex flex-col">
@@ -1884,8 +2331,8 @@ function MoveFolderModal({ folders, currentFolderId, onClose, onMove }: {
           {folders.map(f => (
             <button key={f.id} onClick={() => onMove(f.id)}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-secondary text-sm ${currentFolderId === f.id ? 'bg-accent' : ''}`}>
-              <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: (f.color || '#6366f1') + '22' }}>
-                <FolderOpen size={14} style={{ color: f.color || '#6366f1' }} />
+              <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: (f.color || '#0d9488') + '22' }}>
+                <FolderOpen size={14} style={{ color: f.color || '#0d9488' }} />
               </div>
               <span className="text-foreground">{f.name}</span>
               {currentFolderId === f.id && <Check size={14} className="ml-auto text-primary" />}

@@ -1,11 +1,11 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useModulePermission } from '@/hooks/usePermission';
 import { usePortalBase } from '@/hooks/usePortalBase';
-import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, ChevronUp, Check, Pencil, ArrowUpDown, UserCheck, Settings } from 'lucide-react';
+import { Plus, Search, List, LayoutGrid, X, Calendar, Trash2, PlusCircle, ChevronDown, ChevronUp, ChevronRight, Check, Pencil, ArrowUpDown, UserCheck, Settings, Users, Sparkles, CheckCircle2, AlertCircle, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ConvertLeadModal from '@/components/crm/ConvertLeadModal';
 
@@ -186,8 +186,14 @@ export default function CRM() {
   const portalBase = usePortalBase();
   const user = useAuthStore(s => s.user);
   const perm = useModulePermission('crm');
-  const [view, setView] = useState<'list' | 'kanban'>('list');
+  const [view, setView] = useState<'list' | 'grid'>('list');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const dateFilterRef = useRef<HTMLDivElement>(null);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   // Debounce search so every keystroke doesn't fire a fresh /leads query —
@@ -196,6 +202,11 @@ export default function CRM() {
     const t = setTimeout(() => setSearch(searchInput), 350);
     return () => clearTimeout(t);
   }, [searchInput]);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (dateFilterRef.current && !dateFilterRef.current.contains(e.target as Node)) setShowDateFilter(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
   const [statusFilter, setStatusFilter] = useState('');
   const [countryFilter, setCountryFilter] = useState('');
   const [assignedFilter, setAssignedFilter] = useState('');
@@ -406,6 +417,66 @@ export default function CRM() {
 
   const inputCls = "px-3 py-2 rounded-lg bg-secondary border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50";
 
+  // Stats over the currently loaded page(s) — the same data already backing
+  // the table/grid below, no extra API call.
+  const stats = useMemo(() => ({
+    total: leadsArr.length,
+    newLeads: leadsArr.filter((l: any) => (l.status || 'New') === 'New').length,
+    closedWon: leadsArr.filter((l: any) => l.status === 'Closed Won').length,
+    overdue: leadsArr.filter((l: any) => followupBucket(l).bucket === 0).length,
+  }), [leadsArr]);
+
+  const applyDatePreset = (days: number) => {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - (days - 1));
+    setDateFrom(from.toISOString().slice(0, 10));
+    setDateTo(to.toISOString().slice(0, 10));
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => prev.size === leadsArr.length ? new Set() : new Set(leadsArr.map((l: any) => l.id)));
+  };
+
+  const exportSelected = () => {
+    const rows = leadsArr.filter((l: any) => selectedIds.has(l.id));
+    const header = ['Name', 'Email', 'Phone', 'Country', 'Purpose', 'Status', 'Added By', 'Assigned To', 'Created'];
+    const csvRows = rows.map((l: any) => [
+      l.full_name, l.email, l.phone, getLeadCountry(l), getLeadPurpose(l), l.status,
+      resolveAddedBy(l), resolveAssignedTo(l), l.created_at ? new Date(l.created_at).toLocaleDateString() : '',
+    ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
+    const csv = [header.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `leads-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${rows.length} lead${rows.length === 1 ? '' : 's'}`);
+  };
+
+  const bulkDelete = async () => {
+    setBulkDeleting(true);
+    try {
+      await Promise.all(Array.from(selectedIds).map(id => deleteMut.mutateAsync(id)));
+      toast.success(`Deleted ${selectedIds.size} lead${selectedIds.size === 1 ? '' : 's'}`);
+      setSelectedIds(new Set());
+      setShowBulkDelete(false);
+    } catch {
+      toast.error('Some leads failed to delete');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleAddStatus = () => {
     const val = newStatusInput.trim();
     if (val) {
@@ -428,11 +499,11 @@ export default function CRM() {
   return (
     <div className="page-container">
       <div className="page-header">
-        <div><h1 className="page-title">Sales CRM</h1><p className="page-subtitle">Manage your sales pipeline</p></div>
+        <div><h1 className="page-title !text-3xl md:!text-4xl">Sales CRM</h1><p className="page-subtitle">Manage your sales pipeline</p></div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg overflow-hidden border border-border">
             <button onClick={() => setView('list')} className={`p-2 ${view === 'list' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`} title="List View"><List className="h-4 w-4" /></button>
-            <button onClick={() => setView('kanban')} className={`p-2 ${view === 'kanban' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`} title="Kanban View"><LayoutGrid className="h-4 w-4" /></button>
+            <button onClick={() => setView('grid')} className={`p-2 ${view === 'grid' ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary'} transition-colors`} title="Grid View"><LayoutGrid className="h-4 w-4" /></button>
           </div>
           <button onClick={() => setShowManageStatuses(true)} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border text-muted-foreground text-sm hover:bg-secondary transition-all" title="Manage Statuses">
             <Settings className="h-4 w-4" /> Statuses
@@ -442,6 +513,26 @@ export default function CRM() {
               <Plus className="h-4 w-4" /> New Lead
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="glass-card p-5 space-y-3">
+          <span className="block w-2.5 h-2.5 rounded-full bg-primary" />
+          <div><div className="text-3xl font-bold font-display">{stats.total}</div><div className="text-sm text-muted-foreground">{hasNextPage ? 'Leads loaded' : 'Total leads'}</div></div>
+        </div>
+        <div className="glass-card p-5 space-y-3">
+          <span className="block w-2.5 h-2.5 rounded-full bg-info" />
+          <div><div className="text-3xl font-bold font-display">{stats.newLeads}</div><div className="text-sm text-muted-foreground">New</div></div>
+        </div>
+        <div className="glass-card p-5 space-y-3">
+          <span className="block w-2.5 h-2.5 rounded-full bg-success" />
+          <div><div className="text-3xl font-bold font-display">{stats.closedWon}</div><div className="text-sm text-muted-foreground">Closed Won</div></div>
+        </div>
+        <div className="glass-card p-5 space-y-3">
+          <span className="block w-2.5 h-2.5 rounded-full bg-warning" />
+          <div><div className="text-3xl font-bold font-display">{stats.overdue}</div><div className="text-sm text-muted-foreground">Overdue follow-ups</div></div>
         </div>
       </div>
 
@@ -469,11 +560,29 @@ export default function CRM() {
             {allTags.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         )}
-        <div className="flex items-center gap-1.5">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={`${inputCls} w-36`} title="From Date" />
-          <span className="text-muted-foreground text-xs">to</span>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={`${inputCls} w-36`} title="To Date" />
+        <div className="relative" ref={dateFilterRef}>
+          <button onClick={() => setShowDateFilter(v => !v)} className={`flex items-center gap-1.5 ${inputCls} ${(dateFrom || dateTo) ? 'text-primary border-primary/40' : 'text-muted-foreground'}`}>
+            <Calendar className="h-4 w-4" />
+            {dateFrom || dateTo ? `${dateFrom || '…'} → ${dateTo || '…'}` : 'Date Range'}
+          </button>
+          {showDateFilter && (
+            <div className="absolute z-50 mt-1 right-0 w-72 bg-popover border border-border rounded-lg shadow-lg p-3 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {[['Today', 1], ['7 days', 7], ['30 days', 30], ['90 days', 90]].map(([label, days]) => (
+                  <button key={label as string} onClick={() => applyDatePreset(days as number)}
+                    className="px-2 py-1.5 rounded-md text-xs bg-secondary hover:bg-secondary/70 transition-colors">{label}</button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={`${inputCls} flex-1 text-xs`} title="From Date" />
+                <span className="text-muted-foreground text-xs">to</span>
+                <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className={`${inputCls} flex-1 text-xs`} title="To Date" />
+              </div>
+              {(dateFrom || dateTo) && (
+                <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-xs text-muted-foreground hover:text-foreground">Clear dates</button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -483,6 +592,10 @@ export default function CRM() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border">
+                <th className="pl-4 pr-1 py-4 w-8">
+                  <input type="checkbox" className="accent-primary" checked={leadsArr.length > 0 && selectedIds.size === leadsArr.length} onChange={toggleSelectAll} title="Select all" />
+                </th>
+                <th className="w-6"></th>
                 <th className="px-3 py-4 whitespace-nowrap cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => setSortOrder(o => o === 'desc' ? 'asc' : 'desc')}>
                   <span className="flex items-center gap-1">Created {sortOrder === 'desc' ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}</span>
                 </th>
@@ -499,7 +612,7 @@ export default function CRM() {
               </tr>
             </thead>
             <tbody>
-              {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={11} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
+              {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={13} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
               leadsArr.map((lead: any) => {
                 const stale = isStale(lead);
                 const isDead = (lead.status || '').toLowerCase() === 'dead';
@@ -517,9 +630,17 @@ export default function CRM() {
                 const statusOptions = Array.from(new Set([...allStatuses, lead.status].filter(Boolean)));
                 const rowDeadCls   = isDead ? 'opacity-60 [&_td]:line-through' : '';
                 const rowStaleCls  = stale && !isDead ? 'bg-destructive/5' : '';
+                const isExpanded = expandedId === lead.id;
                 return (
-                  <tr key={lead.id}
+                  <Fragment key={lead.id}>
+                  <tr
                     className={`border-b border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer ${rowStaleCls} ${rowDeadCls}`}>
+                    <td className="pl-4 pr-1 py-4" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" className="accent-primary" checked={selectedIds.has(lead.id)} onChange={() => toggleSelect(lead.id)} />
+                    </td>
+                    <td onClick={(e) => { e.stopPropagation(); setExpandedId(isExpanded ? null : lead.id); }}>
+                      <ChevronRight className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                    </td>
                     <td className={`px-3 py-4 text-muted-foreground whitespace-nowrap ${stale && !isDead ? 'text-destructive font-medium' : ''}`} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>
                       {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '—'}
                     </td>
@@ -586,16 +707,51 @@ export default function CRM() {
                       </div>
                     </td>
                   </tr>
+                  {isExpanded && (
+                    <tr className="border-b border-border/50 bg-secondary/30">
+                      <td colSpan={13} className="px-8 py-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs">
+                          <div>
+                            <div className="text-muted-foreground uppercase tracking-wider font-semibold mb-2">Contact</div>
+                            <div className="space-y-1 text-foreground/90">
+                              <div>{lead.email || '—'}</div>
+                              <div>{lead.phone || '—'}</div>
+                              <div>{getLeadCountry(lead) || '—'}</div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground uppercase tracking-wider font-semibold mb-2">Assignment</div>
+                            <div className="space-y-1 text-foreground/90">
+                              <div>Added by: {resolveAddedBy(lead) || '—'}</div>
+                              <div>Assigned to: {resolveAssignedTo(lead) || '—'}</div>
+                              <div>Source: {lead.lead_source || '—'}</div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground uppercase tracking-wider font-semibold mb-2">Activity</div>
+                            <div className="space-y-1.5 text-foreground/90">
+                              <div className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />Lead created — {lead.created_at ? new Date(lead.created_at).toLocaleString() : '—'}</div>
+                              {lead.next_followup && (
+                                <div className="flex items-center gap-1.5"><span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${fb.bucket === 0 ? 'bg-destructive' : 'bg-info'}`} />Follow-up scheduled — {formatFollowup(lead.next_followup)}</div>
+                              )}
+                              {lead.notes && <div className="text-muted-foreground italic mt-1">"{lead.notes}"</div>}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
               {leadsArr.length === 0 && !isLoading && (
-                <tr><td colSpan={11} className="p-12 text-center">
+                <tr><td colSpan={13} className="p-12 text-center">
                   <div className="text-muted-foreground text-sm mb-3">No leads found</div>
                   {perm.canCreate && <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first lead →</button>}
                 </td></tr>
               )}
               {hasNextPage && leadsArr.length > 0 && (
-                <tr><td colSpan={11} className="p-3 text-center border-t border-border/50">
+                <tr><td colSpan={13} className="p-3 text-center border-t border-border/50">
                   <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}
                     className="text-xs text-primary hover:underline disabled:opacity-50">
                     {isFetchingNextPage ? 'Loading more leads…' : `Load more (${leadsArr.length} loaded)`}
@@ -607,47 +763,118 @@ export default function CRM() {
         </div>
       )}
 
-      {/* Kanban View */}
-      {view === 'kanban' && (
-        <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
-          {allStatuses.map(status => {
-            const col = leadsArr.filter((l: any) => l.status === status);
-            return (
-              <div key={status} className="min-w-[280px] flex-shrink-0">
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{status}</h3>
-                  <span className="text-xs bg-secondary px-2 py-0.5 rounded-full text-muted-foreground">{col.length}</span>
-                </div>
-                <div className="space-y-2">
-                  {col.map((lead: any) => {
-                    const stale = isStale(lead);
-                    return (
-                      <div key={lead.id} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}
-                        className={`glass-card-hover p-3 space-y-2 cursor-pointer ${stale ? 'border-destructive/50 bg-destructive/5' : ''}`}>
-                        <div className="flex items-start justify-between">
-                          <div className={`font-medium text-sm ${stale ? 'text-destructive' : ''}`}>{lead.full_name}</div>
-                        </div>
-                        {getLeadPurpose(lead) && <div className="text-xs text-muted-foreground">{getLeadPurpose(lead)}</div>}
-                        {getLeadCountry(lead) && <div className="text-xs text-muted-foreground">{getLeadCountry(lead)}</div>}
-                        {Array.isArray(lead.tags) && lead.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {lead.tags.map((tag: string) => (
-                              <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">{tag}</span>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                          {resolveAssignedTo(lead) && <span>→ {resolveAssignedTo(lead)}</span>}
-                          {lead.created_at && <span>{new Date(lead.created_at).toLocaleDateString()}</span>}
-                        </div>
+      {/* Grid View */}
+      {view === 'grid' && (
+        <div>
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {[...Array(8)].map((_, i) => <div key={i} className="glass-card p-4 h-32 animate-pulse" />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {leadsArr.map((lead: any) => {
+                const stale = isStale(lead);
+                const isDead = (lead.status || '').toLowerCase() === 'dead';
+                const statusBadgeCls =
+                  lead.status === 'Closed Won'  ? 'badge-success'
+                  : lead.status === 'Closed Lost' || isDead ? 'badge-danger'
+                  : 'badge-info';
+                const fb = followupBucket(lead);
+                return (
+                  <div key={lead.id} onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}
+                    className={`glass-card-hover p-4 space-y-2 cursor-pointer relative ${stale && !isDead ? 'border-destructive/50 bg-destructive/5' : ''} ${isDead ? 'opacity-60' : ''}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <input type="checkbox" className="accent-primary mt-0.5" checked={selectedIds.has(lead.id)}
+                        onClick={(e) => e.stopPropagation()} onChange={() => toggleSelect(lead.id)} />
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-medium text-sm truncate ${stale && !isDead ? 'text-destructive' : ''}`}>{lead.full_name}</div>
+                        {lead.email && <div className="text-xs text-muted-foreground truncate">{lead.email}</div>}
                       </div>
-                    );
-                  })}
-                  {col.length === 0 && <div className="text-xs text-muted-foreground text-center py-8 border border-dashed border-border rounded-lg">No leads</div>}
-                </div>
-              </div>
-            );
-          })}
+                      <span className={`${statusBadgeCls} flex-shrink-0`}>{lead.status}</span>
+                    </div>
+                    {getLeadPurpose(lead) && <div className="text-xs text-muted-foreground">{getLeadPurpose(lead)}</div>}
+                    {getLeadCountry(lead) && <div className="text-xs text-muted-foreground">{getLeadCountry(lead)}</div>}
+                    {Array.isArray(lead.tags) && lead.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {lead.tags.map((tag: string) => (
+                          <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-accent-foreground">{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                    {lead.next_followup && (
+                      <div className={`text-[10px] flex items-center gap-1 ${fb.bucket === 0 ? 'text-destructive font-medium' : fb.bucket === 1 ? 'text-amber-500 font-medium' : 'text-muted-foreground'}`}>
+                        <Calendar className="h-3 w-3" />{formatFollowup(lead.next_followup)}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-border/50">
+                      {resolveAssignedTo(lead) && <span className="truncate">→ {resolveAssignedTo(lead)}</span>}
+                      {lead.created_at && <span className="flex-shrink-0">{new Date(lead.created_at).toLocaleDateString()}</span>}
+                    </div>
+                    <div className="flex items-center gap-1 pt-1" onClick={(e) => e.stopPropagation()}>
+                      {perm.canEdit && lead.status !== 'Closed Won' && (
+                        <button onClick={() => setShowConvert(lead)} className="p-1 rounded hover:bg-success/10 text-muted-foreground hover:text-success transition-colors" title="Convert to Client"><UserCheck className="h-3.5 w-3.5" /></button>
+                      )}
+                      {perm.canEdit && (
+                        <button onClick={() => openEdit(lead)} className="p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                      )}
+                      {perm.canDelete && (
+                        <button onClick={() => setShowDelete(lead.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors" title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {leadsArr.length === 0 && !isLoading && (
+            <div className="glass-card p-12 text-center">
+              <div className="text-muted-foreground text-sm mb-3">No leads found</div>
+              {perm.canCreate && <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first lead →</button>}
+            </div>
+          )}
+          {hasNextPage && leadsArr.length > 0 && (
+            <div className="text-center pt-4">
+              <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}
+                className="text-xs text-primary hover:underline disabled:opacity-50">
+                {isFetchingNextPage ? 'Loading more leads…' : `Load more (${leadsArr.length} loaded)`}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Floating bulk-action bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 glass-card px-4 py-2.5 flex items-center gap-3 shadow-lg animate-slide-up">
+          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <div className="w-px h-5 bg-border" />
+          <button onClick={exportSelected} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">
+            <Download className="h-3.5 w-3.5" /> Export
+          </button>
+          {perm.canDelete && (
+            <button onClick={() => setShowBulkDelete(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors">
+              <Trash2 className="h-3.5 w-3.5" /> Delete
+            </button>
+          )}
+          <button onClick={() => setSelectedIds(new Set())} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground transition-colors" title="Clear selection">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation */}
+      {showBulkDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-sm p-6 space-y-4 animate-slide-up">
+            <h2 className="text-lg font-semibold">Delete {selectedIds.size} Lead{selectedIds.size === 1 ? '' : 's'}</h2>
+            <p className="text-sm text-muted-foreground">Are you sure? This action cannot be undone.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowBulkDelete(false)} className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary transition-colors">Cancel</button>
+              <button onClick={bulkDelete} disabled={bulkDeleting} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 active:scale-[0.97] transition-all disabled:opacity-50">
+                {bulkDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import {
-  Send, Paperclip, Search, Pin, Info, ArrowLeft, MessageSquare,
+  Send, Paperclip, Search, Pin, Info, ArrowLeft, MessageSquare, Hash,
   Smile, Reply, Pencil, Trash2, X, Check, CheckCheck, MoreVertical,
   Image as ImageIcon, Loader2,
 } from 'lucide-react';
@@ -18,7 +18,7 @@ import toast from 'react-hot-toast';
 
 function Avatar({ name, avatarUrl, size = 8 }: { name?: string; avatarUrl?: string; size?: number }) {
   const initials = (name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-  const colors = ['bg-violet-500','bg-blue-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-amber-500','bg-rose-500'];
+  const colors = ['bg-primary','bg-blue-500','bg-emerald-500','bg-orange-500','bg-pink-500','bg-cyan-500','bg-amber-500','bg-rose-500'];
   const color = colors[(name?.charCodeAt(0) || 0) % colors.length];
   return avatarUrl
     ? <img src={avatarUrl} alt={name} className={`w-${size} h-${size} rounded-full object-cover shrink-0`} />
@@ -887,21 +887,23 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           <ArrowLeft className="h-4 w-4" />
         </button>
 
-        {/* Avatar in header */}
-        {isDM
-          ? <div className="relative shrink-0">
-              <Avatar name={headerTitle} avatarUrl={roomDetail?.dm_other_user_avatar} size={9} />
-              <span className="absolute bottom-0 right-0">
-                <StatusDot status={roomDetail?.dm_other_user_status} />
-              </span>
-            </div>
-          : <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-              <MessageSquare className="h-4 w-4 text-primary" />
-            </div>
-        }
+        {/* Avatar in header — DMs get a real avatar, group rooms use an
+            inline hash mark ahead of the name instead (no channel icon
+            asset exists in the data model, so this stays text-only). */}
+        {isDM && (
+          <div className="relative shrink-0">
+            <Avatar name={headerTitle} avatarUrl={roomDetail?.dm_other_user_avatar} size={9} />
+            <span className="absolute bottom-0 right-0">
+              <StatusDot status={roomDetail?.dm_other_user_status} />
+            </span>
+          </div>
+        )}
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm truncate leading-tight">{headerTitle}</h3>
+          <h3 className="font-semibold text-sm truncate leading-tight flex items-center gap-1.5">
+            {!isDM && <Hash className="h-4 w-4 text-muted-foreground shrink-0" />}
+            {headerTitle}
+          </h3>
           {isDM ? (
             <StatusBadge
               status={roomDetail?.dm_other_user_status ?? 'offline'}
