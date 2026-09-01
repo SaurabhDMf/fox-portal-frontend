@@ -1,13 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { Plus, MessageSquare, Search, Hash, User, Bell, ChevronDown, GripVertical, Pencil, Trash2, Check, X as XIcon } from 'lucide-react';
+import { Plus, MessageSquare, Search, Hash, Bell, ChevronDown, GripVertical, Pencil, Trash2, Check, X as XIcon } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusPicker from '@/components/chat/StatusPicker';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useAuthStore } from '@/stores/authStore';
+import {
+  DndContext, DragOverlay, PointerSensor, TouchSensor, KeyboardSensor,
+  useSensor, useSensors, closestCenter, useDroppable,
+  type DragStartEvent, type DragOverEvent, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, verticalListSortingStrategy, useSortable,
+  sortableKeyboardCoordinates, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface ChatRoom {
   id: string;
@@ -49,12 +59,15 @@ function getDisplayName(room: ChatRoom) {
     : (room.name ?? 'Unnamed Room');
 }
 
-type DragState = { kind: 'section' | 'room'; id: string } | null;
+// sectionId -> ordered room ids. The "default" sections use their real id as
+// the map key locally, but persist as section_id=NULL server-side (matches
+// the existing convention: NULL resolves client-side to whichever default
+// section matches that room's type).
+type Containers = Record<string, string[]>;
 
 export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, onCreateDM, hideCreateGroup = false }: Props) {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
-  const [drag, setDrag] = useState<DragState>(null);
   const [addingSection, setAddingSection] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
   const user = useAuthStore(s => s.user);
@@ -62,7 +75,6 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
   const [myStatusText, setMyStatusText] = useState('');
   const [myStatusEmoji, setMyStatusEmoji] = useState('');
 
-  // Fetch own status on mount (mobile profile section)
   useEffect(() => {
     api.get('/users/me').then(r => {
       const d = r.data?.data || r.data;
@@ -94,9 +106,38 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
   });
 
   const typedRooms = rooms as ChatRoom[];
+  const roomsById = new Map(typedRooms.map(r => [r.id, r]));
   const sortedSections = [...sections].sort((a, b) => a.sort_order - b.sort_order);
   const defaultSectionId = (type: string) =>
     sections.find(s => s.is_default && s.default_type === type)?.id;
+  const isDefaultSection = (id: string) => !!sections.find(s => s.id === id)?.is_default;
+
+  // ── Local drag containers ─────────────────────────────────────
+  // Server data is the source of truth except mid-drag, where dnd-kit needs
+  // to move items between containers instantly (onDragOver) well before any
+  // mutation round-trips. `draggingRef` stops the sync effect from
+  // clobbering that in-flight local state.
+  const draggingRef = useRef(false);
+  const [containers, setContainers] = useState<Containers>({});
+
+  useEffect(() => {
+    if (draggingRef.current) return;
+    const map: Containers = {};
+    for (const s of sortedSections) map[s.id] = [];
+    for (const r of typedRooms) {
+      const sid = r.section_id || defaultSectionId(r.type);
+      if (!sid) continue;
+      if (!map[sid]) map[sid] = [];
+      map[sid].push(r.id);
+    }
+    setContainers(map);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms, sections]);
+
+  const findContainer = (id: string): string | undefined => {
+    if (id in containers) return id;
+    return Object.keys(containers).find(key => containers[key].includes(id));
+  };
 
   const toggleCollapsedMut = useMutation({
     mutationFn: ({ id, collapsed }: { id: string; collapsed: boolean }) =>
@@ -105,10 +146,27 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
       qc.setQueryData(['chat-sections'], (prev: ChatSection[] = []) =>
         prev.map(s => s.id === id ? { ...s, collapsed } : s));
     },
+    onError: () => {
+      toast.error('Could not update the section — reverted.');
+      qc.invalidateQueries({ queryKey: ['chat-sections'] });
+    },
   });
 
-  const reorderMut = useMutation({
+  const reorderSectionsMut = useMutation({
     mutationFn: (ids: string[]) => api.put('/chat/sections/reorder', { ids }),
+    onError: () => {
+      toast.error('Could not save the new section order — reverted.');
+      qc.invalidateQueries({ queryKey: ['chat-sections'] });
+    },
+  });
+
+  const reorderRoomsMut = useMutation({
+    mutationFn: ({ sectionId, ids }: { sectionId: string | null; ids: string[] }) =>
+      api.put('/chat/rooms/reorder', { section_id: sectionId, ids }),
+    onError: () => {
+      toast.error('Could not save the new chat order — reverted.');
+      qc.invalidateQueries({ queryKey: ['chat-rooms'] });
+    },
   });
 
   const createSectionMut = useMutation({
@@ -120,6 +178,7 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
   const renameSectionMut = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => api.put(`/chat/sections/${id}`, { name }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chat-sections'] }),
+    onError: () => toast.error('Could not rename the section.'),
   });
 
   const deleteSectionMut = useMutation({
@@ -128,15 +187,7 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
       qc.invalidateQueries({ queryKey: ['chat-sections'] });
       qc.invalidateQueries({ queryKey: ['chat-rooms'] });
     },
-  });
-
-  const moveRoomMut = useMutation({
-    mutationFn: ({ roomId, sectionId }: { roomId: string; sectionId: string | null }) =>
-      api.put(`/chat/rooms/${roomId}/section`, { section_id: sectionId }),
-    onMutate: async ({ roomId, sectionId }) => {
-      qc.setQueryData(['chat-rooms'], (prev: ChatRoom[] = []) =>
-        prev.map(r => r.id === roomId ? { ...r, section_id: sectionId } : r));
-    },
+    onError: () => toast.error('Could not delete the section.'),
   });
 
   const reorderSections = (draggedId: string, targetId: string) => {
@@ -146,13 +197,9 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
     ids.splice(ids.indexOf(targetId), 0, draggedId);
     qc.setQueryData(['chat-sections'], (prev: ChatSection[] = []) =>
       ids.map((id, i) => ({ ...prev.find(s => s.id === id)!, sort_order: i })));
-    reorderMut.mutate(ids);
+    reorderSectionsMut.mutate(ids);
   };
 
-  // Prefetch messages for a room into the same react-query cache key
-  // ChatMessageArea reads from, so opening it shows messages immediately
-  // instead of a loading state. Options must mirror ChatMessageArea's
-  // useQuery exactly (staleTime/gcTime) or the two disagree on freshness.
   const prefetchRoomMessages = (roomId: string) => {
     qc.prefetchQuery({
       queryKey: ['chat-messages', roomId],
@@ -161,12 +208,10 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
     });
   };
 
-  // /chat/rooms has no server-side limit, so a heavy user could have dozens
-  // of rooms — only preload the most recent ones on mount (already sorted
-  // by activity by the backend); the rest get prefetched on hover instead.
   useEffect(() => {
     (rooms as ChatRoom[]).slice(0, 8).forEach(r => prefetchRoomMessages(r.id));
-  }, [rooms]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms]);
 
   const matchesSearch = (r: ChatRoom) => {
     if (!search.trim()) return true;
@@ -176,16 +221,96 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
     return name.includes(q) || lastMsg.includes(q);
   };
 
-  const roomsBySection = new Map<string, ChatRoom[]>();
-  for (const r of typedRooms) {
-    if (!matchesSearch(r)) continue;
-    const sid = r.section_id || defaultSectionId(r.type);
-    if (!sid) continue; // sections not loaded yet
-    if (!roomsBySection.has(sid)) roomsBySection.set(sid, []);
-    roomsBySection.get(sid)!.push(r);
+  // While searching, show a flat filtered view — dragging a filtered subset
+  // would silently corrupt real ordering, so drag is disabled during search.
+  const searching = !!search.trim();
+  const searchRoomsBySection = new Map<string, ChatRoom[]>();
+  if (searching) {
+    for (const r of typedRooms) {
+      if (!matchesSearch(r)) continue;
+      const sid = r.section_id || defaultSectionId(r.type);
+      if (!sid) continue;
+      if (!searchRoomsBySection.has(sid)) searchRoomsBySection.set(sid, []);
+      searchRoomsBySection.get(sid)!.push(r);
+    }
   }
 
-  const totalVisible = [...roomsBySection.values()].reduce((n, arr) => n + arr.length, 0);
+  const totalVisible = searching
+    ? [...searchRoomsBySection.values()].reduce((n, arr) => n + arr.length, 0)
+    : Object.values(containers).reduce((n, arr) => n + arr.length, 0);
+
+  // ── Drag-and-drop ─────────────────────────────────────────────
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const [activeDrag, setActiveDrag] = useState<{ kind: 'section' | 'room'; id: string } | null>(null);
+
+  const handleDragStart = (e: DragStartEvent) => {
+    draggingRef.current = true;
+    const id = String(e.active.id);
+    setActiveDrag({ kind: sections.some(s => s.id === id) ? 'section' : 'room', id });
+  };
+
+  const handleDragOver = (e: DragOverEvent) => {
+    if (!activeDrag || activeDrag.kind !== 'room') return;
+    const { active, over } = e;
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    if (activeId === overId) return;
+
+    const fromContainer = findContainer(activeId);
+    const toContainer = findContainer(overId);
+    if (!fromContainer || !toContainer || fromContainer === toContainer) return;
+
+    setContainers(prev => {
+      const fromItems = prev[fromContainer].filter(id => id !== activeId);
+      const toItems = [...(prev[toContainer] || [])];
+      const overIndex = toItems.indexOf(overId);
+      toItems.splice(overIndex >= 0 ? overIndex : toItems.length, 0, activeId);
+      return { ...prev, [fromContainer]: fromItems, [toContainer]: toItems };
+    });
+  };
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    draggingRef.current = false;
+    const dragInfo = activeDrag;
+    setActiveDrag(null);
+    const { active, over } = e;
+    if (!dragInfo || !over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    if (dragInfo.kind === 'section') {
+      if (activeId !== overId && sections.some(s => s.id === overId)) {
+        reorderSections(activeId, overId);
+      }
+      return;
+    }
+
+    const container = findContainer(activeId);
+    if (!container) return;
+    const overContainer = findContainer(overId) || container;
+
+    setContainers(prev => {
+      const items = prev[container] || [];
+      let newItems = items;
+      if (overContainer === container) {
+        const oldIndex = items.indexOf(activeId);
+        const newIndex = items.indexOf(overId);
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          newItems = arrayMove(items, oldIndex, newIndex);
+        }
+      }
+      reorderRoomsMut.mutate({ sectionId: isDefaultSection(container) ? null : container, ids: newItems });
+      return { ...prev, [container]: newItems };
+    });
+  };
+
+  const activeRoomData = activeDrag?.kind === 'room' ? roomsById.get(activeDrag.id) : undefined;
+  const activeSectionData = activeDrag?.kind === 'section' ? sections.find(s => s.id === activeDrag.id) : undefined;
 
   return (
     <div className="flex flex-col h-full">
@@ -245,48 +370,80 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
           </div>
         )}
 
-        {sortedSections.map(section => {
-          const sectionRooms = roomsBySection.get(section.id) || [];
-          const unread = sectionRooms.filter(r => Number(r.unread_count) > 0).length;
-          const isDefault = !!section.is_default;
-          const onAdd = isDefault
-            ? (section.default_type === 'Group' ? (!hideCreateGroup ? onCreateGroup : undefined) : onCreateDM)
-            : undefined;
-          return (
-            <RoomSection
-              key={section.id}
-              title={section.name}
-              unread={unread}
-              onAdd={onAdd}
-              addLabel={section.default_type === 'Group' ? 'New Group' : 'New Message'}
-              collapsed={!!section.collapsed}
-              onToggleCollapsed={() => toggleCollapsedMut.mutate({ id: section.id, collapsed: !section.collapsed })}
-              dragging={drag?.kind === 'section' && drag.id === section.id}
-              onSectionDragStart={() => setDrag({ kind: 'section', id: section.id })}
-              onDragEnd={() => setDrag(null)}
-              onDropOn={() => {
-                if (!drag) return;
-                if (drag.kind === 'section') reorderSections(drag.id, section.id);
-                else moveRoomMut.mutate({ roomId: drag.id, sectionId: isDefault ? null : section.id });
-                setDrag(null);
-              }}
-              isDefault={isDefault}
-              onRename={name => renameSectionMut.mutate({ id: section.id, name })}
-              onDelete={() => deleteSectionMut.mutate(section.id)}
-            >
-              {sectionRooms.length === 0 ? (
-                <p className="px-2 py-1.5 text-xs text-muted-foreground/60">Drop a chat here</p>
-              ) : sectionRooms.map(room => (
-                <RoomRow key={room.id} room={room} active={activeRoom === room.id}
-                  onSelect={() => onSelectRoom(room.id)} onHover={() => prefetchRoomMessages(room.id)}
-                  dragging={drag?.kind === 'room' && drag.id === room.id}
-                  onDragStart={() => setDrag({ kind: 'room', id: room.id })}
-                  onDragEnd={() => setDrag(null)}
-                />
-              ))}
-            </RoomSection>
-          );
-        })}
+        {searching ? (
+          // Flat, read-only (no drag) view while searching a filtered subset.
+          sortedSections.map(section => {
+            const sectionRooms = searchRoomsBySection.get(section.id) || [];
+            if (sectionRooms.length === 0) return null;
+            return (
+              <div key={section.id} className="px-3 pt-3">
+                <div className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {section.name}
+                </div>
+                <div className="space-y-0.5 pb-1">
+                  {sectionRooms.map(room => (
+                    <RoomRow key={room.id} room={room} active={activeRoom === room.id}
+                      onSelect={() => onSelectRoom(room.id)} onHover={() => prefetchRoomMessages(room.id)} />
+                  ))}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            onDragCancel={() => { draggingRef.current = false; setActiveDrag(null); }}
+          >
+            <SortableContext items={sortedSections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+              {sortedSections.map(section => {
+                const sectionRoomIds = containers[section.id] || [];
+                const sectionRooms = sectionRoomIds.map(id => roomsById.get(id)).filter(Boolean) as ChatRoom[];
+                const unread = sectionRooms.filter(r => Number(r.unread_count) > 0).length;
+                const isDefault = !!section.is_default;
+                const onAdd = isDefault
+                  ? (section.default_type === 'Group' ? (!hideCreateGroup ? onCreateGroup : undefined) : onCreateDM)
+                  : undefined;
+                return (
+                  <SortableSection
+                    key={section.id}
+                    section={section}
+                    unread={unread}
+                    onAdd={onAdd}
+                    addLabel={section.default_type === 'Group' ? 'New Group' : 'New Message'}
+                    onRename={name => renameSectionMut.mutate({ id: section.id, name })}
+                    onDelete={() => deleteSectionMut.mutate(section.id)}
+                    onToggleCollapsed={() => toggleCollapsedMut.mutate({ id: section.id, collapsed: !section.collapsed })}
+                  >
+                    <SortableContext items={sectionRoomIds} strategy={verticalListSortingStrategy}>
+                      {sectionRooms.length === 0 ? (
+                        <p className="px-2 py-1.5 text-xs text-muted-foreground/60">Drop a chat here</p>
+                      ) : sectionRooms.map(room => (
+                        <SortableRoomRow key={room.id} room={room} active={activeRoom === room.id}
+                          onSelect={() => onSelectRoom(room.id)} onHover={() => prefetchRoomMessages(room.id)} />
+                      ))}
+                    </SortableContext>
+                  </SortableSection>
+                );
+              })}
+            </SortableContext>
+
+            <DragOverlay>
+              {activeRoomData ? (
+                <div className="rounded-xl bg-popover shadow-lg ring-1 ring-border">
+                  <RoomRow room={activeRoomData} active={false} onSelect={() => {}} onHover={() => {}} overlay />
+                </div>
+              ) : activeSectionData ? (
+                <div className="px-3 py-2 rounded-lg bg-popover shadow-lg ring-1 ring-border text-xs font-semibold uppercase tracking-wider">
+                  {activeSectionData.name}
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        )}
 
         <div className="px-3 pt-2 pb-3">
           {addingSection ? (
@@ -319,24 +476,31 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
   );
 }
 
-function RoomSection({
-  title, unread, onAdd, addLabel, children, collapsed, onToggleCollapsed,
-  dragging, onSectionDragStart, onDragEnd, onDropOn, isDefault, onRename, onDelete,
+// A section is both a droppable container (for an empty section, so a room
+// can still be dropped into it) and a sortable item (so sections themselves
+// can be reordered by their grip handle).
+function SortableSection({
+  section, unread, onAdd, addLabel, children, onToggleCollapsed, onRename, onDelete,
 }: {
-  title: string; unread: number; onAdd?: () => void; addLabel: string; children: React.ReactNode;
-  collapsed: boolean; onToggleCollapsed: () => void;
-  dragging: boolean; onSectionDragStart: () => void; onDragEnd: () => void; onDropOn: () => void;
-  isDefault: boolean; onRename: (name: string) => void; onDelete: () => void;
+  section: ChatSection; unread: number; onAdd?: () => void; addLabel: string; children: React.ReactNode;
+  onToggleCollapsed: () => void; onRename: (name: string) => void; onDelete: () => void;
 }) {
+  const { attributes, listeners, setNodeRef: setSortableRef, transform, transition, isDragging } =
+    useSortable({ id: section.id });
+  const { setNodeRef: setDroppableRef } = useDroppable({ id: section.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
   const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState(title);
+  const [editValue, setEditValue] = useState(section.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const isDefault = !!section.is_default;
+  const collapsed = !!section.collapsed;
 
   return (
     <div
-      className={`px-3 pt-3 transition-opacity ${dragging ? 'opacity-40' : ''}`}
-      onDragOver={e => e.preventDefault()}
-      onDrop={e => { e.preventDefault(); onDropOn(); }}
+      ref={el => { setSortableRef(el); setDroppableRef(el); }}
+      style={style}
+      className="px-3 pt-3"
     >
       <div className="group flex items-center justify-between px-1 pb-1 gap-1">
         {editing ? (
@@ -347,9 +511,9 @@ function RoomSection({
               onChange={e => setEditValue(e.target.value)}
               onKeyDown={e => {
                 if (e.key === 'Enter' && editValue.trim()) { onRename(editValue.trim()); setEditing(false); }
-                if (e.key === 'Escape') { setEditValue(title); setEditing(false); }
+                if (e.key === 'Escape') { setEditValue(section.name); setEditing(false); }
               }}
-              onBlur={() => { if (editValue.trim() && editValue.trim() !== title) onRename(editValue.trim()); setEditing(false); }}
+              onBlur={() => { if (editValue.trim() && editValue.trim() !== section.name) onRename(editValue.trim()); setEditing(false); }}
               className="flex-1 min-w-0 text-[10px] font-semibold uppercase tracking-wider bg-secondary rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
@@ -359,15 +523,13 @@ function RoomSection({
             className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors min-w-0"
           >
             <GripVertical
-              draggable
-              onDragStart={e => { e.stopPropagation(); onSectionDragStart(); }}
-              onDragEnd={onDragEnd}
-              className="h-3 w-3 opacity-0 group-hover:opacity-60 cursor-grab transition-opacity -ml-1 flex-shrink-0"
+              {...attributes}
+              {...listeners}
+              onClick={e => e.stopPropagation()}
+              className="h-3 w-3 opacity-0 group-hover:opacity-60 cursor-grab active:cursor-grabbing transition-opacity -ml-1 flex-shrink-0"
             />
             <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
-            <span className="truncate">{title}</span>
-            {/* Shown regardless of collapsed state so a shrunk section never
-                hides that it has something new. */}
+            <span className="truncate">{section.name}</span>
             {unread > 0 && (
               <span className="min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none flex-shrink-0">
                 {unread}
@@ -379,7 +541,7 @@ function RoomSection({
           <div className="flex items-center gap-0.5 flex-shrink-0">
             {!isDefault && !confirmDelete && (
               <>
-                <button onClick={() => { setEditValue(title); setEditing(true); }} title="Rename"
+                <button onClick={() => { setEditValue(section.name); setEditing(true); }} title="Rename"
                   className="p-1 rounded-md hover:bg-secondary text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-foreground transition-colors">
                   <Pencil className="h-3 w-3" />
                 </button>
@@ -410,20 +572,37 @@ function RoomSection({
   );
 }
 
-function RoomRow({ room, active, onSelect, onHover, dragging, onDragStart, onDragEnd }: {
+function SortableRoomRow(props: { room: ChatRoom; active: boolean; onSelect: () => void; onHover: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.room.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+  return (
+    <div ref={setNodeRef} style={style}>
+      <RoomRow {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
+  );
+}
+
+function RoomRow({ room, active, onSelect, onHover, dragHandleProps, overlay }: {
   room: ChatRoom; active: boolean; onSelect: () => void; onHover: () => void;
-  dragging: boolean; onDragStart: () => void; onDragEnd: () => void;
+  dragHandleProps?: Record<string, any>; overlay?: boolean;
 }) {
   const displayName = getDisplayName(room);
   return (
-    <button
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
       onMouseEnter={onHover}
-      className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors cursor-grab ${dragging ? 'opacity-40' : ''} ${active ? 'bg-accent' : 'hover:bg-secondary/50'}`}
+      className={`w-full flex items-center gap-1.5 p-2.5 rounded-xl text-left transition-colors cursor-pointer ${active ? 'bg-accent' : overlay ? '' : 'hover:bg-secondary/50'}`}
     >
+      {dragHandleProps && (
+        <GripVertical
+          {...dragHandleProps}
+          onClick={e => e.stopPropagation()}
+          className="h-3.5 w-3.5 text-muted-foreground/0 hover:text-muted-foreground/60 group-hover:text-muted-foreground/40 cursor-grab active:cursor-grabbing flex-shrink-0 transition-colors"
+        />
+      )}
       <RoomAvatar room={room} displayName={displayName} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between">
@@ -448,7 +627,7 @@ function RoomRow({ room, active, onSelect, onHover, dragging, onDragStart, onDra
           )}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
