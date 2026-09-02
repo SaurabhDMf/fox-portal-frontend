@@ -945,7 +945,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                 <>
                   {/* Backdrop to close on outside click */}
                   <div className="fixed inset-0 z-10" onClick={() => setShowHeaderMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-xl z-20 min-w-[180px] py-1 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-xl z-20 w-max py-1 overflow-hidden">
                     <button
                       onClick={() => {
                         setShowHeaderMenu(false);
@@ -953,9 +953,9 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                           onDeleteRoom?.();
                         }
                       }}
-                      className="w-full text-left px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 flex items-center gap-2.5 transition-colors"
+                      className="w-full text-left px-3 py-2 text-sm leading-tight text-destructive hover:bg-destructive/10 flex items-center gap-2 whitespace-nowrap transition-colors"
                     >
-                      <Trash2 className="h-4 w-4 shrink-0" />
+                      <Trash2 className="h-3.5 w-3.5 shrink-0" />
                       <span>Delete Conversation</span>
                     </button>
                   </div>
