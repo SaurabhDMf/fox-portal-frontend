@@ -8,6 +8,7 @@ import {
   ShieldCheck, Sparkles, AlertCircle, Users, Briefcase,
 } from 'lucide-react';
 import { initPushNotifications } from '@/lib/pushNotifications';
+import ThemeLogo from '@/components/ThemeLogo';
 
 type LoginMode = 'team' | 'client';
 type Step = 'credentials' | 'otp';
@@ -167,8 +168,7 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
           />
 
           <div className="relative flex items-center gap-2.5">
-            <span className="grid size-10 place-items-center rounded-xl bg-primary text-sm font-bold">FX</span>
-            <span className="text-lg font-semibold tracking-tight">Fox Portal</span>
+            <ThemeLogo className="h-9" forceVariant="dark" />
           </div>
 
           <div className="relative max-w-md">
@@ -207,8 +207,7 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
         {/* ---------- form panel ---------- */}
         <main className="flex flex-col px-6 py-8 sm:px-10">
           <div className="flex items-center gap-2.5 lg:hidden">
-            <span className="grid size-9 place-items-center rounded-xl bg-primary text-xs font-bold text-primary-foreground">FX</span>
-            <span className="text-base font-semibold">Fox Portal</span>
+            <ThemeLogo className="h-8" />
           </div>
 
           <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-10">
