@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useUnreadStore } from '@/stores/unreadStore';
-import { Bell, Search, Palette, Check, LogOut, ChevronDown } from 'lucide-react';
+import { Bell, Search, Palette, Check, LogOut, ChevronDown, MessageSquare, Inbox } from 'lucide-react';
 import AppMenuPopover from './AppMenuPopover';
 import ThemeToggle from '@/components/ThemeToggle';
 import StatusDot from '@/components/chat/StatusDot';
@@ -93,6 +93,7 @@ export default function AppHeader() {
   const location = useLocation();
   const notifCount  = useUnreadStore((s) => s.counts.notifications || 0);
   const chatCount   = useUnreadStore((s) => s.counts.chat || 0);
+  const inboxCount  = useUnreadStore((s) => s.counts.inbox || 0);
   const totalCount  = notifCount + chatCount;
   const clearNotif  = useUnreadStore((s) => s.clear);
   const [showSearch, setShowSearch] = useState(false);
@@ -232,6 +233,41 @@ export default function AppHeader() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Module activity icons — visible only while that module has
+              unread activity, so no matter what page you're on you can see
+              at a glance that new chat messages or inbox threads arrived. */}
+          {chatCount > 0 && (
+            <button
+              onClick={() => {
+                clearNotif('chat');
+                navigate(`${location.pathname.startsWith('/emp') ? '/emp' : '/admin'}/chat`);
+              }}
+              className="p-2 rounded-lg hover:bg-secondary transition-colors relative"
+              title={`${chatCount} unread chat message${chatCount === 1 ? '' : 's'}`}
+            >
+              <MessageSquare className="h-4 w-4 text-primary" />
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
+                {chatCount > 99 ? '99+' : chatCount}
+              </span>
+            </button>
+          )}
+
+          {inboxCount > 0 && (
+            <button
+              onClick={() => {
+                clearNotif('inbox');
+                navigate(`${location.pathname.startsWith('/emp') ? '/emp' : '/admin'}/inbox`);
+              }}
+              className="p-2 rounded-lg hover:bg-secondary transition-colors relative"
+              title={`${inboxCount} unread inbox thread${inboxCount === 1 ? '' : 's'}`}
+            >
+              <Inbox className="h-4 w-4 text-primary" />
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
+                {inboxCount > 99 ? '99+' : inboxCount}
+              </span>
+            </button>
           )}
 
           {/* Notifications bell — toggle behavior:

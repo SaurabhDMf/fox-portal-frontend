@@ -66,6 +66,7 @@ async function fetchAndSeedUnreadCounts() {
     useUnreadStore.getState().setAll({
       notifications: data.notifications || 0,
       chat:          data.chat          || 0,
+      inbox:         data.inbox         || 0,
     });
   } catch {}
 }
@@ -287,10 +288,14 @@ export function useNotificationsSocket() {
     };
   }, [isAuthenticated, accessToken]);
 
-  // Seed counts from backend on first auth
+  // Seed counts from backend on first auth, then keep polling — inbox
+  // (unlike chat/notifications) has no realtime socket bump yet, since new
+  // inbound emails land via IMAP sync/cron rather than a live event.
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchAndSeedUnreadCounts();
+    const id = setInterval(fetchAndSeedUnreadCounts, 60_000);
+    return () => clearInterval(id);
   }, [isAuthenticated]);
 
   useEffect(() => {
