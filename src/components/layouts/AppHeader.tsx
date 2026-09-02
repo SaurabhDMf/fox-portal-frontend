@@ -5,6 +5,7 @@ import { useUnreadStore } from '@/stores/unreadStore';
 import { useTabsStore } from '@/stores/tabsStore';
 import { Bell, Search, Palette, Check, LogOut, MessageSquare, Inbox } from 'lucide-react';
 import AppMenuPopover from './AppMenuPopover';
+import NotificationsPanel from './NotificationsPanel';
 import ThemeToggle from '@/components/ThemeToggle';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusPicker from '@/components/chat/StatusPicker';
@@ -106,8 +107,10 @@ export default function AppHeader() {
   const [myStatusText, setMyStatusText] = useState('');
   const [myStatusEmoji, setMyStatusEmoji] = useState('');
   const [showAppearance, setShowAppearance] = useState(false);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
   const [selectedAccent, setSelectedAccent] = useState('244 94% 62%');
   const appearanceRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
   const isAdmin = ['super_admin', 'admin'].includes(user?.role || '');
   const crumbs = getBreadcrumbs(location.pathname);
   const pageTitle = crumbs[crumbs.length - 1]?.label || '';
@@ -151,6 +154,16 @@ export default function AppHeader() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showAppearance]);
+
+  useEffect(() => {
+    if (!showNotifPanel) return;
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node))
+        setShowNotifPanel(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showNotifPanel]);
 
   return (
     <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
@@ -287,19 +300,14 @@ export default function AppHeader() {
             </button>
           )}
 
-          {/* Notifications bell — toggle behavior:
-              - First click: navigate to /notifications page (clear unread badge)
-              - Second click (when already on /notifications): go back to previous page */}
+          {/* Notifications bell — opens a dropdown panel, not a full-screen
+              page. Click the bell again (or the panel's × / click-outside)
+              to close it. */}
+          <div ref={notifRef} className="relative">
           <button
             onClick={() => {
-              const base = location.pathname.startsWith('/emp') ? '/emp' : '/admin';
-              const onNotifs = location.pathname.endsWith('/notifications');
-              if (onNotifs) {
-                navigate(-1);  // go back to previous page (in-page toggle, not a module open)
-              } else {
-                clearNotif('notifications');
-                openTab(`${base}/notifications`, 'Notifications', 'notifications');
-              }
+              setShowNotifPanel(v => !v);
+              clearNotif('notifications');
             }}
             className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative"
             title="Notifications"
@@ -313,6 +321,8 @@ export default function AppHeader() {
               <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-muted-foreground/30" />
             )}
           </button>
+          {showNotifPanel && <NotificationsPanel onClose={() => setShowNotifPanel(false)} />}
+          </div>
 
           {/* Logout */}
           <button
