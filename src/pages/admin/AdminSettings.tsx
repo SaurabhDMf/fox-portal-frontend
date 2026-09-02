@@ -3,10 +3,12 @@ import { useAuthStore } from '@/stores/authStore';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { User, Shield, Bell, Pencil, X, Building2, Plug, Mail, FileText, Sparkles, Search } from 'lucide-react';
+import { User, Shield, Bell, Pencil, X, Building2, Plug, Mail, FileText, Sparkles, Search, Settings as SettingsIcon } from 'lucide-react';
+import GeneralSettings from '@/components/settings/GeneralSettings';
 import CompanySettings from '@/components/settings/CompanySettings';
 import IntegrationsSettings from '@/components/settings/IntegrationsSettings';
 import EmailSettings from '@/components/settings/EmailSettings';
+import EmailAccountsSettings from '@/components/settings/EmailAccountsSettings';
 import ChangePasswordSection from '@/components/settings/ChangePasswordSection';
 import InvoiceSettings from '@/components/settings/InvoiceSettings';
 import AiSettings from '@/components/settings/AiSettings';
@@ -14,10 +16,12 @@ import AiSettings from '@/components/settings/AiSettings';
 const GROUP_ORDER = ['Workspace', 'Communication', 'Finance', 'Operations'] as const;
 
 const tabs = [
+  { id: 'general',       label: 'General',       icon: SettingsIcon, group: 'Workspace',   adminOnly: true },
   { id: 'profile',       label: 'Profile',       icon: User,      group: 'Workspace'                       },
   { id: 'company',       label: 'Company',       icon: Building2, group: 'Workspace'                       },
   { id: 'security',      label: 'Security',      icon: Shield,    group: 'Workspace'                       },
   { id: 'email',         label: 'Email',         icon: Mail,      group: 'Communication', adminOnly: true  },
+  { id: 'email-accounts', label: 'Email Accounts', icon: Mail,    group: 'Communication'                   },
   { id: 'notifications', label: 'Notifications', icon: Bell,      group: 'Communication'                   },
   { id: 'invoice',       label: 'Invoice',       icon: FileText,  group: 'Finance',       adminOnly: true  },
   { id: 'integrations',  label: 'Integrations',  icon: Plug,      group: 'Operations',    adminOnly: true  },
@@ -39,9 +43,9 @@ export default function AdminSettings() {
   const setAuth = useAuthStore(s => s.setAuth);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState(() => searchParams.get('tab') || 'profile');
-  const [navSearch, setNavSearch] = useState('');
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin';
+  const [tab, setTab] = useState(() => searchParams.get('tab') || (isAdmin ? 'general' : 'profile'));
+  const [navSearch, setNavSearch] = useState('');
   const isSuperAdmin = user?.role === 'super_admin';
   const visibleTabs = tabs.filter(t => (!t.adminOnly || isAdmin) && (!t.superAdminOnly || isSuperAdmin));
   const filteredTabs = navSearch.trim()
@@ -176,6 +180,9 @@ export default function AdminSettings() {
         </div>
       )}
 
+      {/* General (workspace-wide preferences) */}
+      {tab === 'general' && isAdmin && <GeneralSettings />}
+
       {/* Company Profile */}
       {tab === 'company' && <CompanySettings />}
 
@@ -187,6 +194,9 @@ export default function AdminSettings() {
 
       {/* Email (SMTP) */}
       {tab === 'email' && isAdmin && <EmailSettings />}
+
+      {/* Personal Email Accounts (IMAP/SMTP mailboxes for the /email inbox) */}
+      {tab === 'email-accounts' && <EmailAccountsSettings />}
 
       {/* Guarded in the UI and again on the server — every /superadmin route
           sits behind the isSuperAdmin middleware. */}

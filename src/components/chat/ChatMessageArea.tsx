@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 import {
   Send, Paperclip, Search, Pin, Info, ArrowLeft, MessageSquare, Hash,
   Smile, Reply, Pencil, Trash2, X, Check, CheckCheck, MoreVertical,
-  Image as ImageIcon, Loader2,
+  Image as ImageIcon, Loader2, Download,
 } from 'lucide-react';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusBadge from '@/components/chat/StatusBadge';
@@ -166,13 +166,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     ? (roomDetail.dm_other_user_name ?? 'Direct Message')
     : (roomDetail?.name ?? roomName);
 
-  const dmSubParts = [
-    roomDetail?.dm_other_user_title || roomDetail?.dm_other_user_role || roomDetail?.dm_other_user_department || '',
-    roomDetail?.dm_other_user_email || '',
-  ].filter(Boolean).join(' · ');
+  const dmRoleLabel =
+    roomDetail?.dm_other_user_title || roomDetail?.dm_other_user_role || roomDetail?.dm_other_user_department || '';
 
   const headerSubtitle = isDM
-    ? dmSubParts
+    ? dmRoleLabel
     : (memberCount ? `${memberCount} members` : '');
 
   const dmStatusText = isDM && roomDetail?.dm_other_user_status_text
@@ -900,20 +898,26 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         )}
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm truncate leading-tight flex items-center gap-1.5">
-            {!isDM && <Hash className="h-4 w-4 text-muted-foreground shrink-0" />}
-            {headerTitle}
-          </h3>
-          {isDM ? (
-            <StatusBadge
-              status={roomDetail?.dm_other_user_status ?? 'offline'}
-              statusText={roomDetail?.dm_other_user_status_text}
-              showLabel={true}
-              size="xs"
-            />
-          ) : (
-            headerSubtitle && <p className="text-xs text-muted-foreground">{headerSubtitle}</p>
-          )}
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="font-semibold text-sm truncate leading-tight flex items-center gap-1.5 shrink-0">
+              {!isDM && <Hash className="h-4 w-4 text-muted-foreground shrink-0" />}
+              {headerTitle}
+            </h3>
+            {isDM && (
+              <>
+                <StatusBadge
+                  status={roomDetail?.dm_other_user_status ?? 'offline'}
+                  statusText={roomDetail?.dm_other_user_status_text}
+                  showLabel={true}
+                  size="xs"
+                />
+                {headerSubtitle && (
+                  <span className="text-xs text-muted-foreground truncate">{headerSubtitle}</span>
+                )}
+              </>
+            )}
+          </div>
+          {!isDM && headerSubtitle && <p className="text-xs text-muted-foreground">{headerSubtitle}</p>}
         </div>
 
         <div className="flex items-center gap-0.5">
@@ -941,7 +945,7 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                 <>
                   {/* Backdrop to close on outside click */}
                   <div className="fixed inset-0 z-10" onClick={() => setShowHeaderMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-xl z-20 min-w-[180px] py-1 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-xl z-20 w-max py-1 overflow-hidden">
                     <button
                       onClick={() => {
                         setShowHeaderMenu(false);
@@ -949,9 +953,9 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                           onDeleteRoom?.();
                         }
                       }}
-                      className="w-full text-left px-3 py-2.5 text-sm text-destructive hover:bg-destructive/10 flex items-center gap-2.5 transition-colors"
+                      className="w-full text-left px-3 py-2 text-sm leading-tight text-destructive hover:bg-destructive/10 flex items-center gap-2 whitespace-nowrap transition-colors"
                     >
-                      <Trash2 className="h-4 w-4 shrink-0" />
+                      <Trash2 className="h-3.5 w-3.5 shrink-0" />
                       <span>Delete Conversation</span>
                     </button>
                   </div>
@@ -1130,17 +1134,18 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                             <span className="truncate max-w-[200px]">{msg.file_name}</span>
                           </div>
                         ) : (
-                          <a href={msg.file_url} target="_blank" rel="noreferrer"
+                          <a href={msg.file_url} target="_blank" rel="noreferrer" download={msg.file_name || true}
                             className={`flex items-center gap-2 text-xs mb-1 ${isOwn ? 'text-primary-foreground/80 hover:text-primary-foreground' : 'text-primary hover:underline'}`}>
                             <div className={`p-1.5 rounded ${isOwn ? 'bg-primary-foreground/10' : 'bg-primary/10'}`}>
                               <Paperclip className="h-3.5 w-3.5" />
                             </div>
-                            <span className="truncate max-w-[200px]">{msg.file_name || 'Download file'}</span>
+                            <span className="truncate max-w-[200px] flex-1">{msg.file_name || 'Download file'}</span>
+                            <Download className="h-3.5 w-3.5 shrink-0 opacity-70" />
                           </a>
                         )
                       )}
                       {msg.type === 'image' && msg.file_url && (
-                        <div className="relative">
+                        <div className="relative group/img">
                           <img
                             src={msg.file_url} alt=""
                             className="max-w-full rounded-xl mb-1 max-h-64 object-contain cursor-zoom-in"
@@ -1150,6 +1155,16 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl mb-1">
                               <Loader2 className="h-6 w-6 animate-spin text-white" />
                             </div>
+                          )}
+                          {!msg._uploading && (
+                            <a
+                              href={msg.file_url} download target="_blank" rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="absolute top-1.5 right-1.5 p-1.5 rounded-lg bg-black/50 text-white opacity-0 group-hover/img:opacity-100 transition-opacity"
+                              title="Download image"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </a>
                           )}
                         </div>
                       )}
@@ -1474,9 +1489,19 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center"
           onClick={() => setLightboxUrl(null)}
         >
-          <button className="absolute top-4 right-4 text-white/80 hover:text-white p-2">
-            <X className="h-6 w-6" />
-          </button>
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            <a
+              href={lightboxUrl} download target="_blank" rel="noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="text-white/80 hover:text-white p-2"
+              title="Download image"
+            >
+              <Download className="h-6 w-6" />
+            </a>
+            <button className="text-white/80 hover:text-white p-2" onClick={() => setLightboxUrl(null)}>
+              <X className="h-6 w-6" />
+            </button>
+          </div>
           <img
             src={lightboxUrl} alt=""
             className="max-w-[90vw] max-h-[90vh] rounded-lg object-contain"

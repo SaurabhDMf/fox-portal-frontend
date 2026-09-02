@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useUnreadStore, typeToModule } from '@/stores/unreadStore';
+import { useTabsStore } from '@/stores/tabsStore';
 import { getSocket } from '@/hooks/useSocket';
 import api from '@/lib/api';
 
@@ -66,6 +67,7 @@ async function fetchAndSeedUnreadCounts() {
     useUnreadStore.getState().setAll({
       notifications: data.notifications || 0,
       chat:          data.chat          || 0,
+      inbox:         data.inbox         || 0,
     });
   } catch {}
 }
@@ -135,6 +137,14 @@ function ToastAvatar({ name, type }: { name: string; type: string }) {
     : <div className={`shrink-0 w-11 h-11 rounded-2xl ${color} flex items-center justify-center text-white`}><Icon className="h-5 w-5" /></div>;
 }
 
+// Open a toast/bell deep link through the tab system instead of a hard
+// page navigation — reuses whatever tab that module already has open
+// (falls back to window.location.assign itself if the tab store hasn't
+// been wired to a router navigate yet, e.g. before PortalLayout mounts).
+function openDeepLink(target: string, type: string) {
+  useTabsStore.getState().openTab(target, moduleLabel(type));
+}
+
 // Unified Teams-style dark popup — chat gets quick-reply input, others get "Open" button
 function UnifiedToast({ t, opts, target }: { t: any; opts: any; target: string }) {
   const [reply, setReply] = useState('');
@@ -159,7 +169,7 @@ function UnifiedToast({ t, opts, target }: { t: any; opts: any; target: string }
         </div>
         <span className="text-xs font-medium text-white/70 flex-1">Fox Portal · {moduleLabel(opts.type)}</span>
         <button
-          onClick={(e) => { e.stopPropagation(); toast.remove(t.id); if (target) window.location.assign(target); }}
+          onClick={(e) => { e.stopPropagation(); toast.remove(t.id); if (target) openDeepLink(target, opts.type); }}
           className="text-white/40 hover:text-white/80 text-[11px] px-1 transition-colors">···</button>
         <button
           onClick={(e) => { e.stopPropagation(); toast.remove(t.id); }}
@@ -172,7 +182,7 @@ function UnifiedToast({ t, opts, target }: { t: any; opts: any; target: string }
 
       {/* Body — avatar + title + preview */}
       <div className="flex items-start gap-3 px-3 pt-3 pb-2.5 cursor-pointer"
-        onClick={() => { toast.remove(t.id); if (target) window.location.assign(target); }}>
+        onClick={() => { toast.remove(t.id); if (target) openDeepLink(target, opts.type); }}>
         <ToastAvatar name={opts.title} type={opts.type} />
         <div className="flex-1 min-w-0 pt-0.5">
           <div className="text-sm font-bold text-white truncate leading-snug">{opts.title}</div>
@@ -202,7 +212,7 @@ function UnifiedToast({ t, opts, target }: { t: any; opts: any; target: string }
       ) : (
         <div className="flex items-center justify-end px-3 pb-3">
           <button
-            onClick={(e) => { e.stopPropagation(); toast.remove(t.id); if (target) window.location.assign(target); }}
+            onClick={(e) => { e.stopPropagation(); toast.remove(t.id); if (target) openDeepLink(target, opts.type); }}
             className="text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors text-white/80 hover:text-white"
             style={{ background: 'hsl(225 20% 26%)' }}>
             Open
@@ -287,10 +297,14 @@ export function useNotificationsSocket() {
     };
   }, [isAuthenticated, accessToken]);
 
-  // Seed counts from backend on first auth
+  // Seed counts from backend on first auth, then keep polling — inbox
+  // (unlike chat/notifications) has no realtime socket bump yet, since new
+  // inbound emails land via IMAP sync/cron rather than a live event.
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchAndSeedUnreadCounts();
+    const id = setInterval(fetchAndSeedUnreadCounts, 60_000);
+    return () => clearInterval(id);
   }, [isAuthenticated]);
 
   useEffect(() => {

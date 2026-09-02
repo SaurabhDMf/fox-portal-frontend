@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
   ListChecks, BookOpen, Receipt, Scale, RefreshCw, Inbox, KeyRound,
-  CalendarClock,
+  CalendarClock, Mail,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -31,6 +31,7 @@ const adminNav: NavItem[] = [
   { label: 'Projects', path: '/admin/projects', icon: FolderKanban, module: 'projects', group: 'Workspace' },
   { label: 'Chat', path: '/admin/chat', icon: MessageSquare, module: 'chat', group: 'Workspace' },
   { label: 'Shared Inbox', path: '/admin/inbox', icon: Inbox, module: 'inbox', group: 'Communication' },
+  { label: 'Email', path: '/admin/email', icon: Mail, module: 'email', group: 'Communication' },
   {
     label: 'Invoicing', path: '/admin/invoicing', icon: FileText, module: 'invoicing', group: 'Finance',
     children: [
@@ -72,6 +73,7 @@ const teamNav: NavItem[] = [
   },
   { label: 'Chat', path: '/team/chat', icon: MessageSquare, module: 'chat', group: 'Workspace' },
   { label: 'Shared Inbox', path: '/team/inbox', icon: Inbox, module: 'inbox', group: 'Communication' },
+  { label: 'Email', path: '/team/email', icon: Mail, module: 'email', group: 'Communication' },
   { label: 'Invoicing', path: '/team/invoicing', icon: FileText, module: 'invoicing', group: 'Finance' },
   { label: 'Payroll', path: '/team/payroll', icon: Wallet, module: 'payroll', group: 'Finance' },
   { label: 'Expenses', path: '/team/expenses', icon: Receipt, module: 'expenses', group: 'Finance' },
@@ -95,6 +97,7 @@ const salesNav: NavItem[] = [
   { label: 'Projects', path: '/sales/projects', icon: FolderKanban, module: 'projects', group: 'Workspace' },
   { label: 'Chat', path: '/sales/chat', icon: MessageSquare, module: 'chat', group: 'Workspace' },
   { label: 'Shared Inbox', path: '/sales/inbox', icon: Inbox, module: 'inbox', group: 'Communication' },
+  { label: 'Email', path: '/sales/email', icon: Mail, module: 'email', group: 'Communication' },
   { label: 'Invoicing', path: '/sales/invoicing', icon: FileText, module: 'invoicing', group: 'Finance' },
   { label: 'Payroll', path: '/sales/payroll', icon: Wallet, module: 'payroll', group: 'Finance' },
   { label: 'Password Manager', path: '/sales/vault', icon: Lock, module: 'vault', group: 'Operations' },

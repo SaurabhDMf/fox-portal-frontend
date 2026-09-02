@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Plus, Search, X } from 'lucide-react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { Plus, Search, X, ShieldCheck, ShieldAlert, RefreshCw, KeyRound, Globe, CreditCard, StickyNote, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useModulePermission } from '@/hooks/usePermission';
 import VaultFolderSidebar from '@/components/vault/VaultFolderSidebar';
@@ -32,7 +32,24 @@ interface VaultCred {
   is_favorite?: boolean | number;
   is_trashed?: boolean | number;
   password_strength?: string;
+  reused?: boolean | number;
+  age_days?: number;
 }
+
+interface VaultHealth {
+  total: number;
+  weak: number;
+  reused: number;
+  stale: number;
+  score: number;
+}
+
+const TYPE_META: Record<string, { label: string; icon: any }> = {
+  login:        { label: 'Login', icon: Globe },
+  payment_card: { label: 'Card', icon: CreditCard },
+  secure_note:  { label: 'Note', icon: StickyNote },
+  identity:     { label: 'Identity', icon: User },
+};
 
 export default function Vault() {
   const perm = useModulePermission('vault');
@@ -46,9 +63,18 @@ export default function Vault() {
   const [editCred, setEditCred]       = useState<any>(null);
   const [shareTarget, setShareTarget] = useState<{ type: 'folder' | 'credential'; id: string } | null>(null);
   const [savingCred, setSavingCred]   = useState(false);
+  const [typeFilter, setTypeFilter]   = useState<'all' | string>('all');
+  const [health, setHealth]           = useState<VaultHealth | null>(null);
 
   const isInTrash     = selectedFolder === '__trash__';
   const isInFavorites = selectedFolder === '__favorites__';
+
+  // Refetch the health summary whenever the credential set changes (create,
+  // edit, trash, restore, favorite — all update `creds`), so the dashboard
+  // cards never drift from what's actually in the vault.
+  useEffect(() => {
+    api.get('/vault/health').then(res => setHealth(res.data)).catch(() => {});
+  }, [creds]);
 
   useEffect(() => {
     const load = async () => {
@@ -175,6 +201,7 @@ export default function Vault() {
   }, [selectedCred]);
 
   const filteredCreds = creds.filter(c => {
+    if (typeFilter !== 'all' && (c.item_type || 'login') !== typeFilter) return false;
     if (isInTrash)     return Boolean(c.is_trashed);
     if (isInFavorites) return Boolean(c.is_favorite) && !c.is_trashed;
     if (selectedFolder) return c.folder_id === selectedFolder && !c.is_trashed;
@@ -192,6 +219,16 @@ export default function Vault() {
     (c.url || '').toLowerCase().includes(search.toLowerCase())
   );
 
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of creds) {
+      if (c.is_trashed) continue;
+      const t = c.item_type || 'login';
+      counts[t] = (counts[t] || 0) + 1;
+    }
+    return counts;
+  }, [creds]);
+
   return (
     <div className="page-container flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden">
       {/* Header */}
@@ -206,6 +243,16 @@ export default function Vault() {
           </button>
         )}
       </div>
+
+      {/* Vault health */}
+      {health && (
+        <div className="flex-shrink-0 grid gap-3 px-6 pb-4 sm:grid-cols-2 lg:grid-cols-4">
+          <HealthCard icon={ShieldCheck} label="Vault health" value={`${health.score}%`} tone="good" bar={health.score} />
+          <HealthCard icon={ShieldAlert} label="Weak passwords" value={String(health.weak)} tone={health.weak ? 'bad' : 'good'} />
+          <HealthCard icon={RefreshCw} label="Reused passwords" value={String(health.reused)} tone={health.reused ? 'warn' : 'good'} />
+          <HealthCard icon={KeyRound} label="Older than 180 days" value={String(health.stale)} tone={health.stale ? 'warn' : 'good'} />
+        </div>
+      )}
 
       {/* Body: sidebar | list | detail */}
       <div className="flex flex-1 min-h-0 gap-0">
@@ -242,6 +289,25 @@ export default function Vault() {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Type filter */}
+          <div className="flex flex-wrap gap-1 px-3 pt-2 flex-shrink-0">
+            {(['all', 'login', 'payment_card', 'secure_note', 'identity'] as const).map(t => {
+              const count = t === 'all' ? Object.values(typeCounts).reduce((a, b) => a + b, 0) : typeCounts[t] || 0;
+              if (t !== 'all' && count === 0) return null;
+              return (
+                <button
+                  key={t}
+                  onClick={() => setTypeFilter(t)}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    typeFilter === t ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {t === 'all' ? 'All' : TYPE_META[t].label} <span className="opacity-70">{count}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Count label */}
@@ -324,6 +390,33 @@ export default function Vault() {
         onClose={() => setShareTarget(null)}
         shareTarget={shareTarget}
       />
+    </div>
+  );
+}
+
+function HealthCard({
+  icon: Icon, label, value, tone, bar,
+}: { icon: any; label: string; value: string; tone: 'good' | 'warn' | 'bad'; bar?: number }) {
+  const toneCls =
+    tone === 'good' ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/12'
+    : tone === 'warn' ? 'text-amber-600 dark:text-amber-400 bg-amber-500/12'
+    : 'text-destructive bg-destructive/12';
+  return (
+    <div className="rounded-xl bg-card p-4 border border-border">
+      <div className="flex items-center gap-3">
+        <span className={`grid size-9 place-items-center rounded-lg ${toneCls}`}>
+          <Icon className="size-4" />
+        </span>
+        <div>
+          <div className="text-xl font-bold leading-none">{value}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{label}</div>
+        </div>
+      </div>
+      {typeof bar === 'number' && (
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-secondary">
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${bar}%` }} />
+        </div>
+      )}
     </div>
   );
 }

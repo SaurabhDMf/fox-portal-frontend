@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useUnreadStore } from '@/stores/unreadStore';
-import { Bell, Search, Palette, Check, LogOut, ChevronDown } from 'lucide-react';
+import { useTabsStore } from '@/stores/tabsStore';
+import { Bell, Search, Palette, Check, LogOut, MessageSquare, Inbox } from 'lucide-react';
 import AppMenuPopover from './AppMenuPopover';
+import NotificationsPanel from './NotificationsPanel';
 import ThemeToggle from '@/components/ThemeToggle';
 import StatusDot from '@/components/chat/StatusDot';
 import StatusPicker from '@/components/chat/StatusPicker';
@@ -21,7 +23,9 @@ const accentColors = [
 
 // Section labels keyed by the second URL segment so they work across all
 // portals (/admin, /sales, /team, /client) without per-portal duplicates.
-const sectionLabels: Record<string, string> = {
+// Exported so the tab bar (src/lib/tabMeta.ts) can derive matching tab
+// labels from the same single source of truth.
+export const sectionLabels: Record<string, string> = {
   crm: 'Sales CRM',
   invoicing: 'Invoices',
   invoices: 'Invoices',
@@ -89,10 +93,12 @@ function getBreadcrumbs(pathname: string) {
 
 export default function AppHeader() {
   const { user, logout, refreshToken } = useAuthStore();
+  const openTab = useTabsStore((s) => s.openTab);
   const navigate = useNavigate();
   const location = useLocation();
   const notifCount  = useUnreadStore((s) => s.counts.notifications || 0);
   const chatCount   = useUnreadStore((s) => s.counts.chat || 0);
+  const inboxCount  = useUnreadStore((s) => s.counts.inbox || 0);
   const totalCount  = notifCount + chatCount;
   const clearNotif  = useUnreadStore((s) => s.clear);
   const [showSearch, setShowSearch] = useState(false);
@@ -101,10 +107,10 @@ export default function AppHeader() {
   const [myStatusText, setMyStatusText] = useState('');
   const [myStatusEmoji, setMyStatusEmoji] = useState('');
   const [showAppearance, setShowAppearance] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
   const [selectedAccent, setSelectedAccent] = useState('244 94% 62%');
   const appearanceRef = useRef<HTMLDivElement>(null);
-  const userMenuRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
   const isAdmin = ['super_admin', 'admin'].includes(user?.role || '');
   const crumbs = getBreadcrumbs(location.pathname);
   const pageTitle = crumbs[crumbs.length - 1]?.label || '';
@@ -115,15 +121,6 @@ export default function AppHeader() {
     toast.success('Logged out');
     navigate('/login');
   };
-
-  useEffect(() => {
-    if (!showUserMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setShowUserMenu(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showUserMenu]);
 
   // Fetch own status on mount
   useEffect(() => {
@@ -158,10 +155,20 @@ export default function AppHeader() {
     return () => document.removeEventListener('mousedown', handler);
   }, [showAppearance]);
 
+  useEffect(() => {
+    if (!showNotifPanel) return;
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node))
+        setShowNotifPanel(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showNotifPanel]);
+
   return (
     <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="flex items-center justify-between h-14 px-4 md:px-6 lg:px-8">
-        {/* Left: breadcrumbs */}
+        {/* Left: breadcrumbs + profile (avatar, name, status, designation) */}
         <div className="flex items-center gap-3 min-w-0">
           <nav className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground min-w-0">
             {crumbs.map((crumb, i) => (
@@ -174,6 +181,30 @@ export default function AppHeader() {
             ))}
           </nav>
           <span className="sm:hidden text-sm font-medium truncate">{pageTitle}</span>
+
+          <div className="hidden sm:flex items-center gap-2 ml-2 pl-3 border-l border-border min-w-0">
+            <StatusPicker
+              currentStatus={myStatus}
+              currentStatusText={myStatusText}
+              currentStatusEmoji={myStatusEmoji}
+              onStatusChange={handleStatusChange}
+            >
+              <button className="relative flex-shrink-0">
+                <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                  {user?.full_name?.[0] || 'U'}
+                </div>
+                <StatusDot status={myStatus} className="absolute -bottom-0.5 -right-0.5 w-2 h-2" />
+              </button>
+            </StatusPicker>
+            <div className="hidden lg:block min-w-0">
+              <div className="text-xs font-medium truncate leading-tight">{user?.full_name}</div>
+              <div className="text-[10px] text-muted-foreground truncate leading-tight">
+                {myStatusText
+                  ? `${myStatusEmoji} ${myStatusText}`
+                  : (user?.job_title || <span className="capitalize">{user?.role?.replace('_', ' ')}</span>)}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Right: menu + search + notifications + user */}
@@ -234,19 +265,49 @@ export default function AppHeader() {
             </div>
           )}
 
-          {/* Notifications bell — toggle behavior:
-              - First click: navigate to /notifications page (clear unread badge)
-              - Second click (when already on /notifications): go back to previous page */}
+          {/* Module activity icons — visible only while that module has
+              unread activity, so no matter what page you're on you can see
+              at a glance that new chat messages or inbox threads arrived. */}
+          {chatCount > 0 && (
+            <button
+              onClick={() => {
+                clearNotif('chat');
+                openTab(`${location.pathname.startsWith('/emp') ? '/emp' : '/admin'}/chat`, 'Chat', 'chat');
+              }}
+              className="p-2 rounded-lg hover:bg-secondary transition-colors relative"
+              title={`${chatCount} unread chat message${chatCount === 1 ? '' : 's'}`}
+            >
+              <MessageSquare className="h-4 w-4 text-primary" />
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
+                {chatCount > 99 ? '99+' : chatCount}
+              </span>
+            </button>
+          )}
+
+          {inboxCount > 0 && (
+            <button
+              onClick={() => {
+                clearNotif('inbox');
+                openTab(`${location.pathname.startsWith('/emp') ? '/emp' : '/admin'}/inbox`, 'Shared Inbox', 'inbox');
+              }}
+              className="p-2 rounded-lg hover:bg-secondary transition-colors relative"
+              title={`${inboxCount} unread inbox thread${inboxCount === 1 ? '' : 's'}`}
+            >
+              <Inbox className="h-4 w-4 text-primary" />
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center leading-none">
+                {inboxCount > 99 ? '99+' : inboxCount}
+              </span>
+            </button>
+          )}
+
+          {/* Notifications bell — opens a dropdown panel, not a full-screen
+              page. Click the bell again (or the panel's × / click-outside)
+              to close it. */}
+          <div ref={notifRef} className="relative">
           <button
             onClick={() => {
-              const base = location.pathname.startsWith('/emp') ? '/emp' : '/admin';
-              const onNotifs = location.pathname.endsWith('/notifications');
-              if (onNotifs) {
-                navigate(-1);  // go back to previous page
-              } else {
-                clearNotif('notifications');
-                navigate(`${base}/notifications`);
-              }
+              setShowNotifPanel(v => !v);
+              clearNotif('notifications');
             }}
             className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative"
             title="Notifications"
@@ -260,43 +321,18 @@ export default function AppHeader() {
               <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-muted-foreground/30" />
             )}
           </button>
-
-          {/* User avatar with status + dropdown */}
-          <div ref={userMenuRef} className="hidden sm:flex items-center gap-2 ml-1 pl-3 border-l border-border relative">
-            <StatusPicker
-              currentStatus={myStatus}
-              currentStatusText={myStatusText}
-              currentStatusEmoji={myStatusEmoji}
-              onStatusChange={handleStatusChange}
-            >
-              <button className="relative flex-shrink-0">
-                <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                  {user?.full_name?.[0] || 'U'}
-                </div>
-                <StatusDot status={myStatus} className="absolute -bottom-0.5 -right-0.5 w-2 h-2" />
-              </button>
-            </StatusPicker>
-            <button onClick={() => setShowUserMenu(v => !v)} className="hidden lg:flex items-center gap-1 min-w-0 text-left">
-              <div className="min-w-0">
-                <div className="text-xs font-medium truncate leading-tight">{user?.full_name}</div>
-                <div className="text-[10px] text-muted-foreground truncate leading-tight">
-                  {myStatusText ? `${myStatusEmoji} ${myStatusText}` : <span className="capitalize">{user?.role?.replace('_', ' ')}</span>}
-                </div>
-              </div>
-              <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-            </button>
-
-            {showUserMenu && (
-              <div className="absolute right-0 top-11 z-50 w-44 bg-popover border border-border rounded-xl shadow-xl p-1.5">
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-sm text-foreground/80 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                >
-                  <LogOut className="h-4 w-4" /> Logout
-                </button>
-              </div>
-            )}
+          {showNotifPanel && <NotificationsPanel onClose={() => setShowNotifPanel(false)} />}
           </div>
+
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 ml-1 pl-3 border-l border-border text-muted-foreground hover:text-destructive transition-colors"
+            title="Logout"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden lg:inline text-sm font-medium">Logout</span>
+          </button>
         </div>
       </div>
     </header>

@@ -20,10 +20,6 @@ export default function StatusBadge({ status, statusText, showLabel = true, size
   const textSize = size === 'xs' ? 'text-[10px]' : 'text-xs';
   const displayLabel = statusText || cfg.label;
 
-  if (status === 'online' && !statusText) {
-    return <span className={`inline-block ${dotSize} rounded-full ${cfg.color} flex-shrink-0`} />;
-  }
-
   return (
     <span className="inline-flex items-center gap-1 flex-shrink-0">
       <span className={`inline-block ${dotSize} rounded-full ${cfg.color}`} />

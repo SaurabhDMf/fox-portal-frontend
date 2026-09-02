@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { LayoutGrid, LogOut } from 'lucide-react';
-import { useNavItems, GROUP_ORDER, rootPaths, type NavItem } from './useNavItems';
+import { useNavItems, GROUP_ORDER, type NavItem } from './useNavItems';
 import { useAuthStore } from '@/stores/authStore';
+import { useTabsStore } from '@/stores/tabsStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import ThemeLogo from '@/components/ThemeLogo';
@@ -16,6 +17,7 @@ export default function AppMenuPopover() {
   const ref = useRef<HTMLDivElement>(null);
   const { visibleItems, isItemActive } = useNavItems();
   const { logout, refreshToken } = useAuthStore();
+  const openTab = useTabsStore((s) => s.openTab);
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -76,18 +78,21 @@ export default function AppMenuPopover() {
                   {group.items.map((item) => {
                     const active = isItemActive(item.path);
                     return (
-                      <NavLink
+                      <button
                         key={item.path}
-                        to={item.path}
-                        end={rootPaths.includes(item.path)}
-                        onClick={() => setOpen(false)}
-                        className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors ${
+                        type="button"
+                        onClick={() => {
+                          setOpen(false);
+                          const iconKey = item.path.split('?')[0].split('/').filter(Boolean)[1] || 'dashboard';
+                          openTab(item.path, item.label, iconKey);
+                        }}
+                        className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm text-left transition-colors ${
                           active ? 'bg-primary/15 text-primary font-medium' : 'text-foreground/80 hover:bg-secondary'
                         }`}
                       >
                         <item.icon className="h-4 w-4 flex-shrink-0" />
                         <span className="truncate">{item.label}</span>
-                      </NavLink>
+                      </button>
                     );
                   })}
                 </div>

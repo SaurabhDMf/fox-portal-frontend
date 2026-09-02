@@ -130,6 +130,17 @@ export default function ChatRoomList({ activeRoom, onSelectRoom, onCreateGroup, 
       if (!map[sid]) map[sid] = [];
       map[sid].push(r.id);
     }
+    // Pin unread rooms to the top of each section (stable sort keeps the
+    // rest in their saved drag order) so the unread badge is visible
+    // without having to scroll to find which room it's on.
+    const byId = new Map(typedRooms.map(r => [r.id, r]));
+    for (const sid of Object.keys(map)) {
+      map[sid].sort((a, b) => {
+        const aUnread = Number(byId.get(a)?.unread_count) > 0 ? 1 : 0;
+        const bUnread = Number(byId.get(b)?.unread_count) > 0 ? 1 : 0;
+        return bUnread - aUnread;
+      });
+    }
     setContainers(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rooms, sections]);
@@ -594,7 +605,9 @@ function RoomRow({ room, active, onSelect, onHover, dragHandleProps, overlay }: 
       onClick={onSelect}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
       onMouseEnter={onHover}
-      className={`w-full flex items-center gap-1.5 p-2.5 rounded-xl text-left transition-colors cursor-pointer ${active ? 'bg-accent' : overlay ? '' : 'hover:bg-secondary/50'}`}
+      className={`w-full flex items-center gap-1.5 p-2.5 rounded-xl text-left transition-colors cursor-pointer ${
+        active ? 'bg-accent' : overlay ? '' : Number(room.unread_count) > 0 ? 'bg-destructive/10 hover:bg-destructive/15' : 'hover:bg-secondary/50'
+      }`}
     >
       {dragHandleProps && (
         <GripVertical
@@ -617,8 +630,8 @@ function RoomRow({ room, active, onSelect, onHover, dragHandleProps, overlay }: 
           )}
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground truncate">
-            {room.last_message ? room.last_message.slice(0, 40) + (room.last_message.length > 40 ? '…' : '') : 'No messages'}
+          <span className="text-xs text-muted-foreground truncate min-w-0">
+            {room.last_message || 'No messages'}
           </span>
           {Number(room.unread_count) > 0 && (
             <span className="w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center flex-shrink-0 ml-1">

@@ -20,7 +20,15 @@ interface Credential {
   is_favorite?: boolean | number;
   is_owner?: boolean | number | string;
   shared_can_edit?: boolean | number | string;
+  password_strength?: string;
+  reused?: boolean | number;
 }
+
+const STRENGTH_STYLE: Record<string, string> = {
+  weak:   'bg-destructive/15 text-destructive',
+  medium: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  strong: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+};
 
 interface Props {
   cred: Credential;
@@ -85,6 +93,16 @@ export default function VaultCredentialCard({ cred, selected, onClick, onFavorit
         <p className="text-xs text-muted-foreground truncate leading-tight mt-0.5">
           {cred.username || urlHostname || type}
         </p>
+        {type === 'login' && cred.password_strength && (
+          <div className="flex items-center gap-1 mt-1">
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium capitalize ${STRENGTH_STYLE[cred.password_strength] || STRENGTH_STYLE.weak}`}>
+              {cred.password_strength}
+            </span>
+            {cred.reused ? (
+              <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">reused</span>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {/* Actions — visible on hover or selected */}
