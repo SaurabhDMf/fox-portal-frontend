@@ -605,7 +605,9 @@ function RoomRow({ room, active, onSelect, onHover, dragHandleProps, overlay }: 
       onClick={onSelect}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onSelect(); }}
       onMouseEnter={onHover}
-      className={`w-full flex items-center gap-1.5 p-2.5 rounded-xl text-left transition-colors cursor-pointer ${active ? 'bg-accent' : overlay ? '' : 'hover:bg-secondary/50'}`}
+      className={`w-full flex items-center gap-1.5 p-2.5 rounded-xl text-left transition-colors cursor-pointer ${
+        active ? 'bg-accent' : overlay ? '' : Number(room.unread_count) > 0 ? 'bg-destructive/10 hover:bg-destructive/15' : 'hover:bg-secondary/50'
+      }`}
     >
       {dragHandleProps && (
         <GripVertical
