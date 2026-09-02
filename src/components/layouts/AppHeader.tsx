@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useUnreadStore } from '@/stores/unreadStore';
 import { useTabsStore } from '@/stores/tabsStore';
-import { Bell, Search, Palette, Check, LogOut, MessageSquare, Inbox } from 'lucide-react';
+import { Bell, Search, Palette, Check, LogOut, MessageSquare, Inbox, RotateCcw } from 'lucide-react';
 import AppMenuPopover from './AppMenuPopover';
 import NotificationsPanel from './NotificationsPanel';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -19,7 +19,15 @@ const accentColors = [
   { name: 'Emerald',  value: '157 87% 46%' },
   { name: 'Amber',    value: '35 100% 63%' },
   { name: 'Rose',     value: '4 100% 64%' },
+  { name: 'Teal',     value: '173 80% 40%' },
+  { name: 'Cyan',     value: '190 90% 50%' },
+  { name: 'Pink',     value: '330 81% 60%' },
+  { name: 'Orange',   value: '21 90% 55%' },
+  { name: 'Lime',     value: '84 70% 45%' },
+  { name: 'Slate',    value: '215 20% 45%' },
 ];
+
+const ACCENT_STORAGE_KEY = 'fox-accent-color';
 
 // Section labels keyed by the second URL segment so they work across all
 // portals (/admin, /sales, /team, /client) without per-portal duplicates.
@@ -108,7 +116,7 @@ export default function AppHeader() {
   const [myStatusEmoji, setMyStatusEmoji] = useState('');
   const [showAppearance, setShowAppearance] = useState(false);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
-  const [selectedAccent, setSelectedAccent] = useState('244 94% 62%');
+  const [selectedAccent, setSelectedAccent] = useState<string | null>(null);
   const appearanceRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const isAdmin = ['super_admin', 'admin'].includes(user?.role || '');
@@ -143,7 +151,34 @@ export default function AppHeader() {
     document.documentElement.style.setProperty('--primary', value);
     document.documentElement.style.setProperty('--accent', value);
     document.documentElement.style.setProperty('--ring', value);
+    try { localStorage.setItem(ACCENT_STORAGE_KEY, value); } catch {}
   };
+
+  // Removing the inline overrides (rather than setting a hardcoded value)
+  // lets the stylesheet's own light/dark default apply again — those two
+  // defaults differ (teal at different lightness per theme), so a fixed
+  // reset value would only be correct for one theme.
+  const resetAccent = () => {
+    setSelectedAccent(null);
+    document.documentElement.style.removeProperty('--primary');
+    document.documentElement.style.removeProperty('--accent');
+    document.documentElement.style.removeProperty('--ring');
+    try { localStorage.removeItem(ACCENT_STORAGE_KEY); } catch {}
+  };
+
+  // Restore a previously chosen accent on load — applyAccent itself isn't
+  // called (no need to re-persist what we just read back).
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ACCENT_STORAGE_KEY);
+      if (stored) {
+        setSelectedAccent(stored);
+        document.documentElement.style.setProperty('--primary', stored);
+        document.documentElement.style.setProperty('--accent', stored);
+        document.documentElement.style.setProperty('--ring', stored);
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (!showAppearance) return;
@@ -245,18 +280,28 @@ export default function AppHeader() {
                 <Palette className="h-4 w-4" />
               </button>
               {showAppearance && (
-                <div className="absolute right-0 top-11 z-50 w-56 bg-popover border border-border rounded-xl shadow-xl p-3 space-y-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Accent Color</p>
-                  <div className="grid grid-cols-3 gap-2">
+                <div className="absolute right-0 top-11 z-50 w-64 bg-popover border border-border rounded-xl shadow-xl p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Accent Color</p>
+                    <button
+                      onClick={resetAccent}
+                      disabled={selectedAccent === null}
+                      title="Reset to default"
+                      className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      <RotateCcw className="h-3 w-3" /> Default
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
                     {accentColors.map(c => (
                       <button
                         key={c.value}
                         onClick={() => applyAccent(c.value)}
-                        className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-all ${selectedAccent === c.value ? 'ring-2 ring-primary bg-primary/10' : 'hover:bg-secondary'}`}
+                        className={`relative flex flex-col items-center gap-1.5 p-2 rounded-lg transition-all ${selectedAccent === c.value ? 'ring-2 ring-primary bg-primary/10' : 'hover:bg-secondary'}`}
                       >
                         <div className="w-6 h-6 rounded-full" style={{ background: `hsl(${c.value})` }} />
                         <span className="text-[10px] text-muted-foreground">{c.name}</span>
-                        {selectedAccent === c.value && <Check className="h-2.5 w-2.5 text-primary absolute" />}
+                        {selectedAccent === c.value && <Check className="h-2.5 w-2.5 text-primary absolute top-1 right-1" />}
                       </button>
                     ))}
                   </div>
