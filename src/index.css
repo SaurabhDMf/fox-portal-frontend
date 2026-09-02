@@ -7,34 +7,43 @@
 
 @layer base {
   :root {
-    /* ── Light theme — clean white, professional ── */
-    --background: 0 0% 100%;
-    --foreground: 222 47% 8%;
+    /* ── Light theme — "Slate & Teal", ported from the Lovable redesign ──
+       Source values are OKLCH (see fox-portal-redesign/src/styles.css);
+       converted to HSL here (via a precise OKLCH→sRGB→HSL matrix
+       transform, not eyeballed) to keep the existing hsl(var(--x)) Tailwind
+       convention working, which the accent-color picker in AppHeader.tsx
+       depends on (it writes raw HSL triplets into these same variables). */
+    --background: 182 33% 98%;
+    --foreground: 205 32% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 8%;
+    --card-foreground: 205 32% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 8%;
+    --popover-foreground: 205 32% 10%;
 
-    --primary: 175 84% 32%;
+    --primary: 180 100% 28%;
     --primary-foreground: 0 0% 100%;
+    --brand: 180 100% 28%;
+    --brand-hover: 180 100% 23%;
 
-    --secondary: 220 14% 95%;
-    --secondary-foreground: 222 20% 25%;
+    --secondary: 195 33% 94%;
+    --secondary-foreground: 205 32% 10%;
 
-    --muted: 220 14% 95%;
-    --muted-foreground: 220 10% 48%;
+    --muted: 195 22% 92%;
+    --muted-foreground: 205 14% 45%;
+    --text-dim: 205 14% 45%;
 
-    --accent: 167 85% 89%;
-    --accent-foreground: 175 77% 26%;
+    --accent: 179 52% 89%;
+    --accent-foreground: 180 100% 18%;
 
-    --destructive: 4 86% 58%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 359 94% 61%;
+    --destructive-foreground: 182 40% 98%;
 
-    --border: 220 13% 88%;
-    --input: 220 13% 88%;
-    --ring: 175 84% 32%;
+    --border: 195 21% 84%;
+    --border-subtle: 195 13% 87%;
+    --input: 195 13% 87%;
+    --ring: 180 100% 28%;
 
     --radius: 0.75rem;
 
@@ -60,34 +69,38 @@
   }
 
   .dark {
-    /* ── Dark theme — neutral slate, readable ── */
-    --background: 222 20% 9%;
-    --foreground: 210 20% 92%;
+    /* ── Dark theme — "Slate & Teal", ported from the Lovable redesign ── */
+    --background: 212 79% 3%;
+    --foreground: 182 33% 98%;
 
-    --card: 222 20% 12%;
-    --card-foreground: 210 20% 92%;
+    --card: 205 47% 7%;
+    --card-foreground: 182 33% 98%;
 
-    --popover: 222 20% 12%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 205 38% 9%;
+    --popover-foreground: 182 33% 98%;
 
-    --primary: 173 80% 40%;
+    --primary: 180 60% 44%;
     --primary-foreground: 0 0% 100%;
+    --brand: 180 60% 44%;
+    --brand-hover: 180 51% 58%;
 
-    --secondary: 222 18% 17%;
-    --secondary-foreground: 210 15% 82%;
+    --secondary: 205 32% 10%;
+    --secondary-foreground: 182 33% 98%;
 
-    --muted: 222 18% 17%;
-    --muted-foreground: 215 14% 62%;
+    --muted: 205 32% 10%;
+    --muted-foreground: 206 10% 56%;
+    --text-dim: 206 10% 56%;
 
-    --accent: 176 61% 19%;
-    --accent-foreground: 171 77% 64%;
+    --accent: 180 86% 8%;
+    --accent-foreground: 180 47% 61%;
 
-    --destructive: 4 86% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 359 94% 61%;
+    --destructive-foreground: 182 33% 98%;
 
-    --border: 222 18% 20%;
-    --input: 222 18% 20%;
-    --ring: 173 80% 40%;
+    --border: 205 22% 16%;
+    --border-subtle: 205 28% 12%;
+    --input: 205 22% 16%;
+    --ring: 180 60% 44%;
 
     --radius: 0.75rem;
 
