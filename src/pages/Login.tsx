@@ -40,7 +40,7 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
 
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [maskedEmail, setMaskedEmail] = useState('');
-  const [code, setCode] = useState<string[]>(Array(OTP_LENGTH).fill(''));
+  const [code, setCode] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
 
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -76,7 +76,7 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
     setStep('credentials');
     setError(null);
     setPassword('');
-    setCode(Array(OTP_LENGTH).fill(''));
+    setCode('');
     navigate(next === 'client' ? '/client-login' : '/login', { replace: true });
   };
 
@@ -92,7 +92,7 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
       if (data.requiresOtp) {
         setChallengeId(data.challengeId);
         setMaskedEmail(data.email || email);
-        setCode(Array(OTP_LENGTH).fill(''));
+        setCode('');
         setStep('otp');
         startResendCooldown();
       } else {
@@ -118,12 +118,11 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const value = code.join('');
-    if (value.length !== OTP_LENGTH) { setError('Enter the 6-digit code'); return; }
+    if (code.length !== OTP_LENGTH) { setError('Enter the 6-digit code'); return; }
     setError(null);
     setLoading(true);
     try {
-      const res = await api.post('/auth/verify-login-otp', { challengeId, code: value });
+      const res = await api.post('/auth/verify-login-otp', { challengeId, code });
       completeLogin(res.data);
     } catch (err: any) {
       setError(err?.response?.data?.error || err.message || 'Incorrect code');
@@ -137,7 +136,7 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
     setError(null);
     try {
       await api.post('/auth/resend-login-otp', { challengeId });
-      setCode(Array(OTP_LENGTH).fill(''));
+      setCode('');
       toast.success('Verification code resent');
       startResendCooldown();
     } catch (err: any) {
@@ -254,28 +253,21 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
                 </p>
 
                 <form onSubmit={handleVerifyOtp}>
-                  <div className="mt-7 flex gap-2">
-                    {code.map((c, idx) => (
-                      <input
-                        key={idx}
-                        id={`otp-${idx}`}
-                        value={c}
-                        inputMode="numeric"
-                        maxLength={1}
-                        aria-label={`Digit ${idx + 1}`}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/\D/g, '').slice(-1);
-                          setCode((prev) => prev.map((x, i) => (i === idx ? v : x)));
-                          setError(null);
-                          if (v && idx < OTP_LENGTH - 1) document.getElementById(`otp-${idx + 1}`)?.focus();
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Backspace' && !code[idx] && idx > 0)
-                            document.getElementById(`otp-${idx - 1}`)?.focus();
-                        }}
-                        className="h-14 flex-1 rounded-xl bg-secondary text-center text-xl font-semibold border border-border outline-none transition focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                      />
-                    ))}
+                  <div className="mt-7">
+                    <input
+                      id="otp"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      placeholder="••••••"
+                      value={code}
+                      aria-label="6-digit verification code"
+                      onChange={(e) => {
+                        setCode(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH));
+                        setError(null);
+                      }}
+                      className="h-14 w-full rounded-xl bg-secondary text-center text-xl font-semibold tracking-[0.55em] border border-border outline-none transition placeholder:tracking-normal placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                    />
                   </div>
 
                   {error && (
