@@ -28,6 +28,13 @@ const CLIENT_HIGHLIGHTS = [
 const RESEND_COOLDOWN = 30;
 const OTP_LENGTH = 6;
 
+// A device remembered via a previous "remember me" login skips the OTP step
+// for 7 days. Keyed per portal since team and client accounts are separate
+// trust records server-side.
+const deviceTokenKey = (mode: LoginMode) => `fox-device-token-${mode}`;
+const getDeviceToken = (mode: LoginMode) => localStorage.getItem(deviceTokenKey(mode));
+const setDeviceToken = (mode: LoginMode, token: string) => localStorage.setItem(deviceTokenKey(mode), token);
+
 export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
   const [activeMode, setActiveMode] = useState<LoginMode>(mode);
   const [step, setStep] = useState<Step>('credentials');
@@ -88,7 +95,8 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
     setLoading(true);
     try {
       const endpoint = isClient ? '/auth/portal-login' : '/auth/login';
-      const res = await api.post(endpoint, { email, password, remember });
+      const deviceToken = getDeviceToken(activeMode);
+      const res = await api.post(endpoint, { email, password, remember, deviceToken });
       const data = res.data;
       if (data.requiresOtp) {
         setChallengeId(data.challengeId);
@@ -108,6 +116,7 @@ export default function Login({ mode = 'team' }: { mode?: LoginMode }) {
   };
 
   const completeLogin = (data: any) => {
+    if (data.deviceToken) setDeviceToken(activeMode, data.deviceToken);
     setAuth(data);
     toast.success(`Welcome back, ${data.user?.full_name || 'User'}!`);
     initPushNotifications();
