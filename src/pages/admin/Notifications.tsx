@@ -30,6 +30,7 @@ const ICON_MAP: Record<string, any> = {
   leave: Calendar,
   ticket: Ticket,
   email: Mail,
+  inbox_reply: Mail,
 };
 
 function fmtRelative(iso?: string) {
