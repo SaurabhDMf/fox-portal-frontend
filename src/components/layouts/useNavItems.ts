@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, Building2, MessageSquare, FolderKanban,
   FileText, Clock, Wallet, BarChart3, Settings, Lock, Ticket,
   ListChecks, BookOpen, Receipt, Scale, RefreshCw, Inbox, KeyRound,
-  CalendarClock, Mail,
+  CalendarClock, Mail, Shield,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -55,6 +55,7 @@ const adminNav: NavItem[] = [
     children: [
       { label: 'All Users',           path: '/admin/users', icon: Users,    module: 'users', group: 'Operations' },
       { label: 'Roles & Permissions', path: '/admin/roles', icon: KeyRound, adminOnly: true, group: 'Operations' },
+      { label: 'Access Groups', path: '/admin/access-groups', icon: Shield, adminOnly: true, group: 'Operations' },
     ],
   },
   { label: 'Reports', path: '/admin/reports', icon: BarChart3, module: 'reports', group: 'Operations' },

@@ -33,6 +33,7 @@ import Reports from "./pages/admin/Reports";
 import AdminSettings from "./pages/admin/AdminSettings";
 import Permissions from "./pages/admin/Permissions";
 import RolesPermissions from "./pages/admin/RolesPermissions";
+import AccessGroups from "./pages/admin/AccessGroups";
 import SharedInbox from "./pages/admin/SharedInbox";
 import Email from "./pages/admin/Email";
 import InboxFormPage from "./pages/admin/InboxFormPage";
@@ -158,6 +159,7 @@ const App = () => (
           <Route path="settings" element={<AdminSettings />} />
           <Route path="permissions" element={<Permissions />} />
           <Route path="roles" element={<RolesPermissions />} />
+          <Route path="access-groups" element={<AccessGroups />} />
           <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="notifications" element={<Notifications />} />
         </Route>
