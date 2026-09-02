@@ -166,13 +166,11 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
     ? (roomDetail.dm_other_user_name ?? 'Direct Message')
     : (roomDetail?.name ?? roomName);
 
-  const dmSubParts = [
-    roomDetail?.dm_other_user_title || roomDetail?.dm_other_user_role || roomDetail?.dm_other_user_department || '',
-    roomDetail?.dm_other_user_email || '',
-  ].filter(Boolean).join(' · ');
+  const dmRoleLabel =
+    roomDetail?.dm_other_user_title || roomDetail?.dm_other_user_role || roomDetail?.dm_other_user_department || '';
 
   const headerSubtitle = isDM
-    ? dmSubParts
+    ? dmRoleLabel
     : (memberCount ? `${memberCount} members` : '');
 
   const dmStatusText = isDM && roomDetail?.dm_other_user_status_text
@@ -900,20 +898,26 @@ export default function ChatMessageArea({ roomId, roomName, memberCount, onBack,
         )}
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm truncate leading-tight flex items-center gap-1.5">
-            {!isDM && <Hash className="h-4 w-4 text-muted-foreground shrink-0" />}
-            {headerTitle}
-          </h3>
-          {isDM ? (
-            <StatusBadge
-              status={roomDetail?.dm_other_user_status ?? 'offline'}
-              statusText={roomDetail?.dm_other_user_status_text}
-              showLabel={true}
-              size="xs"
-            />
-          ) : (
-            headerSubtitle && <p className="text-xs text-muted-foreground">{headerSubtitle}</p>
-          )}
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="font-semibold text-sm truncate leading-tight flex items-center gap-1.5 shrink-0">
+              {!isDM && <Hash className="h-4 w-4 text-muted-foreground shrink-0" />}
+              {headerTitle}
+            </h3>
+            {isDM && (
+              <>
+                <StatusBadge
+                  status={roomDetail?.dm_other_user_status ?? 'offline'}
+                  statusText={roomDetail?.dm_other_user_status_text}
+                  showLabel={true}
+                  size="xs"
+                />
+                {headerSubtitle && (
+                  <span className="text-xs text-muted-foreground truncate">{headerSubtitle}</span>
+                )}
+              </>
+            )}
+          </div>
+          {!isDM && headerSubtitle && <p className="text-xs text-muted-foreground">{headerSubtitle}</p>}
         </div>
 
         <div className="flex items-center gap-0.5">
