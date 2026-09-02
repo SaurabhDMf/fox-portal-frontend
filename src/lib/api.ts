@@ -189,4 +189,70 @@ export const inboxApi = {
   },
 };
 
+// ── Personal Email (IMAP/SMTP accounts, not the Shared Inbox) ─────────────
+export interface EmailAccount {
+  id: string; email: string; provider: string;
+  imap_host: string; imap_port: number; imap_secure: boolean; imap_user: string;
+  smtp_host: string; smtp_port: number; smtp_secure: boolean; smtp_user: string;
+  is_primary: boolean; sync_folders: boolean; send_as: boolean;
+  status: 'connected' | 'error'; last_error?: string; last_synced_at?: string;
+}
+
+export interface EmailAccountForm {
+  email: string; provider: string;
+  imap_host: string; imap_port: number; imap_secure: boolean; imap_user: string; imap_password: string;
+  smtp_host: string; smtp_port: number; smtp_secure: boolean; smtp_user: string; smtp_password: string;
+  sync_folders?: boolean; send_as?: boolean;
+}
+
+export interface EmailFolder { id: string; account_id: string; name: string; }
+
+export interface EmailAttachment { id: string; file_name: string; file_size?: number; url: string; }
+
+export interface EmailMessage {
+  id: string; account_id: string; folder: 'INBOX' | 'SENT' | 'DRAFTS' | 'ARCHIVE' | 'TRASH';
+  custom_folder_id?: string | null; direction: 'inbound' | 'outbound';
+  from_address: string; from_name?: string; to_addresses: string; cc_addresses?: string;
+  subject: string; body_text?: string; body_html?: string;
+  is_read: boolean; is_starred: boolean; is_archived: boolean; is_trashed: boolean;
+  has_attachments: boolean; received_at?: string; attachments?: EmailAttachment[];
+}
+
+export const emailApi = {
+  // GET list endpoints on this backend module wrap results as { data: [...] }
+  // (same envelope convention as vault.ts/inbox.ts) — typed here as the wrapper,
+  // not the bare array, so callers unwrap with `.then(r => r.data.data)`.
+  getAccounts:  ()                        => api.get<{ data: EmailAccount[] }>('/email/accounts'),
+  createAccount:(data: EmailAccountForm)  => api.post('/email/accounts', data),
+  updateAccount:(id: string, data: Partial<EmailAccountForm> & { is_primary?: boolean }) => api.put(`/email/accounts/${id}`, data),
+  deleteAccount:(id: string)              => api.delete(`/email/accounts/${id}`),
+  syncAccount:  (id: string, folder = 'INBOX') => api.post(`/email/accounts/${id}/sync`, { folder }),
+
+  getFolders:   ()                        => api.get<{ data: EmailFolder[] }>('/email/folders'),
+  createFolder: (name: string)            => api.post('/email/folders', { name }),
+  deleteFolder: (id: string)              => api.delete(`/email/folders/${id}`),
+
+  getMessages:  (params: { account_id?: string; folder?: string; custom_folder_id?: string; search?: string; limit?: number; offset?: number }) =>
+    api.get<{ data: EmailMessage[] }>('/email/messages', { params }),
+  getMessage:   (id: string)              => api.get<EmailMessage>(`/email/messages/${id}`),
+  patchMessage: (id: string, patch: Record<string, any>) => api.patch(`/email/messages/${id}`, patch),
+
+  send: (data: { account_id: string; to: string; cc?: string; subject: string; body_text: string; attachments?: File[] }) => {
+    if (data.attachments && data.attachments.length > 0) {
+      const form = new FormData();
+      form.append('account_id', data.account_id);
+      form.append('to', data.to);
+      if (data.cc) form.append('cc', data.cc);
+      form.append('subject', data.subject);
+      form.append('body_text', data.body_text);
+      data.attachments.forEach(f => form.append('attachments', f));
+      return api.post('/email/send', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    }
+    return api.post('/email/send', {
+      account_id: data.account_id, to: data.to, cc: data.cc,
+      subject: data.subject, body_text: data.body_text,
+    });
+  },
+};
+
 export default api;

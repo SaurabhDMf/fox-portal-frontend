@@ -8,6 +8,7 @@ import GeneralSettings from '@/components/settings/GeneralSettings';
 import CompanySettings from '@/components/settings/CompanySettings';
 import IntegrationsSettings from '@/components/settings/IntegrationsSettings';
 import EmailSettings from '@/components/settings/EmailSettings';
+import EmailAccountsSettings from '@/components/settings/EmailAccountsSettings';
 import ChangePasswordSection from '@/components/settings/ChangePasswordSection';
 import InvoiceSettings from '@/components/settings/InvoiceSettings';
 import AiSettings from '@/components/settings/AiSettings';
@@ -20,6 +21,7 @@ const tabs = [
   { id: 'company',       label: 'Company',       icon: Building2, group: 'Workspace'                       },
   { id: 'security',      label: 'Security',      icon: Shield,    group: 'Workspace'                       },
   { id: 'email',         label: 'Email',         icon: Mail,      group: 'Communication', adminOnly: true  },
+  { id: 'email-accounts', label: 'Email Accounts', icon: Mail,    group: 'Communication'                   },
   { id: 'notifications', label: 'Notifications', icon: Bell,      group: 'Communication'                   },
   { id: 'invoice',       label: 'Invoice',       icon: FileText,  group: 'Finance',       adminOnly: true  },
   { id: 'integrations',  label: 'Integrations',  icon: Plug,      group: 'Operations',    adminOnly: true  },
@@ -192,6 +194,9 @@ export default function AdminSettings() {
 
       {/* Email (SMTP) */}
       {tab === 'email' && isAdmin && <EmailSettings />}
+
+      {/* Personal Email Accounts (IMAP/SMTP mailboxes for the /email inbox) */}
+      {tab === 'email-accounts' && <EmailAccountsSettings />}
 
       {/* Guarded in the UI and again on the server — every /superadmin route
           sits behind the isSuperAdmin middleware. */}

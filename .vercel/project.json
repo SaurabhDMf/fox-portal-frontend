@@ -1,1 +1,16 @@
-{"projectId":"prj_uu6rTroc0b5MVuhU39Z6S70AdJoM","orgId":"team_k8uvzpK2wvA39LCcU0IfbvsS","projectName":"fox-portal"}
+{
+  "projectId": "prj_uu6rTroc0b5MVuhU39Z6S70AdJoM",
+  "orgId": "team_k8uvzpK2wvA39LCcU0IfbvsS",
+  "projectName": "fox-portal",
+  "settings": {
+    "createdAt": 1774420756408,
+    "framework": null,
+    "devCommand": null,
+    "installCommand": null,
+    "buildCommand": null,
+    "outputDirectory": null,
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "24.x"
+  }
+}
