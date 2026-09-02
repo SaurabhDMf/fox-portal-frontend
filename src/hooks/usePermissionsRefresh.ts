@@ -4,12 +4,17 @@ import api from '@/lib/api';
 
 export function usePermissionsRefresh() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const accessToken = useAuthStore((s) => s.accessToken);
   const setPermissions = useAuthStore((s) => s.setPermissions);
   const setUser = useAuthStore((s) => s.setUser);
 
+  // Deliberately NOT keyed on accessToken: the api client already reads the
+  // current token off localStorage on every request, so this doesn't need to
+  // re-run when it rotates. Depending on accessToken here created a loop —
+  // a 401 on either call below triggers the axios interceptor to refresh the
+  // token, which updates accessToken, which re-ran this effect, which called
+  // the same (still-401ing) endpoint again, forever.
   const refresh = useCallback(() => {
-    if (!isAuthenticated || !accessToken) return;
+    if (!isAuthenticated) return;
 
     api.get('/permissions/my')
       .then((res) => {
@@ -36,7 +41,7 @@ export function usePermissionsRefresh() {
         if (Object.keys(patch).length) setUser(patch);
       })
       .catch(() => {});
-  }, [isAuthenticated, accessToken, setPermissions, setUser]);
+  }, [isAuthenticated, setPermissions, setUser]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
