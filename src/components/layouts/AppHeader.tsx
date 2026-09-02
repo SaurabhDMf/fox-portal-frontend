@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useUnreadStore } from '@/stores/unreadStore';
+import { useTabsStore } from '@/stores/tabsStore';
 import { Bell, Search, Palette, Check, LogOut, MessageSquare, Inbox } from 'lucide-react';
 import AppMenuPopover from './AppMenuPopover';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -21,7 +22,9 @@ const accentColors = [
 
 // Section labels keyed by the second URL segment so they work across all
 // portals (/admin, /sales, /team, /client) without per-portal duplicates.
-const sectionLabels: Record<string, string> = {
+// Exported so the tab bar (src/lib/tabMeta.ts) can derive matching tab
+// labels from the same single source of truth.
+export const sectionLabels: Record<string, string> = {
   crm: 'Sales CRM',
   invoicing: 'Invoices',
   invoices: 'Invoices',
@@ -89,6 +92,7 @@ function getBreadcrumbs(pathname: string) {
 
 export default function AppHeader() {
   const { user, logout, refreshToken } = useAuthStore();
+  const openTab = useTabsStore((s) => s.openTab);
   const navigate = useNavigate();
   const location = useLocation();
   const notifCount  = useUnreadStore((s) => s.counts.notifications || 0);
@@ -255,7 +259,7 @@ export default function AppHeader() {
             <button
               onClick={() => {
                 clearNotif('chat');
-                navigate(`${location.pathname.startsWith('/emp') ? '/emp' : '/admin'}/chat`);
+                openTab(`${location.pathname.startsWith('/emp') ? '/emp' : '/admin'}/chat`, 'Chat', 'chat');
               }}
               className="p-2 rounded-lg hover:bg-secondary transition-colors relative"
               title={`${chatCount} unread chat message${chatCount === 1 ? '' : 's'}`}
@@ -271,7 +275,7 @@ export default function AppHeader() {
             <button
               onClick={() => {
                 clearNotif('inbox');
-                navigate(`${location.pathname.startsWith('/emp') ? '/emp' : '/admin'}/inbox`);
+                openTab(`${location.pathname.startsWith('/emp') ? '/emp' : '/admin'}/inbox`, 'Shared Inbox', 'inbox');
               }}
               className="p-2 rounded-lg hover:bg-secondary transition-colors relative"
               title={`${inboxCount} unread inbox thread${inboxCount === 1 ? '' : 's'}`}
@@ -291,10 +295,10 @@ export default function AppHeader() {
               const base = location.pathname.startsWith('/emp') ? '/emp' : '/admin';
               const onNotifs = location.pathname.endsWith('/notifications');
               if (onNotifs) {
-                navigate(-1);  // go back to previous page
+                navigate(-1);  // go back to previous page (in-page toggle, not a module open)
               } else {
                 clearNotif('notifications');
-                navigate(`${base}/notifications`);
+                openTab(`${base}/notifications`, 'Notifications', 'notifications');
               }
             }}
             className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors relative"
