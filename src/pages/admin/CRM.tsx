@@ -600,19 +600,14 @@ export default function CRM() {
                   <span className="flex items-center gap-1">Created {sortOrder === 'desc' ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}</span>
                 </th>
                 <th className="px-3 py-4">Name</th>
-                <th className="px-3 py-4">Email</th>
-                <th className="px-3 py-4 whitespace-nowrap">Phone</th>
-                <th className="px-3 py-4">Country</th>
                 <th className="px-3 py-4">Purpose</th>
                 <th className="px-3 py-4 whitespace-nowrap">Status</th>
                 <th className="px-3 py-4 whitespace-nowrap">Follow-up</th>
-                <th className="px-3 py-4">Added By</th>
-                <th className="px-3 py-4">Assigned To</th>
                 <th className="px-3 py-4 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={13} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
+              {isLoading ? [...Array(5)].map((_, i) => <tr key={i}><td colSpan={8} className="p-4"><div className="h-4 bg-secondary rounded animate-pulse" /></td></tr>) :
               leadsArr.map((lead: any) => {
                 const stale = isStale(lead);
                 const isDead = (lead.status || '').toLowerCase() === 'dead';
@@ -654,9 +649,6 @@ export default function CRM() {
                         </div>
                       )}
                     </td>
-                    <td className="px-3 py-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={lead.email || ''}><div className="truncate max-w-[200px]">{lead.email || '—'}</div></td>
-                    <td className="px-3 py-4 text-muted-foreground whitespace-nowrap" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)}>{lead.phone || '—'}</td>
-                    <td className="px-3 py-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={getLeadCountry(lead) || ''}><div className="truncate max-w-[120px]">{getLeadCountry(lead) || '—'}</div></td>
                     <td className="px-3 py-4 text-muted-foreground" onClick={() => navigate(`${portalBase}/crm/${lead.id}`)} title={getLeadPurpose(lead) || ''}><div className="truncate max-w-[160px]">{getLeadPurpose(lead) || '—'}</div></td>
                     <td className="px-3 py-4 no-underline whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       {perm.canEdit ? (
@@ -709,7 +701,7 @@ export default function CRM() {
                   </tr>
                   {isExpanded && (
                     <tr className="border-b border-border/50 bg-secondary/30">
-                      <td colSpan={13} className="px-8 py-4">
+                      <td colSpan={8} className="px-8 py-4">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs">
                           <div>
                             <div className="text-muted-foreground uppercase tracking-wider font-semibold mb-2">Contact</div>
@@ -745,13 +737,13 @@ export default function CRM() {
                 );
               })}
               {leadsArr.length === 0 && !isLoading && (
-                <tr><td colSpan={13} className="p-12 text-center">
+                <tr><td colSpan={8} className="p-12 text-center">
                   <div className="text-muted-foreground text-sm mb-3">No leads found</div>
                   {perm.canCreate && <button onClick={() => setShowCreate(true)} className="text-sm text-primary hover:underline">Create your first lead →</button>}
                 </td></tr>
               )}
               {hasNextPage && leadsArr.length > 0 && (
-                <tr><td colSpan={13} className="p-3 text-center border-t border-border/50">
+                <tr><td colSpan={8} className="p-3 text-center border-t border-border/50">
                   <button onClick={() => fetchNextPage()} disabled={isFetchingNextPage}
                     className="text-xs text-primary hover:underline disabled:opacity-50">
                     {isFetchingNextPage ? 'Loading more leads…' : `Load more (${leadsArr.length} loaded)`}
